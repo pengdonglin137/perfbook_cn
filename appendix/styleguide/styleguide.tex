@@ -20,68 +20,66 @@
 以下是Paul约定的列表，由他对Akira关于perfbook标点策略的提问的回答汇编而成。
 
 \begin{itemize}
-\item (On punctuations and quotations)
-  Despite being American myself, for this sort of book, the UK approach
-  is better because it removes ambiguities like the following:
+\item （关于标点符号和引号）
+  尽管我自己是美国人，但对于这类书籍，英式方法更好，
+  因为它消除了如下歧义：
   \begin{quote}
     Type ``\nbco{ls -a},'' look for the file ``\co{.},''
     and file a bug if you don't see it.
   \end{quote}
 
-  The following is much more clear:
+  以下写法则清晰得多：
   \begin{quote}
     Type ``\nbco{ls -a}'', look for the file ``\co{.}'',
     and file a bug if you don't see it.
   \end{quote}
-\item American English spelling: ``color'' rather than ``colour''.
-\item Oxford comma: ``a, b, and~c'' rather than ``a, b and~c''.
-  This is arbitrary.
-  Cases where the Oxford comma results in ambiguity should be reworded,
-  for example, by introducing numbering:  ``a, b, and c and~d'' should
-  be ``(1)~a, (2)~b, and (3)~c and~d''.
-\item Italic for emphasis.
-  Use sparingly.
-\item \verb|\co{}| for identifiers, \verb|\url{}| for URLs,
-  \verb|\path{}| for filenames.
-\item Dates should use an unambiguous format.
-  Never ``mm/dd/yy'' or ``dd/mm/yy'', but rather ``July 26, 2016''
-  or ``26 July 2016'' or ``26-Jul-2016'' or ``2016/07/26''.
-  I tend to use \path{yyyy.mm.ddA} for filenames, for example.
-\item North American rules on periods and abbreviations.
-  For example neither of the following can reasonably be interpreted
-  as two sentences:
+\item 美式英语拼写：用``color''而非``colour''。
+\item 牛津逗号：用``a, b, and~c''而非``a, b and~c''。
+  这是一种任意约定。
+  当牛津逗号导致歧义时，应改写句子，
+  例如引入编号：``a, b, and c and~d''应写成
+  ``(1)~a, (2)~b, and (3)~c and~d''。
+\item 用斜体表示强调。
+  应谨慎使用。
+\item 标识符使用 \verb|\co{}|，URL使用 \verb|\url{}|，
+  文件名使用 \verb|\path{}|。
+\item 日期应使用无歧义的格式。
+  不要用``mm/dd/yy''或``dd/mm/yy''，而应使用``July 26, 2016''
+  或``26 July 2016''或``26-Jul-2016''或``2016/07/26''。
+  例如，我倾向于在文件名中使用 \path{yyyy.mm.ddA}。
+\item 北美关于句号和缩写的规则。
+  例如，以下两个句子都不会被合理地解读为两个独立的句子：
   \begin{itemize}
   \item Say hello, to Mr.~Jones.
   \item If it looks like she sprained her ankle, call Dr.~Smith and
     then tell her to keep the ankle iced and elevated.
   \end{itemize}
 
-  An ambiguous example:
+  一个有歧义的例子：
   \begin{quote}
     If I take the cow, the pig, the horse, etc. George will be upset.
   \end{quote}
-  can be written with more words:
+  可以用更多词语来改写：
   \begin{quote}
     If I take the cow, the pig, the horse, or much of anything else,
     George will be upset.
   \end{quote}
-  or:
+  或者：
   \begin{quote}
     If I take the cow, the pig, the horse, etc., George will be upset.
   \end{quote}
-\item I don't like ampersand (``\&'') in headings, but will sometimes
-  use it if doing so prevents a line break in that heading.
-\item When mentioning words, I use quotations.
-  When introducing a new word, I use \verb|\emph{}|.
+\item 我不喜欢在标题中使用 \& 符号（``\&''），但如果使用它
+  能避免标题中出现换行，我有时也会使用。
+\item 提及词语时，我使用引号。
+  引入新词时，我使用 \verb|\emph{}|。
 \end{itemize}
 
 以下是关于\LaTeX\ 源代码中标点符号的约定。
 
 \begin{itemize}
-\item Place a newline after a colon (\co{:}) and the end of a sentence.
-  This avoids the whole one-space/two-space food fight and also has
-  the advantage of more clearly showing changes to single sentences
-  in the middle of long paragraphs.
+\item 在冒号（\co{:}）和句末之后换行。
+  这样可以避免单空格/双空格的争论，同时还有一个好处，
+  即能更清晰地显示长段落中单个句子的修改。
 \end{itemize}
 
 \section{NIST风格指南}
@@ -93,42 +91,40 @@
 \subsubsection{SI单位符号}
 \label{sec:app:styleguide:SI Unit Symbol}
 
-NIST style guide~\cite[Chapter 5]{NIST:SP:330:2019}
+NIST风格指南~\cite[Chapter 5]{NIST:SP:330:2019}
 规定了以下规则（为perfbook重新措辞）。
 
 \begin{itemize}
-\item When SI unit symbols such as ``ns'', ``MHz'', and ``K'' (kelvin)
-are used behind numerical values, narrow spaces should be placed between
-the values and the symbols.
+\item 当SI单位符号如``ns''、``MHz''和``K''（开尔文）
+用在数值之后时，数值和符号之间应放置窄空格。
 
-A narrow space can be coded in \LaTeX{} by the sequence of \qco{\\,}.
-For example,
+在 \LaTeX{} 中，窄空格可以用 \qco{\\,} 序列来编写。
+例如，
 \begin{quote}
   ``2.4\,GHz'', rather then ``2.4GHz''.
 \end{quote}
 
-\item Even when the value is used in adjectival sense, a narrow space
-  should be placed.
-  For example,
+\item 即使数值用作形容词修饰时，也应放置窄空格。
+  例如，
 \begin{quote}
   ``a~10\,ms interval'', rather than ``a~10\=/ms interval'' nor
   ``a~10ms interval''.
 \end{quote}
 \end{itemize}
 
-The symbol of micro (\micro :$10^{-6}$) can be typeset easily by
-the help of ``gensymb'' \LaTeX\ package.
-A macro \qco{\\micro} can be used in both text and math modes.
-To typeset the symbol of ``microsecond'', you can do
-so by \qco{\\micro s}.
-For example,
+微（\micro :$10^{-6}$）的符号可以借助``gensymb'' \LaTeX\ 宏包
+轻松排版。
+宏 \qco{\\micro} 可以在文本模式和数学模式中使用。
+要排版“微秒”的符号，可以使用
+\qco{\\micro s}。
+例如，
 \begin{quote}
   10\,\micro s
 \end{quote}
 
-Note that math mode \qco{\\mu} is italic by default and should not
-be used as a prefix.
-An improper example:
+注意，数学模式的 \qco{\\mu} 默认是斜体的，不应
+用作前缀。
+一个不正确的例子：
 \begin{quote}
   10\,$\mu $s (math mode \qco{\\mu})
 \end{quote}
@@ -138,52 +134,50 @@ An improper example:
 
 虽然NIST风格指南不涵盖非SI单位符号如"KB"、"MB"和"GB"，但应遵循相同的规则。
 
-Example:
+例如：
 
 \begin{quote}
   ``A~240\,GB hard drive'', rather than ``a~240\=/GB hard drive''
   nor ``a~240GB hard drive''.
 \end{quote}
 
-Strictly speaking, NIST guide requires us to use the binary prefixes
-``Ki'', ``Mi'', or ``Gi'' to represent powers of~$2^{10}$.
-However, we accept the JEDEC conventions to use ``K'', ``M'',
-and ``G'' as binary prefixes in describing memory
-capacity~\cite{JEDEC:dict:prefixmega}.
+严格来说，NIST指南要求我们使用二进制前缀
+``Ki''、``Mi''或``Gi''来表示~$2^{10}$的幂。
+但是，我们接受JEDEC约定，使用``K''、``M''
+和``G''作为描述内存容量时的二进制前缀~\cite{JEDEC:dict:prefixmega}。
 
-An acceptable example:
+一个可接受的例子：
 \begin{quote}
   ``8\,GB of main memory'', meaning ``8\,GiB of main memory''.
 \end{quote}
 
-Also, it is acceptable to use just ``K'', ``M'', or ``G'' as abbreviations
-appended to a numerical value, e.g., ``4K~entries''.
-In such cases, no space before an abbreviation is required.
-For example,
+此外，也可以仅使用``K''、``M''或``G''作为缩写
+附在数值之后，例如``4K~entries''。
+在这种情况下，缩写前不需要空格。
+例如，
 
 \begin{quote}
   ``8K entries'', rather than ``8\,K entries''.
 \end{quote}
 
-If you put a space in between, the symbol looks like a unit symbol and
-is confusing.
-Note that ``K'' and ``k'' represent $2^{10}$ and $10^3$, respectively.
-``M'' can represent either $2^{20}$ or $10^6$, and ``G'' can represent
-either $2^{30}$ or $10^9$.
-These ambiguities should not be confusing in discussing approximate order.
+如果在中间放置空格，该符号看起来就像单位符号，
+容易造成混淆。
+注意，``K''和``k''分别代表$2^{10}$和$10^3$。
+``M''可以代表$2^{20}$或$10^6$，``G''可以代表
+$2^{30}$或$10^9$。
+在讨论大致数量级时，这些歧义不会造成混淆。
 
 \subsubsection{度数符号}
 \label{sec:app:styleguide:Degree Symbol}
 
-The angular-degree symbol (\degree) does not require any space in front
-of it.
-NIST style guide clearly states so.
+角度符号（\degree）前面不需要任何空格。
+NIST风格指南明确这样规定。
 
-The symbol of degree can also be typeset easily by the help of gensymb
-package.
-A macro \qco{\\degree} can be used in both text and math modes.
+度数符号也可以借助gensymb
+宏包轻松排版。
+宏 \qco{\\degree} 可以在文本模式和数学模式中使用。
 
-Example:
+例如：
 
 \begin{quote}
   $45\degree$, rather than $45\,\degree$.
@@ -192,8 +186,8 @@ Example:
 \subsubsection{百分号}
 \label{sec:app:styleguide:Percent Symbol}
 
-NIST style guide treats the percent symbol (\%) as the same as SI unit
-symbols.
+NIST风格指南将百分号（\%）视为与SI单位
+符号相同。
 
 \begin{quote}
   50\pct\ possibility, rather than 50\% possibility.
@@ -202,7 +196,7 @@ symbols.
 \subsubsection{字体样式}
 \label{sec:app:styleguide:Font Style}
 
-Quote from NIST check list~\cite[\#6]{NIST:UnitCheckList}:
+引用自NIST检查列表~\cite[\#6]{NIST:UnitCheckList}：
 
 \begin{quote}
   Variables and quantity symbols are in italic type.
@@ -212,14 +206,14 @@ Quote from NIST check list~\cite[\#6]{NIST:UnitCheckList}:
   text.
 \end{quote}
 
-For example,
+例如，
 \begin{quote}
-  {\textit e} (elementary charge)
+  {\textit e}（基本电荷）
 \end{quote}
 
-On the other hand, mathematical constants such as the base
-of natural logarithms should be roman~\cite{NIST:TypeFaces}.
-For example,
+另一方面，数学常数如自然对数的底数
+应使用正体~\cite{NIST:TypeFaces}。
+例如，
 
 \begin{quote}
   $\mathrm{e}^x$
@@ -232,13 +226,13 @@ For example,
 \subsection{尚未遵循的NIST指南}
 \label{sec:app:styleguide:NIST Guides Yet To Be Followed}
 
-There are a few cases where NIST style guide is not followed.
-Other English conventions are followed in such cases.
+有少数情况下未遵循NIST风格指南。
+在这些情况下，遵循的是其他英语惯例。
 
 \subsubsection{数字分组}
 \label{sec:app:styleguide:Digit Grouping}
 
-Quote from NIST checklist~\cite[\#16]{NIST:UnitCheckList}:
+引用自NIST检查列表~\cite[\#16]{NIST:UnitCheckList}：
 
 \begin{quote}
   The digits of numerical values having more than four digits on either
@@ -255,15 +249,13 @@ Quote from NIST checklist~\cite[\#16]{NIST:UnitCheckList}:
 \end{tabular}
 \end{quote}
 
-In \LaTeX\ coding, it is cumbersome to place thin spaces as are recommended
-in NIST guide.
-The \verb|\num{}| command provided by the ``siunitx'' package would be
-of help for us to follow this rule.
-It would also help us overcome different conventions.
-We can select a specific digit-grouping style as
-a default in preamble, or specify an option to each \verb|\num{}|
-command as is shown in
-\cref{tab:app:styleguide:Digit-Grouping Style}.
+在 \LaTeX\ 编码中，按照NIST指南的建议放置窄空格是很繁琐的。
+``siunitx''宏包提供的 \verb|\num{}| 命令可以
+帮助我们遵循这一规则。
+它还可以帮助我们克服不同的约定差异。
+我们可以在序言中选择特定的数字分组样式作为默认值，
+或者为每个 \verb|\num{}| 命令指定选项，
+如在\cref{tab:app:styleguide:Digit-Grouping Style}中所示。
 
 \newcommand{\NumDigitGrpA}{12 345}
 \newcommand{\NumDigitGrpB}{12.345}
@@ -294,17 +286,15 @@ command as is shown in
 \label{tab:app:styleguide:Digit-Grouping Style}
 \end{table}
 
-As are evident in
-\cref{tab:app:styleguide:Digit-Grouping Style},
-periods and commas used as other than decimal markers are confusing
-and should be avoided, especially in documents expecting global
-audiences.
+如\cref{tab:app:styleguide:Digit-Grouping Style}中所示，
+将句号和逗号用作小数点以外的用途会造成混淆，
+应该避免，尤其是在面向全球读者的文档中。
 
-By marking up constant decimal values by \verb|\num{}| commands,
-the \LaTeX\ source would be exempted from any particular conventions.
+通过使用 \verb|\num{}| 命令来标记常量小数值，
+\LaTeX\ 源代码可以不受任何特定约定的约束。
 
-Because of its open-source policy, this approach should give
-more ``portability'' to perfbook.
+由于其开源策略，这种方法应该能为perfbook提供
+更好的“可移植性”。
 
 \section{\LaTeX\ 约定}
 \label{sec:app:styleguide:LaTeX Conventions}
@@ -316,45 +306,38 @@ more ``portability'' to perfbook.
 \label{sec:app:styleguide:Monospace Font}
 
 等宽字体（或打字机字体）在本教材中被大量使用。
-perfbook中关于等宽字体的首要策略是避免直接使用 \qco{\\texttt} or \qco{\\tt} macro.
-It is highly recommended to use a macro or an environment
-indicating the reason why you want the font.
+perfbook中关于等宽字体的首要策略是避免直接使用 \qco{\\texttt} 或 \qco{\\tt} 宏。
+强烈建议使用能够表明你需要该字体原因的宏或环境。
 
 本节解释了这些宏和环境的用例。
 
 \subsubsection{代码片段}
 \label{sec:app:styleguide:Code Snippet}
 
-Because the \qco{verbatim} environment is a primitive way to include
-listings, we have transitioned to a scheme which uses
-the \qco{fancyvrb} package for code snippets.
+由于 \qco{verbatim} 环境是一种较为原始的代码列表包含方式，
+我们已经转向使用 \qco{fancyvrb} 包来处理代码片段的方案。
 
-The goal of the scheme is to extract \LaTeX\ sources of
-code snippets directly from code samples under \path{CodeSamples}
-directory.
-It also makes it possible to embed line labels in the code samples,
-which can be referenced within the \LaTeX\ sources.
-This reduces the burden of keeping line numbers
-in the text consistent with those in code snippets.
+该方案的目标是直接从 \path{CodeSamples} 目录下的代码示例中
+提取代码片段的\LaTeX\ 源码。
+它还使得在代码示例中嵌入行标签成为可能，
+这些标签可以在\LaTeX\ 源码中被引用。
+这减轻了保持正文中行号与代码片段中行号一致的负担。
 
-Code-snippet extraction is handled by a couple of
-perl scripts and recipes in Makefile.
-We use the escaping feature of the \co{fancyvrb} package
-to embed line labels as comments.
+代码片段的提取由几个 perl 脚本和 Makefile 中的构建规则来处理。
+我们利用 \co{fancyvrb} 包的转义特性
+将行标签嵌入为注释。
 
-We used to use the \qco{verbbox} environment provided
-by the \qco{verbatimbox} package.
-\Cref{sec:app:styleguide:Code Snippet (Obsolete)} describes how
-\co{verbbox} can automatically generate line numbers,
-but those line numbers cannot be referenced within the \LaTeX\ sources.
+我们过去使用 \qco{verbatimbox} 包提供的 \qco{verbbox} 环境。
+\Cref{sec:app:styleguide:Code Snippet (Obsolete)} 描述了
+\co{verbbox} 如何自动生成行号，
+但这些行号无法在\LaTeX\ 源码中被引用。
 
-Let's start by looking at how code snippets are coded in the current scheme.
-There are three customized environments of \qco{Verbatim}.
-\qco{VerbatimL} is for floating snippets within the \qco{listing}
-environment.
-\qco{VerbatimN} is for inline snippets with line count enabled.
-\qco{VerbatimU} is for inline snippets without line count.
-They are defined in the preamble as shown below:
+让我们先来看看当前方案中代码片段是如何编写的。
+\qco{Verbatim} 有三个自定义环境。
+\qco{VerbatimL} 用于 \qco{listing} 环境内的浮动代码片段。
+\qco{VerbatimN} 用于启用行计数的内联代码片段。
+\qco{VerbatimU} 用于不带行计数的内联代码片段。
+它们在导言区中的定义如下所示：
 
 \begin{VerbatimU}
 \DefineVerbatimEnvironment{VerbatimL}{Verbatim}%
@@ -387,21 +370,20 @@ They are defined in the preamble as shown below:
 
 \input{appendix/styleguide/samplecodesnippetfcv.tex}
 
-The \LaTeX\ source of a sample code snippet is shown in
+一个代码片段示例的\LaTeX\ 源码显示在
 \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Current)}
-and is typeset as shown in
-\cref{lst:app:styleguide:Sample Code Snippet}.
+中，其排版效果显示在
+\cref{lst:app:styleguide:Sample Code Snippet} 中。
 
-Labels to lines are specified in \qco{$lnlbl[]} command.
-The characters specified by \qco{commandchars} option to \co{VarbatimL}
-environment are used by the \co{fancyvrb} package to substitute
-\qco{\\lnlbl\{\}} for \qco{$lnlbl[]}.
-Those characters should be selected so that they don't appear
-elsewhere in the code snippet.
+行标签通过 \qco{$lnlbl[]} 命令来指定。
+\co{VarbatimL} 环境的 \qco{commandchars} 选项所指定的字符
+被 \co{fancyvrb} 包用于将 \qco{$lnlbl[]} 替换为
+\qco{\\lnlbl\{\}}。
+这些字符的选取应确保它们不会出现在代码片段的其他位置。
 
-Labels \qco{printf} and \qco{return} in
-\cref{lst:app:styleguide:Sample Code Snippet}
-can be referred to as shown below:
+\cref{lst:app:styleguide:Sample Code Snippet} 中的标签
+\qco{printf} 和 \qco{return}
+可以按如下方式引用：
 
 \begin{VerbatimU}
 \begin{fcvref}[ln:base1]
@@ -410,7 +392,7 @@ to from text.
 \end{fcvref}
 \end{VerbatimU}
 
-Above code results in the paragraph below:
+上述代码的排版结果如下段所示：
 
 \begin{quote}
 \begin{fcvref}[ln:base1]
@@ -419,8 +401,8 @@ to from text.
 \end{fcvref}
 \end{quote}
 
-Macros \qco{\\lnlbl\{\}} and \qco{\\lnref\{\}} are defined in
-the preamble as follows:
+宏 \qco{\\lnlbl\{\}} 和 \qco{\\lnref\{\}} 在
+导言区中的定义如下：
 
 \begin{VerbatimU}
 \newcommand{\lnlblbase}{}
@@ -430,8 +412,7 @@ the preamble as follows:
 \newcommand{\lnref}[1]{\ref{\lnrefbase:#1}}
 \end{VerbatimU}
 
-Environments \qco{fcvlabel} and \qco{fcvref} are defined as
-shown below:
+环境 \qco{fcvlabel} 和 \qco{fcvref} 的定义如下所示：
 
 \begin{VerbatimU}
 \newenvironment{fcvlabel}[1][]{%
@@ -443,15 +424,13 @@ shown below:
 \end{VerbatimU}
 
 \begin{fcvref}[ln:app:styleguide:LaTeX Source of Sample Code Snippet (Current)]
-The main part of \LaTeX\ source shown on
-\clnrefrange{beg:fcvlabel}{end:fcvlabel} in
 \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Current)}
-can be extracted from a code sample of
-\cref{lst:app:styleguide:Source of Code Sample} by a perl script
-\path{utilities/fcvextract.pl}.
-All the relevant rules of extraction are described as recipes in the
-top level \path{Makefile} and a script to generate dependencies
-(\path{utilities/gen_snippet_d.pl}).
+中\clnrefrange{beg:fcvlabel}{end:fcvlabel} 所示的\LaTeX\ 源码的主体部分
+可以通过 perl 脚本 \path{utilities/fcvextract.pl}
+从\cref{lst:app:styleguide:Source of Code Sample} 的代码示例中提取。
+所有相关的提取规则都以构建规则的形式记录在
+顶层 \path{Makefile} 和一个依赖生成脚本
+(\path{utilities/gen_snippet_d.pl}) 中。
 \end{fcvref}
 
 \begin{listing*}
@@ -462,13 +441,12 @@ top level \path{Makefile} and a script to generate dependencies
 \label{lst:app:styleguide:Source of Code Sample}
 \end{listing*}
 
-As you can see, \cref{lst:app:styleguide:Source of Code Sample}
-has meta commands in comments of C (C++ style).
-Those meta commands are interpreted by \path{utilities/fcvextract.pl},
-which distinguishes the type of comment style by the suffix of code
-sample's file name.
+如你所见，\cref{lst:app:styleguide:Source of Code Sample}
+在 C（C++ 风格）注释中包含了元命令。
+这些元命令由 \path{utilities/fcvextract.pl} 解释，
+该脚本通过代码示例的文件扩展名来区分注释风格的类型。
 
-Meta commands which can be used in code samples are listed below:
+可在代码示例中使用的元命令如下所列：
 
 \begin{itemize}[noitemsep]
 \item \texttt{\textbackslash begin\{snippet\}[<options>]}
@@ -478,8 +456,8 @@ Meta commands which can be used in code samples are listed below:
 \item \texttt{\textbackslash fcvblank}
 \end{itemize}
 
-\qco{<options>} to the \texttt{\textbackslash begin\{snippet\}} meta command
-is a comma-spareted list of options shown below:
+\texttt{\textbackslash begin\{snippet\}} 元命令的 \qco{<options>}
+是一个以逗号分隔的选项列表，如下所示：
 
 \begin{itemize}[noitemsep]
 \item \co{labelbase=<label base string>}
@@ -488,69 +466,64 @@ is a comma-spareted list of options shown below:
 \item \co{commandchars=\\X\\Y\\Z}
 \end{itemize}
 
-The \qco{labelbase} option is mandatory and the string given to it
-will be passed to the
-``\texttt{\textbackslash begin\{fcvlabel\}[<label base string>]}'' command as shown on
-\clnrefr{ln:app:styleguide:LaTeX Source of Sample Code Snippet (Current):beg:fcvlabel} of
-\cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Current)}.
-The \qco{keepcomment=yes} option tells \co{fcvextract.pl} to keep
-comment blocks.
-Otherwise, comment blocks in C source code will be omitted.
-The \qco{gobbleblank=yes} option will remove empty or blank lines
-in the resulting snippet.
-The \qco{commandchars} option is given to the \co{VerbatimL} environment
-as is.
-At the moment, it is also mandatory and must come at the end of options
-listed above.
-Other types of options, if any, are also passed to the \co{VerbatimL}
-environment.
+\qco{labelbase} 选项是必需的，传给它的字符串
+将被传递给
+``\texttt{\textbackslash begin\{fcvlabel\}[<label base string>]}'' 命令，如
+\cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Current)} 的
+\clnrefr{ln:app:styleguide:LaTeX Source of Sample Code Snippet (Current):beg:fcvlabel} 所示。
+\qco{keepcomment=yes} 选项告诉 \co{fcvextract.pl} 保留注释块。
+否则，C 源代码中的注释块将被省略。
+\qco{gobbleblank=yes} 选项将移除生成的代码片段中的空行或空白行。
+\qco{commandchars} 选项将原样传递给 \co{VerbatimL} 环境。
+目前，该选项也是必需的，且必须位于上述选项列表的末尾。
+其他类型的选项（如果有的话）也会被传递给 \co{VerbatimL}
+环境。
 
-The \qco{\\lnlbl} commands are converted along the way to reflect
-the escape-character choice.\footnote{
-	Characters forming comments around the \qco{\\lnlbl} commands
-	are also gobbled up regardless of the \qco{keepcomment} setting.
+\qco{\\lnlbl} 命令在处理过程中会被转换以反映
+转义字符的选择。\footnote{
+	\qco{\\lnlbl} 命令周围构成注释的字符
+	也会被删除，与 \qco{keepcomment} 设置无关。
 }
-Source lines with \qco{\\fcvexclude} are removed.
-\qco{\\fcvblank} can be used to keep blank lines when the
-\qco{gobbleblank=yes} option is specified.
+包含 \qco{\\fcvexclude} 的源代码行将被移除。
+当指定了 \qco{gobbleblank=yes} 选项时，
+可以使用 \qco{\\fcvblank} 来保留空行。
 
-There can be multiple pairs of \texttt{\textbackslash begin\{snippet\}} and \texttt{\textbackslash end\{snippet\}}
-as long as they have unique \qco{labelbase} strings.
+可以有多对 \texttt{\textbackslash begin\{snippet\}} 和 \texttt{\textbackslash end\{snippet\}}，
+只要它们具有唯一的 \qco{labelbase} 字符串即可。
 
-Our naming scheme of \qco{labelbase} for unique name space is as follows:
+我们的 \qco{labelbase} 唯一命名空间的命名方案如下：
 
 \begin{VerbatimU}
 ln:<Chapter/Subdirectory>:<File Name>:<Function Name>
 \end{VerbatimU}
 
-Litmus tests, which are handled by \qco{herdtools7} commands such as
-\qco{litmus7} and \qco{herd7}, were problematic in this scheme.
-Those commands have particular rules of where comments can be
-placed and restriction on permitted characters in comments.
-They also forbid a couple of tokens to appear in comments.
-(Tokens in comments might sound strange, but they do have such restriction.)
+由 \qco{herdtools7} 命令（如 \qco{litmus7} 和 \qco{herd7}）
+处理的 litmus 测试在此方案中存在问题。
+这些命令对注释可以放置的位置以及注释中允许的字符有特殊的规则。
+它们还禁止某些标记出现在注释中。
+（注释中的标记听起来可能很奇怪，但它们确实有这样的限制。）
 
-For example, the first token in a litmus test must be one of
-\qco{C}, \qco{PPC}, \qco{X86}, \qco{LISA}, etc., which indicates
-the flavor of the test.
-This means no comment is allowed at the beginning of a litmus test.
+例如，litmus 测试中的第一个标记必须是
+\qco{C}、\qco{PPC}、\qco{X86}、\qco{LISA} 等之一，
+用于指示测试的类型。
+这意味着 litmus 测试的开头不允许有注释。
 
-Similarly, several tokens such as \qco{exists}, \qco{filter},
-and~\qco{locations} indicate the end of litmus test's body.
-Once one of them appears in a litmus test, comments should be of
-OCaml style (\qco{(* ... *)}).
-Those tokens keep the same meaning even when they appear in comments!
+类似地，\qco{exists}、\qco{filter}
+和~\qco{locations} 等几个标记表示 litmus 测试主体的结束。
+一旦它们出现在 litmus 测试中，注释应该采用
+OCaml 风格（\qco{(* ... *)}）。
+这些标记即使出现在注释中也保持相同的含义！
 
-The pair of characters \qco{\{} and \qco{\}} also have special
-meaning in the C flavour tests.
-They are used to separate portions in a litmus test.
+字符对 \qco{\{} 和 \qco{\}} 在 C 类型的测试中
+也有特殊含义。
+它们用于分隔 litmus 测试中的各个部分。
 
-First pair of \qco{\{} and \qco{\}} encloses initialization part.
-Comments in this part should also be in the ocaml form.
+第一对 \qco{\{} 和 \qco{\}} 包围的是初始化部分。
+这部分中的注释也应该采用 OCaml 形式。
 
-You can't use \qco{\{} and \qco{\}} in comments in litmus tests, either.
+在 litmus 测试的注释中也不能使用 \qco{\{} 和 \qco{\}}。
 
-Examples of disallowed comments in a litmus test are shown below:
+litmus 测试中不允许使用的注释示例如下所示：
 
 \begin{fcvlabel}[ln:app:styleguide:Bad comments in Litmus Test]
 \begin{VerbatimN}[tabsize=8]
@@ -574,8 +547,7 @@ exists (0:r1=0)  // C++ style comment after test body
 \end{VerbatimN}
 \end{fcvlabel}
 
-To avoid parse errors, meta commands in litmus tests (C flavor) are embedded
-in the following way.
+为避免解析错误，litmus 测试（C 类型）中的元命令按以下方式嵌入。
 
 \begin{fcvlabel}[ln:app:styleguide:Sample Source of Litmus Test]
 \begin{VerbatimN}[tabsize=8]
@@ -607,12 +579,11 @@ exists (1:r2=0 /\ 0:r2=0)  (* \lnlbl[exists_] *)
 \end{VerbatimN}
 \end{fcvlabel}
 
-Example above is converted to the following intermediate code
-by a script \path{utilities/reorder_ltms.pl}.\footnote{
-	Currently, only C flavor litmus tests are supported.
+上面的示例通过脚本 \path{utilities/reorder_ltms.pl}
+被转换为以下中间代码。\footnote{
+	目前仅支持 C 类型的 litmus 测试。
 }
-The intermediate code can be handled
-by the common script \path{utilities/fcvextract.pl}.
+该中间代码可以由通用脚本 \path{utilities/fcvextract.pl} 处理。
 
 \begin{fcvlabel}[ln:app:styleguide:Intermediate Source of Litmus Test]
 \begin{VerbatimN}[tabsize=8]
@@ -646,18 +617,17 @@ exists (1:r2=0 /\ 0:r2=0)  \lnlbl{exists_}
 \end{VerbatimN}
 \end{fcvlabel}
 
-Note that each litmus test's source file can contain at most one
-pair of \texttt{\textbackslash begin[snippet]} and \texttt{\textbackslash end[snippet]} because of
-the restriction of comments.
+请注意，由于注释的限制，每个 litmus 测试的源文件最多只能包含一对
+\texttt{\textbackslash begin[snippet]} 和 \texttt{\textbackslash end[snippet]}。
 
 \subsubsection{代码片段（已废弃）}
 \label{sec:app:styleguide:Code Snippet (Obsolete)}
 
-Sample \LaTeX\ source of a code snippet coded using
-the \qco{verbatimbox} package is shown in
+使用 \qco{verbatimbox} 包编写的代码片段的
+\LaTeX\ 源码示例显示在
 \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Obsolete)}
-and is typeset as shown in
-\cref{lst:app:styleguide:Sample Code Snippet (Obsolete)}.
+中，其排版效果显示在
+\cref{lst:app:styleguide:Sample Code Snippet (Obsolete)} 中。
 
 \begin{listing}
 \begin{fcvlabel}[ln:app:styleguide:samplecodesnippetlstlbl]
@@ -671,83 +641,74 @@ and is typeset as shown in
 
 \input{appendix/styleguide/samplecodesnippetlst.tex}
 
-The auto\-/numbering feature of \co{verbbox} is enabled by
-the ``\verb|\LstLineNo|'' macro specified in the option to verbbox
-(\clnrefr{ln:app:styleguide:samplecodesnippetlstlbl:lineno} in
-\cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Obsolete)}).
-The macro is defined in the preamble of \path{perfbook.tex}
-as follows:
+\co{verbbox} 的自动编号功能通过
+在 verbbox 选项中指定的 ``\verb|\LstLineNo|'' 宏来启用
+（\cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Obsolete)} 的
+\clnrefr{ln:app:styleguide:samplecodesnippetlstlbl:lineno}）。
+该宏在 \path{perfbook.tex} 的导言区中定义如下：
 
 \begin{VerbatimU}
 \newcommand{\LstLineNo}
   {\makebox[5ex][r]{\arabic{VerbboxLineNo}\hspace{2ex}}}
 \end{VerbatimU}
 
-The \qco{verbatim} environment is used for listings with too many lines
-to fit in a column.
-It is also used to avoid overwhelming \LaTeX\ with a lot of floating objects.
-They are being converted to the scheme using the \co{VerbatimN} environment.
+\qco{verbatim} 环境用于行数过多而无法放入一栏的代码列表。
+它还用于避免过多的浮动对象使\LaTeX\ 不堪重负。
+这些代码列表正在被转换为使用 \co{VerbatimN} 环境的方案。
 
 \subsubsection{标识符}
 \label{sec:app:styleguide:Identifier}
 
-We use ``\verb|\co{}|'' macro for inline identifiers.
-(``co'' stands for ``code''.)
+我们使用 ``\verb|\co{}|'' 宏来内联标识符。
+（``co'' 代表 ``code''。）
 
-By putting them into \verb|\co{}|, underscore characters in
-their names are free of escaping in \LaTeX\ source.
-It is convenient to search them in source files.
-Also, \verb|\co{}| macro has a capability to permit line breaks
-at particular sequences of letters.
-Current definition permits a line break at an underscore (\tco{_}),
-two consecutive underscores (\tco{__}), a white space, or an
-operator \tco{->}.
+将标识符放入 \verb|\co{}| 后，其名称中的下划线字符
+无需在 \LaTeX\ 源代码中进行转义。
+这也便于在源文件中搜索它们。
+此外，\verb|\co{}| 宏还具有在特定字符序列处允许换行的功能。
+当前定义允许在下划线（\tco{_}）、
+两个连续的下划线（\tco{__}）、空格或
+运算符 \tco{->} 处换行。
 
 \subsubsection{表格和标题中的标识符}
 \label{sec:app:styleguide:Identifier inside Table and Heading}
 
-Although \verb|\co{}| command is convenient for inlining within text,
-it is fragile because of its capability of line break.
-When it is used inside a \qco{tabular} environment or its derivative
-such as \qco{tabularx}, it confuses column width
-estimation of those environments.
-Furthermore, \verb|\co{}| can not be safely used in section headings nor
-description headings.
+虽然 \verb|\co{}| 命令在正文中内联使用很方便，
+但由于其换行功能，它是脆弱的。
+当它在 \qco{tabular} 环境或其派生环境（如 \qco{tabularx}）中使用时，
+会干扰这些环境的列宽估算。
+此外，\verb|\co{}| 不能安全地用于章节标题或
+描述标题中。
 
-As a workaround, we use ``\verb|\tco{}|'' command
-inside tables and headings.
-It has no capability of line break at particular sequences, but
-still frees us from escaping underscores.
+作为变通方案，我们在表格和标题中使用 ``\verb|\tco{}|'' 命令。
+它不具备在特定序列处换行的功能，但
+仍然免去了转义下划线的麻烦。
 
-When used in text, \verb|\tco{}| permits line breaks at
-white spaces.
+在正文中使用时，\verb|\tco{}| 允许在空格处换行。
 
 \subsubsection{等宽字体的其他用例}
 \label{sec:app:styleguide:Other Use Cases of Monospace Font}
 
-For URLs, we use ``\verb|\url{}|'' command provided by the
-\qco{hyperref} package.
-It will generate hyper references to the URLs.
+对于 URL，我们使用 \qco{hyperref} 包提供的 ``\verb|\url{}|'' 命令。
+它会生成指向 URL 的超链接。
 
-For path names, we use ``\verb|\path{}|'' command.
-It won't generate hyper references.
+对于路径名，我们使用 ``\verb|\path{}|'' 命令。
+它不会生成超链接。
 
-Both \verb|\url{}| and \verb|\path{}| permit line breaks
-at \qco{/}, \qco{-}, and \qco{.}.\footnote{
-  Overfill can be a problem if the URL or the path name contains
-  long runs of unbreakable characters.
+\verb|\url{}| 和 \verb|\path{}| 都允许在
+\qco{/}、\qco{-} 和 \qco{.} 处换行。\footnote{
+  如果 URL 或路径名包含长串不可断字符，溢出可能成为一个问题。
 }
 
-For short monospace statements not to be line broken, we use
-the ``\verb|\nbco{}|'' (non-breakable co) macro.
+对于不希望被换行的短等宽字体语句，我们使用
+``\verb|\nbco{}|''（non-breakable co）宏。
 
 \subsubsection{限制}
 \label{sec:app:styleguide:Limitations}
 
-There are a few cases where macros introduced in this section
-do not work as expected.
+本节介绍的宏在某些情况下可能无法按预期工作。
 \Cref{tab:app:styleguide:Limitation of Monospace Macro}
-lists such limitations.
+列出了这些限制。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.2}\centering\footnotesize
@@ -762,44 +723,42 @@ lists such limitations.
 \label{tab:app:styleguide:Limitation of Monospace Macro}
 \end{table}
 
-While \verb|\co{}| requires some characters to be escaped,
-it can contain any character.
+虽然 \verb|\co{}| 要求某些字符必须转义，
+但它可以包含任何字符。
 
-On the other hand, \verb|\tco{}| can not handle
-\qco{\%}, \qco{\{}, \qco{\}}, nor \qco{\\} properly.
-If they are escaped by a~\qco{\\},
-they appear in the end result with the escape character.
-The \qco{\\verb} command can be used in running text if you
-need to use monospace font for a string which contains
-many characters to escape.\footnote{
-  The \texttt{\textbackslash verb} command is not almighty though.
-  For example, you can't use it within a footnote.
-  If you do so, you will see a fatal \LaTeX\ error.
-  A workaround would be a macro named \texttt{\textbackslash VerbatimFootnotes}
-  provided by the \co{fancyvrb} package.
-  Unfortunately, perfbook can't employ it due to the interference
-  with the \co{footnotebackref} package.
+另一方面，\verb|\tco{}| 无法正确处理
+\qco{\%}、\qco{\{}、\qco{\}} 和 \qco{\\}。
+如果使用 \qco{\\} 对它们进行转义，
+转义字符会出现在最终结果中。
+如果你需要对包含大量需要转义字符的字符串使用等宽字体，
+可以在正文中使用 \qco{\\verb} 命令。\footnote{
+  不过 \texttt{\textbackslash verb} 命令也不是万能的。
+  例如，你不能在脚注中使用它。
+  如果这样做，你会看到一个致命的 \LaTeX\ 错误。
+  一个变通方案是使用 \co{fancyvrb} 包提供的
+  名为 \texttt{\textbackslash VerbatimFootnotes} 的宏。
+  不幸的是，perfbook 由于与 \co{footnotebackref} 包的冲突
+  而无法使用它。
   }
 
 \subsection{交叉引用}
 \label{sec:app:styleguide:Cross-Reference}
 
-Cross-references to \namecrefs{chp:Introduction},
-\namecrefs{sec:intro:Parallel Programming Goals},
-\namecrefs{lst:app:styleguide:Source of Code Sample}, etc.\@ have
-been expressed by combinations of names and bare \verb|\ref{}|
-commands in the following way:
+对\namecrefs{chp:Introduction}、
+\namecrefs{sec:intro:Parallel Programming Goals}、
+\namecrefs{lst:app:styleguide:Source of Code Sample}等的交叉引用，
+以往通过名称与裸 \verb|\ref{}|
+命令的组合来表示，方式如下：
 
 \begin{VerbatimN}
 Chapter~\ref{chp:Introduction},
 Table~\ref{tab:app:styleguide:Digit-Grouping Style}
 \end{VerbatimN}
 
-This is a traditional way of cross\-/referencing.
-However, it is tedious and sometimes error-prone to put a name
-manually on every cross\-/reference.
-The \co{cleveref} package provides a nicer way of cross\-/referencing.
-A few examples follow:
+这是传统的交叉引用方式。
+然而，在每个交叉引用上手动添加名称既繁琐又容易出错。
+\co{cleveref} 包提供了一种更好的交叉引用方式。
+以下是一些示例：
 
 \begin{VerbatimN}
 \Cref{chp:Introduction},
@@ -810,7 +769,7 @@ A few examples follow:
 examples of cross\-/references.
 \end{VerbatimN}
 
-Above code is typeset as follows:
+上述代码的排版效果如下：
 
 \begin{quote}
 \Cref{chp:Introduction},
@@ -821,50 +780,43 @@ Above code is typeset as follows:
 examples of cross\-/references.
 \end{quote}
 
-As you can see, naming of cross\-/references is automated.
-Current setting generates capitalized names for both of
-\verb|\Cref{}| and \verb|\cref{}|, but the former
-should be used at the beginning of a sentence.
+如你所见，交叉引用的命名是自动化的。
+当前设置对 \verb|\Cref{}| 和 \verb|\cref{}| 都生成首字母大写的名称，
+但前者应在句首使用。
 
-We are in the middle of conversion to
-\co{cleveref}-style cross\-/referencing.
+我们正在进行向 \co{cleveref} 风格交叉引用的转换。
 
-Cross-references to line numbers of code snippets
-can be done in a similar way by using \verb|\Clnref{}| and
-\verb|\clnref{}| macros, which mimic \co{cleveref}.
-The former puts ``Line'' as the name of the reference
-and the latter ``line''.
+对代码片段行号的交叉引用可以通过
+\verb|\Clnref{}| 和 \verb|\clnref{}| 宏以类似方式完成，
+它们模仿了 \co{cleveref} 的行为。
+前者使用 ``Line'' 作为引用名称，
+后者使用 ``line''。
 
-Please refer to \co{cleveref}'s documentation for further
-info on its cleverness.
+请参阅 \co{cleveref} 的文档以了解更多关于其智能功能的信息。
 
 \subsection{不可断空格}
 \label{sec:app:styleguide:Non Breakable Spaces}
 
-In \LaTeX\ conventions, proper use of non-breakable white spaces
-is highly recommended.
-They can prevent widowing and orphaning of single digit numbers
-or short variable names, which would cause the text to be confusing
-at first glance.
+在 \LaTeX\ 的惯例中，强烈建议正确使用不可断空格。
+它们可以防止单个数字或短变量名成为孤儿或寡妇，
+否则会导致文本乍看之下令人困惑。
 
-The thin space mentioned earlier to be placed in front of a unit
-symbol is non breakable.
+前面提到的放在单位符号前面的窄空格是不可断的。
 
-Other cases to use a non-breakable space (``\verb|~|'' in \LaTeX\
-source, often referred to as ``nbsp'')
-are the following (inexhaustive).
+其他使用不可断空格（\LaTeX\ 源代码中的 ``\verb|~|''，
+通常称为 ``nbsp''）的场景包括以下几种（不完全列举）。
 
 \begin{itemize}
-\item Reference to a Chapter or a Section:
+\item 引用章节：
   \begin{quote}
     Please refer to \cref{sec:app:styleguide:NIST Style Guide}.
   \end{quote}
-\item Calling out CPU number or Thread name:
+\item 指明 CPU 编号或 Thread 名称：
   \begin{quote}
     After they load the pointer, CPUs~1 and~2 will see the stored
     value.
   \end{quote}
-\item Short variable name:
+\item 短变量名：
   \begin{quote}
     The results will be stored in variables~\co{a} and~\co{b}.
   \end{quote}
@@ -876,10 +828,10 @@ are the following (inexhaustive).
 \subsubsection{复合词中的连字符}
 \label{sec:app:styleguide:Hyphenation in Compound Word}
 
-In plain \LaTeX, compound words such as ``high-frequency''
-can be hyphenated only at the hyphen.
-This sometimes results in poor typesetting.
-For example:
+在普通 \LaTeX 中，像 ``high-frequency'' 这样的复合词
+只能在连字符处断行。
+这有时会导致排版效果不佳。
+例如：
 
 \begin{center}\begin{minipage}{2.6in}\vspace{0.6\baselineskip}
   High-frequency radio wave, high-frequency radio wave,
@@ -887,15 +839,14 @@ For example:
   high-frequency radio wave, high-frequency radio wave.
 \vspace{0.6\baselineskip}\end{minipage}\end{center}
 
-By using a shortcut \qco{\\-/} provided by the
-``extdash'' package, hyphenation in elements of compound
-words is enabled in perfbook.\footnote{
-  In exchange for enabling the shortcut, we can't use plain
-  \LaTeX's shortcut \qco{\\-} to specify hyphenation points.
-  Use \path{pfhyphex.tex} to add such exceptions.
+通过使用 ``extdash'' 包提供的快捷方式 \qco{\\-/}，
+perfbook 中启用了复合词各组成部分的断词功能。\footnote{
+  作为启用该快捷方式的代价，我们无法使用普通
+  \LaTeX 的快捷方式 \qco{\\-} 来指定断词点。
+  请使用 \path{pfhyphex.tex} 来添加此类例外。
 }
 
-Example with \qco{\\-/}:
+使用 \qco{\\-/} 的示例：
 
 \begin{center}\begin{minipage}{2.6in}\vspace{0.6\baselineskip}
   High\-/frequency radio wave, high\-/frequency radio wave,
@@ -906,14 +857,13 @@ Example with \qco{\\-/}:
 \subsubsection{不可断连字符}
 \label{sec:app:styleguide:Non Breakable Hyphen}
 
-We want hyphenated compound terms such as ``x\=/coordinate'',
-``y\=/coordinate'', etc.\@ not to be broken at the hyphen
-following a single letter.
+我们希望像 ``x\=/coordinate''、
+``y\=/coordinate'' 等带连字符的复合术语不要在单个字母后的连字符处断行。
 
-To make a hyphen unbreakable, we can use a short cut
-\qco{\\=/} also provided by the ``extdash'' package.
+要使连字符不可断，可以使用同样由 ``extdash'' 包提供的
+快捷方式 \qco{\\=/}。
 
-Example without a shortcut:
+不使用快捷方式的示例：
 
 \begin{center}\begin{minipage}{2.55in}\vspace{0.6\baselineskip}
 x-, y-, and z-coordinates; x-, y-, and z-coordinates;
@@ -921,7 +871,7 @@ x-, y-, and z-coordinates; x-, y-, and z-coordinates;
 x-, y-, and z-coordinates; x-, y-, and z-coordinates;
 \vspace{0.6\baselineskip}\end{minipage}\end{center}
 
-Example with \qco{\\-/}:
+使用 \qco{\\-/} 的示例：
 
 \begin{center}\begin{minipage}{2.55in}\vspace{0.6\baselineskip}
 x-, y-, and z\-/coordinates; x-, y-, and z\-/coordinates;
@@ -929,7 +879,7 @@ x-, y-, and z\-/coordinates; x-, y-, and z\-/coordinates;
 x-, y-, and z\-/coordinates; x-, y-, and z\-/coordinates;
 \vspace{0.6\baselineskip}\end{minipage}\end{center}
 
-Example with \qco{\\=/}:
+使用 \qco{\\=/} 的示例：
 
 \begin{center}\begin{minipage}{2.55in}\vspace{0.6\baselineskip}
 x-, y-, and z\=/coordinates; x-, y-, and z\=/coordinates;
@@ -937,17 +887,17 @@ x-, y-, and z\=/coordinates; x-, y-, and z\=/coordinates;
 x-, y-, and z\=/coordinates; x-, y-, and z\=/coordinates;
 \vspace{0.6\baselineskip}\end{minipage}\end{center}
 
-Note that \qco{\\=/} enables hyphenation in elements
-of compound words as the same as \qco{\\-/} does.
+注意，\qco{\\=/} 与 \qco{\\-/} 一样，
+也会启用复合词各组成部分的断词功能。
 
 \subsubsection{长破折号}
 \label{sec:app:styleguide:Em Dash}
 
-Em dashes are used to indicate parenthetic expression.
-In perfbook, em dashes are placed without spaces around it.
-In \LaTeX\ source, an em dash is represented by \qco{---}.
+长破折号用于表示插入语。
+在 perfbook 中，长破折号两边不加空格。
+在 \LaTeX\ 源代码中，长破折号用 \qco{---} 表示。
 
-Example (quote from \cref{sec:app:whymb:Cache Structure}):
+示例（引自\cref{sec:app:whymb:Cache Structure}）：
 \begin{quote}
   This disparity in speed---more than two orders of magnitude---has
   resulted in the multi-megabyte caches found on modern CPUs.
@@ -956,18 +906,16 @@ Example (quote from \cref{sec:app:whymb:Cache Structure}):
 \subsubsection{短破折号}
 \label{sec:app;styleguide:En Dash}
 
-In \LaTeX\ convention, en~dashes (\==) are used for ranges of (mostly)
-numbers.
-Past revisions of perfbook didn't follow this rule and used
-plain dashes (\=/) for such cases.
+在 \LaTeX\ 惯例中，短破折号（\==）用于表示（主要是）数字的范围。
+perfbook 过去的版本没有遵循这一规则，而是使用
+普通连字符（\=/）来表示此类情况。
 
-Now that \texttt{\textbackslash clnrefrange}, \texttt{\textbackslash crefrange},
-and their variants, which generate en~dashes, are used for ranges of
-cross\-/references, the remaining couple of tens of simple dashes
-of other types of ranges have been converted to en~dashes for
-consistency.
+现在 \texttt{\textbackslash clnrefrange}、\texttt{\textbackslash crefrange}
+及其变体（它们会生成短破折号）已被用于交叉引用的范围，
+其余几十个其他类型范围的简单连字符也已统一转换为短破折号，
+以保持一致性。
 
-Example with a simple dash:
+使用简单连字符的示例：
 
 \begin{quote}
 \begin{fcvref}[ln:app:styleguide:samplecodesnippetlstlbl]
@@ -978,7 +926,7 @@ Example with a simple dash:
 \end{fcvref}
 \end{quote}
 
-Example with an en dash:
+使用短破折号的示例：
 
 \begin{quote}
 \begin{fcvref}[ln:app:styleguide:samplecodesnippetlstlbl]
@@ -992,16 +940,14 @@ Example with an en dash:
 \subsubsection{数字减号}
 \label{sec:app:styleguide:Numerical Minus Sign}
 
-Numerical minus signs should be coded as math mode minus signs,
-namely \qco{$-$}.\footnote{This rule assumes that math mode uses the
-  same upright glyph as text mode.
-  Our default font choice meets the assumption.
+数字减号应编码为数学模式的减号，
+即 \qco{$-$}。\footnote{此规则假设数学模式使用与文本模式相同的正体字形。
+  我们默认的字体选择满足这一假设。
 \IfSansSerif{
-  Experimental targets with sans-serif fonts such as
-  ``1csf'' and ``ebsf'' \emph{do} use a different font
-  for math mode figures as of August 2021.}{}
+  截至 2021 年 8 月，使用无衬线字体的实验性目标（如
+  ``1csf'' 和 ``ebsf''）在数学模式中\emph{确实}使用了不同的字体。}{}
 }
-For example,
+例如，
 
 \begin{quote}
   $-30$, rather than -30.
@@ -1013,38 +959,36 @@ For example,
 \subsubsection{省略号}
 \label{sec:app:styleguide:Ellipsis}
 
-In monospace fonts, ellipses can be expressed by series of periods.
-For example:
+在等宽字体中，省略号可以用一系列句点来表示。
+例如：
 
 \begin{quote}
   \verb|Great ... So how do I fix it?|
 \end{quote}
 
-However, in proportional fonts, the series of periods is printed
-with tight spaces as follows:
+然而，在比例字体中，一系列句点会以紧凑的间距打印，如下所示：
 
 \begin{quote}
   Great ... So how do I fix it?
 \end{quote}
 
-Standard \LaTeX\ defines the \verb|\dots| macro for this purpose.
-However, it has a kludge in the evenness of spaces.
-The ``ellipsis'' package redefines the \verb|\dots| macro to fix
-the issue.\footnote{To be exact, it is the \texttt{\textbackslash textellipsis} macro
-  that is redefined.
-  The behavior of \texttt{\textbackslash dots} macro in math mode is not affected.
-  The ``amsmath'' package has another definition of \texttt{\textbackslash dots}.
-  It is not used in perfbook at the moment.}
-By using \verb|\dots|, the above example is typeset as the following:
+标准 \LaTeX\ 为此目的定义了 \verb|\dots| 宏。
+但它在间距均匀性方面存在一个缺陷。
+``ellipsis'' 包重新定义了 \verb|\dots| 宏以修复
+此问题。\footnote{确切地说，被重新定义的是 \texttt{\textbackslash textellipsis} 宏。
+  \texttt{\textbackslash dots} 宏在数学模式下的行为不受影响。
+  ``amsmath'' 包有另一个 \texttt{\textbackslash dots} 的定义，
+  目前在 perfbook 中未使用。}
+使用 \verb|\dots| 后，上述示例的排版效果如下：
 
 \begin{quote}
   Great \dots So how do I fix it?
 \end{quote}
 
-Note that the ``xspace'' option specified to the ``ellipsis'' package
-adjusts the spaces after ellipses depending on what follows them.
+注意，为 ``ellipsis'' 包指定的 ``xspace'' 选项
+会根据省略号后面的内容来调整其后的间距。
 
-For example:
+例如：
 
 \begin{itemize}[itemsep=.2ex]
 \item He said, ``I~\dots really don't remember~\dots''
@@ -1052,28 +996,28 @@ For example:
 \item Sequence B: (4, 5, \dots, $n$)
 \end{itemize}
 
-As you can see, extra space is placed before the comma.
+如你所见，逗号前面放置了额外的间距。
 
-\verb|\dots| macro can also be used in math mode:
+\verb|\dots| 宏也可以在数学模式中使用：
 
 \begin{itemize}[itemsep=.2ex]
 \item Sequence C: $(1, 2, 3, 5, 8, \dots)$
 \item Sequence D: $(10, 12, \dots, 20)$
 \end{itemize}
 
-The \verb|\ldots| macro behaves the same as the \verb|\dots| macro.
+\verb|\ldots| 宏的行为与 \verb|\dots| 宏相同。
 
 \subsubsection{句号}
 \label{sec:app:styleguide:Full Stop}
 
-\LaTeX\ treats a full stop in front of a white space as an end of
-a sentence and puts a slightly wider skip by default (double spacing).
-There is an exception to this rule, i.e.\@ where the full stop is next
-to a capital letter, \LaTeX\ assumes it represents an abbreviation
-and puts a normal skip.
+\LaTeX\ 默认将空格前的句号视为句末，
+并放置稍宽的间距（双倍间距）。
+此规则有一个例外，即当句号紧跟在大写字母后面时，
+\LaTeX\ 会认为它表示缩写，
+从而放置正常间距。
 
-To make \LaTeX\ use proper skips, one need to annotate such exceptions.
-For example, given the following \LaTeX\ source:
+为了让 \LaTeX\ 使用正确的间距，需要标注此类例外。
+例如，给定以下 \LaTeX\ 源代码：
 
 \begin{VerbatimU}
 \begin{quote}
@@ -1085,7 +1029,7 @@ For example, given the following \LaTeX\ source:
 \end{quote}
 \end{VerbatimU}
 %
-the output will be as the following:
+输出结果如下：
 
 \begin{quote}
 	Lock~1 is owned by CPU~A.
@@ -1095,12 +1039,12 @@ the output will be as the following:
 	Lock~2 is owned by CPU~B\@.  (Good.)
 \end{quote}
 
-On the other hand, where a full stop is following a lower case
-letter, e.g.\@ as in ``Mr.~Smith'', a wider skip will follow
-in the output unless it is properly hinted.
-Such hintings can be done in one of several ways.
+另一方面，当句号跟在小写字母后面时，
+例如 ``Mr.~Smith'' 中的情况，如果没有正确提示，
+输出中会出现较宽的间距。
+这种提示可以通过以下几种方式来完成。
 
-Given the following source,
+给定以下源代码，
 
 \begin{VerbatimU}
 \begin{itemize}[nosep]
@@ -1112,7 +1056,7 @@ Given the following source,
 \end{VerbatimU}
 
 \noindent%
-the result will look as follows:
+结果如下所示：
 
 \begin{itemize}[nosep]
 	\item Mr. Smith (bad)
@@ -1144,14 +1088,12 @@ the result will look as follows:
 \newcommand{\CPf}{C_\mathrm{P}}
 
 \Cref{tab:app:styleguide:Refrigeration Power Consumption}
-(corresponding to a table from a now-deleted section)
-is drawn by using the features of ``booktabs'' and ``xcolor'' packages.
-Note that ruled lines of booktabs can not be mixed with
-vertical lines in a table.\footnote{
-  There is another package named ``arydshln'' which provides dashed lines
-  to be used in tables.
-  A couple of experimental examples are presented in
-  \cref{sec:app:styleguide:Table Layout Experiment}.
+（对应于一个已删除章节中的表格）
+是使用 ``booktabs'' 和 ``xcolor'' 包的功能绘制的。
+请注意，booktabs 的横线不能与表格中的竖线混合使用。\footnote{
+  还有一个名为 ``arydshln'' 的包，可以提供在表格中使用的虚线。
+  一些实验性的示例在
+  \cref{sec:app:styleguide:Table Layout Experiment}中展示。
 }
 
 \begin{table}
@@ -1190,32 +1132,27 @@ IBM~Q	& $0.015$
 \subsubsection{标题位置}
 \label{sec:app:styleguide:Position of Caption}
 
-In \LaTeX\ conventions, captions of tables are usually placed
-above them.
-The reason is the flow of your eye movement when you look at them.
-Most tables have a row of heading at the top.
-You naturally look at the top of a table at first.
-Captions at the bottom of tables disturb this flow.
-The same can be said of code snippets, which are read from
-top to bottom.
+在 \LaTeX\ 的惯例中，表格的标题通常放在表格上方。
+原因在于你查看表格时的视线流动方向。
+大多数表格的顶部有一行标题。
+你自然会首先看向表格的顶部。
+放在表格底部的标题会打断这种流程。
+代码片段也是如此，因为代码是从上往下阅读的。
 
-For code snippets, the ``ruled'' style chosen for listing
-environment places the caption at the top.
-See \cref{lst:app:styleguide:Sample Code Snippet}
-for an example.
+对于代码片段，列表环境选用的 ``ruled'' 样式会将标题放在顶部。
+示例参见\cref{lst:app:styleguide:Sample Code Snippet}。
 
-As for tables, the position of caption is tweaked by
-\verb|\floatstyle{}| and \verb|\restylefloat{}| macros
-in preamble.
+对于表格，标题的位置通过前导区中的
+\verb|\floatstyle{}| 和 \verb|\restylefloat{}| 宏来调整。
 
-Vertical skips below captions are reduced by setting a smaller
-value to the \verb|\abovecaptionskip| variable,
-which would also affect captions to figures.
+通过给 \verb|\abovecaptionskip| 变量设置较小的值，
+可以减少标题下方的垂直间距，
+但这也会影响图表的标题。
 
-In the tables which use horizontal rules of ``booktabs'' package,
-the vertical skips between captions and tables are further reduced
-by setting a negative value to the \texttt{\textbackslash abovetopsep} variable,
-which controls the behavior of \texttt{\textbackslash toprule}.
+在使用 ``booktabs'' 包横线的表格中，
+通过给 \texttt{\textbackslash abovetopsep} 变量设置负值，
+可以进一步减少标题与表格之间的垂直间距，
+该变量控制 \texttt{\textbackslash toprule} 的行为。
 
 \subsection{改进候选}
 \label{sec:app:styleguide:Improvement Candidates}
@@ -1237,7 +1174,7 @@ which controls the behavior of \texttt{\textbackslash toprule}.
 \end{figure*}
 
 \begin{listing*}%
-\caption{Message-Passing Litmus Test (by subfig)}%
+\caption{消息传递石蕊测试（使用 subfig）}%
 \label{lst:app:styleguide:Message-Passing Litmus Test (subfig)}%
 {\scriptsize%
 \begin{verbbox}[\LstLineNo]
@@ -1270,7 +1207,7 @@ exists (1:r2=2 /\ 1:r3=0)
 }
 \centering
 \hspace*{\fill}
-\subfloat[Not Enforcing Order]{
+\subfloat[未强制排序]{
   \theverbbox
   \label{sublst:app:styleguide:Not Enforcing Order}
 }
@@ -1304,7 +1241,7 @@ P1(int* x0, int* x1) {
 exists (1:r2=2 /\ 1:r3=0)
 \end{verbbox}
 }%
-\subfloat[Enforcing Order]{%
+\subfloat[强制排序]{%
   \theverbbox
   \label{sublst:app:styleguide:Enforcing Order}
 }\hspace*{\fill}%
@@ -1316,57 +1253,49 @@ exists (1:r2=2 /\ 1:r3=0)
 \subsubsection{分组相关图表/代码清单}
 \label{sec:app:styleguide:Grouping Related Figures/Listings}
 
-To prevent a pair of closely related figures or listings
-from being placed in different pages, it is desirable to group
-them into a single floating object.
-The ``subfig'' package provides the features to do so.\footnote{
-  One problem of grouping figures might be the complexity in
-  \LaTeX\ source.}
+为了防止一对紧密相关的图表或代码清单被放置在不同的页面上，
+最好将它们组合到一个浮动对象中。
+``subfig'' 包提供了实现此功能的特性。\footnote{
+  组合图表的一个问题可能是 \LaTeX\ 源代码的复杂性。}
 
-Two floating objects can be placed side by side by using
-\texttt{\textbackslash parbox} or \co{minipage}.
-For example,
+两个浮动对象可以通过 \texttt{\textbackslash parbox} 或
+\co{minipage} 并排放置。
+例如，
 \cref{fig:advsync:Timer Wheel at 1kHz,fig:advsync:Timer Wheel at 100kHz}
-can be grouped together by using a pair of \co{minipage}s
-as shown in
-\cref{fig:app:styleguide:Timer Wheel at 1kHz,%
-fig:app:styleguide:Timer Wheel at 100kHz}.
+可以使用一对 \co{minipage} 组合在一起，
+如\cref{fig:app:styleguide:Timer Wheel at 1kHz,%
+fig:app:styleguide:Timer Wheel at 100kHz}所示。
 
-By using subfig package,
+使用 subfig 包，
 \cref{lst:memorder:Message-Passing Litmus Test (No Ordering),%
 lst:memorder:Enforcing Order of Message-Passing Litmus Test}
-can be grouped together as shown in
+可以组合在一起，如
 \cref{lst:app:styleguide:Message-Passing Litmus Test (subfig)}
-with sub\-/captions (with a minor change of blank line).
+所示，并带有子标题（空行有微小改动）。
 
-Note that they can not be grouped in the same way as
+请注意，它们不能像
 \cref{fig:app:styleguide:Timer Wheel at 1kHz,%
 fig:app:styleguide:Timer Wheel at 100kHz}
-because the ``ruled'' style prevents their captions
-from being properly typeset.
+那样组合，因为 ``ruled'' 样式会阻止其标题被正确排版。
 
-The sub\-/caption can be cited by combining a \verb|\cref{}| macro
-and a \verb|\subref{}| macro, for example,
+子标题可以通过组合 \verb|\cref{}| 宏和
+\verb|\subref{}| 宏来引用，例如
 ``\cref{lst:app:styleguide:Message-Passing Litmus Test (subfig)}\,%
-\subref{sublst:app:styleguide:Not Enforcing Order}''.
+\subref{sublst:app:styleguide:Not Enforcing Order}''。
 
-It can also be cited by a \verb|\cref{}| macro, for example,
-``\cref{sublst:app:styleguide:Enforcing Order}''.
-Note the difference in the resulting format.
-For the citing by a \verb|\cref{}| to work, you need to place
-the \verb|\label{}| macro of the combined floating object
-ahead of the definition of subfloats.
-Otherwise, the resulting caption number would be off by one
-from the actual number.
+也可以通过 \verb|\cref{}| 宏来引用，例如
+``\cref{sublst:app:styleguide:Enforcing Order}''。
+请注意生成格式的差异。
+为使 \verb|\cref{}| 引用正常工作，需要将组合浮动对象的
+\verb|\label{}| 宏放在子浮动体定义之前。
+否则，生成的标题编号会与实际编号相差一。
 
 \subsubsection{表格布局实验}
 \label{sec:app:styleguide:Table Layout Experiment}
 
 本节展示了一些使用booktabs、xcolors和arydshln包的实验性表格。
-The corresponding tables in the text have been converted using one of
-the format shown here.
-The source of this section can be regarded as a reference to be
-consulted when new tables are added in the text.
+正文中对应的表格已使用此处展示的某种格式进行了转换。
+本节的源代码可以作为在正文中添加新表格时的参考。
 
 \begin{table}
 \rowcolors{1}{}{lightgray}
@@ -1396,31 +1325,23 @@ consulted when new tables are added in the text.
 	Global Comms		& 195 000 000	& 409 500 000   \\
 	\bottomrule
 \end{tabular}
-\caption{CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs @ 2.10GHz}
+\caption{CPU 0 视角的同步机制（8 路 Intel Xeon Platinum 8176 CPU @ 2.10GHz 系统）}
 \label{tab:app:styleguide:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs @ 2.10GHz}
 \end{table}
 
-In
-\cref{tab:app:styleguide:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs @ 2.10GHz}
-(corresponding to
-\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}),
-the ``S'' column specifiers provided
-by the ``siunitx'' package are used to align numbers.
+在\cref{tab:app:styleguide:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs @ 2.10GHz}
+（对应于\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}）中，
+使用了 ``siunitx'' 包提供的 ``S'' 列说明符来对齐数字。
 
 \Cref{tab:app:styleguide:Synchronization and Reference Counting}
-(corresponding to
-\cref{tab:together:Synchronizing Reference Counting})
-is an example of table with a complex header.
-In
-\cref{tab:app:styleguide:Synchronization and Reference Counting},
-the gap in the mid-rule corresponds to the distinction
-which had been represented by double vertical rules before the conversion.
-The legends in the frame box appended here explain the abbreviations used
-in the matrix.
-Two types of memory barrier are denoted by subscripts here.
-The legends and subscripts are not present in
-\cref{tab:together:Synchronizing Reference Counting}
-since they are redundant there.
+（对应于\cref{tab:together:Synchronizing Reference Counting}）
+是具有复杂表头的表格示例。
+在\cref{tab:app:styleguide:Synchronization and Reference Counting}中，
+中线的间隔对应于转换前用双竖线表示的区分。
+附加的框线图例解释了矩阵中使用的缩写。
+此处两种类型的内存屏障用下标表示。
+\cref{tab:together:Synchronizing Reference Counting}中
+没有这些图例和下标，因为在那里它们是多余的。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.25}
@@ -1461,9 +1382,8 @@ since they are redundant there.
 \end{table}
 
 \Cref{tab:app:styleguide:Cache Coherence Example}
-(corresponding to
-\cref{tab:app:whymb:Cache Coherence Example})
-is a sequence diagram drawn as a table.
+（对应于\cref{tab:app:whymb:Cache Coherence Example}）
+是以表格形式绘制的序列图。
 
 \begin{table*}
 \small
@@ -1524,25 +1444,19 @@ is a sequence diagram drawn as a table.
 \end{table*}
 
 \Cref{tab:app:styleguide:RCU Publish-Subscribe and Version Maintenance APIs}
-is a tweaked version of
-\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}.
-Here, the ``Category'' column in the original is removed
-and the categories are indicated in rows of bold-face font
-just below the mid-rules.
-This change makes it easier for \verb|\rowcolors{}| command of
-``xcolor'' package to work properly.
+是\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}的调整版本。
+此处移除了原表中的 ``Category'' 列，
+改为在中线下方以粗体字行来表示类别。
+这一改动使得 ``xcolor'' 包的 \verb|\rowcolors{}| 命令更容易正常工作。
 
 \Cref{tab:app:styleguide:RCU Publish-Subscribe and Version Maintenance APIs (colortbl)}
-is another version which keeps original columns and colors rows only where
-a category has multiple rows.
-This is done by combining \verb|\rowcolors{}| of ``xcolor'' and
-\verb|\cellcolor{}| commands of the ``colortbl'' package
-(\verb|\cellcolor{}| overrides \verb|\rowcolors{}|).
+是另一个版本，它保留了原始列，且仅在某类别有多行时才对行着色。
+这是通过组合 ``xcolor'' 的 \verb|\rowcolors{}| 和
+``colortbl'' 包的 \verb|\cellcolor{}| 命令实现的
+（\verb|\cellcolor{}| 会覆盖 \verb|\rowcolors{}|）。
 
-In
-\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs},
-the latter layout without partial row coloring has been
-chosen for simplicity.
+在\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}中，
+为简洁起见选择了后一种不带部分行着色的布局。
 
 \begin{table*}
 \rowcolors{2}{}{blue!15}
@@ -1612,7 +1526,7 @@ chosen for simplicity.
 \bottomrule
 \end{tabular}
 }
-\caption{RCU Publish-Subscribe and Version Maintenance APIs}
+\caption{RCU 发布-订阅和版本维护 API}
 \label{tab:app:styleguide:RCU Publish-Subscribe and Version Maintenance APIs}
 \end{table*}
 
@@ -1692,14 +1606,13 @@ Pointer update &
 \bottomrule
 \end{tabular}
 }
-\caption{RCU Publish-Subscribe and Version Maintenance APIs}
+\caption{RCU 发布-订阅和版本维护 API}
 \label{tab:app:styleguide:RCU Publish-Subscribe and Version Maintenance APIs (colortbl)}
 \end{table*}
 
 \Cref{tab:app:styleguide:Memory Misordering: Store-Buffering Sequence of Events}
-(corresponding to
-\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events})
-is also a sequence diagram drawn as a tabular object.
+（对应于\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}）
+也是以表格对象形式绘制的序列图。
 
 \begin{table*}
 \rowcolors{6}{}{lightgray}
@@ -1732,9 +1645,8 @@ is also a sequence diagram drawn as a tabular object.
 \end{table*}
 
 \Cref{tab:app:styleguide:Refrigeration Power Consumption (arydshln)}
-shows another version of
-\cref{tab:app:styleguide:Refrigeration Power Consumption}
-with dashed horizontal and vertical rules of the arydshln package.
+展示了\cref{tab:app:styleguide:Refrigeration Power Consumption}的另一版本，
+使用了 arydshln 包的虚线水平线和竖线。
 
 \setlength\dashlinedash{.5pt}
 \setlength\dashlinegap{1pt}
@@ -1771,9 +1683,9 @@ IBM~Q	& $0.015$
 \label{tab:app:styleguide:Refrigeration Power Consumption (arydshln)}
 \end{table}
 
-In this case, the vertical dashed rules seems unnecessary.
-The one without the vertical rules is shown in
-\cref{tab:app:styleguide:Refrigeration Power Consumption (arydshln-2)}.
+在此情况下，竖向虚线似乎是不必要的。
+不带竖线的版本展示在
+\cref{tab:app:styleguide:Refrigeration Power Consumption (arydshln-2)}中。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.2}\centering\small
