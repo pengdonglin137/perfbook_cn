@@ -134,12 +134,12 @@ Tasks RCU Rude、Tasks RCU Trace和通用API的等待读者部分，
 \label{tab:defer:RCU Wait-to-Finish APIs}
 \scriptsize\IfEbookSize{\hspace*{-1.8in}}{\hspace*{-.125in}}
 \ebresizeverb{0.7}{
-\begin{tabularx}{8.5in}{>{\raggedright\arraybackslash}p{0.94in}
-    >{\raggedright\arraybackslash}X
-    >{\raggedright\arraybackslash}X
-    >{\raggedright\arraybackslash}p{1.1in}
-    >{\raggedright\arraybackslash}p{1.35in}
-    >{\raggedright\arraybackslash}p{1.45in}}
+\begin{tabularx}{8.5in}{>{\raggedright\arraybackslash}p{0.92in}
+    >{\raggedright\arraybackslash}p{1.37in}
+    >{\raggedright\arraybackslash}p{1.39in}
+    >{\raggedright\arraybackslash}p{1.09in}
+    >{\raggedright\arraybackslash}p{1.34in}
+    >{\raggedright\arraybackslash}p{1.44in}}
 \toprule
 &
     {\bf RCU}：原始版 &
@@ -158,7 +158,7 @@ Tasks RCU Rude、Tasks RCU Trace和通用API的等待读者部分，
 {\bf Read-side critical section标记} &
     \tco{rcu_read_lock()}~! \tco{rcu_read_unlock()}~!  ~~~~~~~~~~~~~~~~~~
     （更多参见\cref{tab:defer:RCU Markers for Read-Side Critical Sections}。） &
-	\tco{srcu_read_lock()} \tco{srcu_read_unlock()} ~~~~~~~~~~~~
+	\tco{srcu_read_lock()} \tco{srcu_read_unlock()} ~~~~~~~~~~~~~~~~~
 	（更多参见\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}。） &
 	    非空闲任务中的自愿上下文切换。 &
 		禁用抢占的代码区域。 &
@@ -176,7 +176,7 @@ Tasks RCU Rude、Tasks RCU Trace和通用API的等待读者部分，
 		    \tco{synchronize_rcu_tasks_trace()}
 		    \tco{rcu_trace_implies_rcu_gp()} \\
 {\bf 更新侧原语（异步/callback） } &
-    \tco{call_rcu()} !
+    \tco{call_rcu()} ! ~~~~~~
     \tco{call_rcu_hurry()} &
 	\tco{call_srcu()} &
 	    \tco{call_rcu_tasks()} &

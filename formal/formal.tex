@@ -347,6 +347,8 @@ Linux 内核 v5.15 在 rcutorture 测试中添加了恶魔式 vCPU 放置，
 Linux 内核 v5.17 移除了 \co{RCU_FAST_NO_HZ} Kconfig 选项。
 Linux 内核 v6.14 将 \co{kvfree_rcu()} 移到了 SLAB 中
 （在 \path{mm/slab_common.c} 中）~\cite{20241212180208.274813-1-urezki}。
+Linux 内核 v6.19 添加了一些 SRCU 变体，并在 \co{refscale}
+测试套件中添加了若干原语。
 许多其他更改可以在 Linux 内核的 \co{git} 归档中找到。
 % rcutorture
 % v2.6.15: First torture test

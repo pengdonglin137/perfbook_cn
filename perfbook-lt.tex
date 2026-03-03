@@ -72,7 +72,10 @@
 \usepackage{tabularx}
 \usepackage[hyphens]{url}
 \usepackage{threeparttable}
-\usepackage{titlesec}[2016/03/21] % Suppress number in paragraph heading
+\usepackage[pagestyles]{titlesec}[2016/03/21] % Suppress number in paragraph heading
+% custom pagestyle for section-less appendix
+\newpagestyle{sectionless}{\sethead*{\chaptertitle}{}{\thepage}}
+\newcommand{\sectionlesspagestyle}{\pagestyle{sectionless}}
 \usepackage{fmtcount}
 \usepackage{draftwatermark}[2015/02/19]
 \SetWatermarkAngle{0.0}
@@ -174,9 +177,9 @@
 
 % Tweak width params of TOC
 \makeatletter
-\IfEbookSize{ % for ebook size build (more than 1000 pages)
+\IfTwoColumn{}{ % for ebook-size and 1c builds (more than 1000 pages)
 \renewcommand*\@pnumwidth{2.2em}
-}{}
+}
 % default params defined in book.sty:
 %  width of chapter (two digits):			1.5em
 %  indent of section:					1.5em
@@ -198,6 +201,7 @@
 
 \IfEbookSize{
 \usepackage[section]{placeins}
+\renewcommand{\sectionlesspagestyle}{} % ebook size's header is empty
 }{
 \usepackage{placeins}
 }
@@ -663,21 +667,17 @@
 \newenvironment{fcvref}[1][]{\renewcommand{\lnrefbase}{#1}%
 \ignorespaces}{\ignorespacesafterend}
 
+\IfTwoColumn{\newgeometry{body={4.75in,8.25in},centering=true,onecolumn}}{}
+
 \frontmatter
 
 \IfEbookSize{\hypersetup{pageanchor=false}}{}
 \maketitle
 \IfEbookSize{\hypersetup{pageanchor=true}}{}
 
-\IfTwoColumn{
-  \onecolumn\begin{adjustwidth*}{.95in}{.8in}
-  \addtolength{\parindent}{6pt}
-}{}
 \input{legal}
 \tableofcontents
-\IfTwoColumn{
-  \end{adjustwidth*}\twocolumn
-}{}
+\IfTwoColumn{\restoregeometry}{}
 
 \mainmatter
 
@@ -709,27 +709,28 @@
 % Glossary
 %% Reset footnote count
 \setcounter{footnote}{0}
+\begingroup
+\sectionlesspagestyle
 \input{glossary.tex}
+\clearpage
+\endgroup
 
 % Bibliograpy
-\IfTwoColumn{
-  \onecolumn\begin{adjustwidth*}{.8in}{.7in}
-  %\bibliographystyle{alpha}   % Use genuine alpha style (In case of build failure, use this instead)
-  \bibliographystyle{alphapf} % Use alpha style customized by urlbst with --inlinelinks option
+%\bibliographystyle{alpha}   % Use genuine alpha style (In case of build failure, use this instead)
+\bibliographystyle{alphapf} % Use alpha style customized by urlbst with --inlinelinks option
+\IfEbookSize{
+  % no geometry change for bibliography pages
 }{
-  \bibliographystyle{alphapf} % Use alpha style customized by urlbst with --inlinelinks option
+  % slightly wider than textwidth of -1c builds
+  \newgeometry{body={5.2in,8.25in},centering=true,onecolumn}
 }
+\begingroup
 \IfColorLinks{}{
   \hypersetup{pdfborder=0 0 1,urlbordercolor=0 0 0,pdfborderstyle=/S/U/W .2}
 }
 \bibliography{bib/RCU,bib/WFS,bib/hw,bib/os,bib/parallelsys,bib/patterns,bib/perfmeas,bib/refs,bib/syncrefs,bib/search,bib/swtools,bib/realtime,bib/TM,bib/standards,bib/OSS,bib/maze,bib/energy,bib/QC,bib/NP,bib/memorymodel}
-\IfColorLinks{}{
-  \hypersetup{pdfborder=0 0 0}
-}
-\IfTwoColumn{
-  \end{adjustwidth*}\twocolumn
-}{
-}
+\endgroup
+\IfEbookSize{}{\restoregeometry}
 
 % Credits
 \setcounter{secnumdepth}{-1} % surpress section numbering in backmatter
