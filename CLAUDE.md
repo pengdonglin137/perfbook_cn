@@ -115,3 +115,97 @@ Patches require a `Signed-off-by:` line (Developer Certificate of Origin). Discu
 - Use `\cref`/`\Cref` (cleveref) for cross-references
 - Three index categories: general terms, people (with `\IX{}`), and APIs with markers like `(c)` for C standard, `(k)` for Linux kernel
 - Templates for figures and code listings are in `.Templates/`
+
+## Chinese Translation (zh-cn branch)
+
+### Branch Strategy
+
+```
+master          ← upstream English updates
+  └── zh-cn     ← Chinese translation (this branch)
+```
+
+- **master**: Tracks the original English content. Pull upstream updates here.
+- **zh-cn**: Contains the Chinese translation. Based on master.
+
+### Update Workflow
+
+When the English source is updated:
+
+```bash
+# 1. Switch to master and pull upstream changes
+git checkout master
+git pull origin master
+
+# 2. Switch to zh-cn and merge English updates
+git checkout zh-cn
+git merge master
+
+# 3. Resolve conflicts — these are the parts that need translation updates
+#    Only the changed English paragraphs need re-translation
+
+# 4. Build and verify
+make 1c
+
+# 5. Commit the merge + translation updates
+git commit
+```
+
+The merge conflicts will pinpoint exactly which content changed and needs translation adjustment.
+
+### Translation Conventions
+
+**Infrastructure** (in `perfbook-lt.tex`):
+- LaTeX engine: xelatex (not pdflatex)
+- Font packages: fontspec + xeCJK + ctex
+- CJK fonts: Noto Serif/Sans CJK SC
+- Build: `make 1c` produces Chinese PDF
+
+**What to translate:**
+- All prose paragraphs, epigraphs, Quick Quiz Q&A
+- Section/subsection/subsubsection titles (keep `\label` values in English)
+- Figure/table/listing captions
+- Glossary definitions
+
+**What to keep in English:**
+- All `\label{}` values (internal cross-reference identifiers)
+- Code listings (VerbatimN, VerbatimL, VerbatimU, snippet content)
+- `\co{...}` inline code references
+- Person names (`\ppl{}{}`, `\pplsur{}{}`)
+- URLs, `\path{}`, `\cite{}` references
+- Index entries (`\IX{}`, `\IXr{}`, `\api{}`, etc.)
+- Figures/images text (not translated)
+
+**Technical term translation table:**
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Deadlock | 死锁 | |
+| Livelock | 活锁 | |
+| Starvation | 饥饿 | |
+| Lock / Locking | 锁 / 加锁 | |
+| Exclusive Lock | 互斥锁 | |
+| Reader-Writer Lock | 读写锁 | |
+| Memory Barrier | 内存屏障 | |
+| Cache Miss | 缓存未命中 | |
+| Hash Table | 哈希表 | |
+| Hazard Pointer | 风险指针 | |
+| Sequence Lock | 顺序锁 | |
+| Heisenbug | 海森bug | 音译+保留bug |
+| Mandelbrot Set | 曼德博集合 | |
+| Functional Programming | 函数式编程 | |
+| Reference Counting | 引用计数 | |
+| Data Race | 数据竞争 | |
+| Atomic Operations | 原子操作 | |
+| Statistical Counter | 统计计数器 | |
+| Limit Counter | 限值计数器 | |
+| Quick Quiz | 快速测验 | |
+| RCU | RCU | Keep English |
+| grace period | grace period | Keep English |
+| cache line | cache line | Keep English |
+| thread | thread | Keep in most contexts |
+
+**Translation method for large files:**
+- Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph
+- Read 200-300 lines at a time, Edit each prose paragraph
+- This avoids timeout issues with large files
