@@ -2,196 +2,167 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Design Criteria}
+\section{设计准则}
 \label{sec:SMPdesign:Design Criteria}
 %
-\epigraph{One pound of learning requires ten pounds of commonsense to apply it.}
-	 {Persian proverb}
+\epigraph{一磅的学问需要十磅的常识来运用。}
+	 {波斯谚语}
 
-One way to obtain the best performance and scalability is to simply
-hack away until you converge on the best possible parallel program.
-Unfortunately, if your program is other than microscopically tiny,
-the space of possible parallel programs is so huge
-that convergence is not guaranteed in the lifetime of the universe.
-Besides, what exactly is the ``best possible parallel program''?
-After all, \cref{sec:intro:Parallel Programming Goals}
-called out no fewer than three parallel-programming goals of
-\IX{performance}, \IX{productivity}, and \IX{generality},
-and the best possible performance will likely come at a cost in
-terms of productivity and generality.
-We clearly need to be able to make higher-level choices at design
-time in order to arrive at an acceptably good parallel program
-before that program becomes obsolete.
+获得最佳性能和可扩展性的一种方法是不断地调试，
+直到收敛到最佳的并行程序。
+不幸的是，如果你的程序不是微不足道地小，
+可能的并行程序空间是如此巨大，
+以至于在宇宙的生命周期内不能保证收敛。
+而且，"最佳的并行程序"到底是什么？
+毕竟，\cref{sec:intro:Parallel Programming Goals}
+列出了不少于三个并行编程目标：
+\IX{performance}、\IX{productivity}和\IX{generality}，
+而最佳性能很可能会以牺牲生产力和通用性为代价。
+我们显然需要能够在设计阶段做出更高层次的选择，
+以便在程序过时之前得到一个可以接受的良好并行程序。
 
-However, more detailed design criteria are required to
-actually produce a real-world design, a task taken up in this section.
-This being the real world, these criteria often conflict to a
-greater or lesser degree, requiring that the designer carefully
-balance the resulting tradeoffs.
+然而，要实际产生一个真实世界的设计，需要更详细的设计准则，
+这是本节要承担的任务。
+既然这是真实世界，这些准则往往在或大或小的程度上相互冲突，
+要求设计者仔细平衡由此产生的权衡取舍。
 
-As such, these criteria may be thought of as the ``forces''
-acting on the design, with particularly good tradeoffs between
-these forces being called ``design patterns''~\cite{Alexander79,GOF95}.
+因此，这些准则可以被视为作用于设计上的"力"，
+而这些力之间特别好的权衡取舍被称为"设计模式"~\cite{Alexander79,GOF95}。
 
-The design criteria for attaining the three parallel-programming goals
-are speedup,
-contention, overhead, read-to-write ratio, and complexity:
+达到三个并行编程目标的设计准则是加速比、
+竞争、开销、读写比和复杂性：
 \begin{description}
-\item[Speedup:]  As noted in
-	\cref{sec:intro:Parallel Programming Goals},
-	increased performance is the major reason
-	to go to all of the time and trouble
-	required to parallelize it.
-	Speedup is defined to be the ratio of the time required
-	to run a sequential version of the program to the time
-	required to run a parallel version.
-\item[Contention:]  If more CPUs are applied to a parallel
-	program than can be kept busy by that program,
-	the excess CPUs are prevented from doing
-	useful work by contention.
-	This may be \IX{lock contention}, memory contention, or a host
-	of other performance killers.
-\item[Work-to-Synchronization Ratio:]  A uniprocessor,
-	single\-/threaded, non-preemptible, and non\-/interruptible\footnote{
-		Either by masking interrupts or by being oblivious to them.}
-	version of a given parallel
-	program would not need any synchronization primitives.
-	Therefore, any time consumed by these primitives
-	(including communication cache misses as well as
-	\IXh{message}{latency}, locking primitives, atomic instructions,
-	and \IXpl{memory barrier})
-	is overhead that does not contribute directly to the useful
-	work that the program is intended to accomplish.
-	Note that the important measure is the
-	relationship between the synchronization overhead
-	and the overhead of the code in the \IX{critical section}, with larger
-	critical sections able to tolerate greater synchronization overhead.
-	The work-to-synchronization ratio is related to
-	the notion of synchronization efficiency.
-\item[Read-to-Write Ratio:]  A data structure that is
-	rarely updated may often be replicated rather than partitioned,
-	and furthermore may be protected with asymmetric
-	synchronization primitives that reduce readers' synchronization
-	overhead at the expense of that of writers, thereby
-	reducing overall synchronization overhead.
-	Corresponding optimizations are possible for frequently
-	updated data structures, as discussed in
-	\cref{chp:Counting}.
-\item[Complexity:]  A parallel program is more complex than
-	an equivalent sequential program because the parallel program
-	has a much larger state space than does the sequential program,
-	although large state spaces having regular structures can in
-	some cases be easily understood.
-	A parallel programmer must
-	consider synchronization primitives, messaging, locking design,
-	critical-section identification,
-	and deadlock in the context of this larger state space.
+\item[加速比：]  如\cref{sec:intro:Parallel Programming Goals}所述，
+	提高性能是花费所有时间和精力
+	进行并行化的主要原因。
+	加速比定义为运行程序顺序版本所需时间
+	与运行并行版本所需时间之比。
+\item[竞争：]  如果应用于并行程序的CPU数量超过了
+	该程序能让其保持忙碌的数量，
+	多余的CPU会因竞争而无法做有用的工作。
+	这可能是\IX{lock contention}、内存竞争，或者
+	其他一系列性能杀手。
+\item[工作与同步比：]  一个单处理器、
+	单\-/线程、不可抢占、且不可\-/中断\footnote{
+		要么通过屏蔽中断，要么通过忽略中断。}
+	版本的给定并行程序不需要任何同步原语。
+	因此，这些原语消耗的任何时间
+	（包括通信cache miss以及
+	\IXh{message}{latency}、锁原语、原子指令
+	和\IXpl{memory barrier}）
+	都是不直接贡献于程序预期完成的有用工作的开销。
+	注意，重要的度量是同步开销
+	与\IX{critical section}中代码开销之间的关系，
+	较大的临界区能够容忍更大的同步开销。
+	工作与同步比与同步效率的概念相关。
+\item[读写比：]  一个很少更新的数据结构
+	通常可以被复制而不是分区，
+	而且可以用非对称同步原语来保护，
+	以牺牲写者的同步开销为代价降低读者的同步开销，
+	从而降低总体同步开销。
+	对于频繁更新的数据结构也可以进行相应的优化，
+	如\cref{chp:Counting}中所讨论的。
+\item[复杂性：]  并行程序比等价的顺序程序更复杂，
+	因为并行程序的状态空间比顺序程序大得多，
+	尽管具有规则结构的大状态空间在某些情况下
+	可以容易地被理解。
+	并行程序员必须在这个更大的状态空间的上下文中
+	考虑同步原语、消息传递、锁设计、
+	临界区识别和死锁。
 
-	This greater complexity often translates
-	to higher development and maintenance costs.
-	Therefore, budgetary constraints can
-	limit the number and types of modifications made to
-	an existing program, since a given degree of speedup is
-	worth only so much time and trouble.
-	Worse yet, added complexity can actually \emph{reduce}
-	performance and scalability.
+	这种更大的复杂性通常转化为
+	更高的开发和维护成本。
+	因此，预算约束可以限制对现有程序所做的
+	修改的数量和类型，因为给定程度的加速比
+	只值得花费一定的时间和精力。
+	更糟糕的是，增加的复杂性实际上可能\emph{降低}
+	性能和可扩展性。
 
-	Therefore, beyond a certain point,
-	there may be potential sequential optimizations
-	that are cheaper and more effective than parallelization.
-	As noted in
-	\cref{sec:intro:Performance},
-	parallelization is but one performance optimization of
-	many, and is furthermore an optimization that applies
-	most readily to CPU-based bottlenecks.
+	因此，超过某一点后，
+	可能存在比并行化更廉价、更有效的
+	潜在顺序优化。
+	如\cref{sec:intro:Performance}所述，
+	并行化只是众多性能优化之一，
+	而且它最适用于CPU瓶颈。
 \end{description}
-These criteria will act together to enforce a maximum speedup.
-The first three criteria are deeply interrelated, so
-the remainder of this section analyzes these
-interrelationships.\footnote{
-	A real-world parallel system will be subject to many additional
-	design criteria, such as data-structure layout,
-	memory size, memory-hierarchy latencies, bandwidth limitations,
-	and I/O issues.}
+这些准则将共同作用以强制限定最大加速比。
+前三个准则是深度相关的，因此
+本节的其余部分分析这些
+相互关系。\footnote{
+	一个真实世界的并行系统将受到许多额外的设计准则的约束，
+	如数据结构布局、内存大小、内存层次延迟、
+	带宽限制和I/O问题。}
 
-Note that these criteria may also appear as part of the requirements
-specification, and further that they are one solution to the problem
-of summarizing the quality of a concurrent algorithm from
-\cpageref{sec:SMPdesign:Problems Quality Assessment}.
-For example, speedup may act as a relative desideratum
-(``the faster, the better'')
-or as an absolute requirement of the workload (``the system
-must support at least 1,000,000 web hits per second'').
-Classic design pattern languages describe relative desiderata as forces
-and absolute requirements as context.
+注意，这些准则也可能作为需求规格说明的一部分出现，
+此外它们是从\cpageref{sec:SMPdesign:Problems Quality Assessment}
+总结并发算法质量这一问题的一个解决方案。
+例如，加速比可以作为相对期望目标
+（"越快越好"）
+或作为工作负载的绝对要求（"系统
+必须支持每秒至少1,000,000次web访问"）。
+经典设计模式语言将相对期望目标描述为力，
+将绝对要求描述为上下文。
 
-An understanding of the relationships between these design criteria can
-be very helpful when identifying appropriate design tradeoffs for a
-parallel program.
+理解这些设计准则之间的关系对于
+识别并行程序的适当设计权衡取舍非常有帮助。
 \begin{enumerate}
-\item	The less time a program spends in exclusive-lock critical sections,
-	the greater the potential speedup.
-	This is a consequence of \IXr{Amdahl's Law}~\cite{GeneAmdahl1967AmdahlsLaw}
-	because only one CPU may execute within a given
-	exclusive-lock critical section at a given time.
+\item	程序花在独占锁临界区中的时间越少，
+	潜在的加速比就越大。
+	这是\IXr{Amdahl's Law}~\cite{GeneAmdahl1967AmdahlsLaw}的结果，
+	因为在给定时刻只有一个CPU可以在给定的
+	独占锁临界区内执行。
 
-	More specifically, for unbounded linear scalability, the fraction
-	of time that the program spends in a given exclusive critical
-	section must decrease as the number of CPUs increases.
-	For example, a program will not scale to 10~CPUs
-	unless it spends much less than one tenth of its time in the
-	most-restrictive exclusive-lock critical section.
-\item	Contention effects consume the excess CPU and/or
-	wallclock time when the actual speedup is less than
-	the number of available CPUs.
-	The larger the gap between the number of CPUs
-	and the actual speedup, the less efficiently the
-	CPUs will be used.
-	Similarly, the greater the desired efficiency, the smaller
-	the achievable speedup.
-\item	If the available synchronization primitives have
-	high overhead compared to the critical sections
-	that they guard, the best way to improve speedup
-	is to reduce the number of times that the primitives
-	are invoked.
-	This can be accomplished by batching critical sections,
-	using data ownership (see \cref{chp:Data Ownership}),
-	using asymmetric primitives
-	(see \cref{chp:Deferred Processing}),
-	or by using a coarse-grained design such as \IXh{code}{locking}.
-\item	If the critical sections have high overhead compared
-	to the primitives guarding them, the best way
-	to improve speedup is to increase parallelism
-	by moving to reader/writer locking, \IXh{data}{locking}, asymmetric,
-	or data ownership.
-\item	If the critical sections have high overhead compared
-	to the primitives guarding them and the data structure
-	being guarded is read much more often than modified,
-	the best way to increase parallelism is to move
-	to reader/writer locking or asymmetric primitives.
-\item	Many changes that improve SMP performance, for example,
-	reducing lock contention, also improve real-time
-	latencies~\cite{PaulMcKenney2005h}.
+	更具体地说，对于无界线性可扩展性，
+	程序花在给定独占临界区中的时间比例
+	必须随着CPU数量的增加而减少。
+	例如，除非程序花在最受限的独占锁临界区中的时间
+	远少于十分之一，否则程序不会扩展到10个~CPU。
+\item	当实际加速比小于可用CPU数量时，
+	竞争效应消耗了多余的CPU时间和/或
+	挂钟时间。
+	CPU数量与实际加速比之间的差距越大，
+	CPU的使用效率就越低。
+	类似地，期望的效率越高，
+	可实现的加速比就越小。
+\item	如果可用的同步原语相对于它们保护的临界区
+	具有较高的开销，提高加速比的最佳方法
+	是减少原语被调用的次数。
+	这可以通过批处理临界区、
+	使用数据所有权（见\cref{chp:Data Ownership}）、
+	使用非对称原语
+	（见\cref{chp:Deferred Processing}）、
+	或使用粗粒度设计如\IXh{code}{locking}来实现。
+\item	如果临界区相对于保护它们的原语具有较高的开销，
+	提高加速比的最佳方法是通过转向
+	读写锁、\IXh{data}{locking}、非对称原语
+	或数据所有权来增加并行性。
+\item	如果临界区相对于保护它们的原语具有较高的开销，
+	并且被保护的数据结构的读取频率远高于修改频率，
+	增加并行性的最佳方法是转向
+	读写锁或非对称原语。
+\item	许多提高SMP性能的改变，例如
+	减少锁竞争，也会改善实时
+	延迟~\cite{PaulMcKenney2005h}。
 \end{enumerate}
 
 \QuickQuiz{
-	Don't all these problems with critical sections mean that
-	we should just always use
-	non-blocking synchronization~\cite{MauriceHerlihy90a},
-	which don't have critical sections?
+	临界区的所有这些问题是否意味着
+	我们应该始终使用
+	非阻塞同步~\cite{MauriceHerlihy90a}，
+	因为它没有临界区？
 }\QuickQuizAnswer{
-	Although non-blocking synchronization can be very useful
-	in some situations, it is no panacea, as discussed in
-	\cref{sec:advsync:Non-Blocking Synchronization}.
-	Also, non-blocking synchronization really does have
-	critical sections, as noted by Josh Triplett.
-	For example, in a non-blocking algorithm based on
-	compare-and-swap operations, the code starting at the
-	initial load and continuing to the compare-and-swap
-	is analogous to a lock-based critical section.
+	虽然非阻塞同步在某些情况下非常有用，
+	但它不是万能药，如
+	\cref{sec:advsync:Non-Blocking Synchronization}中所讨论的。
+	而且，正如Josh Triplett所指出的，
+	非阻塞同步确实有临界区。
+	例如，在基于compare-and-swap操作的
+	非阻塞算法中，从初始加载开始到
+	compare-and-swap的代码
+	类似于基于锁的临界区。
 }\QuickQuizEnd
 
-It is worth reiterating that contention has many guises, including
-lock contention, memory contention, cache overflow, \IX{thermal throttling},
-and much else besides.
-This chapter looks primarily at lock and memory contention.
+值得重申的是，竞争有许多伪装，包括
+锁竞争、内存竞争、cache溢出、\IX{thermal throttling}
+等等。
+本章主要关注锁竞争和内存竞争。

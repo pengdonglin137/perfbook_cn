@@ -2,107 +2,77 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:app:whymb:Why Memory Barriers?}{Why Memory Barriers?}{qqzwhymb}
+\QuickQuizChapter{chp:app:whymb:Why Memory Barriers?}{为什么需要内存屏障？}{qqzwhymb}
 %
-\Epigraph{Order!
-	  Order in the court!}
+\Epigraph{肃静！
+	  法庭上肃静！}
 	 {Unknown}
 
-So what possessed CPU designers to cause them to inflict \IXBpl{memory barrier}
-on poor unsuspecting SMP software designers?
+那么是什么驱使CPU设计者将\IXBpl{memory barrier}强加给毫无戒备的SMP软件设计者呢？
 
-In short, because reordering memory references allows much better performance,
-courtesy of the finite speed of light and the non-zero size of atoms
-noted in \cref{sec:cpu:Overheads}, and particularly in the
-hardware-performance question posed by \QuickQuizRef{\QspeedOfLightAtoms}.
-Therefore, memory barriers are needed to force ordering in things like
-synchronization primitives whose correct operation depends on ordered
-memory references.
+简而言之，因为重排内存引用可以带来更好的性能，这归功于
+\cref{sec:cpu:Overheads}中提到的有限的光速和原子的非零大小，
+特别是\QuickQuizRef{\QspeedOfLightAtoms}提出的硬件性能问题。
+因此，需要内存屏障来强制对同步原语等依赖于有序内存引用才能正确操作的事物进行排序。
 
-Getting a more detailed answer to this question requires a good understanding
-of how CPU caches work, and especially what is required to make
-caches really work well.
-The following sections:
+要获得更详细的答案，需要深入了解CPU缓存的工作原理，特别是使缓存真正高效工作所需的条件。
+以下各节：
 \begin{enumerate}
-\item	Present the structure of a cache,
-\item	Describe how cache-coherency protocols ensure that CPUs agree
-	on the value of each location in memory, and, finally,
-\item	Outline how store buffers and invalidate queues help
-	caches and cache-coherency protocols achieve high performance.
+\item	介绍缓存的结构，
+\item	描述缓存一致性协议如何确保CPU对内存中每个位置的值达成一致，最后，
+\item	概述存储缓冲区和无效化队列如何帮助缓存和缓存一致性协议实现高性能。
 \end{enumerate}
-We will see that memory barriers are a necessary evil that is required
-to enable good performance and scalability, an evil that stems from
-the fact that CPUs are orders of magnitude faster than are both the
-interconnects between them and the memory they are attempting to access.
+我们将看到，内存屏障是实现良好性能和可扩展性所必需的无奈之举，这种无奈源于CPU比连接它们的互联和它们试图访问的内存快几个数量级的事实。
 
-\section{Cache Structure}
+\section{缓存结构}
 \label{sec:app:whymb:Cache Structure}
 
-Modern CPUs are much faster than are modern memory systems.
-A 2006 CPU might be capable of executing ten instructions per nanosecond,
-but will require many tens of nanoseconds to fetch a data item from
-main memory.
-This disparity in speed---more than two orders of magnitude---has
-resulted in the multi-megabyte caches found on modern CPUs.
-These caches are associated with the CPUs as shown in
-\cref{fig:app:whymb:Modern Computer System Cache Structure},
-and can typically be accessed in a few cycles.\footnote{
-	It is standard practice to use multiple levels of cache,
-	with a small level-one cache close to the CPU with
-	single-cycle access time, and a larger level-two cache
-	with a longer access time, perhaps roughly ten clock cycles.
-	Higher-performance CPUs often have three or even four levels
-	of cache.}
+现代CPU比现代内存系统快得多。
+2006年的CPU每纳秒可能能执行十条指令，但从主内存获取一个数据项将需要数十纳秒。
+这种速度差距——超过两个数量级——导致了现代CPU上数兆字节缓存的出现。
+这些缓存与CPU关联，如\cref{fig:app:whymb:Modern Computer System Cache Structure}所示，
+通常可以在几个周期内访问。\footnote{
+	使用多级缓存是标准做法，
+	靠近CPU的小型一级缓存具有单周期访问时间，
+	较大的二级缓存具有较长的访问时间，大约十个时钟周期。
+	更高性能的CPU通常有三级甚至四级缓存。}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{appendix/whymb/cacheSC}}
-\caption{Modern Computer System Cache Structure}
+\caption{现代计算机系统缓存结构}
 \label{fig:app:whymb:Modern Computer System Cache Structure}
 \end{figure}
 
-Data flows among the CPUs' caches and memory in fixed-length blocks
-called ``\IXpl{cache line}'', which are normally a power of two in size,
-ranging from 16 to 256 bytes.
-When a given data item is first accessed by a given CPU, it will
-be absent from that CPU's cache, meaning that a ``cache miss''
-(or, more specifically, a ``warm-up'' cache miss) has occurred.
-The cache miss means that the CPU will
-have to wait (or be ``stalled'') for hundreds of cycles while the
-item is fetched from memory.
-However, the item will be loaded into that CPU's cache, so that
-subsequent accesses will find it in the cache and therefore run
-at full speed.
+数据以固定长度的块在CPU缓存和内存之间流动，
+这些块被称为``\IXpl{cache line}''，通常大小为2的幂次方，
+范围从16到256字节。
+当某个数据项首次被某个CPU访问时，它不会出现在该CPU的缓存中，
+这意味着发生了``缓存未命中''（更具体地说，是``预热''缓存未命中）。
+缓存未命中意味着CPU将不得不等待（或被``阻塞''）数百个周期，
+以便从内存中获取该数据项。
+然而，该数据项将被加载到该CPU的缓存中，因此后续的访问将在缓存中找到它，
+从而以全速运行。
 
-After some time, the CPU's cache will fill, and subsequent
-misses will likely need to eject an item from the cache in order
-to make room for the newly fetched item.
-Such a cache miss is termed a ``\IXalth{capacity miss}
-{capacity}{cache miss}'', because it is caused
-by the cache's limited capacity.
-However, most caches can be forced to eject an old item to make room
-for a new item even when they are not yet full.
-This is due to the fact that large caches are implemented as hardware
-hash tables with fixed-size hash buckets (or ``sets'', as CPU designers
-call them) and no chaining, as shown in
-\cref{fig:app:whymb:CPU Cache Structure}.
+经过一段时间后，CPU的缓存将被填满，后续的未命中可能需要从缓存中逐出一个条目，
+以便为新获取的条目腾出空间。
+这种缓存未命中被称为``\IXalth{capacity miss}
+{capacity}{cache miss}''（容量未命中），因为它是由缓存容量有限造成的。
+然而，大多数缓存即使在尚未填满时也可能被迫逐出旧条目以为新条目腾出空间。
+这是因为大型缓存被实现为具有固定大小哈希桶（CPU设计者称之为``组''）
+且没有链接的硬件哈希表，如\cref{fig:app:whymb:CPU Cache Structure}所示。
 
-This cache has sixteen ``sets'' and two ``ways'' for a total of 32
-``lines'', each entry containing a single 256-byte ``cache line'',
-which is a 256-byte-aligned block of memory.
-This cache line size is a little on the large size, but makes the hexadecimal
-arithmetic much simpler.
-In hardware parlance, this is a two-way set-associative cache, and
-is analogous to a software hash table with
-sixteen buckets, where each bucket's hash chain is limited to
-at most two elements.
-The size (32 cache lines in this case) and the
-\IXalt{associativity}{cache associativity} (two in
-this case) are collectively called the cache's
-``\IXalt{geometry}{cache geometry}''.
-Since this cache is implemented in hardware, the hash function is
-extremely simple:
-Extract four bits from the memory address.
+这个缓存有16个``组''和两个``路''，共有32个``行''，
+每个条目包含一个256字节的``cache line''，即一个256字节对齐的内存块。
+这个缓存行大小略偏大，但使十六进制算术变得更简单。
+用硬件术语来说，这是一个二路组相联缓存，
+类似于一个具有16个桶的软件哈希表，
+每个桶的哈希链最多限制为两个元素。
+大小（在本例中为32个缓存行）和
+\IXalt{associativity}{cache associativity}（相联度，
+在本例中为2）统称为缓存的``\IXalt{geometry}{cache geometry}''（几何结构）。
+由于这个缓存是用硬件实现的，哈希函数极其简单：
+从内存地址中提取四个比特。
 
 \begin{figure}
 \centering
@@ -169,401 +139,309 @@ Extract four bits from the memory address.
 	\put(100,150){\framebox(80,10){\tt }}
 
 \end{picture}
-\caption{CPU Cache Structure}
+\caption{CPU缓存结构}
 \label{fig:app:whymb:CPU Cache Structure}
 \end{figure}
 
-In \cref{fig:app:whymb:CPU Cache Structure},
-each box corresponds to a cache entry, which
-can contain a 256-byte cache line.
-However, a cache entry can be empty, as indicated by the empty boxes
-in the figure.
-The rest of the boxes are flagged with the memory address of the cache line
-that they contain.
-Since the cache lines must be 256-byte aligned, the low eight bits of
-each address are
-zero, and the choice of hardware hash function means that the next-higher
-four bits match the hash line number.
+在\cref{fig:app:whymb:CPU Cache Structure}中，
+每个方框对应一个缓存条目，可以包含一个256字节的缓存行。
+然而，缓存条目可以为空，如图中的空方框所示。
+其余方框标注了它们所包含的缓存行的内存地址。
+由于缓存行必须是256字节对齐的，每个地址的低八位为零，
+而硬件哈希函数的选择意味着紧接着的高四位与哈希行号匹配。
 
-The situation depicted in the figure might arise if the program's code
-were located at address 0x43210E00 through 0x43210EFF, and this program
-accessed data sequentially from 0x12345000 through 0x12345EFF\@.
-Suppose that the program were now to access location 0x12345F00.
-This location hashes to line 0xF, and both ways of this line are
-empty, so the corresponding 256-byte line can be accommodated.
-If the program were to access location 0x1233000, which hashes to line
-0x0, the corresponding 256-byte cache line can be accommodated in
-way 1.
-However, if the program were to access location 0x1233E00, which hashes
-to line 0xE, one of the existing lines must be ejected from the cache
-to make room for the new cache line.
-If this ejected line were accessed later, a cache miss would result.
-Such a cache miss is termed an ``\IXalth{associativity miss}
-{associativity}{cache miss}''.
+图中所描绘的情况可能出现在程序代码位于地址0x43210E00到0x43210EFF，
+并且该程序按顺序访问0x12345000到0x12345EFF的数据时\@。
+假设程序现在要访问位置0x12345F00。
+该位置哈希到行0xF，而该行的两路都为空，
+因此对应的256字节行可以被容纳。
+如果程序要访问位置0x1233000（哈希到行0x0），
+对应的256字节缓存行可以被容纳在路1中。
+然而，如果程序要访问位置0x1233E00（哈希到行0xE），
+则必须从缓存中逐出一个现有行以为新缓存行腾出空间。
+如果这个被逐出的行稍后被访问，将导致缓存未命中。
+这种缓存未命中被称为``\IXalth{associativity miss}
+{associativity}{cache miss}''（相联未命中）。
 
-Thus far, we have been considering only cases where a CPU reads
-a data item.
-What happens when it does a write?
-Because it is important that all CPUs agree on the value of a given
-data item, before a given CPU writes to that data item, it must first
-cause it to be removed, or ``invalidated'', from other CPUs' caches.
-Once this \IX{invalidation} has completed, the CPU may safely modify the
-data item.
-If the data item was present in this CPU's cache, but was read-only,
-this process is termed a ``\IXalth{write miss}{write}{cache miss}''.
-Once a given CPU has completed invalidating a given data item from other
-CPUs' caches, that CPU may repeatedly write (and read) that data item.
+到目前为止，我们只考虑了CPU读取数据项的情况。
+当CPU进行写入时会发生什么？
+由于所有CPU必须就给定数据项的值达成一致，
+因此在某个CPU写入该数据项之前，它必须首先使该数据项从其他CPU的缓存中
+被移除，即``无效化''。
+一旦\IX{invalidation}（无效化）完成，CPU就可以安全地修改该数据项。
+如果该数据项存在于此CPU的缓存中但是只读的，
+这个过程被称为``\IXalth{write miss}{write}{cache miss}''（写未命中）。
+一旦某个CPU完成了将某个数据项从其他CPU缓存中无效化的操作，
+该CPU就可以反复写入（和读取）该数据项。
 
-Later, if one of the other CPUs attempts to access the data item, it
-will incur a cache miss, this time because the first CPU invalidated
-the item in order to write to it.
-This type of cache miss is termed a ``\IXalth{communication miss}
-{communication}{cache miss}'', since it
-is usually due to several CPUs using the data items to communicate
-(for example, a lock is a data item that is used to communicate among
-CPUs using a mutual-exclusion algorithm).
+之后，如果另一个CPU试图访问该数据项，它将产生缓存未命中，
+这次是因为第一个CPU为了写入而将该数据项无效化了。
+这种类型的缓存未命中被称为``\IXalth{communication miss}
+{communication}{cache miss}''（通信未命中），因为它通常是由于
+多个CPU使用数据项进行通信引起的
+（例如，锁就是一种用于CPU之间通过互斥算法进行通信的数据项）。
 
-Clearly, much care must be taken to ensure that all CPUs maintain
-a coherent view of the data.
-With all this fetching, invalidating, and writing, it is easy to
-imagine data being lost or (perhaps worse) different CPUs having
-conflicting values for the same data item in their respective
-caches.
-These problems are prevented by ``cache-coherency protocols'',
-described in the next section.
+显然，必须非常小心以确保所有CPU维持数据的一致视图。
+在所有这些获取、无效化和写入操作中，很容易想象数据会丢失，
+或者（可能更糟的是）不同的CPU在各自的缓存中对同一数据项持有冲突的值。
+这些问题通过``缓存一致性协议''来防止，将在下一节中描述。
 
-\section{Cache-Coherence Protocols}
+\section{缓存一致性协议}
 \label{sec:app:whymb:Cache-Coherence Protocols}
 
-\IXpl{Cache-coherence protocol} manage cache-line states so as to prevent
-inconsistent or lost data.
-These protocols can be quite complex, with many tens
-of states,\footnote{
-	See Culler et al.~\cite{DavidECuller1999} pages 670 and 671
-	for the nine-state and 26-state diagrams for SGI Origin2000
-	and Sequent (now IBM) NUMA-Q, respectively.
-	Both diagrams are significantly simpler than real life.}
-but for our purposes we need only concern ourselves with the
-four-state \IXaltr{MESI cache-coherence protocol}{MESI protocol}.
+\IXpl{Cache-coherence protocol}管理缓存行状态，以防止数据不一致或丢失。
+这些协议可能非常复杂，具有数十种状态，\footnote{
+	参见Culler等人~\cite{DavidECuller1999}第670和671页，
+	分别是SGI Origin2000和Sequent（现IBM）NUMA-Q的
+	九状态和26状态图。
+	两个图都比实际情况简单得多。}
+但就我们的目的而言，只需关注四状态的
+\IXaltr{MESI cache-coherence protocol}{MESI protocol}。
 
-\subsection{MESI States}
+\subsection{MESI状态}
 \label{sec:app:whymb:MESI States}
 
-MESI stands for ``modified'', ``exclusive'', ``shared'', and ``invalid'',
-the four states a given cache line can take on using this
-protocol.
-Caches using this protocol therefore maintain a two-bit state ``tag'' on each
-cache line in addition to that line's physical address and data.
+MESI代表``modified''（已修改）、``exclusive''（独占）、``shared''（共享）
+和``invalid''（无效），
+这是使用此协议时给定缓存行可以处于的四种状态。
+因此，使用此协议的缓存在每个缓存行上除了该行的物理地址和数据外，
+还维护一个两位的状态``标签''。
 % cite Schimmel's book on virtual caches.
 
-A line in the ``modified'' state has been subject to a recent memory store
-from the corresponding CPU, and the corresponding memory is guaranteed
-not to appear in any other CPU's cache.
-Cache lines in the ``modified'' state can thus be said to be ``owned''
-by the CPU\@.
-Because this cache holds the only up-to-date copy of the data, this
-cache is ultimately responsible for either writing it back to memory
-or handing it off to some other cache, and must do so before reusing
-this line to hold other data.
+处于``modified''状态的行最近被相应CPU进行了内存存储操作，
+并且保证对应的内存不会出现在任何其他CPU的缓存中。
+因此，处于``modified''状态的缓存行可以说被该CPU``拥有''。\@
+由于此缓存持有数据的唯一最新副本，
+该缓存最终负责将其写回内存或转交给其他缓存，
+并且必须在重新使用该行来存放其他数据之前完成此操作。
 
-The ``exclusive'' state is very similar to the ``modified'' state,
-the single exception being that the cache line has not yet been
-modified by the corresponding CPU, which in turn means that the
-copy of the cache line's data that resides in memory is up-to-date.
-However, since the CPU can store to this line at any time, without
-consulting other CPUs, a line in the ``exclusive'' state can still
-be said to be owned by the corresponding CPU\@.
-That said, because the corresponding value in memory is up to date,
-this cache can discard this data without writing it back to memory
-or handing it off to some other CPU\@.
+``exclusive''状态与``modified''状态非常相似，
+唯一的区别是缓存行尚未被相应CPU修改，
+这意味着驻留在内存中的缓存行数据副本是最新的。
+然而，由于CPU可以随时向该行存储数据而无需咨询其他CPU，
+处于``exclusive''状态的行仍然可以说被相应CPU拥有\@。
+也就是说，因为内存中对应的值是最新的，
+此缓存可以丢弃这些数据而无需将其写回内存或转交给其他CPU\@。
 
-A line in the ``shared'' state might be replicated in at least
-one other CPU's cache, so that this CPU is not permitted to store
-to the line without first consulting with other CPUs.
-As with the ``exclusive'' state, because the corresponding value
-in memory is up to date,
-this cache can discard this data without writing it back to memory
-or handing it off to some other CPU\@.
+处于``shared''状态的行可能被复制在至少一个其他CPU的缓存中，
+因此该CPU不允许在未先咨询其他CPU的情况下向该行存储数据。
+与``exclusive''状态一样，因为内存中对应的值是最新的，
+此缓存可以丢弃这些数据而无需将其写回内存或转交给其他CPU\@。
 
-A line in the ``invalid'' state is empty, in other words, it holds
-no data.
-When new data enters the cache, it is placed into a
-cache line that was in the ``invalid'' state if possible.
-This approach is preferred because replacing a line in any other
-state could result in an expensive cache miss should the replaced
-line be referenced in the future.
+处于``invalid''状态的行是空的，换句话说，它不持有任何数据。
+当新数据进入缓存时，如果可能的话，它会被放置到处于``invalid''状态的缓存行中。
+这种方法更优，因为替换任何其他状态的行
+可能会在将来引用被替换的行时导致代价高昂的缓存未命中。
 
-Since all CPUs must maintain a coherent view of the data carried in
-the cache lines, the cache-coherence protocol provides messages
-that coordinate the movement of cache lines through the system.
+由于所有CPU都必须维持缓存行中数据的一致视图，
+缓存一致性协议提供了协调缓存行在系统中移动的消息。
 
-\subsection{MESI Protocol Messages}
+\subsection{MESI协议消息}
 \label{sec:app:whymb:MESI Protocol Messages}
 
-Many of the transitions described in the previous section require
-communication among the CPUs.
-If the CPUs are on a single shared bus, the following messages suffice:
+前一节中描述的许多转换需要CPU之间进行通信。
+如果CPU在单一共享总线上，以下消息就足够了：
 \begin{description}[style=nextline]
-\item	[Read:]
-	The ``read'' message contains the physical address of the cache line
-	to be read.
-\item	[Read Response:]
-	The ``read response'' message contains the data requested by an
-	earlier ``read'' message.
-	This ``read response'' message might be supplied either by
-	memory or by one of the other caches.
-	For example, if one of the caches has the desired data in
-	``modified'' state, that cache must supply the ``read response''
-	message.
-\item	[Invalidate:]
-	The ``invalidate'' message contains the physical address of the
-	cache line to be invalidated.
-	All other caches must remove the corresponding data from their
-	caches and respond.
-\item	[Invalidate Acknowledge:]
-	A CPU receiving an ``invalidate'' message must respond with an
-	``invalidate acknowledge'' message after removing the specified
-	data from its cache.
-\item	[Read Invalidate:]
-	The ``read invalidate'' message contains the physical address
-	of the cache line to be read, while at the same time directing
-	other caches to remove the data.
-	Hence, it is a combination of a ``read'' and an ``invalidate'',
-	as indicated by its name.
-	A ``read invalidate'' message requires both a ``read response''
-	and a set of ``invalidate acknowledge'' messages in reply.
-\item	[Writeback:]
-	The ``writeback'' message contains both the address and the
-	data to be written back to memory (and perhaps ``snooped''
-	into other CPUs' caches along the way).
-	This message permits caches to eject lines in the ``modified''
-	state as needed to make room for other data.
+\item	[Read（读取）:]
+	``read''消息包含要读取的缓存行的物理地址。
+\item	[Read Response（读取响应）:]
+	``read response''消息包含由早先的``read''消息请求的数据。
+	此``read response''消息可能由内存或其他缓存之一提供。
+	例如，如果其中一个缓存拥有所需的处于``modified''状态的数据，
+	该缓存必须提供``read response''消息。
+\item	[Invalidate（无效化）:]
+	``invalidate''消息包含要无效化的缓存行的物理地址。
+	所有其他缓存必须从其缓存中移除相应数据并进行响应。
+\item	[Invalidate Acknowledge（无效化确认）:]
+	接收到``invalidate''消息的CPU必须在从其缓存中移除指定数据后，
+	以``invalidate acknowledge''消息进行响应。
+\item	[Read Invalidate（读取无效化）:]
+	``read invalidate''消息包含要读取的缓存行的物理地址，
+	同时指示其他缓存移除该数据。
+	因此，它是``read''和``invalidate''的组合，
+	正如其名称所示。
+	``read invalidate''消息需要``read response''和
+	一组``invalidate acknowledge''消息作为回复。
+\item	[Writeback（写回）:]
+	``writeback''消息包含要写回内存的地址和数据
+	（并且可能沿途``窥探''到其他CPU的缓存中）。
+	此消息允许缓存根据需要逐出处于``modified''状态的行，
+	以便为其他数据腾出空间。
 \end{description}
 
 \QuickQuiz{
-	Where does a writeback message originate from and where does
-	it go to?
+	写回消息从哪里发出，又发送到哪里？
 }\QuickQuizAnswer{
-	The writeback message originates from a given CPU, or in some
-	designs from a given level of a given CPU's cache---or even
-	from a cache that might be shared among several CPUs.
-	The key point is that a given cache does not have room for
-	a given data item, so some other piece of data must be ejected
-	from the cache to make room.
-	If there is some other piece of data that is duplicated in some
-	other cache or in memory, then that piece of data may be simply
-	discarded, with no writeback message required.
+	写回消息来自某个CPU，或者在某些设计中来自某个CPU缓存的某一级——
+	甚至来自可能在多个CPU之间共享的缓存。
+	关键点在于给定缓存没有空间容纳给定数据项，
+	因此必须从缓存中逐出其他数据以腾出空间。
+	如果有其他数据在某个其他缓存或内存中有副本，
+	那么该数据可以直接丢弃，不需要写回消息。
 
-	On the other hand, if every piece of data that might be ejected
-	has been modified so that the only up-to-date copy is in this
-	cache, then one of those data items must be copied somewhere
-	else.
-	This copy operation is undertaken using a ``writeback message''.
+	另一方面，如果可能被逐出的每条数据都已被修改，
+	使得唯一的最新副本在此缓存中，
+	那么其中一个数据项必须被复制到其他地方。
+	这个复制操作使用``写回消息''来完成。
 
-	The destination of the writeback message has to be something
-	that is able to store the new value.
-	This might be main memory, but it also might be some other cache.
-	If it is a cache, it is normally a higher-level cache for the
-	same CPU, for example, a level-1 cache might write back to a
-	level-2 cache.
-	However, some hardware designs permit cross-CPU writebacks,
-	so that CPU~0's cache might send a writeback message to CPU~1.
-	This would normally be done if CPU~1 had somehow indicated
-	an interest in the data, for example, by having recently
-	issued a read request.
+	写回消息的目的地必须是能够存储新值的设备。
+	这可能是主内存，也可能是某个其他缓存。
+	如果是缓存，通常是同一CPU的更高级别缓存，
+	例如，一级缓存可能写回到二级缓存。
+	然而，某些硬件设计允许跨CPU写回，
+	使得CPU~0的缓存可能向CPU~1发送写回消息。
+	这通常在CPU~1以某种方式表示对数据感兴趣时完成，
+	例如，最近发出了读请求。
 
-	In short, a writeback message is sent from some part of the
-	system that is short of space, and is received by some other
-	part of the system that can accommodate the data.
+	简而言之，写回消息从系统中空间不足的部分发出，
+	由系统中能够容纳数据的其他部分接收。
 }\QuickQuizEnd
 
-Interestingly enough, a shared-memory multiprocessor system really
-is a message-passing computer under the covers.
-This means that clusters of SMP machines that use distributed shared memory
-are using message passing to implement shared memory at two different
-levels of the system architecture.
+有趣的是，共享内存多处理器系统在底层实际上是一台消息传递计算机。
+这意味着使用分布式共享内存的SMP机器集群
+在系统架构的两个不同层次上使用消息传递来实现共享内存。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What happens if two CPUs attempt to invalidate the
-	same cache line concurrently?
+	如果两个CPU同时试图无效化同一缓存行，会发生什么？
 }\QuickQuizAnswerB{
-	One of the CPUs gains access to the shared bus first,
-	and that CPU ``wins''.
-	The other CPU must invalidate its copy of the cache line and
-	transmit an ``invalidate acknowledge'' message to the other CPU\@.
+	其中一个CPU首先获得对共享总线的访问权，该CPU``获胜''。
+	另一个CPU必须无效化其缓存行副本，
+	并向另一个CPU发送``invalidate acknowledge''消息\@。
 
-	Of course, the losing CPU can be expected to immediately issue a
-	``read invalidate'' transaction, so the winning CPU's victory will
-	be quite ephemeral.
+	当然，失败的CPU可以预期会立即发出一个``read invalidate''事务，
+	因此获胜CPU的胜利将相当短暂。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	When an ``invalidate'' message appears in a large multiprocessor,
-	every CPU must give an ``invalidate acknowledge'' response.
-	Wouldn't the resulting ``storm'' of ``invalidate acknowledge''
-	responses totally saturate the system bus?
+	当``invalidate''消息出现在大型多处理器中时，
+	每个CPU都必须给出``invalidate acknowledge''响应。
+	由此产生的``invalidate acknowledge''响应``风暴''
+	难道不会完全使系统总线饱和吗？
 }\QuickQuizAnswerM{
-	It might, if large-scale multiprocessors were in fact implemented
-	that way.
-	Larger multiprocessors, particularly NUMA machines,
-	tend to use so-called ``directory-based'' cache-coherence
-	protocols to avoid this and other problems.
+	如果大规模多处理器确实以这种方式实现的话，可能会如此。
+	较大的多处理器，特别是NUMA机器，
+	倾向于使用所谓的``基于目录的''缓存一致性协议来避免这个和其他问题。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	If SMP machines are really using message passing
-	anyway, why bother with SMP at all?
+	如果SMP机器无论如何都在使用消息传递，
+	为什么还要使用SMP呢？
 }\QuickQuizAnswerE{
-	There has been quite a bit of controversy on this topic over
-	the past few decades.
-	One answer is that the cache-coherence
-	protocols are quite simple, and therefore can be implemented
-	directly in hardware, gaining bandwidths and latencies
-	unattainable by software message passing.
-	Another answer is that
-	the real truth is to be found in economics due to the relative
-	prices of large SMP machines and that of clusters of smaller
-	SMP machines.
-	A third answer is that the SMP programming model is easier to
-	use than that of distributed systems, but a rebuttal might note
-	the appearance of HPC clusters and MPI\@.
-	And so the argument continues.
+	在过去几十年里，关于这个话题一直存在相当多的争议。
+	一种回答是缓存一致性协议相当简单，
+	因此可以直接在硬件中实现，获得软件消息传递无法达到的带宽和延迟。
+	另一种回答是，
+	真正的答案在于经济因素，涉及大型SMP机器与较小SMP机器集群的相对价格。
+	第三种回答是SMP编程模型比分布式系统更容易使用，
+	但反驳者可能会指出HPC集群和MPI的出现\@。
+	因此争论仍在继续。
 }\QuickQuizEndE
 }
 
-\subsection{MESI State Diagram}
+\subsection{MESI状态图}
 \label{sec:app:whymb:MESI State Diagram}
 
-A given cache line's state changes
-as protocol messages are sent and received, as
-shown in \cref{fig:app:whymb:MESI Cache-Coherency State Diagram}.
+给定缓存行的状态随着协议消息的发送和接收而改变，
+如\cref{fig:app:whymb:MESI Cache-Coherency State Diagram}所示。
 
 \begin{figure}
 \centering
 % \resizebox{3in}{!}{\includegraphics{appendix/whymb/MESI}}
 \includegraphics{appendix/whymb/MESI}
-\caption{MESI Cache-Coherency State Diagram}
+\caption{MESI缓存一致性状态图}
 \label{fig:app:whymb:MESI Cache-Coherency State Diagram}
 \end{figure}
 
-The transition arcs in this figure are as follows:
+此图中的转换弧线如下：
 \begin{description}[style=nextline]
-\item	[Transition (a):]
-	A cache line is written back to memory, but the CPU retains
-	it in its cache and further retains the right to modify it.
-	This transition requires a ``writeback'' message.
-\item	[Transition (b):]
-	The CPU writes to the cache line that it already had exclusive
-	access to.
-	This transition does not require any messages to be sent or
-	received.
-\item	[Transition (c):]
-	The CPU receives a ``read invalidate'' message for a cache line
-	that it has modified.
-	The CPU must invalidate its local copy, then respond with both a
-	``read response'' and an ``invalidate acknowledge'' message,
-	both sending the data to the requesting CPU and indicating
-	that it no longer has a local copy.
-\item	[Transition (d):]
-	The CPU does an \IX{atomic read-modify-write operation} on a data item
-	that was not present in its cache.
-	It transmits a ``read invalidate'', receiving the data via
-	a ``read response''.
-	The CPU can complete the transition once it has also received a
-	full set of ``invalidate acknowledge'' responses.
-\item	[Transition (e):]
-	The CPU does an atomic read-modify-write operation on a data item
-	that was previously read-only in its cache.
-	It must transmit ``invalidate'' messages, and must wait for a
-	full set of ``invalidate acknowledge'' responses before completing
-	the transition.
-\item	[Transition (f):]
-	Some other CPU reads the cache line, and it is supplied from
-	this CPU's cache, which retains a read-only copy, possibly also
-	writing it back to memory.
-	This transition is initiated by the reception of a ``read''
-	message, and this CPU responds with a ``read response'' message
-	containing the requested data.
-\item	[Transition (g):]
-	Some other CPU reads a data item in this cache line,
-	and it is supplied either from this CPU's cache or from memory.
-	In either case, this CPU retains a read-only copy.
-	This transition is initiated by the reception of a ``read''
-	message, and this CPU responds with a ``read response'' message
-	containing the requested data.
-\item	[Transition (h):]
-	This CPU realizes that it will soon need to write to some data
-	item in this cache line, and thus transmits an ``invalidate'' message.
-	The CPU cannot complete the transition until it receives a full
-	set of ``invalidate acknowledge'' responses, indicating that
-	no other CPU has this cacheline in its cache.
-	In other words, this CPU is the only CPU caching it.
-\item	[Transition (i):]
-	Some other CPU does an atomic read-modify-write operation on
-	a data item in a cache line held only in this CPU's cache,
-	so this CPU invalidates it from its cache.
-	This transition is initiated by the reception of a ``read invalidate''
-	message, and this CPU responds with both a ``read response''
-	and an ``invalidate acknowledge'' message.
-\item	[Transition (j):]
-	This CPU does a store to a data item in a cache line that was not
-	in its cache, and thus transmits a ``read invalidate'' message.
-	The CPU cannot complete the transition until it receives the
-	``read response'' and a full set of ``invalidate acknowledge''
-	messages.
-	The cache line will presumably transition to ``modified'' state via
-	transition (b) as soon as the actual store completes.
-\item	[Transition (k):]
-	This CPU loads a data item in a cache line that was not
-	in its cache.
-	The CPU transmits a ``read'' message, and completes the
-	transition upon receiving the corresponding ``read response''.
-\item	[Transition (l):]
-	Some other CPU does a store to
-	a data item in this cache line, but holds this cache line in read-only
-	state due to its being held in other CPUs' caches (such as the
-	current CPU's cache).
-	This transition is initiated by the reception of an ``invalidate''
-	message, and this CPU responds with
-	an ``invalidate acknowledge'' message.
+\item	[转换 (a):]
+	缓存行被写回内存，但CPU将其保留在缓存中，
+	并进一步保留修改它的权利。
+	此转换需要一个``writeback''消息。
+\item	[转换 (b):]
+	CPU写入它已经拥有独占访问权的缓存行。
+	此转换不需要发送或接收任何消息。
+\item	[转换 (c):]
+	CPU接收到针对其已修改的缓存行的``read invalidate''消息。
+	CPU必须无效化其本地副本，然后以``read response''和
+	``invalidate acknowledge''消息进行响应，
+	将数据发送给请求CPU并表明它不再拥有本地副本。
+\item	[转换 (d):]
+	CPU对不在其缓存中的数据项执行\IX{atomic read-modify-write operation}（原子读-修改-写操作）。
+	它发送一个``read invalidate''，通过``read response''接收数据。
+	CPU在收到全部``invalidate acknowledge''响应后才能完成转换。
+\item	[转换 (e):]
+	CPU对之前在其缓存中为只读的数据项执行原子读-修改-写操作。
+	它必须发送``invalidate''消息，
+	并且必须等待收到全部``invalidate acknowledge''响应后才能完成转换。
+\item	[转换 (f):]
+	其他某个CPU读取缓存行，数据从此CPU的缓存提供，
+	此CPU保留一个只读副本，可能还会将其写回内存。
+	此转换由接收到``read''消息发起，
+	此CPU以包含所请求数据的``read response''消息进行响应。
+\item	[转换 (g):]
+	其他某个CPU读取此缓存行中的数据项，
+	数据从此CPU的缓存或从内存提供。
+	无论哪种情况，此CPU都保留一个只读副本。
+	此转换由接收到``read''消息发起，
+	此CPU以包含所请求数据的``read response''消息进行响应。
+\item	[转换 (h):]
+	此CPU意识到它很快需要写入此缓存行中的某个数据项，
+	因此发送一个``invalidate''消息。
+	CPU在收到全部``invalidate acknowledge''响应（表明没有其他CPU
+	在其缓存中拥有此缓存行）之前无法完成转换。
+	换句话说，此CPU是唯一缓存它的CPU。
+\item	[转换 (i):]
+	其他某个CPU对仅在此CPU缓存中持有的缓存行中的数据项
+	执行原子读-修改-写操作，因此此CPU将其从缓存中无效化。
+	此转换由接收到``read invalidate''消息发起，
+	此CPU以``read response''和``invalidate acknowledge''消息进行响应。
+\item	[转换 (j):]
+	此CPU对不在其缓存中的缓存行中的数据项执行存储操作，
+	因此发送一个``read invalidate''消息。
+	CPU在收到``read response''和全部``invalidate acknowledge''消息
+	之前无法完成转换。
+	一旦实际存储完成，缓存行大概会通过转换 (b) 转变到``modified''状态。
+\item	[转换 (k):]
+	此CPU加载不在其缓存中的缓存行中的数据项。
+	CPU发送一个``read''消息，
+	在收到对应的``read response''后完成转换。
+\item	[转换 (l):]
+	其他某个CPU对此缓存行中的数据项执行存储操作，
+	但由于该缓存行被其他CPU的缓存（如当前CPU的缓存）持有，
+	因此以只读状态持有此缓存行。
+	此转换由接收到``invalidate''消息发起，
+	此CPU以``invalidate acknowledge''消息进行响应。
 \end{description}
 
 \QuickQuiz{
-	How does the hardware handle the delayed transitions
-	described above?
+	硬件如何处理上述延迟转换？
 }\QuickQuizAnswer{
-	Usually by adding additional states, though these additional
-	states need not be actually stored with the cache line, due to
-	the fact that only a few lines at a time will be transitioning.
-	The need to delay transitions is but one issue that results in
-	real-world cache coherence protocols being much more complex than
-	the over-simplified MESI protocol described in this appendix.
-	Hennessy and Patterson's classic introduction to computer
-	architecture~\cite{Hennessy95a} covers many of these issues.
+	通常通过添加额外的状态来处理，不过这些额外的状态不需要实际存储在缓存行中，
+	因为同一时间只有少数行在进行转换。
+	延迟转换的需要只是导致现实世界中缓存一致性协议
+	比本附录中描述的过度简化的MESI协议复杂得多的问题之一。
+	Hennessy和Patterson的经典计算机体系结构入门著作~\cite{Hennessy95a}
+	涵盖了许多这些问题。
 }\QuickQuizEnd
 
-\subsection{MESI Protocol Example}
+\subsection{MESI协议示例}
 \label{sec:app:whymb:MESI Protocol Example}
 
-Let's now look at this from the perspective of a couple of cache lines' worth
-of data, initially residing in memory at address~0 and~8,
-as they travel through the various single-line \IXhpl{direct-mapped}{cache}
-in a four-CPU system.
+现在让我们从几个缓存行数据的角度来看看，
+这些数据最初位于内存地址~0和~8处，
+经过四CPU系统中各个单行\IXhpl{direct-mapped}{cache}的传输过程。
 \Cref{tab:app:whymb:Cache Coherence Example}
-shows this flow of data, with the first column showing the steps
-each operation takes, the second the CPU performing the operation,
-the third the operation being performed, the next four the state
-of each CPU's cache line (memory address followed by MESI state),
-and the final two columns whether the corresponding memory contents
-are valid (``V'') or invalid (``I'')\@.
-As we will see, a single machine instructions can require several steps
-in order to keep the cache and memory state consistent.
+展示了这个数据流动过程，第一列显示每个操作所需的步骤，
+第二列是执行操作的CPU，第三列是正在执行的操作，
+接下来四列是每个CPU缓存行的状态（内存地址后跟MESI状态），
+最后两列表示对应的内存内容是有效（``V''）还是无效（``I''）\@。
+我们将看到，单条机器指令可能需要多个步骤来保持缓存和内存状态的一致性。
 
-Please note that this is a conceptual example.
-Different hardware implementations can and do make different choices,
-and most implementations are far more complex than this simple
-example might lead you to believe.
+请注意这是一个概念性示例。
+不同的硬件实现可以且确实做出不同的选择，
+大多数实现比这个简单示例可能让你相信的要复杂得多。
 
 \begin{table*}
 \small
@@ -608,215 +486,172 @@ example might lead you to believe.
 	\bottomrule
 \end{tabular}
 }
-\caption{Cache Coherence Example}
+\caption{缓存一致性示例}
 \label{tab:app:whymb:Cache Coherence Example}
 \end{table*}
 
-Initially, the CPU cache lines in which the data could reside are
-in the ``invalid'' state, and the data is valid in memory, as shown
-in the first row.
-In step~1.1, CPU~0 loads the data at address~0, incurring a cache miss,
-loading the value into its cache, and transitioning that cache line to
-the ``shared'' state.
-The contents of memory at address~0 remain valid.
-In step~2.1, CPU~2 also loads the data at address~0, also incurring a
-cache miss, loading the data into its cache, and transitioning that cache
-line to the ``shared'' state.
-The cache line corresponding to address~0 is now in ``shared'' state in
-both CPUs' caches, and the contents of memory at address~0 remain valid.
+最初，数据可能驻留的CPU缓存行处于``invalid''状态，
+数据在内存中有效，如第一行所示。
+在步骤~1.1中，CPU~0加载地址~0处的数据，产生缓存未命中，
+将值加载到其缓存中，并将该缓存行转换为``shared''状态。
+地址~0处的内存内容保持有效。
+在步骤~2.1中，CPU~2也加载地址~0处的数据，同样产生缓存未命中，
+将数据加载到其缓存中，并将该缓存行转换为``shared''状态。
+对应地址~0的缓存行现在在两个CPU的缓存中都处于``shared''状态，
+地址~0处的内存内容保持有效。
 
-In step~3.1, CPU~0 loads the data at address~8.
-However, its cache still contains the value from address~0, and its
-single-line direct-mapped cache cannot accommodate two values at once.
-The CPU therefore forces the data at address~0 out of its cache via
-an invalidation, and then step~3.2 then replaces it with the data at
-address~8.
-The cache line corresponding to address~8 is now in ``shared'' state in
-CPU~0's cache, and the contents of memory at both addresses remain valid.
+在步骤~3.1中，CPU~0加载地址~8处的数据。
+然而，它的缓存仍然包含地址~0的值，而其单行直接映射缓存无法同时容纳两个值。
+因此CPU通过无效化强制将地址~0的数据逐出缓存，
+然后步骤~3.2用地址~8的数据替换它。
+对应地址~8的缓存行现在在CPU~0的缓存中处于``shared''状态，
+两个地址处的内存内容保持有效。
 
-In step~4.1, CPU~3 loads the data at address~0, incurring a cache miss
-and loading the data from either memory or from CPU~2's cache.
-The data at address~8 is now in CPU~0's cache and that of address~0 in
-both CPU~2's and~3's caches, and memory state remains unchanged.
+在步骤~4.1中，CPU~3加载地址~0处的数据，产生缓存未命中，
+从内存或CPU~2的缓存加载数据。
+地址~8的数据现在在CPU~0的缓存中，地址~0的数据在CPU~2和~3的缓存中，
+内存状态保持不变。
 
-In step~5.1, CPU~3 commences a CAS operation on the data at
-address~0, enjoying a cache hit.
-However, in step~5.2, CPU~3 incurs what can be thought of as a cache
-write miss:
-The data is there, but CPU~3 does not have the necessary permissions
-to complete the memory-write portion of its CAS operation.
-So it causes CPU~2 to invalidate this address from its cache, transitioning
-CPU~3's cache line to the ``exclusive'' state.
-This ensures that CPU~3's cache contains the only copy of the data at
-address~0, permitting step~5.3 to complete CPU~3's CAS, transitioning
-its cache line to the ``modified'' state.
-Note that the data residing in memory at address~0 is now invalid.
+在步骤~5.1中，CPU~3开始对地址~0的数据执行CAS操作，享受缓存命中。
+然而，在步骤~5.2中，CPU~3遇到了可以被视为缓存写未命中的情况：
+数据存在，但CPU~3没有完成其CAS操作的内存写入部分所需的权限。
+因此它使CPU~2从其缓存中无效化该地址，
+将CPU~3的缓存行转换为``exclusive''状态。
+这确保CPU~3的缓存包含地址~0数据的唯一副本，
+允许步骤~5.3完成CPU~3的CAS，将其缓存行转换为``modified''状态。
+请注意，驻留在内存地址~0处的数据现在无效。
 
-In step~6.1, CPU~1 commences a single-byte store to address~8, which
-must leave the other seven bytes unchanged.
-CPU~1 must therefore load this data (either from CPU~0 or from memory),
-incurring a cache miss, loading the data into its cache (obtaining the
-data from either CPU~0 or from memory), and transitioning that cache
-line directly to the exclusive state, while at the same time invalidating
-CPU~0's cache.
-This again ensures that CPU~1's cache contains the only copy of the
-data at address~8, permitting step~6.2 to complete CPU~1's store,
-transitioning its cache line to the ``modified'' state.
-Note that the data residing in memory at both address~0 and address~8
-is now invalid.
+在步骤~6.1中，CPU~1开始对地址~8进行单字节存储，
+这必须保持其他七个字节不变。
+因此CPU~1必须加载这些数据（从CPU~0或从内存），
+产生缓存未命中，将数据加载到其缓存中（从CPU~0或从内存获取数据），
+并将该缓存行直接转换为exclusive状态，同时无效化CPU~0的缓存。
+这再次确保CPU~1的缓存包含地址~8数据的唯一副本，
+允许步骤~6.2完成CPU~1的存储，将其缓存行转换为``modified''状态。
+请注意，驻留在内存地址~0和地址~8处的数据现在都无效。
 
-In step~7.1, CPU~3 does another CAS operation on the data at address~0.
-However, because its cache holds that data in the ``modified'' state,
-CPU~3 can immediately execute that CAS without any change to cache or
-memory state.
+在步骤~7.1中，CPU~3对地址~0的数据执行另一个CAS操作。
+然而，由于其缓存以``modified''状态持有该数据，
+CPU~3可以立即执行该CAS，而不改变缓存或内存状态。
 
-In step~8.1, CPU~1 loads the data at address~0, incurring a cache
-miss that is also a write miss.
-Because the data from address~8 is modified in its cache, it must
-first flush that data to memory, transitioning its cache line to
-``shared'' state and causing the memory at address~8 to once again
-become valid.
-Step~8.2 must obtain the value from CPU~3, keeping in mind that
-the data in memory at address~0 is invalid.
-Both CPUs~1 and~3 transition their cache state to ``shared'',
-and the contents of memory at address~0 remain invalid.
+在步骤~8.1中，CPU~1加载地址~0处的数据，产生缓存未命中，
+同时也是写未命中。
+由于地址~8的数据在其缓存中已被修改，它必须首先将该数据刷新到内存，
+将其缓存行转换为``shared''状态，并使地址~8处的内存再次有效。
+步骤~8.2必须从CPU~3获取值，注意内存中地址~0处的数据是无效的。
+CPU~1和~3都将其缓存状态转换为``shared''，
+地址~0处的内存内容保持无效。
 
-Finally, in step~9.1, CPU~0 loads the data at address~0, but because this
-data is already in its cache, the load completes without any change to
-cache or memory state.
+最后，在步骤~9.1中，CPU~0加载地址~0处的数据，但由于该数据已经在其缓存中，
+加载完成而不改变缓存或内存状态。
 
-Note that we end with data in some of the CPU's caches.
+请注意，我们最终在某些CPU的缓存中留有数据。
 
 \QuickQuiz{
-	What sequence of operations would put the CPUs' caches
-	all back into the ``invalid'' state?
+	什么操作序列能将所有CPU的缓存都恢复到``invalid''状态？
 }\QuickQuizAnswer{
-	There is no such sequence, at least in absence of special
-	``flush my cache'' instructions in the CPU's instruction set.
-	Most CPUs do have such instructions.
+	没有这样的序列，至少在CPU指令集中没有特殊的``刷新我的缓存''指令的情况下。
+	大多数CPU确实具有这样的指令。
 }\QuickQuizEnd
 
-\section{Stores Result in Unnecessary Stalls}
+\section{存储导致不必要的停顿}
 \label{sec:app:whymb:Stores Result in Unnecessary Stalls}
 
-Although the cache structure shown in
-\cref{fig:app:whymb:Modern Computer System Cache Structure}
-provides good performance for repeated reads and writes from a given CPU
-to a given item of data, its performance for the first write to
-a given cache line is quite poor.
-To see this, consider
-\cref{fig:app:whymb:Writes See Unnecessary Stalls},
-which shows a timeline of a write by CPU~0 to a cacheline held in
-CPU~1's cache.
-Since CPU~0 must wait for the cache line to arrive before it can
-write to it, CPU~0 must stall for an extended period of time.\footnote{
-	The time required to transfer a cache line from one CPU's cache
-	to another's is typically a few orders of magnitude more than
-	that required to execute a simple register-to-register instruction.}
+虽然\cref{fig:app:whymb:Modern Computer System Cache Structure}中所示的
+缓存结构为给定CPU对给定数据项的重复读写提供了良好的性能，
+但它对给定缓存行的首次写入性能相当差。
+要了解这一点，请考虑
+\cref{fig:app:whymb:Writes See Unnecessary Stalls}，
+它显示了CPU~0写入CPU~1缓存中持有的缓存行的时间线。
+由于CPU~0必须等待缓存行到达后才能写入，
+CPU~0必须停顿相当长的时间。\footnote{
+	将缓存行从一个CPU的缓存传输到另一个CPU的缓存所需的时间
+	通常比执行简单的寄存器到寄存器指令所需的时间多几个数量级。}
 
 \begin{figure}
 \centering
 % \resizebox{3in}{!}{\includegraphics{appendix/whymb/cacheSCwrite}}
 \includegraphics{appendix/whymb/cacheSCwrite}
-\caption{Writes See Unnecessary Stalls}
+\caption{写操作看到不必要的停顿}
 \label{fig:app:whymb:Writes See Unnecessary Stalls}
 \end{figure}
 
-But there is no real reason to force CPU~0 to stall for so long---after
-all, regardless of what data happens to be in the cache line that CPU~1
-sends it, CPU~0 is going to unconditionally overwrite it.
+但没有真正的理由强迫CPU~0停顿这么长时间——毕竟，
+无论CPU~1发送的缓存行中碰巧有什么数据，CPU~0都会无条件地覆盖它。
 
-\subsection{Store Buffers}
+\subsection{存储缓冲区}
 \label{sec:app:whymb:Store Buffers}
 
-One way to prevent this unnecessary stalling of writes is to add
-``store buffers'' between each CPU and its cache, as shown in
-\cref{fig:app:whymb:Caches With Store Buffers}.
-With the addition of these store buffers, CPU~0 can simply record
-its write in its store buffer and continue executing.
-When the cache line does finally make its way from CPU~1 to CPU~0,
-the data will be moved from the store buffer to the cache line.
+防止这种不必要的写停顿的一种方法是在每个CPU和其缓存之间添加
+``存储缓冲区''，如\cref{fig:app:whymb:Caches With Store Buffers}所示。
+有了这些存储缓冲区，CPU~0可以简单地将其写入记录在存储缓冲区中并继续执行。
+当缓存行最终从CPU~1到达CPU~0时，
+数据将从存储缓冲区移动到缓存行中。
 
 \QuickQuiz{
-	But then why do uniprocessors also have store buffers?
+	但那为什么单处理器也有存储缓冲区呢？
 }\QuickQuizAnswer{
-	Because the purpose of store buffers is not just to hide
-	acknowledgement latencies in multiprocessor cache-coherence protocols,
-	but to hide memory latencies in general.
-	Because memory is much slower than is cache on uniprocessors,
-	store buffers on uniprocessors can help to hide write-miss
-	memory latencies.
+	因为存储缓冲区的目的不仅仅是隐藏多处理器缓存一致性协议中的确认延迟，
+	而是隐藏一般的内存延迟。
+	由于在单处理器上内存比缓存慢得多，
+	单处理器上的存储缓冲区可以帮助隐藏写未命中的内存延迟。
 }\QuickQuizEnd
 
-Please note that the store buffer does not necessarily operate on
-full cache lines.
-The reason for this is that a given store-buffer entry need only contain
-the value stored, not the other data contained in the corresponding
-cache line.
-Which is a good thing, because the CPU doing the store has no idea
-what that other data might be!
-But once the corresponding cache line arrives, any values from the
-store buffer that update that cache line can be merged into it,
-and the corresponding entries can then be removed from the store buffer.
-Any other data in that cache line is of course left intact.
+请注意，存储缓冲区不一定在完整缓存行上操作。
+原因是给定的存储缓冲区条目只需要包含存储的值，
+而不需要包含对应缓存行中的其他数据。
+这是件好事，因为执行存储的CPU不知道其他数据可能是什么！
+但是一旦对应的缓存行到达，存储缓冲区中更新该缓存行的任何值
+都可以合并到其中，相应的条目就可以从存储缓冲区中移除。
+该缓存行中的任何其他数据当然保持不变。
 
 \QuickQuiz{
-	So store-buffer entries are variable length?
-	Isn't that difficult to implement in hardware?
+	那么存储缓冲区条目是可变长度的吗？
+	这在硬件中不是很难实现吗？
 }\QuickQuizAnswer{
-	Here are two ways for hardware to easily handle variable-length
-	stores.
+	这里有两种硬件轻松处理可变长度存储的方法。
 
-	First, each store-buffer entry could be a single byte wide.
-	Then an 64-bit store would consume eight store-buffer entries.
-	This approach is simple and flexible, but one disadvantage is
-	that each entry would need to replicate much of the address that
-	was stored to.
+	首先，每个存储缓冲区条目可以是单字节宽。
+	那么一个64位存储将消耗八个存储缓冲区条目。
+	这种方法简单灵活，但一个缺点是每个条目需要复制大部分存储地址。
 
-	Second, each store-buffer entry could be double the size of a
-	cache line, with half of the bits containing the values stored,
-	and the other half indicating which bits had been stored to.
-	So, assuming a 32-bit cache line, a single-byte store of 0x5a
-	to the low-order byte of a given cache line would result in
-	\co{0xXXXXXX5a} for the first half and \co{0x000000ff} for the
-	second half, where the values labeled \co{X} are arbitrary
-	because they would be ignored.
-	This approach allows multiple consecutive stores corresponding to
-	a given cache line to be merged into a single store-buffer entry,
-	but is space-inefficient for random stores of single bytes.
+	其次，每个存储缓冲区条目可以是缓存行大小的两倍，
+	一半的位包含存储的值，另一半指示哪些位已被存储。
+	因此，假设32位缓存行，对给定缓存行的低位字节进行0x5a的单字节存储
+	将导致前半部分为\co{0xXXXXXX5a}，后半部分为\co{0x000000ff}，
+	其中标记为\co{X}的值是任意的，因为它们将被忽略。
+	这种方法允许将对应于给定缓存行的多个连续存储
+	合并到单个存储缓冲区条目中，
+	但对于单字节的随机存储而言空间效率不高。
 
-	Much more complex and efficient schemes are of course used
-	by actual hardware designers.
+	当然，实际的硬件设计者使用的方案要复杂和高效得多。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{appendix/whymb/cacheSB}}
-\caption{Caches With Store Buffers}
+\caption{带存储缓冲区的缓存}
 \label{fig:app:whymb:Caches With Store Buffers}
 \end{figure}
 
-These store buffers are local to a given CPU or, on systems with
-hardware multithreading, local to a given core.
-Either way, a given CPU is permitted to access only the store buffer
-assigned to it.
-For example, in
-\cref{fig:app:whymb:Caches With Store Buffers}, CPU~0 cannot
-access CPU~1's store buffer and vice versa.
-This restriction simplifies the hardware by separating concerns:
-The store buffer improves performance for consecutive writes, while
-the responsibility for communicating among CPUs (or cores, as the
-case may be) is fully shouldered by the cache-coherence protocol.
-However, even given this restriction, there are complications that must
-be addressed, which are covered in the next two sections.
+这些存储缓冲区对于给定的CPU是本地的，或者在具有硬件多线程的系统上，
+对于给定的核心是本地的。
+无论哪种方式，给定的CPU只被允许访问分配给它的存储缓冲区。
+例如，在\cref{fig:app:whymb:Caches With Store Buffers}中，
+CPU~0不能访问CPU~1的存储缓冲区，反之亦然。
+这个限制通过分离关注点简化了硬件：
+存储缓冲区提高了连续写入的性能，而CPU之间
+（或核心之间，视情况而定）通信的责任完全由缓存一致性协议承担。
+然而，即使有这个限制，仍然存在必须解决的复杂问题，
+将在接下来的两节中介绍。
 
-\subsection{Store Forwarding}
+\subsection{存储转发}
 \label{sec:app:whymb:Store Forwarding}
 
-To see the first complication, a violation of self-consistency,
-consider the following code with variables \qco{a} and \qco{b} both initially
-zero, and with the cache line containing variable \qco{a} initially
-owned by CPU~1 and that containing \qco{b} initially owned by CPU~0:
+要看到第一个复杂问题——违反自一致性——请考虑以下代码，
+其中变量\qco{a}和\qco{b}最初都为零，
+包含变量\qco{a}的缓存行最初由CPU~1拥有，
+包含\qco{b}的缓存行最初由CPU~0拥有：
 
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true]
 a = 1;
@@ -824,67 +659,58 @@ b = a + 1;
 assert(b == 2);
 \end{VerbatimN}
 
-One would not expect the assertion to fail.
-However, if one were foolish enough to use the very simple architecture
-shown in
-\cref{fig:app:whymb:Caches With Store Buffers},
-one would be surprised.
-Such a system could potentially see the following sequence of events:
+人们不会预期断言会失败。
+然而，如果有人愚蠢到使用\cref{fig:app:whymb:Caches With Store Buffers}
+中所示的非常简单的架构，就会大吃一惊。
+这样的系统可能会看到以下事件序列：
 \begin{sequence}
-\item	CPU~0 starts executing the \co{a = 1}.
-\item	CPU~0 looks \qco{a} up in the cache, and finds that it is missing.
-\item	CPU~0 therefore sends a ``read invalidate'' message in order to
-	get exclusive ownership of the cache line containing \qco{a}.
-\item	CPU~0 records the store to \qco{a} in its store buffer.
-\item	CPU~1 receives the ``read invalidate'' message, and responds
-	by transmitting the cache line and removing that cacheline from
-	its cache.
-\item	CPU~0 starts executing the \co{b = a + 1}.
-\item	CPU~0 receives the cache line from CPU~1, which still has
-	a value of zero for \qco{a}.
-\item	CPU~0 loads \qco{a} from its cache, finding the value zero.
+\item	CPU~0开始执行\co{a = 1}。
+\item	CPU~0在缓存中查找\qco{a}，发现它不存在。
+\item	CPU~0因此发送一个``read invalidate''消息，
+	以获取包含\qco{a}的缓存行的独占所有权。
+\item	CPU~0将对\qco{a}的存储记录在其存储缓冲区中。
+\item	CPU~1接收到``read invalidate''消息，通过发送缓存行
+	并从其缓存中移除该缓存行来响应。
+\item	CPU~0开始执行\co{b = a + 1}。
+\item	CPU~0从CPU~1接收到缓存行，其中\qco{a}的值仍为零。
+\item	CPU~0从其缓存加载\qco{a}，发现值为零。
 	\label{item:app:whymb:Need Store Buffer}
-\item	CPU~0 applies the entry from its store buffer to the newly
-	arrived cache line, setting the value of \qco{a} in its cache
-	to one.
-\item	CPU~0 adds one to the value zero loaded for \qco{a} above,
-	and stores it into the cache line containing \qco{b}
-	(which we will assume is already owned by CPU~0).
-\item	CPU~0 executes \co{assert(b == 2)}, which fails.
+\item	CPU~0将其存储缓冲区中的条目应用到新到达的缓存行，
+	将其缓存中\qco{a}的值设置为1。
+\item	CPU~0将上面加载的\qco{a}的零值加1，
+	并将其存储到包含\qco{b}的缓存行中
+	（我们假设该行已经由CPU~0拥有）。
+\item	CPU~0执行\co{assert(b == 2)}，断言失败。
 \end{sequence}
 
-The problem is that we have two copies of \qco{a}, one in the cache and
-the other in the store buffer.
+问题在于我们有两份\qco{a}的副本，一份在缓存中，另一份在存储缓冲区中。
 
-This example breaks a very important guarantee, namely that each CPU
-will always see its own operations as if they happened in program order.
-Breaking this guarantee is violently counter-intuitive to software types,
-so much so
-that the hardware guys took pity and implemented ``store forwarding'',
-where each CPU refers to (or ``snoops'') its store buffer as well
-as its cache when performing loads, as shown in
-\cref{fig:app:whymb:Caches With Store Forwarding}.
-In other words, a given CPU's stores are directly forwarded to its
-subsequent loads, without having to pass through the cache.
+这个例子违反了一个非常重要的保证，即每个CPU总是会看到自己的操作
+按程序顺序发生。
+违反这个保证对软件人员来说极其反直觉，
+以至于硬件人员出于同情实现了``存储转发''，
+即每个CPU在执行加载时不仅参考其缓存，
+还参考（或``窥探''）其存储缓冲区，
+如\cref{fig:app:whymb:Caches With Store Forwarding}所示。
+换句话说，给定CPU的存储直接转发到其后续的加载，
+而无需通过缓存。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{appendix/whymb/cacheSBf}}
-\caption{Caches With Store Forwarding}
+\caption{带存储转发的缓存}
 \label{fig:app:whymb:Caches With Store Forwarding}
 \end{figure}
 
-With store forwarding in place, item~\ref{item:app:whymb:Need Store Buffer}
-in the above sequence would have found the correct value of 1 for \qco{a} in
-the store buffer, so that the final value of \qco{b} would have been 2,
-as one would hope.
+有了存储转发，上述序列中的第~\ref{item:app:whymb:Need Store Buffer}~步
+将在存储缓冲区中找到\qco{a}的正确值1，
+因此\qco{b}的最终值将是2，正如人们所期望的。
 
-\subsection{Store Buffers and Memory Barriers}
+\subsection{存储缓冲区与内存屏障}
 \label{sec:app:whymb:Store Buffers and Memory Barriers}
 
-To see the second complication, a violation of global memory ordering,
-consider the following code sequences
-with variables \qco{a} and \qco{b} initially zero:
+要看到第二个复杂问题——违反全局内存排序——请考虑以下代码序列，
+其中变量\qco{a}和\qco{b}最初为零：
 
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true]
 void foo(void)
@@ -900,85 +726,74 @@ void bar(void)
 }
 \end{VerbatimN}
 
-Suppose CPU~0 executes \co{foo()} and CPU~1 executes \co{bar()}.
-Suppose further that the cache line containing \qco{a} resides only in CPU~1's
-cache, and that the cache line containing \qco{b} is owned by CPU~0.
-Then the sequence of operations might be as follows:
+假设CPU~0执行\co{foo()}，CPU~1执行\co{bar()}。
+进一步假设包含\qco{a}的缓存行仅驻留在CPU~1的缓存中，
+而包含\qco{b}的缓存行由CPU~0拥有。
+那么操作序列可能如下：
 \begin{sequence}
-\item	CPU~0 executes \co{a = 1}.
-	The cache line is not in CPU~0's cache, so CPU~0 places the new
-	value of \qco{a} in its store buffer and transmits a ``read
-	invalidate'' message.
+\item	CPU~0执行\co{a = 1}。
+	缓存行不在CPU~0的缓存中，因此CPU~0将\qco{a}的新值
+	放入其存储缓冲区并发送一个``read invalidate''消息。
 	\label{seq:app:whymb:Store Buffers and Memory Barriers}
-\item	CPU~1 executes \co{while (b == 0) continue}, but the cache line
-	containing \qco{b} is not in its cache.
-	It therefore transmits a ``read'' message.
-\item	CPU~0 executes \co{b = 1}.
-	It already owns this cache line (in other words, the cache line
-	is already in either the ``modified'' or the ``exclusive'' state),
-	so it stores the new value of \qco{b} in its cache line.
-\item	CPU~0 receives the ``read'' message, and transmits the
-	cache line containing the now-updated value of \qco{b}
-	to CPU~1, also marking the line as ``shared'' in its own cache
-	(but only after writing back the line containing \qco{b} to main
-	memory).
+\item	CPU~1执行\co{while (b == 0) continue}，但包含\qco{b}的缓存行
+	不在其缓存中。因此它发送一个``read''消息。
+\item	CPU~0执行\co{b = 1}。
+	它已经拥有这个缓存行（换句话说，缓存行已经处于
+	``modified''或``exclusive''状态），
+	因此它将\qco{b}的新值存储在其缓存行中。
+\item	CPU~0接收到``read''消息，将包含\qco{b}的现已更新值的
+	缓存行发送给CPU~1，同时将该行在自己的缓存中标记为``shared''
+	（但只在将包含\qco{b}的行写回主内存之后）。
 	\label{seq:app:whymb:Store Buffers and Memory Barriers store}
-\item	CPU~1 receives the cache line containing \qco{b} and installs
-	it in its cache.
-\item	CPU~1 can now finish executing \co{while (b == 0) continue},
-	and since it finds that the value of \qco{b} is 1, it proceeds
-	to the next statement.
-\item	CPU~1 executes the \co{assert(a == 1)}, and, since CPU~1 is
-	working with the old value of \qco{a}, this assertion fails.
-\item	CPU~1 receives the ``read invalidate'' message, and
-	transmits the cache line containing \qco{a} to CPU~0 and
-	invalidates this cache line from its own cache.
-	But it is too late.
-\item	CPU~0 receives the cache line containing \qco{a} and applies
-	the buffered store just in time to fall victim to CPU~1's
-	failed assertion.
+\item	CPU~1接收到包含\qco{b}的缓存行并将其安装在自己的缓存中。
+\item	CPU~1现在可以完成执行\co{while (b == 0) continue}，
+	由于它发现\qco{b}的值为1，它继续执行下一条语句。
+\item	CPU~1执行\co{assert(a == 1)}，由于CPU~1使用的是
+	\qco{a}的旧值，此断言失败。
+\item	CPU~1接收到``read invalidate''消息，
+	将包含\qco{a}的缓存行发送给CPU~0，
+	并从自己的缓存中无效化此缓存行。
+	但为时已晚。
+\item	CPU~0接收到包含\qco{a}的缓存行，并应用缓冲的存储，
+	刚好赶上CPU~1断言失败的牺牲品。
 	\label{seq:app:whymb:Store Buffers and Memory Barriers victim}
 \end{sequence}
 
 \EQuickQuiz{
-	In \cref{seq:app:whymb:Store Buffers and Memory Barriers} above,
-	why does CPU~0 need to issue a ``read invalidate''
-	rather than a simple ``invalidate''?
-	After all, \co{foo()} will overwrite the variable \co{a} in any
-	case, so why should it care about the old value of \co{a}?
+	在上面的\cref{seq:app:whymb:Store Buffers and Memory Barriers}中，
+	为什么CPU~0需要发出``read invalidate''
+	而不是简单的``invalidate''？
+	毕竟，\co{foo()}无论如何都会覆盖变量\co{a}，
+	那为什么要关心\co{a}的旧值呢？
 }\EQuickQuizAnswer{
-	Because the cache line in question contains more data than just the
-	variable \co{a}.
-	Issuing ``invalidate'' instead of the needed ``read invalidate''
-	would cause that other data to be lost, which would constitute
-	a serious bug in the hardware.
+	因为相关的缓存行包含的数据不仅仅是变量\co{a}。
+	发出``invalidate''而不是所需的``read invalidate''
+	会导致其他数据丢失，这将构成硬件中的严重错误。
 }\EQuickQuizEnd
 
 \EQuickQuiz{
-	In \cref{seq:app:whymb:Store Buffers and Memory Barriers store}
-	above, don't systems avoid that store to memory?
+	在上面的\cref{seq:app:whymb:Store Buffers and Memory Barriers store}中，
+	系统不是会避免那个到内存的存储吗？
 }\EQuickQuizAnswer{
-	Yes, they do.
-	But to do so, they add states beyond the MESI quadruple that
-	this example is working within.
+	是的，确实如此。
+	但为此，它们添加了超出本例所使用的MESI四元组的额外状态。
 }\EQuickQuizEnd
 
 \EQuickQuiz{
-	In \cref{seq:app:whymb:Store Buffers and Memory Barriers victim}
-	above, did \co{bar()} read a stale value from \co{a}, or did
-	its reads of \co{b} and \co{a} get reordered?
+	在上面的\cref{seq:app:whymb:Store Buffers and Memory Barriers victim}中，
+	\co{bar()}是读取了\co{a}的过时值，
+	还是它对\co{b}和\co{a}的读取被重排了？
 }\EQuickQuizAnswer{
-	It could be either, depending on the hardware implementation.
-	And it really does not matter which.
-	After all, the \co{bar()} function's \co{assert()} cannot tell
-	the difference!
+	两者都有可能，取决于硬件实现。
+	而且实际上哪种都无所谓。
+	毕竟，\co{bar()}函数的\co{assert()}无法区分两者！
 }\EQuickQuizEnd
 
-The hardware designers cannot help directly here, since the CPUs have
-no idea which variables are related, let alone how they might be related.
-Therefore, the hardware designers provide memory-barrier instructions
-to allow the software to tell the CPU about such relations.
-The program fragment must be updated to contain the memory barrier:
+硬件设计者在这里无法直接提供帮助，因为CPU不知道哪些变量是相关的，
+更不用说它们可能如何相关了。
+因此，硬件设计者提供了内存屏障指令，
+允许软件告诉CPU这些关系。
+程序片段必须更新以包含内存屏障：
 
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true]
 void foo(void)
@@ -995,236 +810,189 @@ void bar(void)
 }
 \end{VerbatimN}
 
-The memory barrier \co{smp_mb()} will cause the CPU to flush its store
-buffer before applying each subsequent store to its variable's cache line.
-The CPU could either simply stall until the store buffer was empty
-before proceeding, or it could use the store buffer to hold subsequent
-stores until all of the prior entries in the store buffer had been
-applied.
+内存屏障\co{smp_mb()}将导致CPU在将每个后续存储应用到其变量的缓存行之前
+刷新其存储缓冲区。
+CPU可以简单地停顿直到存储缓冲区为空后再继续，
+或者它可以使用存储缓冲区来保持后续的存储，
+直到存储缓冲区中所有先前的条目都已被应用。
 
-With this latter approach the sequence of operations might be as follows:
+使用后一种方法，操作序列可能如下：
 \begin{sequence}
-\item	CPU~0 executes \co{a = 1}.
-	The cache line is not in CPU~0's cache, so CPU~0 places the new
-	value of \qco{a} in its store buffer and transmits a ``read
-	invalidate'' message.
-\item	CPU~1 executes \co{while (b == 0) continue}, but the cache line
-	containing \qco{b} is not in its cache.
-	It therefore transmits a ``read'' message.
-\item	CPU~0 executes \co{smp_mb()}, and marks all current store-buffer
-	entries (namely, the \co{a = 1}).
-\item	CPU~0 executes \co{b = 1}.
-	It already owns this cache line (in other words, the cache line
-	is already in either the ``modified'' or the ``exclusive'' state),
-	but there is a marked entry in the store buffer.
-	Therefore, rather than store the new value of \qco{b} in the
-	cache line, it instead places it in the store buffer (but
-	in an \emph{unmarked} entry).
-\item	CPU~0 receives the ``read'' message, and transmits the
-	cache line containing the original value of \qco{b}
-	to CPU~1.
-	It also marks its own copy of this cache line as ``shared''.
-\item	CPU~1 receives the cache line containing \qco{b} and installs
-	it in its cache.
-\item	CPU~1 can now load the value of \qco{b},
-	but since it finds that the value of \qco{b} is still 0, it repeats
-	the \co{while} statement.
-	The new value of \qco{b} is safely hidden in CPU~0's store buffer.
-\item	CPU~1 receives the ``read invalidate'' message, and
-	transmits the cache line containing \qco{a} to CPU~0 and
-	invalidates this cache line from its own cache.
-\item	CPU~0 receives the cache line containing \qco{a} and applies
-	the buffered store, placing this line into the ``modified''
-	state.
-\item	Since the store to \qco{a} was the only
-	entry in the store buffer that was marked by the \co{smp_mb()},
-	CPU~0 can also store the new value of \qco{b}---except for the
-	fact that the cache line containing \qco{b} is now in ``shared''
-	state.
-\item	CPU~0 therefore sends an ``invalidate'' message to CPU~1.
-\item	CPU~1 receives the ``invalidate'' message, invalidates the
-	cache line containing \qco{b} from its cache, and sends an
-	``acknowledgement'' message to CPU~0.
-\item	CPU~1 executes \co{while (b == 0) continue}, but the cache line
-	containing \qco{b} is not in its cache.
-	It therefore transmits a ``read'' message to CPU~0.
-\item	CPU~0 receives the ``acknowledgement'' message, and puts
-	the cache line containing \qco{b} into the ``exclusive'' state.
-	CPU~0 now stores the new value of \qco{b} into the cache line.
-\item	CPU~0 receives the ``read'' message, and transmits the
-	cache line containing the new value of \qco{b}
-	to CPU~1.
-	It also marks its own copy of this cache line as ``shared''.%
+\item	CPU~0执行\co{a = 1}。
+	缓存行不在CPU~0的缓存中，因此CPU~0将\qco{a}的新值
+	放入其存储缓冲区并发送一个``read invalidate''消息。
+\item	CPU~1执行\co{while (b == 0) continue}，但包含\qco{b}的
+	缓存行不在其缓存中。因此它发送一个``read''消息。
+\item	CPU~0执行\co{smp_mb()}，并标记所有当前存储缓冲区条目
+	（即\co{a = 1}）。
+\item	CPU~0执行\co{b = 1}。
+	它已经拥有这个缓存行（换句话说，缓存行已经处于
+	``modified''或``exclusive''状态），
+	但存储缓冲区中有一个被标记的条目。
+	因此，它不是将\qco{b}的新值存储在缓存行中，
+	而是将其放入存储缓冲区（但放在一个\emph{未标记}的条目中）。
+\item	CPU~0接收到``read''消息，将包含\qco{b}原始值的
+	缓存行发送给CPU~1。
+	它同时将自己的此缓存行副本标记为``shared''。
+\item	CPU~1接收到包含\qco{b}的缓存行并将其安装在自己的缓存中。
+\item	CPU~1现在可以加载\qco{b}的值，
+	但由于它发现\qco{b}的值仍为0，它重复执行\co{while}语句。
+	\qco{b}的新值安全地隐藏在CPU~0的存储缓冲区中。
+\item	CPU~1接收到``read invalidate''消息，
+	将包含\qco{a}的缓存行发送给CPU~0，
+	并从自己的缓存中无效化此缓存行。
+\item	CPU~0接收到包含\qco{a}的缓存行并应用缓冲的存储，
+	将此行置于``modified''状态。
+\item	由于对\qco{a}的存储是存储缓冲区中被\co{smp_mb()}
+	标记的唯一条目，CPU~0现在也可以存储\qco{b}的新值——
+	但问题是包含\qco{b}的缓存行现在处于``shared''状态。
+\item	因此CPU~0向CPU~1发送一个``invalidate''消息。
+\item	CPU~1接收到``invalidate''消息，从其缓存中无效化包含\qco{b}的
+	缓存行，并向CPU~0发送``acknowledgement''消息。
+\item	CPU~1执行\co{while (b == 0) continue}，但包含\qco{b}的缓存行
+	不在其缓存中。因此它向CPU~0发送一个``read''消息。
+\item	CPU~0接收到``acknowledgement''消息，
+	将包含\qco{b}的缓存行置于``exclusive''状态。
+	CPU~0现在将\qco{b}的新值存储到缓存行中。
+\item	CPU~0接收到``read''消息，将包含\qco{b}新值的
+	缓存行发送给CPU~1。
+	它同时将自己的此缓存行副本标记为``shared''。%
 	\label{seq:app:whymb:Store buffers: All copies shared}
-\item	CPU~1 receives the cache line containing \qco{b} and installs
-	it in its cache.
-\item	CPU~1 can now load the value of \qco{b},
-	and since it finds that the value of \qco{b} is 1, it
-	exits the \co{while} loop and proceeds
-	to the next statement.
-\item	CPU~1 executes the \co{assert(a == 1)}, but the cache line containing
-	\qco{a} is no longer in its cache.
-	Once it gets this cache from CPU~0, it will be
-	working with the up-to-date value of \qco{a}, and the assertion
-	therefore passes.
+\item	CPU~1接收到包含\qco{b}的缓存行并将其安装在自己的缓存中。
+\item	CPU~1现在可以加载\qco{b}的值，
+	由于它发现\qco{b}的值为1，它退出\co{while}循环
+	并继续执行下一条语句。
+\item	CPU~1执行\co{assert(a == 1)}，但包含\qco{a}的缓存行
+	不再在其缓存中。
+	一旦它从CPU~0获取到此缓存，它将使用\qco{a}的最新值，
+	因此断言通过。
 \end{sequence}
 
 \QuickQuiz{
-	After \cref{seq:app:whymb:Store buffers: All copies shared}
-	in \cref{sec:app:whymb:Store Buffers and Memory Barriers} on
-	\cpageref{seq:app:whymb:Store buffers: All copies shared},
-	both CPUs might drop the cache line containing the new value of
-	\qco{b}.
-	Wouldn't that cause this new value to be lost?
+	在\cref{sec:app:whymb:Store Buffers and Memory Barriers}
+	\cpageref{seq:app:whymb:Store buffers: All copies shared}的
+	\cref{seq:app:whymb:Store buffers: All copies shared}之后，
+	两个CPU都可能丢弃包含\qco{b}新值的缓存行。
+	这不会导致新值丢失吗？
 }\QuickQuizAnswer{
-	It might, and that is why real hardware takes steps to avoid
-	this problem.
-	A traditional approach, pointed out by Vasilevsky Alexander,
-	is to write this cache line back to main memory before marking
-	the cache line as ``shared''.
-	A more efficient (though more complex) approach is to use
-	additional state to indicate whether or not the cache line
-	is ``dirty'', allowing the writeback to happen.
-	Year-2000 systems went further, using much more state in order to
-	avoid redundant writebacks~\cite[Figure 8.42]{DavidECuller1999}.
-	It would be reasonable to assume that complexity has not decreased
-	in the meantime.
+	可能会，这就是为什么实际硬件会采取措施避免这个问题。
+	Vasilevsky Alexander指出的一种传统方法是在将缓存行标记为``shared''
+	之前将其写回主内存。
+	一种更高效（尽管更复杂）的方法是使用额外的状态来指示缓存行
+	是否为``脏''的，允许写回发生。
+	2000年代的系统更进一步，使用更多状态来避免冗余写回~\cite[Figure 8.42]{DavidECuller1999}。
+	合理的假设是复杂性在此期间并未减少。
 }\QuickQuizEnd
 
-As you can see, this process involves no small amount of bookkeeping.
-Even something intuitively simple, like ``load the value of a'' can
-involve lots of complex steps in silicon.
+如你所见，这个过程涉及不少的记录工作。
+即使是直觉上简单的操作，比如``加载a的值''，
+在硅片中也可能涉及许多复杂的步骤。
 
-\section{Store Sequences Result in Unnecessary Stalls}
+\section{存储序列导致不必要的停顿}
 \label{sec:app:whymb:Store Sequences Result in Unnecessary Stalls}
 
-Unfortunately, each store buffer must be relatively small, which means
-that a CPU executing a modest sequence of stores can fill its store
-buffer (for example, if all of them result in cache misses).
-At that point, the CPU must once again wait for \IXpl{invalidation} to complete
-in order to drain its store buffer before it can continue executing.
-This same situation can arise immediately after a memory barrier, when
-\emph{all} subsequent store instructions must wait for invalidations to
-complete, regardless of whether or not these stores result in cache misses.
+不幸的是，每个存储缓冲区必须相对较小，这意味着CPU执行一系列适度的存储操作
+就可以填满其存储缓冲区（例如，如果所有操作都导致缓存未命中）。
+此时，CPU必须再次等待\IXpl{invalidation}完成以清空其存储缓冲区，
+然后才能继续执行。
+同样的情况可能在内存屏障之后立即出现，此时\emph{所有}后续存储指令
+都必须等待无效化完成，无论这些存储是否导致缓存未命中。
 
-This situation can be improved by making invalidate acknowledge
-messages arrive more quickly.
-One way of accomplishing this is to use per-CPU queues of
-invalidate messages, or ``invalidate queues''.
+通过使无效化确认消息更快到达可以改善这种情况。
+实现这一目标的一种方法是使用每CPU的无效化消息队列，
+即``无效化队列''。
 
-\subsection{Invalidate Queues}
+\subsection{无效化队列}
 \label{sec:app:whymb:Invalidate Queues}
 
-One reason that invalidate acknowledge messages can take so long
-is that they must ensure that the corresponding cache line is
-actually invalidated, and this invalidation can be delayed if
-the cache is busy, for example, if the CPU is intensively loading
-and storing data, all of which resides in the cache.
-In addition, if a large number of invalidate messages arrive
-in a short time period, a given CPU might fall behind in processing
-them, thus possibly stalling all the other CPUs.
+无效化确认消息可能需要这么长时间的一个原因是它们必须确保
+对应的缓存行确实被无效化了，而如果缓存正忙，
+这种无效化可能会被延迟，例如，如果CPU正在密集地加载和存储数据，
+而所有这些数据都驻留在缓存中。
+此外，如果大量无效化消息在短时间内到达，
+给定的CPU可能会在处理它们方面落后，
+从而可能使所有其他CPU停顿。
 
-However, in real-world systems, the CPU might not actually invalidate
-the cache line before sending the acknowledgement.
-It might instead queue the invalidate message with the understanding
-that the message will be processed before the CPU sends any further
-messages regarding that cache line.
+然而，在实际系统中，CPU可能不会在发送确认之前真正无效化缓存行。
+相反，它可能会将无效化消息排队，
+前提是该消息将在CPU发送关于该缓存行的任何后续消息之前被处理。
 
 \QuickQuiz{
-	How can the CPU possibly send the invalidate acknowledge before
-	actually invalidating the corresponding cache line without
-	wreaking all kinds of havoc, including different CPUs seeing
-	multiple different values for the same variables at the same
-	time???
+	CPU怎么可能在实际无效化相应缓存行之前就发送无效化确认，
+	而不会造成各种混乱，包括不同的CPU同时看到
+	同一变量的多个不同值？？？
 }\QuickQuizAnswer{
-	To start with, CPUs can already see multiple values for a given
-	variable at the same time, as amply demonstrated by
-	\cref{fig:memorder:A Variable With More Simultaneous Values}
-	on
-	\cpageref{fig:memorder:A Variable With More Simultaneous Values}.
-	Furthermore, on weakly ordered architectures, there are very few
-	guarantees, so if the CPU can prove that the cache coherence
-	protocol allows the CPU to order subsequent loads before the
-	other CPU's store (the one that caused the invalidate to be sent),
-	then it can continue supplying loads from the doomed cache line.
+	首先，CPU已经可以同时看到给定变量的多个值，
+	如\cpageref{fig:memorder:A Variable With More Simultaneous Values}上的
+	\cref{fig:memorder:A Variable With More Simultaneous Values}充分展示的那样。
+	此外，在弱排序架构上，几乎没有什么保证，
+	因此如果CPU能够证明缓存一致性协议允许CPU将后续加载
+	排在另一个CPU的存储（导致发送无效化消息的那个）之前，
+	那么它可以继续从注定要被淘汰的缓存行提供加载。
 
-	Furthermore, the CPU might be able to commence speculative
-	execution, which can be squashed if need be.
-	In short, speculative execution allows the CPU to violate the
-	rules if (and only if!\@) it can hide any such violations from
-	the user code.
+	此外，CPU可能能够开始推测执行，
+	如果需要可以将其取消。
+	简而言之，推测执行允许CPU违反规则，
+	前提是（且仅限于！\@）它能够对用户代码隐藏任何此类违规。
 
-	However, if the cache line was in ``modified'' or ``exclusive''
-	state when the invalidate was received, it will be necessary
-	to transition its state to at least ``shared'' prior to sending
-	the invalidate acknowledge message.
-	Otherwise, stores might be lost or atomic read-modify-write
-	operations on the other CPU might be executed incorrectly.
-	And even then, the CPU will need to keep track of the fact that
-	the cache line is doomed, which means that we are using something
-	other than strict MESI\@.
-	On the other hand, hardware architects can and do use much more
-	complex cache-coherence protocols than MESI, which in turn permit
-	more optimizations courtesy of the additional state information
-	that these more complex protocols track.
+	然而，如果缓存行在接收到无效化消息时处于``modified''或``exclusive''状态，
+	则有必要在发送无效化确认消息之前将其状态转换为至少``shared''。
+	否则，存储可能会丢失，或者另一个CPU上的原子读-修改-写操作
+	可能会被错误执行。
+	即便如此，CPU仍需要跟踪缓存行注定要被淘汰的事实，
+	这意味着我们使用的不是严格的MESI\@。
+	另一方面，硬件架构师可以且确实使用比MESI复杂得多的
+	缓存一致性协议，这些协议反过来允许更多的优化，
+	这要归功于这些更复杂协议跟踪的额外状态信息。
 
-	This is all in the name of optimization, although such hardware
-	optimizations must be implemented extremely carefully.
-	Of course, if the code contains memory-ordering instructions
-	such as memory barriers, then the CPU's ability to optimize
-	will be more limited.
+	这一切都是以优化为名义的，尽管这些硬件优化必须非常谨慎地实现。
+	当然，如果代码包含内存排序指令（如内存屏障），
+	那么CPU的优化能力将更加有限。
 
-	But never forget that CPU-based optimizations are quite limited
-	compared to those of modern optimizing compilers!
-	Whose optimizations are also limited by memory-ordering constraints.
+	但永远不要忘记，基于CPU的优化与现代优化编译器的优化相比是相当有限的！
+	编译器的优化也受到内存排序约束的限制。
 }\QuickQuizEnd
 
-\subsection{Invalidate Queues and Invalidate Acknowledge}
+\subsection{无效化队列与无效化确认}
 \label{sec:app:whymb:Invalidate Queues and Invalidate Acknowledge}
 
 \Cref{fig:app:whymb:Caches With Invalidate Queues}
-shows a system with invalidate queues.
-A CPU with an invalidate queue may acknowledge an invalidate message
-as soon as it is placed in the queue, instead of having to wait until
-the corresponding line is actually invalidated.
-Of course, the CPU must refer to its invalidate queue when preparing
-to transmit invalidation messages---if an entry for the corresponding
-cache line is in the invalidate queue, the CPU cannot immediately
-transmit the invalidate message; it must instead wait until the
-invalidate-queue entry has been processed.
+展示了一个带有无效化队列的系统。
+具有无效化队列的CPU可以在消息被放入队列后立即确认无效化消息，
+而不必等待相应的行实际被无效化。
+当然，CPU在准备发送无效化消息时必须参考其无效化队列——
+如果相应缓存行的条目在无效化队列中，
+CPU不能立即发送无效化消息；
+它必须等待无效化队列条目被处理后才能发送。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{appendix/whymb/cacheSBfIQ}}
-\caption{Caches With Invalidate Queues}
+\caption{带无效化队列的缓存}
 \label{fig:app:whymb:Caches With Invalidate Queues}
 \end{figure}
 
-Placing an entry into the invalidate queue is essentially a promise
-by the CPU to process that entry before transmitting any MESI protocol
-messages regarding that cache line.
-As long as the corresponding data structures are not highly contended,
-the CPU will rarely be inconvenienced by such a promise.
+将条目放入无效化队列本质上是CPU承诺在发送关于该缓存行的
+任何MESI协议消息之前处理该条目。
+只要对应的数据结构没有被高度争用，
+CPU很少会因为这样的承诺而受到不便。
 
-However, the fact that invalidate messages can be buffered in the
-invalidate queue provides additional opportunity for memory-misordering,
-as discussed in the next section.
+然而，无效化消息可以在无效化队列中缓冲这一事实
+提供了额外的内存乱序机会，
+将在下一节中讨论。
 
-\subsection{Invalidate Queues and Memory Barriers}
+\subsection{无效化队列与内存屏障}
 \label{sec:app:whymb:Invalidate Queues and Memory Barriers}
 
-Let us suppose that CPUs queue invalidation requests, but respond to
-them immediately.
-This approach minimizes the \IXh{cache-invalidation}{latency} seen by CPUs
-doing stores, but can defeat memory barriers, as seen in the following
-example.
+让我们假设CPU将无效化请求排队，但立即对它们进行响应。
+这种方法最小化了执行存储的CPU所看到的\IXh{cache-invalidation}{latency}，
+但可以击败内存屏障，如以下示例所示。
 
-Suppose the values of \qco{a} and \qco{b} are initially zero,
-that \qco{a} is replicated read-only (MESI ``shared'' state),
-and that \qco{b}
-is owned by CPU~0 (MESI ``exclusive'' or ``modified'' state).
-Then suppose that CPU~0 executes \co{foo()} while CPU~1 executes
-function \co{bar()} in the following code fragment:
+假设\qco{a}和\qco{b}的值最初为零，
+\qco{a}以只读方式复制（MESI ``shared''状态），
+而\qco{b}由CPU~0拥有（MESI ``exclusive''或``modified''状态）。
+然后假设CPU~0执行\co{foo()}，而CPU~1在以下代码片段中执行
+函数\co{bar()}：
 
 \begin{fcvlabel}[ln:app:whymb:Breaking mb]
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true,commandchars=\\\[\]]
@@ -1243,68 +1011,54 @@ void bar(void)
 \end{VerbatimN}
 \end{fcvlabel}
 
-Then the sequence of operations might be as follows:
+那么操作序列可能如下：
 \begin{fcvref}[ln:app:whymb:Breaking mb]
 \begin{sequence}
-\item	CPU~0 executes \co{a = 1}.
-	The corresponding cache line is read-only in CPU~0's cache, so
-	CPU~0 places the new value of \qco{a} in its store buffer and
-	transmits an ``invalidate'' message in order to flush the
-	corresponding cache line from CPU~1's cache.
+\item	CPU~0执行\co{a = 1}。
+	对应的缓存行在CPU~0的缓存中为只读，因此CPU~0将\qco{a}的新值
+	放入其存储缓冲区，并发送一个``invalidate''消息
+	以从CPU~1的缓存中刷新对应的缓存行。
 	\label{seq:app:whymb:Invalidate Queues and Memory Barriers}
-\item	CPU~1 executes \co{while (b == 0) continue}, but the cache line
-	containing \qco{b} is not in its cache.
-	It therefore transmits a ``read'' message.
-\item	CPU~1 receives CPU~0's ``invalidate'' message, queues it, and
-	immediately responds to it.
-\item	CPU~0 receives the response from CPU~1, and is therefore free
-	to proceed past the \co{smp_mb()} on \clnref{mb} above, moving
-	the value of \qco{a} from its store buffer to its cache line.
-\item	CPU~0 executes \co{b = 1}.
-	It already owns this cache line (in other words, the cache line
-	is already in either the ``modified'' or the ``exclusive'' state),
-	so it stores the new value of \qco{b} in its cache line.
-\item	CPU~0 receives the ``read'' message, and transmits the
-	cache line containing the now-updated value of \qco{b}
-	to CPU~1, also marking the line as ``shared'' in its own cache.
-\item	CPU~1 receives the cache line containing \qco{b} and installs
-	it in its cache.
-\item	CPU~1 can now finish executing \co{while (b == 0) continue},
-	and since it finds that the value of \qco{b} is 1, it proceeds
-	to the next statement.
-\item	CPU~1 executes the \co{assert(a == 1)}, and, since the
-	old value of \qco{a} is still in CPU~1's cache,
-	this assertion fails.
-\item	Despite the assertion failure, CPU~1 processes the queued
-	``invalidate'' message, and (tardily)
-	invalidates the cache line containing \qco{a} from its own cache.
+\item	CPU~1执行\co{while (b == 0) continue}，但包含\qco{b}的缓存行
+	不在其缓存中。因此它发送一个``read''消息。
+\item	CPU~1接收到CPU~0的``invalidate''消息，将其排队，
+	并立即对其进行响应。
+\item	CPU~0接收到CPU~1的响应，因此可以自由地通过上面
+	\clnref{mb}上的\co{smp_mb()}，
+	将\qco{a}的值从其存储缓冲区移动到其缓存行。
+\item	CPU~0执行\co{b = 1}。
+	它已经拥有这个缓存行（换句话说，缓存行已经处于
+	``modified''或``exclusive''状态），
+	因此它将\qco{b}的新值存储在其缓存行中。
+\item	CPU~0接收到``read''消息，将包含\qco{b}的现已更新值的
+	缓存行发送给CPU~1，同时将该行在自己的缓存中标记为``shared''。
+\item	CPU~1接收到包含\qco{b}的缓存行并将其安装在自己的缓存中。
+\item	CPU~1现在可以完成执行\co{while (b == 0) continue}，
+	由于它发现\qco{b}的值为1，它继续执行下一条语句。
+\item	CPU~1执行\co{assert(a == 1)}，由于\qco{a}的旧值
+	仍在CPU~1的缓存中，此断言失败。
+\item	尽管断言失败，CPU~1处理了排队的``invalidate''消息，
+	并（迟来地）从自己的缓存中无效化了包含\qco{a}的缓存行。
 \end{sequence}
 \end{fcvref}
 
 \QuickQuiz{
-	In \cref{seq:app:whymb:Invalidate Queues and Memory Barriers}
-	of the first scenario in
-	\cref{sec:app:whymb:Invalidate Queues and Memory Barriers},
-	why is an ``invalidate'' sent instead of a ''read invalidate''
-	message?
-	Doesn't CPU~0 need the values of the other variables that share
-	this cache line with \qco{a}?
+	在\cref{sec:app:whymb:Invalidate Queues and Memory Barriers}
+	第一个场景的\cref{seq:app:whymb:Invalidate Queues and Memory Barriers}中，
+	为什么发送的是``invalidate''而不是``read invalidate''消息？
+	CPU~0难道不需要与\qco{a}共享此缓存行的其他变量的值吗？
 }\QuickQuizAnswer{
-	CPU~0 already has the values of these variables, given that it
-	has a read-only copy of the cache line containing \qco{a}.
-	Therefore, all CPU~0 need do is to cause the other CPUs to discard
-	their copies of this cache line.
-	An ``invalidate'' message therefore suffices.
+	CPU~0已经拥有这些变量的值，因为它有包含\qco{a}的缓存行的只读副本。
+	因此，CPU~0需要做的只是让其他CPU丢弃它们的此缓存行副本。
+	一个``invalidate''消息就足够了。
 }\QuickQuizEnd
 
-There is clearly not much point in accelerating invalidation responses
-if doing so causes memory barriers to effectively be ignored.
-However, the memory-barrier instructions can interact with
-the invalidate queue, so that when a given CPU executes a memory
-barrier, it marks all the entries currently in its invalidate queue,
-and forces any subsequent load to wait until all marked entries
-have been applied to the CPU's cache.
-Therefore, we can add a memory barrier to function \co{bar} as follows:
+如果加速无效化响应会导致内存屏障实际上被忽略，
+那么这样做显然没有多大意义。
+然而，内存屏障指令可以与无效化队列交互，
+当给定CPU执行内存屏障时，它标记当前无效化队列中的所有条目，
+并强制任何后续加载等待，直到所有标记的条目都已应用到CPU的缓存。
+因此，我们可以向函数\co{bar}添加一个内存屏障，如下所示：
 
 \begin{fcvlabel}[ln:app:whymb:Add mb]
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true,commandchars=\\\[\]]
@@ -1325,23 +1079,18 @@ void bar(void)
 \end{fcvlabel}
 
 \QuickQuiz{
-	Say what???
-	Why do we need a memory barrier here, given that the CPU cannot
-	possibly execute the \co{assert()} until after the
-	\co{while} loop completes?
+	什么？？？
+	既然CPU不可能在\co{while}循环完成之前执行\co{assert()}，
+	为什么这里还需要内存屏障？
 }\QuickQuizAnswer{
-	Suppose that memory barrier was omitted.
+	假设省略了内存屏障。
 
-	Keep in mind that CPUs are free to speculatively execute later
-	loads, which can have the effect of executing the assertion
-	before the \co{while} loop completes.
-	Furthermore, compilers assume that only the currently executing
-	thread is updating the variables, and this assumption allows
-	the compiler to hoist the load of \co{a} to precede the
-	loop.
+	请记住，CPU可以自由地推测执行后续的加载，
+	这可能产生在\co{while}循环完成之前执行断言的效果。
+	此外，编译器假设只有当前执行的线程在更新变量，
+	这个假设允许编译器将\co{a}的加载提升到循环之前。
 
-	In fact, some compilers would transform the loop to a branch
-	around an infinite loop as follows:
+	事实上，一些编译器会将循环转换为围绕无限循环的分支，如下所示：
 
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true]
 void foo(void)
@@ -1360,148 +1109,115 @@ void bar(void)
 }
 \end{VerbatimN}
 
-	Given this optimization, the code would behave in a completely
-	different way than the original code.
-	If \co{bar()} observed \qco{b == 0}, the assertion could of
-	course not be reached at all due to the infinite loop.
-	However, if \co{bar()} loaded the value \qco{1} just as
-	\qco{foo()} stored it, the CPU might still have the old
-	zero value of \qco{a} in its cache, which would cause
-	the assertion to fire.
-	You should of course use volatile casts (for example, those
-	volatile casts implied by the C11 relaxed atomic load operation)
-	to prevent the compiler from optimizing your parallel code
-	into oblivion.
-	But volatile casts would not prevent a weakly ordered CPU
-	from loading the old value for \qco{a} from its cache, which
-	means that this code also requires the explicit memory barrier
-	in \qco{bar()}.
+	鉴于此优化，代码的行为将与原始代码完全不同。
+	如果\co{bar()}观察到\qco{b == 0}，由于无限循环，
+	断言当然根本无法到达。
+	然而，如果\co{bar()}在\qco{foo()}存储\qco{1}时恰好加载了该值，
+	CPU可能仍然在其缓存中拥有\qco{a}的旧零值，
+	这将导致断言触发。
+	你当然应该使用volatile强制转换（例如，C11 relaxed原子加载操作
+	所隐含的那些volatile强制转换）来防止编译器将你的并行代码
+	优化到不存在。
+	但volatile强制转换不会阻止弱排序CPU
+	从其缓存加载\qco{a}的旧值，
+	这意味着此代码还需要\qco{bar()}中的显式内存屏障。
 
-	In short, both compilers and CPUs aggressively apply
-	code-reordering optimizations, so you must clearly communicate
-	your constraints using the compiler directives and memory barriers
-	provided for this purpose.
+	简而言之，编译器和CPU都会积极应用代码重排优化，
+	因此你必须使用为此目的提供的编译器指令和内存屏障来清楚地传达你的约束。
 %
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:app:whymb:Add mb]
-With this change, the sequence of operations might be as follows:
+有了这个改变，操作序列可能如下：
 \begin{sequence}
-\item	CPU~0 executes \co{a = 1}.
-	The corresponding cache line is read-only in CPU~0's cache,
-	so CPU~0 places the new value of \qco{a} in its store buffer and
-	transmits an ``invalidate'' message in order to flush the
-	corresponding cache line from CPU~1's cache.
-\item	CPU~1 executes \co{while (b == 0) continue}, but the cache line
-	containing \qco{b} is not in its cache.
-	It therefore transmits a ``read'' message.
-\item	CPU~1 receives CPU~0's ``invalidate'' message, queues it, and
-	immediately responds to it.
-\item	CPU~0 receives the response from CPU~1, and is therefore free
-	to proceed past the \co{smp_mb()} on \clnref{mb1} above, moving
-	the value of \qco{a} from its store buffer to its cache line.
-\item	CPU~0 executes \co{b = 1}.
-	It already owns this cache line (in other words, the cache line
-	is already in either the ``modified'' or the ``exclusive'' state),
-	so it stores the new value of \qco{b} in its cache line.
-\item	CPU~0 receives the ``read'' message, and transmits the
-	cache line containing the now-updated value of \qco{b}
-	to CPU~1, also marking the line as ``shared'' in its own cache.
-\item	CPU~1 receives the cache line containing \qco{b} and installs
-	it in its cache.
-\item	CPU~1 can now finish executing \co{while (b == 0) continue},
-	and since it finds that the value of \qco{b} is 1, it proceeds
-	to the next statement, which is now a memory barrier.
-\item	CPU~1 must now stall until it processes all pre-existing
-	messages in its invalidation queue.
-\item	CPU~1 now processes the queued
-	``invalidate'' message, and
-	invalidates the cache line containing \qco{a} from its own cache.
-\item	CPU~1 executes the \co{assert(a == 1)}, and, since the
-	cache line containing \qco{a} is no longer in CPU~1's cache,
-	it transmits a ``read'' message.
-\item	CPU~0 responds to this ``read'' message with the cache line
-	containing the new value of \qco{a}.
-\item	CPU~1 receives this cache line, which contains a value of 1 for
-	\qco{a}, so that the assertion does not trigger.
+\item	CPU~0执行\co{a = 1}。
+	对应的缓存行在CPU~0的缓存中为只读，
+	因此CPU~0将\qco{a}的新值放入其存储缓冲区，
+	并发送一个``invalidate''消息以从CPU~1的缓存中刷新对应的缓存行。
+\item	CPU~1执行\co{while (b == 0) continue}，但包含\qco{b}的缓存行
+	不在其缓存中。因此它发送一个``read''消息。
+\item	CPU~1接收到CPU~0的``invalidate''消息，将其排队，
+	并立即对其进行响应。
+\item	CPU~0接收到CPU~1的响应，因此可以自由地通过上面
+	\clnref{mb1}上的\co{smp_mb()}，
+	将\qco{a}的值从其存储缓冲区移动到其缓存行。
+\item	CPU~0执行\co{b = 1}。
+	它已经拥有这个缓存行（换句话说，缓存行已经处于
+	``modified''或``exclusive''状态），
+	因此它将\qco{b}的新值存储在其缓存行中。
+\item	CPU~0接收到``read''消息，将包含\qco{b}的现已更新值的
+	缓存行发送给CPU~1，同时将该行在自己的缓存中标记为``shared''。
+\item	CPU~1接收到包含\qco{b}的缓存行并将其安装在自己的缓存中。
+\item	CPU~1现在可以完成执行\co{while (b == 0) continue}，
+	由于它发现\qco{b}的值为1，它继续执行下一条语句，
+	现在是一个内存屏障。
+\item	CPU~1现在必须停顿，直到它处理了其无效化队列中所有预先存在的消息。
+\item	CPU~1现在处理排队的``invalidate''消息，
+	并从自己的缓存中无效化包含\qco{a}的缓存行。
+\item	CPU~1执行\co{assert(a == 1)}，由于包含\qco{a}的缓存行
+	不再在CPU~1的缓存中，它发送一个``read''消息。
+\item	CPU~0以包含\qco{a}新值的缓存行响应此``read''消息。
+\item	CPU~1接收到此缓存行，其中包含\qco{a}的值为1，
+	因此断言不会触发。
 \end{sequence}
 \end{fcvref}
 
-With much passing of MESI messages, the CPUs arrive at the correct answer.
-This section illustrates why CPU designers must be extremely careful
-with their cache-coherence optimizations.
-The key requirement is that the memory barriers provide the appearance
-of ordering to the software.
-As long as these appearances are maintained, the hardware can carry
-out whatever queueing, buffering, marking, stallings, and flushing
-optimizations it likes.
+经过大量MESI消息的传递，CPU得到了正确答案。
+本节说明了为什么CPU设计者必须对其缓存一致性优化非常谨慎。
+关键要求是内存屏障向软件提供有序的外观。
+只要维持这些外观，硬件就可以执行任何它喜欢的排队、缓冲、标记、停顿和刷新优化。
 
 \QuickQuiz{
-	Instead of all of this marking of invalidation-queue entries
-	and stalling of loads, why not simply force an immediate flush
-	of the invalidation queue?
+	与其所有这些标记无效化队列条目和停顿加载的操作，
+	为什么不简单地强制立即刷新无效化队列呢？
 }\QuickQuizAnswer{
-	An immediate flush of the invalidation queue would do the trick.
-	Except that the common-case super-scalar CPU is executing many
-	instructions at once, and not necessarily even in the expected
-	order.
-	So what would ``immediate'' even mean?
-	The answer is clearly ``not much''.
+	立即刷新无效化队列确实可以解决问题。
+	但问题在于常见的超标量CPU同时执行许多指令，
+	而且不一定按预期顺序执行。
+	那么``立即''到底意味着什么？
+	答案显然是``没什么意义''。
 
-	Nevertheless, for simpler CPUs that execute instructions serially,
-	flushing the invalidation queue might be a reasonable implementation
-	strategy.
+	尽管如此，对于按顺序执行指令的更简单CPU，
+	刷新无效化队列可能是一种合理的实现策略。
 }\QuickQuizEnd
 
-\section{Read and Write Memory Barriers}
+\section{读内存屏障与写内存屏障}
 \label{sec:app:whymb:Read and Write Memory Barriers}
 
-In the previous section, memory barriers were used to mark entries in both
-the store buffer and the invalidate queue.
-But in our code fragment, \co{foo()} had no reason to do anything with the
-invalidate queue, and \co{bar()} similarly had no reason to do anything
-with the store buffer.
+在上一节中，内存屏障被用来标记存储缓冲区和无效化队列中的条目。
+但在我们的代码片段中，\co{foo()}没有理由对无效化队列做任何事情，
+\co{bar()}同样也没有理由对存储缓冲区做任何事情。
 
-Many CPU architectures therefore provide weaker memory-barrier
-instructions that do only one or the other of these two.
-Roughly speaking, a ``\IXBh{read}{memory barrier}'' marks only the invalidate
-queue (and snoops entries in the store buffer) and a ``\IXBh{write}{memory
-barrier}'' marks only the store buffer, while a full-fledged memory
-barrier does all of the above.
+因此，许多CPU架构提供了较弱的内存屏障指令，
+只执行这两者中的一个或另一个。
+粗略地说，``\IXBh{read}{memory barrier}''（读内存屏障）只标记无效化队列
+（并窥探存储缓冲区中的条目），而``\IXBh{write}{memory
+barrier}''（写内存屏障）只标记存储缓冲区，而完整的内存屏障则执行上述所有操作。
 
-The software-visible effect of these hardware mechanisms is that a read
-memory barrier orders only loads on the CPU that executes it, so that
-all loads preceding the read memory barrier will appear to have completed
-before any load following the read memory barrier.
-Similarly, a write memory barrier orders only stores, again on the
-CPU that executes it, and again so that all stores preceding the write
-memory barrier will appear to have completed before any store following
-the write memory barrier.
-A full-fledged memory barrier orders both loads and stores, but again
-only on the CPU executing the memory barrier.
+这些硬件机制的软件可见效果是，读内存屏障只在执行它的CPU上排序加载，
+使得读内存屏障之前的所有加载看起来在读内存屏障之后的任何加载之前完成。
+类似地，写内存屏障只排序存储，同样在执行它的CPU上，
+使得写内存屏障之前的所有存储看起来在写内存屏障之后的任何存储之前完成。
+完整的内存屏障同时排序加载和存储，但同样只在执行内存屏障的CPU上。
 
 \QuickQuiz{
-	But can't full memory barriers impose global ordering?
-	After all, isn't that needed to provide the ordering
-	shown in \cref{lst:formal:IRIW Litmus Test}?
+	但完整的内存屏障不能施加全局排序吗？
+	毕竟，\cref{lst:formal:IRIW Litmus Test}中显示的排序
+	不就需要这个吗？
 }\QuickQuizAnswer{
-	Sort of.
+	可以说是。
 
-	Note well that this litmus test has not one but two full
-	memory-barrier instructions, namely the two \co{sync} instructions
-	executed by \co{P2} and \co{P3}.
+	请注意，这个石蕊测试不是一个而是两个完整的内存屏障指令，
+	即\co{P2}和\co{P3}执行的两个\co{sync}指令。
 
-	It is the interaction of those two instructions that provides
-	the global ordering, not just their individual execution.
-	For example, each of those two \co{sync} instructions might stall
-	waiting for all CPUs to process their invalidation queues before
-	allowing subsequent instructions to execute.\footnote{
-		Real-life hardware of course applies many optimizations
-		to minimize the resulting stalls.}
+	提供全局排序的是这两条指令的交互，而不仅仅是它们各自的执行。
+	例如，这两个\co{sync}指令中的每一个都可能停顿，
+	等待所有CPU处理其无效化队列后才允许后续指令执行。\footnote{
+		实际硬件当然会应用许多优化来最小化由此产生的停顿。}
 }\QuickQuizEnd
 
-If we update \co{foo()} and \co{bar()} to use read and write memory
-barriers, they appear as follows:
+如果我们更新\co{foo()}和\co{bar()}以使用读和写内存屏障，
+它们如下所示：
 
 \begin{VerbatimN}[fontsize=\footnotesize,samepage=true]
 void foo(void)
@@ -1519,110 +1235,88 @@ void bar(void)
 }
 \end{VerbatimN}
 
-Some computers have even more flavors of memory barriers, but
-understanding these three variants will provide a good introduction
-to memory barriers in general.
+一些计算机有更多种类的内存屏障，但理解这三种变体
+将为内存屏障提供一个很好的入门介绍。
 
-\section{Example Memory-Barrier Sequences}
+\section{内存屏障序列示例}
 \label{sec:app:whymb:Example Memory-Barrier Sequences}
 
-This section presents some seductive but subtly broken uses of
-memory barriers.
-Although many of them will work most of the time, and some will
-work all the time on some specific CPUs, these uses must be avoided
-if the goal is to produce code that works reliably on all CPUs.
-To help us better see the subtle breakage, we first need to focus
-on an ordering-hostile architecture.
+本节展示了一些看似正确但实际上有微妙错误的内存屏障用法。
+尽管其中许多在大多数时间都会工作，有些在特定CPU上始终有效，
+但如果目标是编写在所有CPU上都可靠工作的代码，则必须避免这些用法。
+为了帮助我们更好地看到微妙的错误，我们首先需要关注一个排序不友好的体系结构。
 
-\subsection{Ordering-Hostile Architecture}
+\subsection{排序不友好的体系结构}
 \label{sec:app:whymb:Ordering-Hostile Architecture}
 
-A number of ordering-hostile computer systems have been produced over
-the decades,
-but the nature of the hostility has always been extremely subtle,
-and understanding it has required detailed knowledge of the specific
-hardware.
-Rather than picking on a specific hardware vendor, and as a presumably
-attractive alternative to dragging the reader through detailed
-technical specifications, let us instead design a mythical but maximally
-memory-ordering-hostile computer architecture.\footnote{
-	Readers preferring a detailed look at real hardware
-	architectures are encouraged to consult CPU vendors'
-	manuals~\cite{ALPHA95,AMDOpteron02,IntelItanium02v2,PowerPC94,MichaelLyons05a,SPARC94,IntelXeonV3-96a,IntelXeonV2b-96a,IBMzSeries04a},
-	Gharachorloo's dissertation~\cite{Gharachorloo95},
-	Peter Sewell's work~\cite{PeterSewell2021weakmemory}, or
-	the excellent hardware-oriented primer by
-	Sorin, Hill, and Wood~\cite{DanielJSorin2011MemModel}.}
+在过去几十年中，已经生产出许多排序不友好的计算机系统，
+但这种不友好的本质始终极其微妙，
+理解它需要对特定硬件的详细了解。
+与其针对特定硬件供应商，并且作为拖拽读者阅读详细技术规范的
+一个大概更有吸引力的替代方案，
+让我们设计一个虚构的但最大程度上内存排序不友好的计算机体系结构。\footnote{
+	更倾向于详细了解真实硬件架构的读者，
+	建议参考CPU供应商的手册~\cite{ALPHA95,AMDOpteron02,IntelItanium02v2,PowerPC94,MichaelLyons05a,SPARC94,IntelXeonV3-96a,IntelXeonV2b-96a,IBMzSeries04a}、
+	Gharachorloo的论文~\cite{Gharachorloo95}、
+	Peter Sewell的工作~\cite{PeterSewell2021weakmemory}或
+	Sorin、Hill和Wood的优秀硬件导向入门书~\cite{DanielJSorin2011MemModel}。}
 
-This hardware must obey the following ordering
-constraints~\cite{PaulMcKenney2005i,PaulMcKenney2005j}:
+此硬件必须遵守以下排序约束~\cite{PaulMcKenney2005i,PaulMcKenney2005j}：
 \begin{enumerate}
-\item	Each CPU will always perceive its own memory accesses
-	as occurring in program order.
-\item	CPUs will reorder a given operation with a store only
-	if the two operations are referencing different locations.
-\item	All of a given CPU's loads preceding a read memory barrier
-	(\co{smp_rmb()}) will be perceived by all CPUs to precede
-	any loads following that read memory barrier.
-\item	All of a given CPU's stores preceding a write memory barrier
-	(\co{smp_wmb()}) will be perceived by all CPUs to precede
-	any stores following that write memory barrier.
-\item	All of a given CPU's accesses (loads and stores) preceding a
-	full memory barrier
-	(\co{smp_mb()}) will be perceived by all CPUs to precede
-	any accesses following that memory barrier.
+\item	每个CPU总是会感知自己的内存访问按程序顺序发生。
+\item	只有当两个操作引用不同的位置时，
+	CPU才会将给定操作与存储重排。
+\item	给定CPU在读内存屏障（\co{smp_rmb()}）之前的所有加载
+	将被所有CPU感知为先于该读内存屏障之后的任何加载。
+\item	给定CPU在写内存屏障（\co{smp_wmb()}）之前的所有存储
+	将被所有CPU感知为先于该写内存屏障之后的任何存储。
+\item	给定CPU在完整内存屏障（\co{smp_mb()}）之前的所有访问
+	（加载和存储）将被所有CPU感知为先于该内存屏障之后的任何访问。
 \end{enumerate}
 
 \QuickQuiz{
-	Does the guarantee that each CPU sees its own memory accesses
-	in order also guarantee that each user-level thread will see
-	its own memory accesses in order?
-	Why or why not?
+	每个CPU看到自己的内存访问按序进行的保证，
+	是否也保证每个用户级线程会看到自己的内存访问按序进行？
+	为什么？
 }\QuickQuizAnswer{
-	No.
-	Consider the case where a thread migrates from one CPU to
-	another, and where the destination CPU perceives the source
-	CPU's recent memory operations out of order.
-	To preserve user-mode sanity, kernel hackers must use memory
-	barriers in the context-switch path.
-	However, the locking already required to safely do a context
-	switch should automatically provide the memory barriers needed
-	to cause the user-level task to see its own accesses in order.
-	That said, if you are designing a super-optimized scheduler,
-	either in the kernel or at user level,
-	please keep this scenario in mind!
+	不保证。
+	考虑线程从一个CPU迁移到另一个CPU的情况，
+	其中目标CPU感知源CPU最近的内存操作是乱序的。
+	为了保持用户模式的正常运行，内核开发者必须在上下文切换路径中
+	使用内存屏障。
+	然而，安全执行上下文切换已经需要的锁应该自动提供
+	所需的内存屏障，以使用户级任务看到自己的访问按序进行。
+	也就是说，如果你正在设计一个超级优化的调度器，
+	无论是在内核中还是在用户级别，
+	请记住这个场景！
 }\QuickQuizEnd
 
-Imagine a large \IXacrf{nuca} system that,
-in order to provide fair allocation
-of interconnect bandwidth to CPUs in a given node, provided per-CPU
-queues in each node's interconnect interface, as shown in
-\cref{fig:app:whymb:Example Ordering-Hostile Architecture}.
-Although a given CPU's accesses are ordered as specified by memory
-barriers executed by that CPU, however, the relative order of a
-given pair of CPUs' accesses could be severely reordered,
-as we will see.\footnote{
-	Any real hardware architect or designer will no doubt be
-	objecting strenuously,
-	as they just might be a bit upset about the prospect of working
-	out which queue should handle a message involving a cache line
-	that both CPUs accessed, to say nothing of the many races that
-	this example poses.
-	All I can say is ``Give me a better example''.}
+想象一个大型\IXacrf{nuca}系统，
+为了向给定节点中的CPU公平分配互联带宽，
+在每个节点的互联接口中提供了每CPU队列，
+如\cref{fig:app:whymb:Example Ordering-Hostile Architecture}所示。
+尽管给定CPU的访问按该CPU执行的内存屏障指定的顺序排列，
+然而，给定一对CPU的访问的相对顺序可能会被严重重排，
+正如我们将看到的。\footnote{
+	任何真正的硬件架构师或设计者无疑会强烈反对，
+	因为他们可能对搞清楚哪个队列应该处理涉及两个CPU
+	都访问过的缓存行的消息感到有些不安，
+	更不用说这个例子带来的许多竞争条件了。
+	我只能说``给我一个更好的例子''。}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{appendix/whymb/hostileordering}}
-\caption{Example Ordering-Hostile Architecture}
+\caption{排序不友好体系结构示例}
 \label{fig:app:whymb:Example Ordering-Hostile Architecture}
 \end{figure}
 
-\subsection{Example 1}
+\subsection{示例1}
 \label{sec:app:whymb:Example 1}
 
 \Cref{lst:app:whymb:Memory Barrier Example 1}
-shows three code fragments, executed concurrently by CPUs~0, 1, and~2.
-Each of \qco{a}, \qco{b}, and \qco{c} are initially zero.
+展示了三个代码片段，由CPU~0、1和~2并发执行。
+\qco{a}、\qco{b}和\qco{c}最初都为零。
 
 \floatstyle{plaintop}
 \restylefloat{listing}
@@ -1643,50 +1337,42 @@ Each of \qco{a}, \qco{b}, and \qco{c} are initially zero.
 			 &		& x = a; \\
 			 &		& assert(z == 0 || x == 1); \\
 \end{tabular}}
-\caption{Memory Barrier Example 1}
+\caption{内存屏障示例1}
 \label{lst:app:whymb:Memory Barrier Example 1}
 \end{listing}
 
-Suppose CPU~0 recently experienced many cache misses, so that its
-message queue is full, but that CPU~1 has been running exclusively within
-the cache, so that its message queue is empty.
-Then CPU~0's assignment to \qco{a} and \qco{b} will appear in Node~0's cache
-immediately (and thus be visible to CPU~1), but will be blocked behind
-CPU~0's prior traffic.
-In contrast, CPU~1's assignment to \qco{c} will sail through CPU~1's
-previously empty queue.
-Therefore, CPU~2 might well see CPU~1's assignment to \qco{c} before
-it sees CPU~0's assignment to \qco{a}, causing the assertion to fire,
-despite the memory barriers.
+假设CPU~0最近经历了许多缓存未命中，因此其消息队列已满，
+而CPU~1一直在缓存内运行，因此其消息队列为空。
+那么CPU~0对\qco{a}和\qco{b}的赋值将立即出现在节点~0的缓存中
+（因此对CPU~1可见），但会被阻塞在CPU~0先前的流量后面。
+相比之下，CPU~1对\qco{c}的赋值将轻松通过CPU~1之前为空的队列。
+因此，CPU~2很可能在看到CPU~0对\qco{a}的赋值之前
+看到CPU~1对\qco{c}的赋值，导致断言触发，尽管有内存屏障。
 
-Therefore, portable code cannot rely on this assertion not firing,
-as both the compiler and the CPU can reorder the code so as to trip
-the assertion.
+因此，可移植代码不能依赖此断言不会触发，
+因为编译器和CPU都可以重排代码从而触发断言。
 
 \QuickQuiz{
-	Could this code be fixed by inserting a memory barrier
-	between CPU~1's \qco{while} and assignment to \qco{c}?
-	Why or why not?
+	能否通过在CPU~1的\qco{while}和对\qco{c}的赋值之间
+	插入内存屏障来修复此代码？为什么？
 }\QuickQuizAnswer{
-	No.
-	Such a memory barrier would only force ordering local to CPU~1.
-	It would have no effect on the relative ordering of CPU~0's and
-	CPU~1's accesses, so the assertion could still fail.
-	However, all mainstream computer systems provide one mechanism
-	or another to provide ``transitivity'', which provides
-	intuitive causal ordering:
-	If B saw the effects of A's accesses, and C saw the effects of
-	B's accesses, then C must also see the effects of A's accesses.
-	In short, hardware designers have taken at least a little pity
-	on software developers.
+	不能。
+	这样的内存屏障只会强制CPU~1本地的排序。
+	它对CPU~0和CPU~1访问的相对排序没有影响，
+	因此断言仍然可能失败。
+	然而，所有主流计算机系统都提供了某种机制来提供``传递性''，
+	它提供了直觉上的因果排序：
+	如果B看到了A的访问效果，而C看到了B的访问效果，
+	那么C也必须看到A的访问效果。
+	简而言之，硬件设计者至少对软件开发者表示了一点同情。
 }\QuickQuizEnd
 
-\subsection{Example 2}
+\subsection{示例2}
 \label{sec:app:whymb:Example 2}
 
 \Cref{lst:app:whymb:Memory Barrier Example 2}
-shows three code fragments, executed concurrently by CPUs~0, 1, and~2.
-Both \qco{a} and \qco{b} are initially zero.
+展示了三个代码片段，由CPU~0、1和~2并发执行。
+\qco{a}和\qco{b}最初都为零。
 
 \begin{listing}
 \scriptsize
@@ -1703,32 +1389,27 @@ Both \qco{a} and \qco{b} are initially zero.
 		     &			& x = a; \\
 		     &			& assert(y == 0 || x == 1); \\
 \end{tabular}}
-\caption{Memory Barrier Example 2}
+\caption{内存屏障示例2}
 \label{lst:app:whymb:Memory Barrier Example 2}
 \end{listing}
 
-Again, suppose CPU~0 recently experienced many cache misses, so that its
-message queue is full, but that CPU~1 has been running exclusively within
-the cache, so that its message queue is empty.
-Then CPU~0's assignment to \qco{a} will appear in Node~0's cache
-immediately (and thus be visible to CPU~1), but will be blocked behind
-CPU~0's prior traffic.
-In contrast, CPU~1's assignment to \qco{b} will sail through CPU~1's
-previously empty queue.
-Therefore, CPU~2 might well see CPU~1's assignment to \qco{b} before
-it sees CPU~0's assignment to \qco{a}, causing the assertion to fire,
-despite the memory barriers.
+同样，假设CPU~0最近经历了许多缓存未命中，因此其消息队列已满，
+而CPU~1一直在缓存内运行，因此其消息队列为空。
+那么CPU~0对\qco{a}的赋值将立即出现在节点~0的缓存中
+（因此对CPU~1可见），但会被阻塞在CPU~0先前的流量后面。
+相比之下，CPU~1对\qco{b}的赋值将轻松通过CPU~1之前为空的队列。
+因此，CPU~2很可能在看到CPU~0对\qco{a}的赋值之前
+看到CPU~1对\qco{b}的赋值，导致断言触发，尽管有内存屏障。
 
-In theory, portable code should not rely on this example code fragment,
-however, as before, in practice it actually does work on most
-mainstream computer systems.
+理论上，可移植代码不应该依赖此示例代码片段，
+然而如前所述，在实践中它确实在大多数主流计算机系统上工作。
 
-\subsection{Example 3}
+\subsection{示例3}
 \label{sec:app:whymb:Example 3}
 
 \Cref{lst:app:whymb:Memory Barrier Example 3}
-shows three code fragments, executed concurrently by CPUs~0, 1, and~2.
-All variables are initially zero.
+展示了三个代码片段，由CPU~0、1和~2并发执行。
+所有变量最初为零。
 
 \begin{listing*}
 \scriptsize
@@ -1749,44 +1430,38 @@ All variables are initially zero.
  8 &	\tco{smp_mb();}	&		& \\
  9 &	e = 1; &			& assert(e == 0 || a == 1); \\
 \end{tabular}}
-\caption{Memory Barrier Example 3}
+\caption{内存屏障示例3}
 \label{lst:app:whymb:Memory Barrier Example 3}
 \end{listing*}
 
 \floatstyle{ruled}
 \restylefloat{listing}
 
-Note that neither CPU~1 nor CPU~2 can proceed to line~5 until they see
-CPU~0's assignment to \qco{b} on line~3.
-Once CPU~1 and~2 have executed their memory barriers on line~4, they
-are both guaranteed to see all assignments by CPU~0 preceding its memory
-barrier on line~2.
-Similarly, CPU~0's memory barrier on line~8 pairs with those of CPUs~1 and~2
-on line~4, so that CPU~0 will not execute the assignment to \qco{e} on
-line~9 until after its assignment to \qco{b} is visible to both of the
-other CPUs.
-Therefore, CPU~2's assertion on line~9 is guaranteed \emph{not} to fire.
+请注意，CPU~1和CPU~2都无法继续到第~5行，直到它们看到
+CPU~0在第~3行对\qco{b}的赋值。
+一旦CPU~1和~2在第~4行执行了它们的内存屏障，
+它们都保证能看到CPU~0在第~2行内存屏障之前的所有赋值。
+类似地，CPU~0在第~8行的内存屏障与CPU~1和~2在第~4行的内存屏障配对，
+使得CPU~0不会在其对\qco{b}的赋值对其他两个CPU可见之后
+才执行第~9行对\qco{e}的赋值。
+因此，CPU~2在第~9行的断言保证\emph{不会}触发。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Suppose that lines~3--5 for CPUs~1 and~2 in
-	\cref{lst:app:whymb:Memory Barrier Example 3}
-	are in an interrupt
-	handler, and that the CPU~2's line~9 runs at process level.
-	In other words, the code in all three columns of the table
-	runs on the same CPU, but the first two columns run in an
-	interrupt handler, and the third column runs at process
-	level, so that the code in third column can be interrupted
-	by the code in the first two columns.
-	What changes, if any, are required to enable the code to work
-	correctly, in other words, to prevent the assertion from firing?
+	假设\cref{lst:app:whymb:Memory Barrier Example 3}中
+	CPU~1和~2的第~3--5行在中断处理程序中，
+	而CPU~2的第~9行在进程级别运行。
+	换句话说，表中所有三列的代码运行在同一个CPU上，
+	但前两列在中断处理程序中运行，
+	第三列在进程级别运行，
+	因此第三列中的代码可以被前两列的代码中断。
+	需要进行什么更改（如果有的话）才能使代码正确工作，
+	换句话说，防止断言触发？
 }\QuickQuizAnswerB{
-	The assertion must ensure that the load of
-	\qco{e} precedes that of \qco{a}.
-	In the Linux kernel, the \co{barrier()} primitive may be used to
-	accomplish this in much the same way that the memory barrier was
-	used in the assertions in the previous examples.
-	For example, the assertion can be modified as follows:
+	断言必须确保对\qco{e}的加载先于对\qco{a}的加载。
+	在Linux内核中，可以使用\co{barrier()}原语来完成此操作，
+	方式与前面示例中在断言中使用内存屏障的方式大致相同。
+	例如，断言可以修改如下：
 
 \begin{VerbatimU}[fontsize=\footnotesize]
 r1 = e;
@@ -1794,169 +1469,136 @@ barrier();
 assert(r1 == 0 || a == 1);
 \end{VerbatimU}
 
-	No changes are needed to the code in the first two columns,
-	because interrupt handlers run atomically from the perspective
-	of the interrupted code.
+	前两列的代码不需要任何更改，
+	因为中断处理程序从被中断代码的角度来看是原子运行的。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	If CPU~2 executed an \co{assert(e==0||c==1)} in the example in
-	\cref{lst:app:whymb:Memory Barrier Example 3},
-	would this assert ever trigger?
+	如果CPU~2在\cref{lst:app:whymb:Memory Barrier Example 3}的
+	示例中执行\co{assert(e==0||c==1)}，
+	这个断言会触发吗？
 }\QuickQuizAnswerE{
-	The result depends on whether the CPU supports ``transitivity''.
-	In other words, CPU~0 stored to \qco{e} after seeing CPU~1's
-	store to \qco{c}, with a memory barrier between CPU~0's load
-	from \qco{c} and store to \qco{e}.
-	If some other CPU sees CPU~0's store to \qco{e}, is it also
-	guaranteed to see CPU~1's store?
+	结果取决于CPU是否支持``传递性''。
+	换句话说，CPU~0在看到CPU~1对\qco{c}的存储之后存储到\qco{e}，
+	在CPU~0从\qco{c}的加载和对\qco{e}的存储之间有一个内存屏障。
+	如果其他某个CPU看到CPU~0对\qco{e}的存储，
+	它是否也保证能看到CPU~1的存储？
 
-	All CPUs I am aware of claim to provide transitivity.
+	据我所知，所有CPU都声称提供传递性。
 }\QuickQuizEndE
 }
 
-The Linux kernel's \co{synchronize_rcu()} primitive uses an algorithm
-similar to that shown in this example.
+Linux内核的\co{synchronize_rcu()}原语使用了与此示例中所示类似的算法。
 
-\section{Are Memory Barriers Forever?}
+\section{内存屏障会永远存在吗？}
 \label{sec:app:whymb:Are Memory Barriers Forever?}
 
-There have been a number of recent systems that are significantly less
-aggressive about out-of-order execution in general and re-ordering
-memory references in particular.
-Will this trend continue to the point where memory barriers are a thing
-of the past?
+近年来有一些系统在乱序执行和内存引用重排方面明显不那么激进了。
+这种趋势是否会持续到内存屏障成为过去的事物？
 
-The argument in favor would cite proposed massively multi-threaded hardware
-architectures, so that each thread would wait until memory was ready,
-with tens, hundreds, or even thousands of other threads making progress
-in the meantime.
-In such an architecture, there would be no need for memory barriers,
-because a given thread would simply wait for all outstanding operations
-to complete before proceeding to the next instruction.
-Because there would be potentially thousands of other threads, the
-CPU would be completely utilized, so no CPU time would be wasted.
+赞成的论点会引用拟议的大规模多线程硬件架构，
+其中每个线程会等待直到内存准备好，
+同时有数十、数百甚至数千个其他线程在此期间取得进展。
+在这样的架构中，不需要内存屏障，
+因为给定线程只需等待所有未完成的操作完成后再继续执行下一条指令。
+因为可能有数千个其他线程，CPU将被完全利用，
+因此不会浪费CPU时间。
 
-The argument against would cite the extremely limited number of applications
-capable of scaling up to a thousand threads, as well as increasingly
-severe realtime requirements, which are in the tens of microseconds
-for some applications.
-The realtime-response requirements are difficult enough to meet as is,
-and would be even more difficult to meet given the extremely low
-single-threaded throughput implied by the massive multi-threaded
-scenarios.
+反对的论点会引用能够扩展到一千个线程的应用程序数量极其有限，
+以及日益严格的实时要求（对于某些应用程序来说在数十微秒级别）。
+实时响应要求本身就已经很难满足，
+而在大规模多线程场景所暗示的极低单线程吞吐量下将更加难以满足。
 
-Another argument in favor would cite increasingly sophisticated
-latency-hiding hardware implementation techniques that might well allow
-the CPU to provide the illusion of fully sequentially consistent
-execution while still providing almost all of the performance advantages
-of out-of-order execution.
-A counter-argument would cite the increasingly severe power-efficiency
-requirements presented both by battery-operated devices and by
-environmental responsibility.
+另一个赞成的论点会引用日益复杂的延迟隐藏硬件实现技术，
+这些技术很可能允许CPU提供完全顺序一致执行的假象，
+同时仍然提供乱序执行的几乎所有性能优势。
+反驳的论点会引用电池供电设备和环境责任所提出的
+日益严格的能效要求。
 
-Who is right?
-We have no clue, so we are preparing to live with either scenario.
+谁是对的？
+我们不知道，所以我们准备好应对任一情况。
 
-\section{Advice to Hardware Designers}
+\section{给硬件设计者的建议}
 \label{sec:app:whymb:Advice to Hardware Designers}
 
-There are any number of things that hardware designers can do
-to make the lives of software people difficult.
-Here is a list of a few such things that we have encountered in
-the past, presented here in the hope that it might help prevent
-future such problems:
+硬件设计者可以做很多事情来使软件人员的生活变得困难。
+以下是我们过去遇到的一些此类问题，希望在此列出可以帮助防止将来出现类似问题：
 \begin{enumerate}
-\item	I/O devices that ignore cache coherence.
+\item	忽略缓存一致性的I/O设备。
 
-	This charming misfeature can result in DMAs from memory
-	missing recent changes to the output buffer, or, just as
-	bad, cause input buffers to be overwritten by the contents
-	of CPU caches just after the DMA completes.
-	To make your system work in face of such misbehavior,
-	you must carefully flush the CPU caches of any location
-	in any DMA buffer before presenting that buffer to the
-	I/O device.
-	Otherwise, a store from one of the CPUs might not be
-	accounted for in the data DMAed out through the device.
-	This is a form of data corruption, which is an extremely
-	serious bug.
+	这个``迷人的''缺陷可能导致从内存进行DMA时
+	错过对输出缓冲区的最近更改，或者同样糟糕的是，
+	在DMA完成后导致输入缓冲区被CPU缓存的内容覆盖。
+	要使你的系统在面对这种不当行为时正常工作，
+	必须在将DMA缓冲区呈现给I/O设备之前，
+	仔细刷新任何DMA缓冲区中任何位置的CPU缓存。
+	否则，来自某个CPU的存储可能不会被反映在
+	通过设备DMA输出的数据中。
+	这是一种数据损坏，是一个极其严重的错误。
 
-	Similarly, you need to invalidate\footnote{
-		Why not flush?
-		If there is a difference, then a CPU must have incorrectly
-		stored to the DMA buffer in the midst of the DMA operation.}
-	the CPU caches corresponding to any location in any DMA buffer
-	after DMA to that buffer completes.
-	Otherwise, a given CPU might see the old data still residing in
-	its cache instead of the newly DMAed data that it was supposed
-	to see.
-	This is another form of data corruption.
+	类似地，你需要无效化\footnote{
+		为什么不是刷新？
+		如果有区别，那么一定是某个CPU在DMA操作过程中
+		错误地存储到了DMA缓冲区。}
+	在DMA到该缓冲区完成后，任何DMA缓冲区中任何位置
+	对应的CPU缓存。
+	否则，给定的CPU可能会看到仍驻留在其缓存中的旧数据，
+	而不是它应该看到的新DMA数据。
+	这是另一种形式的数据损坏。
 
-	And even then, you need to be \emph{very} careful to avoid
-	pointer bugs, as even a misplaced read to an input buffer
-	can result in corrupting the data input!
-	One way to avoid this is to invalidate all of the caches of
-	all of the CPUs once the DMA completes, but it is much easier
-	and more efficient if the device DMA participates in the
-	cache-coherence protocol, making all of this flushing and
-	invalidating unnecessary.
+	即便如此，你还需要\emph{非常}小心地避免指针错误，
+	因为即使是对输入缓冲区的一次误置读取
+	也可能导致输入数据损坏！
+	避免这种情况的一种方法是在DMA完成后无效化所有CPU的所有缓存，
+	但如果设备DMA参与缓存一致性协议，
+	所有这些刷新和无效化都将变得不必要，
+	这要简单和高效得多。
 
-\item	External busses that fail to transmit cache-coherence data.
+\item	未能传输缓存一致性数据的外部总线。
 
-	This is an even more painful variant of the above problem,
-	but causes groups of devices---and even memory itself---to
-	fail to respect cache coherence.
-	It is my painful duty to inform you that as embedded systems
-	move to multicore architectures, we will no doubt see a fair
-	number of such problems arise.
-	By the year 2021, there were some efforts to address
-	these problems with new interconnect standards, with some
-	debate as to how effective these standards will really
-	be~\cite{WilliamGWong2019CCIX-CXL}.
+	这是上述问题的一个更痛苦的变体，
+	但会导致设备组——甚至内存本身——
+	无法尊重缓存一致性。
+	我不得不遗憾地告诉你，随着嵌入式系统向多核架构迁移，
+	我们无疑会看到相当数量的此类问题出现。
+	到2021年，已经有一些通过新互联标准来解决这些问题的努力，
+	但对于这些标准究竟会有多有效存在一些
+	争论~\cite{WilliamGWong2019CCIX-CXL}。
 
-\item	Device interrupts that ignore cache coherence.
+\item	忽略缓存一致性的设备中断。
 
-	This might sound innocent enough---after all, interrupts
-	aren't memory references, are they?
-	But imagine a CPU with a split cache, one bank of which is
-	extremely busy, therefore holding onto the last cacheline
-	of the input buffer.
-	If the corresponding I/O-complete interrupt reaches this
-	CPU, then that CPU's memory reference to the last cache
-	line of the buffer could return old data, again resulting
-	in data corruption, but in a form that will be invisible
-	in a later crash dump.
-	By the time the system gets around to dumping the offending
-	input buffer, the DMA will most likely have completed.
+	这听起来可能足够无害——毕竟，中断不是内存引用，对吧？
+	但想象一个具有分体缓存的CPU，其中一个体非常繁忙，
+	因此持有输入缓冲区的最后一个缓存行。
+	如果相应的I/O完成中断到达此CPU，
+	那么该CPU对缓冲区最后一个缓存行的内存引用可能返回旧数据，
+	再次导致数据损坏，但这种形式在后续的崩溃转储中将不可见。
+	到系统开始转储有问题的输入缓冲区时，
+	DMA很可能已经完成。
 
-\item	\IXAcrfpl{ipi} that ignore cache coherence.
+\item	忽略缓存一致性的\IXAcrfpl{ipi}。
 
-	This can be problematic if the IPI reaches its destination
-	before all of the cache lines in the corresponding message
-	buffer have been committed to memory.
+	如果IPI在对应消息缓冲区中的所有缓存行都已提交到内存之前
+	到达其目的地，这可能会产生问题。
 
-\item	Context switches that get ahead of cache coherence.
+\item	领先于缓存一致性的上下文切换。
 
-	If memory accesses can complete too wildly out of order,
-	then context switches can be quite harrowing.
-	If the task flits from one CPU to another before all the
-	memory accesses visible to the source CPU make it to the
-	destination CPU, then the task could easily see the corresponding
-	variables revert to prior values, which can fatally confuse
-	most algorithms.
+	如果内存访问可以极度乱序完成，
+	那么上下文切换可能相当可怕。
+	如果任务在源CPU可见的所有内存访问都到达目标CPU之前
+	从一个CPU飞到另一个CPU，
+	那么任务很容易看到相应变量恢复到先前的值，
+	这可能会致命地混淆大多数算法。
 
-\item	Overly kind simulators and emulators.
+\item	过于友好的模拟器和仿真器。
 
-	It is difficult to write simulators or emulators that force
-	memory re-ordering, so software that runs just fine in
-	these environments can get a nasty surprise when it first
-	runs on the real hardware.
-	Unfortunately, it is still the rule that the hardware is more
-	devious than are the simulators and emulators, but we hope that
-	this situation changes.
+	编写强制内存重排的模拟器或仿真器很困难，
+	因此在这些环境中运行良好的软件在首次
+	在真实硬件上运行时可能会遇到令人不快的意外。
+	不幸的是，硬件比模拟器和仿真器更狡猾仍然是常态，
+	但我们希望这种情况会改变。
 \end{enumerate}
 
-Again, we encourage hardware designers to avoid these practices!
+再次强调，我们鼓励硬件设计者避免这些做法！
 
 \QuickQuizAnswersChp{qqzwhymb}

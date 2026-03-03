@@ -2,28 +2,23 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Conflicting Visions of the Future}{Conflicting Visions of the Future}{qqzfuture}
+\QuickQuizChapter{chp:Conflicting Visions of the Future}{对未来的不同愿景}{qqzfuture}
 %
-\Epigraph{Prediction is very difficult, especially about the future.}
+\Epigraph{预测是非常困难的，尤其是关于未来的预测。}
 	 {Niels Bohr}
 
-This chapter presents some conflicting visions of the future of parallel
-programming.
-It is not clear which of these will come to pass, in fact, it is not
-clear that any of them will.
-They are nevertheless important because each vision has its devoted
-adherents, and if enough people believe in something fervently enough,
-you will need to deal with that thing's existence in the form of its
-influence on the thoughts, words, and deeds of its adherents.
-Besides which, one or more of these visions will actually come to pass.
-But most are bogus.
-Tell which is which and you'll be rich~\cite{KeithRSpitz1977}!
+本章介绍了关于并行编程未来的一些相互矛盾的愿景。
+目前尚不清楚这些愿景中哪些会成为现实，事实上，也不清楚其中是否有任何一个会实现。
+然而它们仍然很重要，因为每种愿景都有其忠实的拥护者，如果有足够多的人对某件事
+抱有足够狂热的信念，你就需要面对该事物以其对拥护者的思想、言论和行动的影响形式
+而存在的事实。
+此外，这些愿景中的一个或多个确实会成为现实。
+但大多数是不靠谱的。
+能分辨出哪个是哪个，你就发财了~\cite{KeithRSpitz1977}！
 
-Therefore, the following sections give an overview of transactional
-memory, hardware transactional memory,
-formal verification in regression testing, and
-parallel functional programming.
-But first, a cautionary tale on prognostication taken from the early 2000s.
+因此，以下各节概述了transactional memory、hardware transactional memory、
+回归测试中的形式化验证以及并行functional programming。
+但首先，让我们看一个来自21世纪初的关于预测的警示故事。
 
 \input{future/cpu.tex}
 \IfTwoColumn{}{\FloatBarrier}
@@ -34,17 +29,17 @@ But first, a cautionary tale on prognostication taken from the early 2000s.
 \input{future/fp.tex}
 % @@@ Maybe add quantum computing back in, but heavily summarized.
 
-\section{Summary}
+\section{总结}
 \label{sec:future:Summary}
 %
-\epigraph{Life can only be understood backwards;
-	   but it must be lived forwards.}
+\epigraph{生活只能在回顾中理解；
+	   但必须向前过。}
 	  {S{\o}ren Kierkegaard}
 
-This chapter has taken a quick tour of a number of possible futures,
-including multicore, transactional memory, formal verification as
-a regression test, and concurrent functional programming.
-Any of these futures might come true, but it is more likely that, as in
-the past, the future will be far stranger than we can possibly imagine.
+本章快速浏览了若干可能的未来，
+包括多核、transactional memory、作为回归测试的形式化验证，
+以及并发functional programming。
+这些未来中的任何一个都可能成为现实，但更有可能的是，
+与过去一样，未来将比我们所能想象的更加奇异。
 
 \QuickQuizAnswersChp{qqzfuture}

@@ -2,174 +2,151 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{The Future of CPU Technology Ain't What it Used to Be}
+\section{CPU技术的未来已今非昔比}
 \label{sec:future:The Future of CPU Technology Ain't What it Used to Be}
 %
-\epigraph{A great future behind him.}{David Maraniss}
+\epigraph{辉煌的未来已成过去。}{David Maraniss}
 
-Years past always seem so simple and innocent when viewed through the
-lens of many years of experience.
-And the early 2000s were for the most part innocent of the impending
-failure of \IXr{Moore's Law} to continue delivering the then-traditional
-increases in CPU clock frequency.
-Oh, there were the occasional warnings about the limits of technology,
-but such warnings had been sounded for decades.
-With that in mind, consider the following scenarios:
+透过多年经验的棱镜，过去的岁月总是显得如此简单而纯真。
+21世纪初对于\IXr{Moore's Law}即将无法继续带来传统的CPU时钟频率提升
+这一迫在眉睫的失败，大多数人还浑然不知。
+当然，偶尔也有关于技术极限的警告，但这样的警告已经发出了数十年。
+怀着这样的心态，请考虑以下几种情景：
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/r-2014-CPU-future-uniprocessor-uber-alles}}
-\caption{Uniprocessor \"Uber Alles}
+\caption{单处理器至上}
 \ContributedBy{fig:future:Uniprocessor \"Uber Alles}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2.6in}{!}{\includegraphics{cartoons/r-2014-CPU-Future-Multithreaded-Mania}}
-\caption{Multithreaded Mania}
+\caption{多线程狂热}
 \ContributedBy{fig:future:Multithreaded Mania}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{cartoons/r-2014-CPU-Future-More-of-the-Same}}
-\caption{More of the Same}
+\caption{一切照旧}
 \ContributedBy{fig:future:More of the Same}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/r-2014-CPU-Future-Crash-dummies}}
-\caption{Crash Dummies Slamming into the Memory Wall}
+\caption{撞向内存墙的碰撞试验假人}
 \ContributedBy{fig:future:Crash Dummies Slamming into the Memory Wall}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/r-2021-CPU-future-astounding-accelerator}}
-\caption{Astounding Accelerators}
+\caption{令人惊叹的加速器}
 \ContributedBy{fig:future:Astounding Accelerators}{Melissa Broussard, remixed}
 \end{figure}
 
 \begin{enumerate}
-\item	Uniprocessor \"Uber Alles
-	(\cref{fig:future:Uniprocessor \"Uber Alles}),
-\item	Multithreaded Mania
-	(\cref{fig:future:Multithreaded Mania}),
-\item	More of the Same
-	(\cref{fig:future:More of the Same}), and
-\item	Crash Dummies Slamming into the Memory Wall
-	(\cref{fig:future:Crash Dummies Slamming into the Memory Wall}).
-\item	Astounding Accelerators
-	(\cref{fig:future:Astounding Accelerators}).
+\item	单处理器至上
+	(\cref{fig:future:Uniprocessor \"Uber Alles})，
+\item	多线程狂热
+	(\cref{fig:future:Multithreaded Mania})，
+\item	一切照旧
+	(\cref{fig:future:More of the Same})，以及
+\item	撞向内存墙的碰撞试验假人
+	(\cref{fig:future:Crash Dummies Slamming into the Memory Wall})。
+\item	令人惊叹的加速器
+	(\cref{fig:future:Astounding Accelerators})。
 \end{enumerate}
 
-Each of these scenarios is covered in the following sections.
+以下各节分别介绍每种情景。
 
-\subsection{Uniprocessor \"Uber Alles}
+\subsection{单处理器至上}
 \label{sec:future:Uniprocessor \"Uber Alles}
 
-As was said in 2004~\cite{PaulEdwardMcKenneyPhD}:
+正如2004年所说~\cite{PaulEdwardMcKenneyPhD}：
 
 \begin{quote}
-	In this scenario, the combination of \IXaltr{Moore's-Law}{Moore's Law}
-	increases in CPU
-	clock rate and continued progress in horizontally scaled computing
-	render SMP systems irrelevant.
-	This scenario is therefore dubbed ``Uniprocessor \"Uber
-	Alles'', literally, uniprocessors above all else.
+	在这一情景中，\IXaltr{Moore's-Law}{Moore's Law}带来的CPU时钟频率提升
+	与水平扩展计算的持续进步相结合，使得SMP系统变得无关紧要。
+	因此，这一情景被称为``单处理器至上''，
+	字面意思是单处理器高于一切。
 
-	These uniprocessor systems would be subject only to instruction
-	overhead, since \IXpl{memory barrier}, cache thrashing, and contention
-	do not affect single-CPU systems.
-	In this scenario, RCU is useful only for niche applications, such
-	as interacting with \IXacrpl{nmi}.
-	It is not clear that an operating system lacking RCU would see
-	the need to adopt it, although operating
-	systems that already implement RCU might continue to do so.
+	这些单处理器系统将只受到指令开销的影响，因为\IXpl{memory barrier}、
+	缓存抖动和竞争不会影响单CPU系统。
+	在这一情景中，RCU仅对小众应用有用，例如
+	与\IXacrpl{nmi}交互。
+	目前还不清楚一个缺少RCU的操作系统是否会觉得有必要采用它，
+	尽管已经实现了RCU的操作系统可能会继续使用。
 
-	However, recent progress with multithreaded CPUs seems to indicate
-	that this scenario is quite unlikely.
+	然而，多线程CPU的最新进展似乎表明
+	这一情景是极不可能的。
 \end{quote}
 
-Unlikely indeed!
-But the larger software community was reluctant to accept the fact that
-they would need to embrace parallelism, and so it was some time before
-this community concluded that the ``free lunch'' of
-\IXaltr{Moore's-Law}{Moore's Law}-induced
-CPU core-clock frequency increases was well and truly finished.
-Never forget:
-Belief is an emotion, not necessarily the result of a rational technical
-thought process!
+确实极不可能！
+但更广泛的软件社区不愿接受他们需要拥抱并行性这一事实，
+因此过了一段时间，这个社区才得出结论：
+\IXaltr{Moore's-Law}{Moore's Law}带来的CPU核心时钟频率提升这顿``免费午餐''
+确实已经彻底结束了。
+永远不要忘记：
+信念是一种情感，不一定是理性技术思考过程的结果！
 
-\subsection{Multithreaded Mania}
+\subsection{多线程狂热}
 \label{sec:future:Multithreaded Mania}
 
-Also from 2004~\cite{PaulEdwardMcKenneyPhD}:
+同样来自2004年~\cite{PaulEdwardMcKenneyPhD}：
 
 \begin{quote}
-	A less-extreme variant of Uniprocessor \"Uber Alles features
-	uniprocessors with hardware multithreading, and in fact
-	multithreaded CPUs are now standard for many desktop and laptop
-	computer systems.
-	The most aggressively multithreaded CPUs share all levels of
-	cache hierarchy, thereby eliminating CPU-to-CPU \IXh{memory}{latency},
-	in turn greatly reducing the performance penalty for traditional
-	synchronization mechanisms.
-	However, a multithreaded CPU would still incur overhead due to
-	contention and to pipeline stalls caused by memory barriers.
-	Furthermore, because all hardware threads share all levels
-	of cache, the cache available to a given hardware thread is a
-	fraction of what it would be on an equivalent single-threaded
-	CPU, which can degrade performance for applications with large
-	cache footprints.
-	There is also some possibility that the restricted amount of cache
-	available will cause RCU-based algorithms to incur performance
-	penalties due to their grace-period-induced additional memory
-	consumption.
-	Investigating this possibility is future work.
+	单处理器至上的一个不那么极端的变体是具有硬件多线程的单处理器，
+	事实上，多线程CPU现在已经是许多台式和笔记本电脑系统的标配。
+	最激进的多线程CPU共享所有级别的缓存层次结构，
+	从而消除了CPU到CPU的\IXh{memory}{latency}，
+	进而大大降低了传统同步机制的性能损失。
+	然而，多线程CPU仍然会因竞争和内存屏障导致的
+	流水线停顿而产生开销。
+	此外，由于所有硬件线程共享所有级别的缓存，
+	给定硬件线程可用的缓存只是等效单线程CPU上
+	缓存的一部分，这可能会降低具有大缓存占用的应用程序的性能。
+	还存在一些可能性，即可用缓存的限制将导致基于RCU的算法
+	由于其宽限期引起的额外内存消耗而遭受性能损失。
+	调查这种可能性是未来的工作。
 
-	However, in order to avoid such performance degradation, a number
-	of multithreaded CPUs and multi-CPU chips partition at least
-	some of the levels of cache on a per-hardware-thread basis.
-	This increases the amount of cache available to each hardware
-	thread, but re-introduces memory latency for cachelines that
-	are passed from one hardware thread to another.
+	然而，为了避免这种性能下降，许多多线程CPU和多CPU芯片
+	至少在某些缓存级别上按每个硬件线程进行分区。
+	这增加了每个硬件线程可用的缓存量，
+	但重新引入了从一个硬件线程传递到另一个硬件线程的
+	缓存行的内存延迟。
 \end{quote}
 
-And we all know how this story has played out, with multiple multi-threaded
-cores on a single die plugged into a single socket, with varying degrees
-of optimization for lower numbers of active threads per core.
-The question then becomes whether or not future shared-memory systems will
-always fit into a single socket.
+我们都知道这个故事是如何发展的：单个芯片上有多个多线程核心，
+插在单个插槽中，对较少的活跃线程数有不同程度的优化。
+问题是，未来的共享内存系统是否总是能装入单个插槽中。
 
-\subsection{More of the Same}
+\subsection{一切照旧}
 \label{sec:meas:More of the Same}
 
-Again from 2004~\cite{PaulEdwardMcKenneyPhD}:
+再次来自2004年~\cite{PaulEdwardMcKenneyPhD}：
 
 \begin{quote}
-	The More-of-the-Same scenario assumes that the memory-latency
-	ratios will remain roughly where they are today.
+	一切照旧情景假设内存延迟比率将大致保持在今天的水平。
 
-	This scenario actually represents a change, since to have more
-	of the same, interconnect performance must begin keeping up
-	with the \IXaltr{Moore's-Law}{Moore's Law} increases in core CPU performance.
-	In this scenario, overhead due to pipeline stalls, memory latency,
-	and contention remains significant, and RCU retains the high
-	level of applicability that it enjoys today.
+	这一情景实际上代表了一种变化，因为要保持不变，
+	互连性能必须开始跟上\IXaltr{Moore's-Law}{Moore's Law}
+	带来的核心CPU性能提升。
+	在这一情景中，由于流水线停顿、内存延迟和竞争引起的开销
+	仍然显著，RCU保持着它今天所享有的高适用性。
 \end{quote}
 
-And the change has been the ever-increasing levels of integration
-that \IXr{Moore's Law} is still providing.
-But longer term, which will it be?
-More CPUs per die?
-Or more I/O, cache, and memory?
+而变化一直是\IXr{Moore's Law}仍在提供的不断增加的集成度。
+但从长远来看，会是什么呢？
+每个芯片更多的CPU？
+还是更多的I/O、缓存和内存？
 
-Servers seem to be choosing the former, while embedded systems on a chip
-(SoCs) continue choosing the latter.
+服务器似乎在选择前者，而片上系统（SoC）的嵌入式系统则继续选择后者。
 
-\subsection{Crash Dummies Slamming into the Memory Wall}
+\subsection{撞向内存墙的碰撞试验假人}
 \label{sec:future:Crash Dummies Slamming into the Memory Wall}
 
 \begin{figure}
@@ -177,7 +154,7 @@ Servers seem to be choosing the former, while embedded systems on a chip
 \epsfxsize=3in
 \epsfbox{future/latencytrend}
 % from Ph.D. thesis: related/latencytrend.eps
-\caption{Instructions per Local Memory Reference for Sequent Computers}
+\caption{Sequent计算机每次本地内存引用的指令数}
 \label{fig:future:Instructions per Local Memory Reference for Sequent Computers}
 \end{figure}
 
@@ -186,7 +163,7 @@ Servers seem to be choosing the former, while embedded systems on a chip
 \epsfxsize=3in
 \epsfbox{future/be-lb-n4-rf-all}
 % from Ph.D. thesis: an/plots/be-lb-n4-rf-all.eps
-\caption{Breakevens vs.\@ $r$, $\lambda$ Large, Four CPUs}
+\caption{盈亏平衡点 vs.\@ $r$，$\lambda$ 较大，四个CPU}
 \label{fig:future:Breakevens vs. r; lambda Large; Four CPUs}
 \end{figure}
 
@@ -195,67 +172,57 @@ Servers seem to be choosing the former, while embedded systems on a chip
 \epsfxsize=3in
 \epsfbox{future/be-lw-n4-rf-all}
 % from Ph.D. thesis: an/plots/be-lw-n4-rf-all.eps
-\caption{Breakevens vs.\@ $r$, $\lambda$ Small, Four CPUs}
+\caption{盈亏平衡点 vs.\@ $r$，$\lambda$ 较小，四个CPU}
 \label{fig:future:Breakevens vs. r; Worst-Case lambda; Four CPUs}
 \end{figure}
 
-And one more quote from 2004~\cite{PaulEdwardMcKenneyPhD}:
+2004年的又一段引言~\cite{PaulEdwardMcKenneyPhD}：
 
 \begin{quote}
-	If the memory-latency trends shown in
+	如果
 	\cref{fig:future:Instructions per Local Memory Reference for Sequent Computers}
-	continue, then memory latency will continue to grow relative
-	to instruction-execution overhead.
-	Systems such as Linux that have significant use of RCU will find
-	additional use of RCU to be profitable, as shown in
-	\cref{fig:future:Breakevens vs. r; lambda Large; Four CPUs}.
-	As can be seen in this figure, if RCU is heavily used, increasing
-	memory-latency ratios give RCU an increasing advantage over other
-	synchronization mechanisms.
-	In contrast, systems with minor
-	use of RCU will require increasingly high degrees of read intensity
-	for use of RCU to pay off, as shown in
-	\cref{fig:future:Breakevens vs. r; Worst-Case lambda; Four CPUs}.
-	As can be seen in this figure, if RCU is lightly used,
-	increasing memory-latency ratios
-	put RCU at an increasing disadvantage compared to other synchronization
-	mechanisms.
-	Since Linux has been observed with over 1,600 callbacks per \IX{grace
-	period} under heavy load~\cite{Sarma04c},
-	it seems safe to say that Linux falls into the former category.
+	中所示的内存延迟趋势继续下去，那么内存延迟将继续相对于
+	指令执行开销增长。
+	像Linux这样大量使用RCU的系统将发现进一步使用RCU是有利可图的，
+	如\cref{fig:future:Breakevens vs. r; lambda Large; Four CPUs}所示。
+	从该图可以看出，如果RCU被大量使用，增加的内存延迟比率
+	使RCU相对于其他同步机制获得越来越大的优势。
+	相比之下，很少使用RCU的系统将需要越来越高的读密集度
+	才能使RCU的使用有所回报，
+	如\cref{fig:future:Breakevens vs. r; Worst-Case lambda; Four CPUs}所示。
+	从该图可以看出，如果RCU使用较少，增加的内存延迟比率
+	使RCU与其他同步机制相比处于越来越不利的地位。
+	由于在高负载下Linux已被观察到每个\IX{grace period}
+	超过1,600个回调~\cite{Sarma04c}，
+	可以安全地说Linux属于前一类。
 \end{quote}
 
-On the one hand, this passage failed to anticipate the cache-warmth
-issues that RCU can suffer from in workloads with significant update
-intensity, in part because it seemed unlikely that RCU would really
-be used for such workloads.
-In the event, the \co{SLAB_TYPESAFE_BY_RCU} has been pressed into
-service in a number of instances where these cache-warmth issues would
-otherwise be problematic, as has sequence locking.
-On the other hand, this passage also failed to anticipate that
-RCU would be used to reduce scheduling latency or for security.
+一方面，这段话未能预见到RCU在具有显著更新密集度的工作负载中
+可能遭受的缓存预热问题，部分原因是当时似乎不太可能
+RCU真的会被用于此类工作负载。
+实际上，\co{SLAB_TYPESAFE_BY_RCU}已在许多实例中投入使用，
+在这些情况下否则会出现缓存预热问题，sequence locking也是如此。
+另一方面，这段话也未能预见到RCU会被用于减少调度延迟或用于安全目的。
 
-Much of the data generated for this book was collected on an eight-socket
-system with 28 cores per socket and two hardware threads per core, for
-a total of 448 hardware threads.
-The idle-system memory latencies are less than one microsecond, which
-are no worse than those of similar-sized systems of the year 2004.
-Some claim that these latencies approach a microsecond only because of
-the x86 CPU family's relatively strong memory ordering, but it may be
-some time before that particular argument is settled.
+本书生成的大部分数据是在一个八插槽系统上收集的，
+每个插槽有28个核心，每个核心有两个硬件线程，
+总共448个硬件线程。
+空闲系统的内存延迟小于一微秒，
+与2004年同等规模系统的延迟不相上下。
+有些人声称这些延迟接近一微秒仅仅是因为x86 CPU系列
+相对较强的内存排序，但可能还需要一段时间
+才能解决这一特定争论。
 
-\subsection{Astounding Accelerators}
+\subsection{令人惊叹的加速器}
 \label{sec:future:Astounding Accelerators}
 
-The potential of hardware accelerators was not quite as clear in 2004
-as it is in 2021, so this section has no quote.
-However, the November 2020 Top 500 list~\cite{Top500} features a great
-many accelerators, so one could argue that this section is a view of
-the present rather than of the future.
-The same could be said of most of the preceding sections.
+硬件加速器的潜力在2004年不像在2021年那样清晰，
+因此本节没有引言。
+然而，2020年11月的Top 500列表~\cite{Top500}包含大量加速器，
+因此可以说本节是对现在而非未来的展望。
+前面几节中的大多数也可以这样说。
 
-Hardware accelerators are being put to many other uses, including
-encryption, compression, and machine learning.
+硬件加速器正被用于许多其他用途，包括
+加密、压缩和机器学习。
 
-In short, beware of prognostications, including those in the remainder
-of this chapter.
+总之，对预测保持警惕，包括本章其余部分的预测。

@@ -1,4 +1,4 @@
-LATEX ?= pdflatex
+LATEX ?= xelatex
 WHICH = command -v
 
 GITREFSTAGS := $(shell ls -d .git/refs/tags 2>/dev/null)
@@ -291,8 +291,10 @@ $(PDFTARGETS:.pdf=.bbl): %.bbl: %.aux $(BIBSOURCES)
 	bibtex $(basename $@)
 
 $(PDFTARGETS:.pdf=.aux): %.aux: %.tex $(LATEXGENERATED)
+ifneq ($(findstring xelatex,$(LATEX)),xelatex)
 ifeq ($(NEWTXTEXT),)
 	$(error Font package 'newtx' not found. See #9 in FAQ-BUILD.txt)
+endif
 endif
 ifeq ($(LATEX_CMD),)
 	$(error LaTeX engine "$(LATEX)" not found.)

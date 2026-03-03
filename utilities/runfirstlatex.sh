@@ -39,6 +39,10 @@ then
 fi
 
 # newtx font package version check (newer or equal to Ubuntu 14.04)
+# Skip for xelatex which uses fontspec instead of newtxtext
+case "$LATEX" in
+*xelatex*) ;;
+*)
 NEWTXTEXT=`kpsewhich newtxtext.sty`
 NEWTXTEXT_DATE=`grep filedate $NEWTXTEXT | grep -o -E "[/0-9]*"`
 # We need TeX Live 2013/Debian (Ubuntu 14.04) or later
@@ -51,6 +55,8 @@ then
 	echo "############################################################"
 	exit 1
 fi
+;;
+esac
 
 DETECTED_BUGGY=0
 # listings package version check (TeX Live 2014 and 2015 had buggy ones)
@@ -96,10 +102,10 @@ then
 	echo "----- See $basename.log for the full log. -----"
 	exit 2
 fi
-if grep -q 'pdfTeX error:' $basename.log
+if grep -q 'pdfTeX error:\|Fatal fontspec error' $basename.log
 then
-	echo "----- !!! Fatal pdfTeX error !!! -----"
-	grep -B 10 -A 8 '!pdfTeX error:' $basename.log
+	echo "----- !!! Fatal TeX engine error !!! -----"
+	grep -B 10 -A 8 'pdfTeX error:\|Fatal fontspec error' $basename.log
 	echo "----- See $basename.log for the full log. -----"
 	exit 2
 fi

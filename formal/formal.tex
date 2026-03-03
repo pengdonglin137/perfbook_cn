@@ -2,45 +2,41 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Formal Verification}{Formal Verification}{qqzformal}
+\QuickQuizChapter{chp:Formal Verification}{形式化验证}{qqzformal}
 %
-\Epigraph{Beware of bugs in the above code; I have only proved it correct,
-	  not tried it.}{Donald Knuth}
+\Epigraph{当心上述代码中的 bug；我只是证明了它是正确的，
+	  而没有试过。}{Donald Knuth}
 
 \OriginallyPublished{chp:Formal Verification}{Formal Verification}{Linux Weekly News}{PaulEMcKenney2007QRCUspin,PaulEMcKenney2008dynticksRCU,PaulEMcKenney2011ppcmem}
 
-Parallel algorithms can be hard to write, and even harder to debug.
-Testing, though essential, is insufficient, as fatal \IXpl{race condition}
-can have extremely low probabilities of occurrence.
-Proofs of correctness can be valuable, but in the end are just as
-prone to human error as is the original algorithm.
-In addition, a proof of correctness cannot be expected to find errors
-in your assumptions, shortcomings in the requirements,
-misunderstandings of the underlying software or hardware primitives,
-or errors that you did not think to construct a proof for.
-This means that formal methods can never replace testing.
-Nevertheless, formal methods can be a valuable addition to your validation
-toolbox.
+并行算法可能很难编写，而且更难调试。
+测试虽然必不可少，但却是不充分的，因为致命的\IXpl{race condition}
+可能具有极低的发生概率。
+正确性证明可以是有价值的，但归根结底它与原始算法一样
+容易出现人为错误。
+此外，正确性证明不能指望发现你假设中的错误、需求中的缺陷、
+对底层软件或硬件原语的误解，
+或者你没有想到要为之构造证明的错误。
+这意味着形式化方法永远不能取代测试。
+然而，形式化方法可以成为你验证工具箱中有价值的补充。
 
-It would be very helpful to have a tool that could somehow locate
-all race conditions.
-A number of such tools exist, for example,
-\cref{sec:formal:State-Space Search} provides an
-introduction to the general-purpose state-space search tools Promela and Spin,
+如果有一个工具能以某种方式定位所有的竞态条件，那将非常有帮助。
+存在许多这样的工具，例如，
+\cref{sec:formal:State-Space Search}介绍了
+通用 state-space search 工具 Promela 和 Spin，
 \cref{sec:formal:Special-Purpose State-Space Search}
-similarly introduces the special-purpose ppcmem tool,
+类似地介绍了专用的 ppcmem 工具，
 \cref{sec:formal:Axiomatic Approaches}
-looks at an example axiomatic approach,
+考察了一个 axiomatic approach 示例，
 \cref{sec:formal:SAT Solvers}
-briefly overviews SAT solvers,
+简要概述了 SAT solvers，
 \cref{sec:formal:Stateless Model Checkers}
-briefly overviews stateless model checkers,
+简要概述了 stateless model checkers，
 \cref{sec:formal:Summary}
-sums up use of formal-verification tools for verifying parallel algorithms,
-and finally
+总结了 formal verification 工具在验证并行算法中的使用，
+最后
 \cref{sec:formal:Choosing a Validation Plan}
-discusses how to decide how much and what type of validation to apply
-to a given software project.
+讨论了如何决定对给定软件项目应用多少以及什么类型的验证。
 
 \input{formal/spinhint}
 \input{formal/dyntickrcu}
@@ -49,270 +45,249 @@ to a given software project.
 \input{formal/sat}
 \input{formal/stateless}
 
-\section{Summary}
+\section{总结}
 \label{sec:formal:Summary}
 %
-\epigraph{Western thought has focused on True-False;
-	  it is high time to shift to Robust-Fragile.}
-	 {Nassim Nicholas Taleb, summarized}
+\epigraph{西方思想一直聚焦于真-假；
+	  现在是时候转向鲁棒-脆弱了。}
+	 {Nassim Nicholas Taleb，概述}
 % Full quote:
 % Since Plato, Western thought and the theory of knowledge has focused on
 % the notions of True-False; as commendable as that was, it is high time
 % to shift the concern to Robust-Fragile, and social epistemology to the
 % more serious problem of Sucker-Nonsucker.
 
-The formal-verification techniques described in this chapter
-are very powerful tools for validating small
-parallel algorithms, but they should not be the only tools in your toolbox.
-Despite decades of focus on formal verification, testing remains the
-validation workhorse for large parallel software
-systems~\cite{JonathanCorbet2006lockdep,DaveJones2011Trinity,PaulEMcKenney2016Formal}.
+本章描述的 formal verification 技术是验证小型并行算法的
+非常强大的工具，但它们不应该是你工具箱中的唯一工具。
+尽管数十年来一直关注 formal verification，测试仍然是大型并行软件
+系统的验证主力~\cite{JonathanCorbet2006lockdep,DaveJones2011Trinity,PaulEMcKenney2016Formal}。
 
-It is nevertheless quite possible that this will not always be the case.
-To see this, consider that there is estimated to be more than twenty
-billion instances of the Linux kernel as of 2017.
-Suppose that the Linux kernel has a bug that manifests on average every million
-years of runtime.
-As noted at the end of the preceding chapter, this bug will be appearing
-more than 50 times \emph{per day} across the installed base.
-But the fact remains that most formal validation techniques can be used
-only on very small codebases.
-So what is a concurrency coder to do?
+然而，情况并非永远如此是完全可能的。
+要理解这一点，考虑到截至2017年，Linux 内核的实例估计超过
+200亿个。
+假设 Linux 内核有一个平均每百万年运行时间才会出现的 bug。
+正如前一章末尾所指出的，这个 bug 将在安装基数上
+每天出现超过50次。
+但事实仍然是，大多数形式化验证技术只能用于
+非常小的代码库。
+那么，并发编程者该怎么办？
 
-Think in terms of finding the first bug, the first relevant bug, the
-last relevant bug, and the last bug.
+从找到第一个 bug、第一个相关 bug、最后一个相关 bug
+和最后一个 bug 的角度来思考。
 
-The first bug is normally found via inspection or compiler diagnostics.
-Although the increasingly sophisticated compiler diagnostics comprise
-a lightweight sort of formal verification, it is not common to think of
-them in those terms.
-This is in part due to an odd practitioner prejudice which says ``If I am
-using it, it cannot be formal verification'' on the one hand, and a large
-gap between compiler diagnostics and verification research on the other.
+第一个 bug 通常通过检查或编译器诊断发现。
+尽管日益复杂的编译器诊断构成了一种轻量级的 formal verification，
+但人们通常不会这样看待它们。
+这部分是由于一种奇特的从业者偏见，一方面说
+``如果我在使用它，它就不可能是 formal verification''，
+另一方面编译器诊断和验证研究之间存在很大的差距。
 
-Although the first relevant bug might be located via inspection or
-compiler diagnostics, it is not unusual for these two steps to find
-only typos and false positives.
-Either way, the bulk of the relevant bugs, that is, those bugs that
-might actually be encountered in production, will often be found via testing.
+虽然第一个相关 bug 可能通过检查或编译器诊断找到，
+但这两个步骤只找到拼写错误和误报的情况并不少见。
+无论如何，大部分相关的 bug，即那些在生产中可能实际遇到的 bug，
+通常会通过测试发现。
 
-When testing is driven by anticipated or real use cases, it is not
-uncommon for the last relevant bug to be located by testing.
-This situation might motivate a complete rejection of formal verification,
-however, irrelevant bugs have an annoying habit of suddenly becoming relevant
-at the least convenient moment possible, courtesy of black-hat attacks.
-For security-critical software, which appears to be a continually
-increasing fraction of the total, there can thus be strong motivation
-to find and fix the last bug.
-Testing is demonstrably unable to find the last bug, so there is a
-possible role for formal verification, assuming, that is, that
-formal verification proves capable of growing into that role.
-As this chapter has shown, current formal verification systems are
-extremely limited.
+当测试由预期或实际的用例驱动时，
+最后一个相关 bug 通过测试找到的情况并不少见。
+这种情况可能会激发对 formal verification 的完全拒绝，
+然而，不相关的 bug 有一个恼人的习惯，会在最不方便的时刻
+突然变得相关，这要归功于黑帽攻击。
+对于安全关键的软件，它似乎是总量中持续增长的一部分，
+因此可能有强烈的动机来找到并修复最后一个 bug。
+测试明显无法找到最后一个 bug，所以 formal verification 有
+一个可能的角色，当然前提是 formal verification 能够
+证明自己有能力承担这个角色。
+正如本章所示，当前的 formal verification 系统
+极为有限。
 
 \QuickQuiz{
-	But shouldn't sufficiently low-level software be for all intents
-	and purposes immune to being exploited by black hats?
+	但是，足够底层的软件难道不应该实际上
+	对黑帽的利用免疫吗？
 }\QuickQuizAnswer{
-	Unfortunately, no.
+	不幸的是，不是。
 
-	At one time, Paul E. McKenny felt that Linux-kernel RCU
-	was immune to such exploits, but the advent of Row Hammer
-	showed him otherwise.
-	After all, if the black hats can hit the system's DRAM,
-	they can hit any and all low-level software, even including RCU\@.
+	Paul E. McKenney 曾经认为 Linux 内核的 RCU
+	对这种利用是免疫的，但 Row Hammer 的出现
+	让他改变了看法。
+	毕竟，如果黑帽能够攻击系统的 DRAM，
+	他们就能攻击任何和所有底层软件，甚至包括 RCU\@。
 
-	And in 2018, this possibility passed from the realm of
-	theoretical speculation into the hard and fast realm of
-	objective reality~\cite{McKenney:2019:CRS:3319647.3325836}.
+	在2018年，这种可能性从理论推测的领域
+	进入了客观现实的确凿领域~\cite{McKenney:2019:CRS:3319647.3325836}。
 }\QuickQuizEnd
 
-Please note that formal verification is often much harder to use than
-is testing.
-This is in part a cultural statement, and there is reason to hope
-that formal verification will be perceived to be easier with increased
-familiarity.
-That said, very simple test harnesses can find significant bugs in arbitrarily
-large software systems.
-In contrast, the effort required to apply formal verification seems to
-increase dramatically as the system size increases.
+请注意，formal verification 通常比测试难用得多。
+这在一定程度上是一个文化声明，有理由希望
+随着熟悉度的增加，formal verification 会被认为更容易。
+话虽如此，非常简单的测试框架就能在任意大的软件系统中
+找到重大 bug。
+相比之下，应用 formal verification 所需的工作量
+似乎随着系统规模的增加而急剧增长。
 
-I have nevertheless made occasional use of formal verification
-for almost 30 years by playing to formal verification's strengths,
-namely design-time verification of small complex portions of the overarching
-software construct.
-The larger overarching software construct is of course validated by testing.
+尽管如此，我在近30年中偶尔使用 formal verification，
+利用 formal verification 的优势，
+即在设计时验证整体软件构造中小型复杂部分。
+更大的整体软件构造当然是通过测试来验证的。
 
 \QuickQuiz{
-	In light of the full verification of the L4 microkernel,
-	isn't this limited view of formal verification just a little
-	bit obsolete?
+	鉴于 L4 微内核的完整验证，
+	这种对 formal verification 的有限观点
+	不是有点过时了吗？
 }\QuickQuizAnswer{
-	Unfortunately, no.
+	不幸的是，不是。
 
-	The first full verification of the L4 microkernel was a tour de force,
-	with a large number of Ph.D.~students hand-verifying code at a
-	very slow per-student rate.
-	This level of effort could not be applied to most software projects
-	because the rate of change is just too great.
-	Furthermore, although the L4 microkernel is a large software
-	artifact from the viewpoint of formal verification, it is tiny
-	compared to a great number of projects, including LLVM,
-	\GCC, the Linux kernel, Hadoop, MongoDB, and a great many others.
-	In addition, this verification did have limits, as the researchers
-	freely admit, to their credit:
-	\url{https://docs.sel4.systems/projects/sel4/frequently-asked-questions.html\#does-sel4-have-zero-bugs}.
+	L4 微内核的第一次完整验证是一项壮举，
+	大量的博士生以非常低的每人速率
+	手工验证代码。
+	这种程度的工作量无法应用于大多数软件项目，
+	因为变更速度太快了。
+	此外，虽然 L4 微内核从 formal verification 的
+	角度来看是一个大型软件工件，但与大量项目相比它很小，
+	包括 LLVM、\GCC、Linux 内核、Hadoop、MongoDB
+	以及许多其他项目。
+	此外，这个验证确实有限制，研究人员
+	坦然承认，值得赞扬：
+	\url{https://docs.sel4.systems/projects/sel4/frequently-asked-questions.html\#does-sel4-have-zero-bugs}。
 
-	Although formal verification is finally starting to show some
-	promise, including more-recent L4 verifications involving greater
-	levels of automation, it currently has no chance of completely
-	displacing testing in the foreseeable future.
-	And although I would dearly love to be proven wrong on this point,
-	please note that such proof will be in the form of a real tool
-	that verifies real software, not in the form of a large body of
-	rousing rhetoric.
+	虽然 formal verification 终于开始显示出一些
+	前景，包括涉及更高自动化水平的更新的 L4 验证，
+	但它目前在可预见的未来完全没有可能
+	取代测试。
+	虽然我非常希望在这一点上被证明是错误的，
+	但请注意，这样的证明将以一个验证真实软件的
+	真实工具的形式出现，而不是以大量
+	激动人心的言辞出现。
 
-	Perhaps someday formal verification will be used heavily for
-	validation, including for what is now known as regression testing.
-	\Cref{sec:future:Formal Regression Testing?} looks at
-	what would be required to make this possibility a reality.
+	也许有一天 formal verification 将被大量用于
+	验证，包括现在所知的回归测试。
+	\Cref{sec:future:Formal Regression Testing?}审视了
+	使这种可能性成为现实所需的条件。
 }\QuickQuizEnd
 
-One final approach is to consider the following two definitions from
-\cref{sec:debugging:Required Mindset}
-and the consequence that they imply:
+最后一种方法是考虑
+\cref{sec:debugging:Required Mindset}中的
+以下两个定义及其隐含的结论：
 
 \begin{description}[itemsep=0pt,labelindent=1em]
-\item[Definition:]	Bug-free programs are trivial programs.
-\item[Definition:]	Reliable programs have no known bugs.
-\item[Consequence:]	Any non-trivial reliable program contains at least
-			one as-yet-unknown bug.
+\item[定义：]	无 bug 的程序是平凡的程序。
+\item[定义：]	可靠的程序没有已知的 bug。
+\item[推论：]	任何非平凡的可靠程序至少包含
+			一个尚未发现的 bug。
 \end{description}
 
-From this viewpoint, any advances in validation and verification can
-have but two effects:
+从这个角度来看，验证和确认方面的任何进步只能
+有两种效果：
 \begin{enumerate*}[(1)]
-\item An increase in the number of trivial programs or
-\item A decrease in the number of reliable programs.
+\item 平凡程序数量的增加，或
+\item 可靠程序数量的减少。
 \end{enumerate*}
-Of course, the human race's increasing reliance on multicore systems and
-software provides extreme motivation for a very sharp increase in the
-number of trivial programs.
+当然，人类对多核系统和软件日益增长的依赖
+为平凡程序数量的急剧增加提供了极大的动力。
 
-However, if your code is so complex that you find yourself
-relying too heavily on formal-verification
-tools, you should carefully rethink your design, especially if your
-formal-verification tools require your code to be hand-translated
-to a special-purpose language.
-For example, a complex implementation of the dynticks interface for
-preemptible RCU that was presented in
-\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
-turned out to
-have a much simpler alternative implementation, as discussed in
-\cref{sec:formal:Simplicity Avoids Formal Verification}.
-All else being equal, a simpler implementation is much better than
-a proof of correctness for a complex implementation.
+然而，如果你的代码复杂到你发现自己过度依赖
+formal verification 工具，你应该仔细重新考虑你的设计，
+特别是如果你的 formal verification 工具要求你将代码
+手动翻译到专用语言的话。
+例如，\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
+中介绍的可抢占 RCU 的 dynticks 接口的复杂实现
+结果证明有一个简单得多的替代实现，如
+\cref{sec:formal:Simplicity Avoids Formal Verification}中所讨论的。
+在其他条件相同的情况下，一个简单的实现远胜于
+一个复杂实现的正确性证明。
 
-And the open challenge to those working on formal verification techniques
-and systems is to prove this summary wrong!
-To assist in this task, Verification Challenge~6 is now
-available~\cite{PaulEMcKenney2017VerificationChallenge6}.
-Have at it!!!
+对于那些从事 formal verification 技术和系统工作的人，
+公开的挑战是证明这个总结是错误的！
+为了协助完成这项任务，Verification Challenge~6 现已
+发布~\cite{PaulEMcKenney2017VerificationChallenge6}。
+来挑战吧！！！
 
-\section{Choosing a Validation Plan}
+\section{选择验证计划}
 \label{sec:formal:Choosing a Validation Plan}
 %
-\epigraph{Science is a first-rate piece of furniture for one's upper
-	  chamber, but only given common sense on the ground floor.}
-	 {Oliver Wendell Holmes, updated}
+\epigraph{科学是楼上房间中的一流家具，
+	  但前提是楼下要有常识。}
+	 {Oliver Wendell Holmes，经修改}
 
-What sort of validation should you use for your project?
+你应该为你的项目使用什么样的验证？
 
-As is often the case in software in particular and in engineering
-in general, the answer is ``it depends''.
+正如软件领域特别是工程领域通常的情况一样，
+答案是``视情况而定''。
 
-Note that neither running a test nor undertaking formal verification
-will change your project.
-At best, such effort have an indirect effect by locating a bug that
-is later fixed.
-Nevertheless, fixing a bug might prevent inconvenience, monetary loss,
-property damage, or even loss of life.
-Clearly, this sort of indirect effect can be extremely valuable.
+请注意，运行测试或进行 formal verification
+都不会改变你的项目。
+充其量，这种努力通过定位一个随后被修复的 bug 而产生间接效果。
+然而，修复一个 bug 可能会避免不便、经济损失、
+财产损害，甚至生命损失。
+显然，这种间接效果可能极其有价值。
 
-Unfortunately, as we have seen, it is difficult to predict whether or
-not a given validation effort will find important bugs.
-It is therefore all too easy to invest too little---or even to fail
-to invest at all, especially if development estimates proved overly
-optimistic or budgets unexpectedly tight, conditions which almost
-always come into play in real-world software projects.
+不幸的是，正如我们所见，很难预测
+给定的验证工作是否会发现重要的 bug。
+因此很容易投入太少——甚至完全没有投入，
+特别是如果开发估算过于乐观或预算意外紧张的话，
+这些情况在现实世界的软件项目中几乎总会出现。
 
-The decision to nevertheless invest in validation is often forced by
-experienced people with forceful personalities.
-But this is no guarantee, given that other stakeholders might also
-have forceful personalities.
-Worse yet, these other stakeholders might bring stories of expensive
-validation efforts that nevertheless allowed embarrassing bugs to
-escape to the end users.
-So although a scarred, grey-haired, and grouchy veteran might carry
-the day, a more organized approach would perhaps be more useful.
+决定仍然投资于验证通常是由有强势个性的
+经验丰富的人推动的。
+但这并不能保证，因为其他利益相关者可能
+同样具有强势的个性。
+更糟糕的是，这些其他利益相关者可能会带来关于昂贵的
+验证工作仍然让令人尴尬的 bug 逃逸到
+最终用户的故事。
+因此，虽然一个伤痕累累、满头白发、脾气暴躁的老手
+可能会占上风，但也许一种更有组织的方法会更有用。
 
-Fortunately, there is a strictly financial analog to investments in
-validation, and that is the insurance policy.
+幸运的是，验证投资有一个严格的金融类比，
+那就是保险单。
 
 \IfTwoColumn{
 \begin{figure*}
 \centering
 \resizebox{6in}{!}{\includegraphics{CodeSamples/formal/data/RCU-test-ratio.pdf}}
-\caption{Linux-Kernel RCU Test Code}
+\caption{Linux 内核 RCU 测试代码}
 \label{fig:formal:Linux-Kernel RCU Test Code}
 \end{figure*}
 }{}
 
-Both insurance policies and validation efforts require consistent
-up-front investments, and both defend against disasters that might
-or might not ever happen.
-Furthermore, both have exclusions of various types.
-For example, insurance policies for coastal areas might exclude
-damages due to tidal waves, while on the other hand we have seen
-that there is not yet any validation methodology that can find
-each and every bug.
+保险单和验证工作都需要持续的前期投资，
+两者都是对可能永远不会发生的灾难的防御。
+此外，两者都有各种类型的免责条款。
+例如，沿海地区的保险单可能不包括
+海啸造成的损害，另一方面我们已经看到，
+目前还没有任何验证方法能够找到
+每一个 bug。
 
-In addition, it is possible to over-invest in both insurance and
-in validation.
-For but one example, a validation plan that consumed the entire
-development budget would be just as pointless as would an insurance
-policy that covered the Sun going nova.
+此外，在保险和验证方面都可能
+过度投资。
+仅举一例，一个消耗了整个开发预算的验证计划
+将与一个覆盖太阳变成新星的保险单一样毫无意义。
 
-One approach is to devote a given fraction of the software budget to
-validation, with that fraction depending on the criticality of the
-software, so that safety-critical avionics software might grant a
-larger fraction of its budget to validation than would a homework
-assignment.
-Where available, experience from prior similar projects should be
-brought to bear.
-However, it is necessary to structure the project so that the validation
-investment starts when the project does, otherwise the inevitable overruns
-in spending on coding will crowd out the validation effort.
+一种方法是将软件预算的给定比例用于验证，
+该比例取决于软件的关键性，
+因此安全关键的航空电子软件可能将其预算的
+更大比例用于验证，而家庭作业则不必如此。
+在可用的情况下，应借鉴以往类似项目的经验。
+然而，有必要构建项目，使验证投资在项目开始时就开始，
+否则编码支出中不可避免的超支将挤占验证工作。
 
-Staffing start-up projects with experienced people can result in
-overinvestment in validation efforts.
-Just as it is possible to go broke buying too much insurance, it is
-possible to kill a project by investing too much in testing.
-This is especially the case for first-of-a-kind projects where it is
-not yet clear which use cases will be important, in which case testing
-for all possible use cases will be a possibly fatal waste of time,
-energy, and funding.
+用经验丰富的人员来配置创业项目可能导致
+验证工作的过度投资。
+正如购买过多保险可能导致破产一样，
+在测试上投入过多也可能扼杀一个项目。
+这对于首创性项目尤其如此，因为尚不清楚
+哪些用例将是重要的，在这种情况下，
+对所有可能的用例进行测试将是对时间、
+精力和资金的可能致命的浪费。
 
-However, as the tasks supported by a start-up project become more routine,
-users often become less forgiving of failures, thus increasing the need
-for validation.
-Managing this shift in investment can be extremely challenging,
-especially in the all-too-common case where the users are unwilling
-or unable to disclose the exact nature of their use case.
-It then becomes critically important to reverse-engineer the
-use cases from bug reports and from discussions with the users.
-As these use cases are better understood, use of continuous integration
-can help reduce the cost of finding and fixing any bugs located.
+然而，随着创业项目支持的任务变得更加日常化，
+用户通常对故障变得不那么宽容，从而增加了
+对验证的需求。
+管理这种投资转变可能极其具有挑战性，
+特别是在用户不愿意或无法披露其用例确切性质的
+太常见的情况下。
+这时就需要从 bug 报告和与用户的讨论中
+逆向工程用例变得至关重要。
+随着这些用例被更好地理解，使用持续集成
+可以帮助降低发现和修复所定位 bug 的成本。
 
 \IfTwoColumn{}{
 \begin{figure}
@@ -322,62 +297,57 @@ can help reduce the cost of finding and fixing any bugs located.
 }{
 \resizebox{4.5in}{!}{\includegraphics{CodeSamples/formal/data/RCU-test-ratio-crop.pdf}}
 }
-\caption{Linux-Kernel RCU Test Code}
+\caption{Linux 内核 RCU 测试代码}
 \label{fig:formal:Linux-Kernel RCU Test Code}
 \end{figure}
 }
 
-One example evolution of a software project's use of validation is
-shown in
-\cref{fig:formal:Linux-Kernel RCU Test Code}.
-As can be seen in the \lcnamecref{fig:formal:Linux-Kernel RCU Test Code},
-Linux-kernel RCU didn't have any validation code whatsoever until Linux
-kernel v2.6.15, which was released more than three years after the
-October 2002 v2.5.43 release that added RCU to the Linux kernel.
-The test suite achieved its peak fraction of the total lines of code
-in Linux kernel v2.6.19--v2.6.21.
-This fraction decreased sharply with the acceptance of preemptible RCU
-for real-time applications in v2.6.25.
-This decrease was due to the fact that the RCU API was identical
-in the preemptible and non-preemptible variants of RCU\@.
-This in turn meant that the existing test suite applied to both variants,
-so that even though the Linux-kernel RCU code expanded significantly,
-there was no need to expand the tests.
+\cref{fig:formal:Linux-Kernel RCU Test Code}展示了
+一个软件项目验证使用的演变示例。
+从该\lcnamecref{fig:formal:Linux-Kernel RCU Test Code}中可以看出，
+Linux 内核的 RCU 直到 Linux 内核 v2.6.15 才有任何验证代码，
+该版本的发布比2002年10月将 RCU 添加到 Linux 内核的
+v2.5.43 版本晚了三年多。
+测试套件在 Linux 内核 v2.6.19--v2.6.21 中达到了
+其在总代码行数中的最高比例。
+这个比例随着 v2.6.25 中接受用于实时应用的可抢占 RCU
+而急剧下降。
+这种下降是因为 RCU API 在可抢占和不可抢占的 RCU 变体中
+是相同的。
+这反过来意味着现有的测试套件适用于两种变体，
+所以即使 Linux 内核的 RCU 代码显著扩展，
+也不需要扩展测试。
 
-Subsequent bars in \cref{fig:formal:Linux-Kernel RCU Test Code} show
-that the RCU code base expanded significantly, but that the
-corresponding validation code expanded even more dramatically.
-Linux kernel v3.5 added tests for the \co{rcu_barrier()} API, closing
-a long-standing hole in test coverage.
-Linux kernel v3.14 added automated testing and analysis of test results,
-moving RCU towards continuous integration.
-Linux kernel v4.7 added a performance validation suite for RCU's update-side
-primitives.
-Linux kernel v4.12 added Tree SRCU, featuring improved update-side
-scalability, and v4.13 removed the old less-scalable SRCU implementation.
-Linux kernel v5.0 briefly hosted the \path{nolibc} library within
-the rcutorture scripting directory before it moved to its long-term
-home in \path{tools/include/nolibc}.
-Linux kernel v5.8 added the Tasks Trace and Rude flavors of RCU\@.
-Linux kernel v5.9 added the \path{refscale.c} suite of read-side performance
-tests.
-Linux kernels v5.12 and v5.13 started adding the ability to change a
-given CPU's callback-offloading status at runtime and also added the
-\path{torture.sh} acceptance-test script.
-Linux kernel v5.14 added distributed rcutorture.
-Linux kernel v5.15 added demonic vCPU placement in rcutorture testing,
-which was successful in locating a number of race conditions.\footnote{
-	The trick is to place one pair of vCPUs within the same core on
-	one socket, while placing another pair within the same core on
-	some other socket.
-	As you might expect from \cref{chp:Hardware and its Habits},
-	this produces different memory latencies between different
-	pairs of vCPUs
-	(\url{https://paulmck.livejournal.com/62071.html}).}
-Linux kernel v5.17 removed the \co{RCU_FAST_NO_HZ} Kconfig option.
-Linux kernel v6.14 moved \co{kvfree_rcu()} into SLAB (in
-\path{mm/slab_common.c})~\cite{20241212180208.274813-1-urezki}.
-Numerous other changes may be found in the Linux kernel's \co{git} archives.
+\cref{fig:formal:Linux-Kernel RCU Test Code}中的后续条形图
+显示 RCU 代码库显著扩展，但相应的
+验证代码扩展得更为显著。
+Linux 内核 v3.5 添加了对 \co{rcu_barrier()} API 的测试，
+填补了测试覆盖中长期存在的空白。
+Linux 内核 v3.14 添加了自动化测试和测试结果分析，
+使 RCU 朝持续集成方向发展。
+Linux 内核 v4.7 添加了 RCU 更新端原语的性能验证套件。
+Linux 内核 v4.12 添加了 Tree SRCU，具有改进的更新端可扩展性，
+v4.13 移除了旧的可扩展性较差的 SRCU 实现。
+Linux 内核 v5.0 短暂地在 rcutorture 脚本目录中托管了
+\path{nolibc} 库，然后它移到了 \path{tools/include/nolibc}
+的长期归宿。
+Linux 内核 v5.8 添加了 Tasks Trace 和 Rude 风格的 RCU\@。
+Linux 内核 v5.9 添加了 \path{refscale.c} 读端性能测试套件。
+Linux 内核 v5.12 和 v5.13 开始添加在运行时更改给定 CPU 的
+回调卸载状态的能力，并添加了 \path{torture.sh} 验收测试脚本。
+Linux 内核 v5.14 添加了分布式 rcutorture。
+Linux 内核 v5.15 在 rcutorture 测试中添加了恶魔式 vCPU 放置，
+这成功地定位了许多竞态条件。\footnote{
+	技巧是将一对 vCPU 放在一个插槽上的同一核心内，
+	同时将另一对放在某个其他插槽上的同一核心内。
+	正如你可能从\cref{chp:Hardware and its Habits}中
+	预期的那样，
+	这会在不同的 vCPU 对之间产生不同的内存延迟
+	（\url{https://paulmck.livejournal.com/62071.html}）。}
+Linux 内核 v5.17 移除了 \co{RCU_FAST_NO_HZ} Kconfig 选项。
+Linux 内核 v6.14 将 \co{kvfree_rcu()} 移到了 SLAB 中
+（在 \path{mm/slab_common.c} 中）~\cite{20241212180208.274813-1-urezki}。
+许多其他更改可以在 Linux 内核的 \co{git} 归档中找到。
 % rcutorture
 % v2.6.15: First torture test
 % v2.6.19: SRCU: Plugin architecture avoids test-code explosion.
@@ -407,29 +377,29 @@ Numerous other changes may be found in the Linux kernel's \co{git} archives.
 %	 significant memory on kernels sized for thousands of CPUs
 %	 that typically run on much smaller systems.
 
-We have established that the validation budget varies from one project
-to the next, and also over the lifetime of any given project.
-But how should the validation investment be split between testing and
-formal verification?
+我们已经确定验证预算因项目而异，
+也会在任何给定项目的生命周期中变化。
+但是验证投资应该如何在测试和
+formal verification 之间分配呢？
 
-This question is being answered naturally as compilers adopt increasingly
-aggressive formal-verification techniques into their diagnostics and
-as formal-verification tools continue to mature.
-In addition, the Linux-kernel lockdep and KCSAN tools illustrate the
-advantages of combining formal verification techniques with run-time
-analysis, as discussed in \cref{sec:debugging:Assertions}.
-Other combined techniques analyze traces gathered from
-executions~\cite{DanielBristot2019RTtrace}.
-For the time being, the best practice is to focus first on testing and to
-reserve explicit work on formal verification for those portions of the
-project that are not well-served by testing, and that have exceptional
-needs for robustness.
-For example, Linux-kernel RCU relies primarily on testing, but has
-made occasional use of formal verification as discussed in this chapter.
+这个问题正在自然地被回答，因为编译器采用了日益
+激进的 formal verification 技术到其诊断中，
+而且 formal verification 工具继续成熟。
+此外，Linux 内核的 lockdep 和 KCSAN 工具说明了
+将 formal verification 技术与运行时分析相结合的优势，
+如\cref{sec:debugging:Assertions}中所讨论的。
+其他组合技术分析从执行中收集的
+轨迹~\cite{DanielBristot2019RTtrace}。
+目前，最佳实践是首先关注测试，并将
+formal verification 的显式工作保留给项目中
+测试不能很好服务的那些部分，以及对鲁棒性有
+特殊需求的部分。
+例如，Linux 内核的 RCU 主要依赖测试，但
+如本章所讨论的，偶尔使用 formal verification。
 
-In short, choosing a validation plan for concurrent software remains
-more an art than a science, let alone a field of engineering.
-However, there is every reason to expect that increasingly rigorous
-approaches will continue to become more prevalent.
+总之，为并发软件选择验证计划仍然更多的是一门
+艺术而非科学，更不用说工程领域了。
+然而，有充分的理由期望日益严格的方法
+将继续变得更加普遍。
 
 \QuickQuizAnswersChp{qqzformal}

@@ -2,42 +2,36 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Stateless Model Checkers}
+\section{无状态模型检查器}
 \label{sec:formal:Stateless Model Checkers}
 %
-\epigraph{He's making a list, he's permuting it twice\dots}
-	{with apologies to Haven Gillespie and J. Fred Coots}
+\epigraph{他列了一个清单，对它做了两次排列\dots}
+	{改编自 Haven Gillespie 和 J. Fred Coots}
 
-The SAT-solver approaches described in the previous section are quite
-convenient and powerful, but the full tracking of all possible
-executions, including state, can incur substantial overhead.
-In fact, the memory and CPU-time overheads can sharply limit the size
-of programs that can be feasibly verified, which raises the question
-of whether less-exact approaches might find bugs in larger programs.
+上一节描述的 SAT solver 方法非常方便且强大，但对所有可能执行
+（包括状态）的完整跟踪可能会产生大量开销。
+事实上，内存和 CPU 时间开销可能会严重限制可行验证的程序规模，
+这引发了一个问题：不那么精确的方法是否可能在更大的程序中找到 bug。
 
 \begin{figure}
 \centering
 \resizebox{2.1in}{!}{\includegraphics{formal/nidhugg}}
-\caption{Nidhugg Processing Flow}
+\caption{Nidhugg 处理流程}
 \label{fig:formal:Nidhugg Processing Flow}
 \end{figure}
 
-Although the jury is still out on this question, stateless model
-checkers such as \IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg} have in
-some cases handled larger programs~\cite{SMC-TreeRCU}, and with
-similar ease of use, as illustrated by
-\cref{fig:formal:Nidhugg Processing Flow}.
-In addition, Nidhugg was more than an order of magnitude faster than
-was \co{cbmc} for some Linux-kernel RCU verification scenarios.
-Of course, Nidhugg's speed and scalability advantages are tied to
-the fact that it does not handle data non-determinism, but this
-was not a factor in these particular verification scenarios.
+虽然对这个问题的评判尚无定论，但 stateless model checker
+（如 \IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg}）在某些
+情况下已经能处理更大的程序~\cite{SMC-TreeRCU}，并且具有
+类似的易用性，如\cref{fig:formal:Nidhugg Processing Flow}所示。
+此外，在某些 Linux 内核 RCU 验证场景中，Nidhugg 比
+\co{cbmc} 快了一个数量级以上。
+当然，Nidhugg 的速度和可扩展性优势与它不处理数据非确定性有关，
+但这在这些特定的验证场景中不是一个因素。
 
-Nevertheless, as with \co{cbmc}, Nidhugg has not yet been able to
-locate a bug that Linux-kernel RCU's maintainer was not already
-aware of.
-However, it was able to demonstrate that one historical bug in
-Linux-kernel RCU was fixed by a different commit than the maintainer
-thought, which gives some additional hope that stateless model checkers
-like Nidhugg might someday be useful for finding concurrency bugs in
-parallel code.
+尽管如此，与 \co{cbmc} 一样，Nidhugg 尚未能找到 Linux 内核 RCU
+维护者之前不知道的 bug。
+然而，它确实能够证明 Linux 内核 RCU 中的一个历史 bug
+是由不同于维护者所认为的提交修复的，
+这给了人们更多的希望，即像 Nidhugg 这样的 stateless model checker
+有朝一日可能对在并行代码中找到并发 bug 有所帮助。

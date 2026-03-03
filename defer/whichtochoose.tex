@@ -2,31 +2,26 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Which to Choose?}
+\section{如何选择？}
 \label{sec:defer:Which to Choose?}
 %
-\epigraph{Choose always the way that seems the best, however rough it
-	  may be; custom will soon render it easy and agreeable.}
+\epigraph{总是选择看起来最好的道路，无论它多么崎岖；
+	  习惯很快会使它变得轻松而愉快。}
 	  {Pythagoras}
 
 \Cref{sec:defer:Which to Choose? (Overview)}
-provides a high-level overview and then
+提供了一个高层概述，然后
 \cref{sec:defer:Which to Choose? (Details)}
-provides a more detailed view
-of the differences between the deferred-processing techniques presented
-in this chapter.
-This discussion assumes a linked data structure that is large enough
-that readers do not hold references from one traversal to another,
-and where elements might be added to and removed from the structure
-at any location and at any time.
+提供了本章中介绍的延迟处理技术之间差异的更详细视图。
+本讨论假设一个足够大的链式数据结构，读者不会在一次遍历到
+另一次遍历之间持有引用，并且元素可能在任何位置和任何时间
+被添加到结构中或从中移除。
 \Cref{sec:defer:Which to Choose? (Production Use)}
-then points out a few publicly visible production uses of
-\IXpl{hazard pointer}, sequence locking, and RCU\@.
-This discussion should help you to make an informed choice between
-these techniques.
+然后指出了\IXpl{hazard pointer}、sequence locking和RCU的
+一些公开可见的生产用途\@。
+本讨论应该帮助你在这些技术之间做出明智的选择。
 
-\subsection{Which to Choose?
-			      (Overview)}
+\subsection{如何选择？（概述）}
 \label{sec:defer:Which to Choose? (Overview)}
 
 \begin{table*}
@@ -41,159 +36,138 @@ these techniques.
     >{\raggedright\arraybackslash}X
     >{\raggedright\arraybackslash}p{.9in}}
 	\toprule
-	Property
+	属性
 		& Reference Counting
 			& Hazard Pointers
 				& Sequence Locks
 					& RCU \\
 %		  RC	  HP	  SL	  RCU \\
 	\midrule
-	Readers
-		& Slow and unscalable
-			& Fast and scalable
-				& Fast and scalable
-					& Fast and scalable \\
-	Memory Overhead
-		& Counter per object
-			& Pointer per reader per object
-				& No protection
-					& None \\
-	Duration of Protection
-		& Can be long
-			& Can be long
-				& No protection
-					& User must bound duration \\
-	Need for Traversal Retries
-		& If object deleted
-			& If object deleted
-				& If any update
-					& Never \\
-	Reclamation Timing
-		& Immediate
-			& Batching delays
-				& N/A
-					& Pre-existing readers done plus
-					  batching delays \\
+	读者
+		& 慢且不可扩展
+			& 快且可扩展
+				& 快且可扩展
+					& 快且可扩展 \\
+	内存开销
+		& 每个对象一个计数器
+			& 每个读者每个对象一个指针
+				& 无保护
+					& 无 \\
+	保护持续时间
+		& 可以很长
+			& 可以很长
+				& 无保护
+					& 用户必须限制持续时间 \\
+	遍历重试的需要
+		& 如果对象被删除
+			& 如果对象被删除
+				& 如果有任何更新
+					& 从不 \\
+	回收时机
+		& 立即
+			& 批处理延迟
+				& 不适用
+					& 已有读者完成加上批处理延迟 \\
 	\bottomrule
 \end{tabularx}
 }
-\caption{Which Deferred Technique to Choose?
-					     (Overview)}
+\caption{选择哪种延迟处理技术？（概述）}
 \label{tab:defer:Which Deferred Technique to Choose? (Overview)}
 \end{table*}
 
 \Cref{tab:defer:Which Deferred Technique to Choose? (Overview)}
-shows a few high-level properties that distinguish the deferred-reclamation
-techniques from one another.
+显示了一些区分延迟回收技术的高层属性。
 
-The ``Readers'' row summarizes the results presented in
-\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR},
-which shows that all but \IXalt{reference counting}{reference count}
-enjoy reasonably fast and scalable readers.
+"读者"行总结了
+\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR}
+中呈现的结果，表明除了\IXalt{reference counting}{reference count}
+之外，其他技术都享有相当快速和可扩展的读者。
 
-The ``Memory Overhead'' row evaluates each technique's need
-for external storage with which to record reader protection.
-RCU relies on quiescent states, and thus needs no storage to represent
-readers, whether within or outside of the object.
-Reference counting can use a single integer within each object in the
-structure, and no additional storage is required.
-Hazard pointers require external-to-object pointers be provisioned,
-and that there be sufficient pointers for each CPU or thread to
-track all the objects being referenced at any given time.
-Given that most hazard-pointer-based traversals require only a few
-hazard pointers, this is not normally a problem in practice.
-Of course, sequence locks provide no pointer-traversal protection,
-which is why they are normally used on static data.
+"内存开销"行评估了每种技术对外部存储的需求，
+用于记录读者保护信息。
+RCU依赖quiescent state，因此不需要存储来表示读者，
+无论是在对象内部还是外部。
+Reference counting可以在结构中每个对象内使用一个整数，
+不需要额外存储。
+Hazard pointer需要配置对象外部的指针，并且必须有足够的指针
+供每个CPU或线程在任何给定时间跟踪所有被引用的对象。
+鉴于大多数基于hazard pointer的遍历只需要少量hazard pointer，
+这在实践中通常不是问题。
+当然，sequence lock不提供指针遍历保护，
+这就是它们通常用于静态数据的原因。
 
 \QuickQuiz{
-	Why can't users dynamically allocate the hazard pointers as they
-	are needed?
+	为什么用户不能在需要时动态分配hazard pointer？
 }\QuickQuizAnswer{
-	They can, but at the expense of additional reader-traversal
-	overhead and, in some environments, the need to handle
-	memory-allocation failure.
+	他们可以，但代价是额外的读者遍历开销，
+	并且在某些环境中需要处理内存分配失败。
 }\QuickQuizEnd
 
-The ``Duration of Protection'' row describes constraints (if any) on how
-long a period of time a user may protect a given object.
-Reference counting and hazard pointers can both protect objects for
-extended time periods with no untoward side effects, but
-maintaining an RCU reference to even one object prevents all other
-RCU-protected objects from being freed.
-RCU readers must therefore be relatively short in order to avoid running
-the system out of memory, with special-purpose implementations such
-as SRCU, Tasks RCU, and Tasks Trace RCU being exceptions to this rule.
-Again, sequence locks provide no pointer-traversal protection,
-which is why they are normally used on static data.
+"保护持续时间"行描述了用户可以保护给定对象的时间长度的
+约束（如果有的话）。
+Reference counting和hazard pointer都可以长时间保护对象
+而不会产生不良副作用，但对即使一个对象维持RCU引用也会
+阻止所有其他RCU保护的对象被释放。
+因此，RCU读者必须相对较短以避免耗尽系统内存，
+SRCU、Tasks RCU和Tasks Trace RCU等专用实现是此规则的例外。
+同样，sequence lock不提供指针遍历保护，
+这就是它们通常用于静态数据的原因。
 
-The ``Need for Traversal Retries'' row tells whether a new reference to
-a given object may be acquired unconditionally, as it can with RCU, or
-whether the reference acquisition can fail, resulting in a retry
-operation, which is the case for reference counting, hazard pointers,
-and sequence locks.
-In the case of reference counting and hazard pointers, retries are only
-required if an attempt to acquire a reference to a given object fails
-while that object is in the process of being deleted, a topic covered in
-more detail in the next section.
-Sequence locking must of course retry its critical section should it
-run concurrently with any update.
+"遍历重试的需要"行说明了是否可以无条件地获取对给定对象的
+新引用（如RCU那样），还是引用获取可能失败从而导致重试操作
+（如reference counting、hazard pointer和sequence lock的情况）。
+在reference counting和hazard pointer的情况下，
+只有在尝试获取对给定对象的引用时该对象正在被删除过程中失败，
+才需要重试，这个主题在下一节中有更详细的讨论。
+Sequence locking当然必须在其critical section与任何更新并发
+运行时重试该critical section。
 
 \QuickQuiz{
-	But don't Linux-kernel \co{kref} reference counters allow
-	guaranteed unconditional reference acquisition?
+	但是Linux内核的\co{kref}引用计数器不是允许
+	保证无条件引用获取吗？
 }\QuickQuizAnswer{
-	Yes they do, but the guarantee only applies unconditionally
-	in cases where a reference is already held.
-	With this in mind, please review the paragraph at the beginning of
-	\cref{sec:defer:Which to Choose?}, especially the part
-	saying ``large enough that readers do not hold references from
-	one traversal to another''.
+	是的，它们允许，但这个保证只在已经持有引用的情况下
+	无条件适用。
+	考虑到这一点，请回顾
+	\cref{sec:defer:Which to Choose?}开头的段落，
+	特别是"足够大以至于读者不会在一次遍历到另一次遍历之间
+	持有引用"的部分。
 }\QuickQuizEnd
 
-The ``Reclamation Timing'' row gives the minimum delay from the time that
-the last reader finishes with a removed object to the time that this
-removed object may be freed.
-Reference counting is the only technique capable of freeing immediately
-after the last reader finishes.
-This advantage is of course the flip side of the big reference-counting
-disadvantage, that its readers are slow and unscalable.
-In theory, hazard pointers could also reclaim immediately, but in practice
-production-quality hazard-pointers implementations use batching to amortize
-the overhead of scanning the hazard pointers over many updates, and this
-batching incurs further delays.
-RCU must wait for all pre-existing readers to complete, regardless
-of whether or not those readers are in any way related to the newly
-removed object, and then, as with hazard pointers, production-quality
-RCU implementations incur additional delays due to batching.
+"回收时机"行给出了从最后一个读者使用完被移除对象到
+该被移除对象可以被释放之间的最小延迟。
+Reference counting是唯一能够在最后一个读者完成后立即释放的
+技术。
+这一优势当然是reference counting大缺点的另一面——
+它的读者慢且不可扩展。
+理论上，hazard pointer也可以立即回收，但在实践中
+生产级hazard pointer实现使用批处理来将扫描hazard pointer的
+开销分摊到多次更新上，这种批处理会产生额外延迟。
+RCU必须等待所有已有读者完成，无论这些读者是否与
+新移除的对象有任何关系，然后，与hazard pointer一样，
+生产级RCU实现由于批处理而产生额外延迟。
 
-Of course, different rows will have different levels of importance in
-different situations.
-For example, if your current code is having read-side scalability problems
-with hazard pointers, then it does not matter that hazard pointers can require
-retrying reference acquisition because your current code already handles
-this.
-Similarly, if response-time considerations already limit the duration
-of reader traversals, as is often the case in kernels and low-level
-applications, then it does not matter that RCU has duration-limit
-requirements because your code already meets them.
-In the same vein, if readers must already write to the objects that they
-are traversing, the read-side overhead of reference counters might
-not be so important.
-Of course, if the data to be protected is in statically allocated variables,
-then sequence locking's inability to protect pointers is irrelevant.
+当然，不同的行在不同情况下会有不同的重要性级别。
+例如，如果你当前的代码在使用hazard pointer时遇到读侧
+可扩展性问题，那么hazard pointer可能需要重试引用获取
+这一点就无关紧要了，因为你当前的代码已经处理了这种情况。
+类似地，如果响应时间的考虑已经限制了读者遍历的持续时间
+（在内核和底层应用中经常如此），那么RCU有持续时间限制要求
+就无关紧要了，因为你的代码已经满足了这些要求。
+同样，如果读者必须已经写入它们正在遍历的对象，
+引用计数器的读侧开销可能就不那么重要了。
+当然，如果要保护的数据在静态分配的变量中，
+那么sequence locking无法保护指针这一点就无关紧要了。
 
-Finally, there is some work on dynamically switching between hazard
-pointers and RCU based on dynamic sampling of
-delays~\cite{Balmau:2016:FRM:2935764.2935790}.
-This defers the choice between hazard pointers and RCU to runtime,
-and delegates responsibility for the decision to the software.
+最后，有一些关于根据延迟动态采样在hazard pointer和RCU之间
+动态切换的工作~\cite{Balmau:2016:FRM:2935764.2935790}。
+这将hazard pointer和RCU之间的选择推迟到运行时，
+并将决策责任委托给软件。
 
-Nevertheless, this table should be of great help when choosing between
-these techniques.
-But those wishing more detail should continue on to the next section.
+尽管如此，这张表在选择这些技术时应该非常有帮助。
+但那些希望了解更多细节的读者应该继续阅读下一节。
 
-\subsection{Which to Choose?
-			     (Details)}
+\subsection{如何选择？（详情）}
 \label{sec:defer:Which to Choose? (Details)}
 
 \begin{table*}
@@ -208,68 +182,66 @@ But those wishing more detail should continue on to the next section.
     >{\raggedright\arraybackslash}X
     >{\raggedright\arraybackslash}p{.9in}}
 	\toprule
-	Property
+	属性
 		& Reference Counting
 			& Hazard Pointers
 				& Sequence Locks
 					& RCU \\
 %		  RC	  HP	  SL	  RCU \\
 	\midrule
-	Existence Guarantees
-		& Complex
-			& Yes
-				& No
-					& Yes \\
-	Updates and Readers Progress Concurrently
-		& Yes
-			& Yes
-				& No
-					& Yes \\
-	Contention Among Readers
-		& High
-			& None
-				& None
-					& None \\
-	Reader Per\-/Critical\-/Section Overhead
-		& N/A
-			& N/A
-				& Two \tco{smp_mb()}
-					& Ranges from none to two
-					  \tco{smp_mb()} \\
-	Reader Per-Object Traversal Overhead
-		& Read-modify-write atomic operations, memory\-/barrier
-		  instructions, and cache misses
-			& \tco{smp_mb()}\parnote[*]{This \co{smp_mb()} can be
-				downgraded to a compiler \co{barrier()} by using
-				the Linux-kernel \co{membarrier()} system call.}
-				& None, but unsafe
-					& None (volatile accesses) \\
-	Reader Forward Progress Guarantee
+	存在性保证
+		& 复杂
+			& 是
+				& 否
+					& 是 \\
+	更新与读者并发推进
+		& 是
+			& 是
+				& 否
+					& 是 \\
+	读者间争用
+		& 高
+			& 无
+				& 无
+					& 无 \\
+	读者每个critical section开销
+		& 不适用
+			& 不适用
+				& 两次\tco{smp_mb()}
+					& 从无到两次\tco{smp_mb()} \\
+	读者每个对象遍历开销
+		& 读-修改-写原子操作、memory\-/barrier指令和缓存未命中
+			& \tco{smp_mb()}\parnote[*]{通过使用Linux内核的
+				\tco{membarrier()}系统调用，此\tco{smp_mb()}
+				可以降级为编译器\tco{barrier()}。}
+				& 无，但不安全
+					& 无（volatile访问） \\
+	读者前进保证
 		& Lock free
 			& Lock free
-				& Blocking
-					& Bounded wait free (QSBR \& urcu) \\
-	Reader Reference Acquisition
-		& Can fail (conditional)
-			& Can fail (conditional)
-				& Unsafe
-					& Cannot fail (unconditional) \\
-	Memory Footprint
-		& Bounded
-			& Bounded
-				& Bounded
-					& Unbounded \\
-	Reclamation Forward Progress
+				& 阻塞
+					& Bounded wait free（QSBR \& urcu） \\
+	读者引用获取
+		& 可能失败（有条件）
+			& 可能失败（有条件）
+				& 不安全
+					& 不会失败（无条件） \\
+	内存占用
+		& 有界
+			& 有界
+				& 有界
+					& 无界 \\
+	回收前进保证
 		& Lock free
 			& Lock free
-				& N/A
-					& Blocking \\
-	Automatic Reclamation
-		& Yes
-			& Use Case
-				& N/A
-					& Use Case \\
-	Lines of Code
+				& 不适用
+					& 阻塞 \\
+	自动回收
+		& 是
+			& 视用例
+				& 不适用
+					& 视用例 \\
+	代码行数
 		& 94
 			& 79
 				& 79
@@ -281,363 +253,315 @@ But those wishing more detail should continue on to the next section.
 	\vspace*{1ex}
 	\parnotes
 \end{minipage}
-\caption{Which Deferred Technique to Choose?
-					     (Details)}
+\caption{选择哪种延迟处理技术？（详情）}
 \label{tab:defer:Which Deferred Technique to Choose?  (Details)}
 \end{table*}
 
 \Cref{tab:defer:Which Deferred Technique to Choose? (Details)}
-provides more-detailed rules of thumb that can help you choose among the
-four deferred-processing techniques presented in this chapter.
+提供了更详细的经验法则，可以帮助你在本章介绍的四种延迟处理
+技术之间做出选择。
 
-As shown in the ``Existence Guarantees'' row,
-if you need \IXpl{existence guarantee} for linked
-data elements, you must use reference counting, hazard pointers, or RCU\@.
-Sequence locks do not provide existence guarantees, instead providing
-detection of updates, retrying any read-side critical sections
-that do encounter an update.
+如"存在性保证"行所示，
+如果你需要链式数据元素的\IXpl{existence guarantee}，
+你必须使用reference counting、hazard pointer或RCU\@。
+Sequence lock不提供存在性保证，而是提供更新检测，
+重试任何遇到更新的read-side critical section。
 
-Of course, as shown in the ``Updates and Readers Progress Concurrently''
-row, this detection of updates implies
-that sequence locking does not permit updaters and readers to make forward
-progress concurrently.
-After all, preventing such forward progress is the whole point of using
-sequence locking in the first place!
-This situation points the way to using sequence locking in conjunction
-with reference counting, hazard pointers, or RCU in order to provide
-both existence guarantees and update detection.
-In fact, the Linux kernel combines RCU and sequence locking in
-this manner during pathname lookup.
+当然，如"更新与读者并发推进"行所示，
+这种更新检测意味着sequence locking不允许更新者和读者
+并发地向前推进。
+毕竟，阻止这种并发前进正是使用sequence locking的全部意义！
+这种情况指出了一种方式：将sequence locking与reference counting、
+hazard pointer或RCU结合使用，以同时提供存在性保证和更新检测。
+事实上，Linux内核在路径名查找期间就以这种方式结合了RCU和
+sequence locking。
 
-The ``Contention Among Readers'', ``Reader Per-Critical-Section Overhead'',
-and ``Reader Per-Object Traversal Overhead'' rows give a rough sense of
-the read-side overhead of these techniques.
-The overhead of reference counting can be quite large, with
-contention among readers along with a fully ordered read-modify-write
-atomic operation required for each and every object traversed.
-Hazard pointers incur the overhead of a \IX{memory barrier}
-for each data element
-traversed, and sequence locks incur the overhead of a pair of memory barriers
-for each attempt to execute the critical section.
-The overhead of RCU implementations varies from nothing to that of a pair of
-memory barriers for each read-side critical section, thus providing RCU
-with the best performance, particularly for read-side critical sections
-that traverse many data elements.
-Of course, the read-side overhead of all deferred-processing variants can
-be reduced by batching, so that each read-side operation covers more data.
+"读者间争用"、"读者每个critical section开销"和
+"读者每个对象遍历开销"行给出了这些技术读侧开销的大致感觉。
+Reference counting的开销可能相当大，读者之间存在争用，
+而且每遍历一个对象都需要一个完全有序的读-修改-写原子操作。
+Hazard pointer为每个遍历的数据元素产生一次\IX{memory barrier}的开销，
+sequence lock为每次尝试执行critical section产生一对
+memory barrier的开销。
+RCU实现的开销从零到每个read-side critical section一对
+memory barrier不等，因此RCU提供了最佳性能，
+特别是对于遍历许多数据元素的read-side critical section。
+当然，所有延迟处理变体的读侧开销都可以通过批处理来减少，
+使得每个读侧操作覆盖更多数据。
 
 \QuickQuiz{
-	But didn't the answer to one of the quick quizzes in
-	\cref{sec:defer:Hazard Pointers}
-	say that pairwise asymmetric barriers could eliminate the
-	read-side \co{smp_mb()} from hazard pointers?
+	但是\cref{sec:defer:Hazard Pointers}中某个小测验的
+	答案不是说非对称屏障对可以消除hazard pointer的
+	读侧\co{smp_mb()}吗？
 }\QuickQuizAnswer{
-	Yes, it did.
-	However, doing this could be argued to change hazard-pointers
-	``Reclamation Forward Progress'' row (discussed later) from
-	lock-free to blocking because a CPU spinning with interrupts
-	disabled in the kernel would prevent the update-side portion of
-	the asymmetric barrier from completing.
-	In the Linux kernel, such blocking could in theory be prevented
-	by building the kernel with \co{CONFIG_NO_HZ_FULL}, designating
-	the relevant CPUs as \co{nohz_full} at boot time, ensuring that
-	only one thread was ever runnable on a given CPU at a given
-	time, and avoiding ever calling into the kernel.
-	Alternatively, you could ensure that the kernel was free of any
-	bugs that might cause CPUs to spin with interrupts disabled.
+	是的，确实如此。
+	然而，这样做可以被认为将hazard pointer的
+	"回收前进保证"行（稍后讨论）从lock-free变为阻塞，
+	因为在内核中禁用中断自旋的CPU将阻止非对称屏障的
+	更新侧部分完成。
+	在Linux内核中，理论上可以通过以下方式防止此类阻塞：
+	使用\co{CONFIG_NO_HZ_FULL}构建内核，
+	在启动时将相关CPU指定为\co{nohz_full}，
+	确保给定CPU上同一时间只有一个线程可运行，
+	并避免调用内核。
+	或者，你可以确保内核没有任何可能导致CPU在禁用中断
+	状态下自旋的bug。
 
-	Given that CPUs spinning in the Linux kernel with interrupts
-	disabled seems to be rather rare, one might counter-argue that
-	asymmetric-barrier hazard-pointer updates are non-blocking
-	in practice, if not in theory.
+	鉴于在Linux内核中CPU禁用中断自旋似乎相当罕见，
+	人们可以反驳说非对称屏障hazard pointer更新在实践中
+	是非阻塞的，即使在理论上不是。
 }\QuickQuizEnd
 
-The ``Reader Forward Progress Guarantee'' row shows that only RCU
-has a \IXalth{bounded wait-free}{bounded}{wait free}
-\IX{forward-progress guarantee}, which means that
-it can carry out a finite traversal by executing a bounded number of
-instructions.
+"读者前进保证"行显示只有RCU具有
+\IXalth{bounded wait-free}{bounded}{wait free}
+\IX{forward-progress guarantee}，这意味着
+它可以通过执行有界数量的指令来完成有限遍历。
 
 \QuickQuiz{
-	Wait a minute!!!
-	Linux-kernel RCU's \co{rcu_read_unlock()} can do lock
-	acquisitions, and that cannot possibly be wait-free!
-	What are you trying to pull???
+	等等！！！
+	Linux内核RCU的\co{rcu_read_unlock()}可能进行锁获取，
+	这不可能是wait-free的！
+	你在搞什么？？？
 }\QuickQuizAnswer{
-	You seem to have missed the ``(QSBR \& urcu)'' in that cell.
+	你似乎错过了那个单元格中的"（QSBR \& urcu）"。
 
-	Non-preemptible Linux kernels use QSBR, in which
-	\co{rcu_read_lock()} is not just bounded population-oblivious
-	wait free, but executes zero instructions.
+	非抢占式Linux内核使用QSBR，其中\co{rcu_read_lock()}
+	不仅是bounded population-oblivious wait free，
+	而且执行零条指令。
 
-	Userspace RCU executes a finite sequence of simple instructions,
-	thus also qualifying as bounded population-oblivious wait free.
+	用户空间RCU执行有限数量的简单指令序列，
+	因此也符合bounded population-oblivious wait free。
 
-	The one exception to this is the ``bullet-proof'' variant of
-	userspace RCU, in which the first call to \co{rcu_read_lock()}
-	registers the current thread as an RCU reader.
-	But only the first call, so this added overhead can be rendered
-	harmless by ensuring that each thread invokes \co{rcu_read_lock()}
-	before undertaking any work requiring wait-free forward-progress
-	guarantees.
+	一个例外是用户空间RCU的"防弹"变体，其中第一次调用
+	\co{rcu_read_lock()}会将当前线程注册为RCU读者。
+	但只有第一次调用如此，因此可以通过确保每个线程在
+	执行任何需要wait-free前进保证的工作之前
+	调用\co{rcu_read_lock()}来消除这一额外开销。
 
-	But what about preemptible Linux kernels?
+	但是可抢占式Linux内核呢？
 
-	There, the goal is instead aggressive real-time response,
-	which is covered in
-	\cref{sec:advsync:Parallel Real-Time Computing}.
-	
-	In the meantime, please note that the Linux kernel supports
-	only finite numbers of CPUs and that the lock acquisitions
-	in \co{rcu_preempt_deferred_qs_irqrestore()}, which is
-	called indirectly from \co{rcu_read_unlock()}, have
-	interrupts disabled.
-	In addition, those locks are replicated, so that a given lock
-	is normally only acquired by one of sixteen CPUs.
-	This limits lock contention and prevents both preemption and
-	interrupts from delaying execution while those locks are held,
-	in turn providing excellent forward
-	progress~\cite{BjoernBrandenburgPhD,DanielBristot2019RTtrace,Hillier86,DipankarSarma2004OLSscalability}.
+	在那里，目标是激进的实时响应，这在
+	\cref{sec:advsync:Parallel Real-Time Computing}中讨论。
 
-	In short, formalisms such as wait-free synchronization have their
-	place, but the really important thing is to figure out what your
-	users really need and then to implement it for them.
+	与此同时，请注意Linux内核只支持有限数量的CPU，
+	并且\co{rcu_preempt_deferred_qs_irqrestore()}中的
+	锁获取（从\co{rcu_read_unlock()}间接调用）
+	是在禁用中断的情况下进行的。
+	此外，这些锁是复制的，因此给定的锁通常只被十六个CPU
+	中的一个获取。
+	这限制了锁争用，并防止抢占和中断在持有这些锁时
+	延迟执行，从而提供了出色的前进
+	保证~\cite{BjoernBrandenburgPhD,DanielBristot2019RTtrace,Hillier86,DipankarSarma2004OLSscalability}。
+
+	简而言之，wait-free同步等形式化概念有其用武之地，
+	但真正重要的是弄清楚你的用户真正需要什么，
+	然后为他们实现它。
 }\QuickQuizEnd
 
-The ``Reader Reference Acquisition'' row indicates that only RCU is
-capable of unconditionally acquiring references.
-The entry for sequence locks is ``Unsafe'' because, again, sequence locks
-detect updates rather than acquiring references.
-Reference counting and hazard pointers both require that traversals be
-restarted from the beginning if a given acquisition fails.
-To see this, consider a linked list containing objects~A, B, C, and~D,
-in that order, and the following series of events:
+"读者引用获取"行表明只有RCU能够无条件获取引用。
+Sequence lock的条目是"不安全"，因为sequence lock检测更新
+而不是获取引用。
+Reference counting和hazard pointer都要求在给定获取失败时
+从头重新开始遍历。
+要理解这一点，考虑一个包含对象~A、B、C和~D（按此顺序）的
+链表，以及以下一系列事件：
 
 \begin{enumerate}
-\item	A reader acquires a reference to object~B.
-\item	An updater removes object~B, but refrains from freeing it because
-	the reader holds a reference.
-	The list now contains objects~A, C, and~D, and
-	object~B's \co{->next} pointer is set to \co{HAZPTR_POISON}.
-\item	The updater removes object~C, so that the list now contains
-	objects~A and~D\@.
-	Because there is no reference to object~C, it is immediately freed.
-\item	The reader tries to advance to the successor of the object
-	following the now-removed object~B, but the poisoned
-	\co{->next} pointer prevents this.
-	Which is a good thing, because object~B's \co{->next} pointer
-	would otherwise point to the freelist.
-\item	The reader must therefore restart its traversal from the head
-	of the list.
+\item	读者获取对对象~B的引用。
+\item	更新者移除对象~B，但因为读者持有引用而不释放它。
+	列表现在包含对象~A、C和~D，
+	对象~B的\co{->next}指针被设置为\co{HAZPTR_POISON}。
+\item	更新者移除对象~C，使得列表现在包含对象~A和~D\@。
+	因为没有对象~C的引用，它被立即释放。
+\item	读者试图前进到现已被移除的对象~B之后的对象的后继者，
+	但被毒化的\co{->next}指针阻止了这一操作。
+	这是一件好事，因为否则对象~B的\co{->next}指针将指向
+	空闲列表。
+\item	因此读者必须从列表头部重新开始遍历。
 \end{enumerate}
 
-Thus, when failing to acquire a reference, a hazard-pointer or
-reference-counter traversal must restart that traversal from the
-beginning.
-In the case of nested linked data structures, for example, a
-tree containing linked lists, the traversal must be restarted from
-the outermost data structure.
-This situation gives RCU a significant ease-of-use advantage.
+因此，当引用获取失败时，hazard pointer或reference counter遍历
+必须从头重新开始该遍历。
+在嵌套链式数据结构的情况下，例如包含链表的树，
+遍历必须从最外层数据结构重新开始。
+这种情况给予了RCU显著的易用性优势。
 
-However, RCU's ease-of-use advantage does not come
-for free, as can be seen in the ``Memory Footprint'' row.
-RCU's support of unconditional reference acquisition means that
-it must avoid freeing any object reachable by a given
-RCU reader until that reader completes.
-RCU therefore has an unbounded memory footprint, at least unless updates
-are throttled.
-In contrast, reference counting and hazard pointers need to retain only
-those data elements actually referenced by concurrent readers.
+然而，RCU的易用性优势并非免费的，
+如"内存占用"行所示。
+RCU支持无条件引用获取意味着它必须避免释放给定RCU读者
+可到达的任何对象，直到该读者完成。
+因此，RCU具有无界的内存占用，至少在更新没有被限流的情况下。
+相比之下，reference counting和hazard pointer只需要保留
+那些实际被并发读者引用的数据元素。
 
-This tension between memory footprint and acquisition
-failures is sometimes resolved within the Linux kernel by combining use
-of RCU and reference counters.
-RCU is used for short-lived references, which means that RCU read-side
-critical sections can be short.
-These short RCU read-side critical sections in turn mean that the corresponding
-RCU \IXpl{grace period} can also be short, which limits the memory footprint.
-For the few data elements that need longer-lived references, reference
-counting is used.
-This means that the complexity of reference-acquisition failure only
-needs to be dealt with for those few data elements:
-The bulk of the reference acquisitions are unconditional, courtesy of RCU\@.
-See \cref{sec:together:Refurbish Reference Counting}
-for more information on combining reference counting with other
-synchronization mechanisms.
+这种内存占用和获取失败之间的张力有时在Linux内核中
+通过结合使用RCU和引用计数器来解决。
+RCU用于短期引用，这意味着RCU read-side critical section可以很短。
+这些短的RCU read-side critical section反过来意味着相应的
+RCU \IXpl{grace period}也可以很短，从而限制了内存占用。
+对于少数需要更长期引用的数据元素，使用reference counting。
+这意味着引用获取失败的复杂性只需要处理那些少数数据元素：
+大部分引用获取是无条件的，这要感谢RCU\@。
+更多关于将reference counting与其他同步机制结合使用的信息
+见\cref{sec:together:Refurbish Reference Counting}。
 
-The ``Reclamation Forward Progress'' row shows that hazard pointers
-can provide non-blocking updates~\cite{MagedMichael04a,HerlihyLM02}.
-Reference counting might or might not, depending on the implementation.
-However, sequence locking cannot provide non-blocking updates, courtesy
-of its update-side lock.
-RCU updaters must wait on readers, which also rules out fully non-blocking
-updates.
-However, there are situations in which the only blocking operation is
-a wait to free memory, which results in a situation that, for many
-purposes, is as good as non-blocking~\cite{MathieuDesnoyers2012URCU}.
+"回收前进保证"行显示hazard pointer可以提供
+非阻塞更新~\cite{MagedMichael04a,HerlihyLM02}。
+Reference counting可能可以也可能不可以，取决于实现。
+然而，sequence locking由于其更新侧锁而无法提供非阻塞更新。
+RCU更新者必须等待读者，这也排除了完全非阻塞的更新。
+然而，在某些情况下唯一的阻塞操作是等待释放内存，
+这导致了一种在很多目的上与非阻塞一样好的
+情况~\cite{MathieuDesnoyers2012URCU}。
 
-As shown in the ``Automatic Reclamation'' row, only reference
-counting can automate freeing of memory, and even then only
-for non-cyclic data structures.
-Certain use cases for hazard pointers and RCU can provide automatic
-reclamation using \emph{link counts}, which can be thought of as
-reference counts, but applying only to incoming links from other
-parts of the data structure~\cite{MagedMichael2018FollyHazptr}.
+如"自动回收"行所示，只有reference counting可以自动释放内存，
+而且仅限于非循环数据结构。
+Hazard pointer和RCU的某些用例可以使用\emph{link count}提供
+自动回收，link count可以被视为引用计数，
+但仅适用于来自数据结构其他部分的入向链接~\cite{MagedMichael2018FollyHazptr}。
 
-Finally, the ``Lines of Code'' row shows the size of the Pre-BSD
-Routing Table implementations, giving a rough idea of relative ease of use.
-That said, it is important to note that the reference-counting and
-sequence-locking implementations are buggy, and that a correct
-reference-counting implementation is considerably
-more complex~\cite{Valois95a,MagedMichael95a}.
-For its part, a correct sequence-locking implementation requires
-the addition of some other synchronization mechanism, for example,
-hazard pointers or RCU, so that sequence locking detects concurrent
-updates and the other mechanism provides safe reference acquisition.
+最后，"代码行数"行显示了Pre-BSD路由表实现的大小，
+大致反映了相对易用性。
+也就是说，重要的是要注意reference counting和sequence locking的
+实现是有bug的，而正确的reference counting实现要复杂得多~\cite{Valois95a,MagedMichael95a}。
+就sequence locking而言，正确的实现需要添加某种其他同步机制，
+例如hazard pointer或RCU，以便sequence locking检测并发更新，
+而另一种机制提供安全的引用获取。
 
-As more experience is gained using these techniques, both separately
-and in combination, the rules of thumb laid out in this section will
-need to be refined.
-However, this section does reflect the current state of the art.
+随着使用这些技术（无论是单独使用还是组合使用）获得更多经验，
+本节中列出的经验法则将需要改进。
+然而，本节确实反映了当前的技术水平。
 
-\subsection{Which to Choose?
-			     (Production Use)}
+\subsection{如何选择？（生产使用）}
 \label{sec:defer:Which to Choose? (Production Use)}
 
-This section points out a few publicly visible production uses of
-hazard pointers, sequence locking, and RCU\@.
-Reference counting is omitted, not because it is unimportant, but rather
-because it is not only used pervasively, but heavily documented in textbooks
-going back a half century.
-One of the hoped-for benefits of listing production uses of these other
-techniques is to provide examples to study---or to find bugs in, as
-the case may be.\footnote{
-	Kudos to Mathias Stearn, Matt Wilson, David Goldblatt, LiveJournal
-	user fanf, Nadav Har'El, Avi Kivity, Dmitry Vyukov, Raul Guitterez
-	S., Twitter user @peo3, Paolo Bonzini, and Thomas Monjalon for
-	locating a great many of these use cases.}
+本节指出了hazard pointer、sequence locking和RCU的一些
+公开可见的生产用途。
+Reference counting被省略，不是因为它不重要，而是因为它不仅
+被广泛使用，而且在回溯半个世纪的教科书中都有大量记载。
+列出这些其他技术的生产用途的期望好处之一是提供可供研究
+（或发现bug，视情况而定）的示例。\footnote{
+	感谢Mathias Stearn、Matt Wilson、David Goldblatt、LiveJournal
+	用户fanf、Nadav Har'El、Avi Kivity、Dmitry Vyukov、Raul Guitterez
+	S.、Twitter用户@peo3、Paolo Bonzini和Thomas Monjalon
+	找到了大量这些用例。}
 
-\subsubsection{Production Uses of Hazard Pointers}
+\subsubsection{风险指针的生产用途}
 \label{sec:defer:Production Uses of Hazard Pointers}
 
-In 2010, Keith Bostic added a variant of hazard pointers to
-WiredTiger~\cite{KeithBostic2010WiredTigerhazptr}.
-MongoDB 3.0, released in 2015, included WiredTiger and thus hazard pointers.
+2010年，Keith Bostic向WiredTiger添加了hazard pointer的一个
+变体~\cite{KeithBostic2010WiredTigerhazptr}。
+2015年发布的MongoDB 3.0包含了WiredTiger，因此也包含了hazard pointer。
 
-In 2011, Samy Al Bahra added hazard pointers to the Concurrency Kit
-library~\cite{SamyAlBahra2011ckhp}.
+2011年，Samy Al Bahra向Concurrency Kit库添加了
+hazard pointer~\cite{SamyAlBahra2011ckhp}。
 
-In 2014, Maxim Khizhinsky added hazard pointers to
-libcds~\cite{MaximKhizhinsky2014libcdsHazptr}.
+2014年，Maxim Khizhinsky向libcds添加了
+hazard pointer~\cite{MaximKhizhinsky2014libcdsHazptr}。
 
-In 2015, David Gwynne introduced shared reference pointers, a form
-of hazard pointers, to OpenBSD~\cite{DavidGwynne2015srp}.
+2015年，David Gwynne向OpenBSD引入了shared reference pointer，
+一种hazard pointer的形式~\cite{DavidGwynne2015srp}。
 
-In 2017--2018, the Rust-language
-\co{arc-swap}~\cite{MichalVaner2018arc-swapHazptr} and
+2017--2018年，Rust语言的
+\co{arc-swap}~\cite{MichalVaner2018arc-swapHazptr}和
 \co{conc}~\cite{crates.io.user.ticki2017concHazptr}
-crates rolled their own implementations of hazard pointers.
+crate各自实现了自己的hazard pointer。
 
-In 2018, Maged Michael added hazard pointers to Facebook's Folly
-library~\cite{MagedMichael2018FollyHazptr}, where it is used heavily.
+2018年，Maged Michael向Facebook的Folly库添加了
+hazard pointer~\cite{MagedMichael2018FollyHazptr}，
+并在该库中被大量使用。
 
-\subsubsection{Production Uses of Sequence Locking}
+\subsubsection{顺序锁的生产用途}
 \label{sec:defer:Production Uses of Sequence Locking}
 
-The Linux kernel added sequence locking to v2.5.60 in
-2003~\cite{JonathanCorbet2003seqlock}, having been generalized from
-an ad-hoc technique used in x86's implementation of the
-\co{gettimeofday()} system call.
+Linux内核在2003年的v2.5.60中添加了
+sequence locking~\cite{JonathanCorbet2003seqlock}，
+这是从x86实现\co{gettimeofday()}系统调用时使用的一种
+临时技术泛化而来。
 
-In 2011, Samy Al Bahra added sequence locking to the Concurrency Kit
-library~\cite{SamyAlBahra2011ckseqlock}.
+2011年，Samy Al Bahra向Concurrency Kit库添加了
+sequence locking~\cite{SamyAlBahra2011ckseqlock}。
 
-Paolo Bonzini added a simple sequence-lock to the QEMU emulator in
-2013~\cite{PaoloBonzini2013QEMUseqlock}.
+2013年，Paolo Bonzini向QEMU模拟器添加了简单的
+sequence-lock~\cite{PaoloBonzini2013QEMUseqlock}。
 
-Alexis Menard abstracted a sequence-lock implementation in Chromium
-in 2016~\cite{AlexisMenard2016ChromiumSeqLock}.
+2016年，Alexis Menard在Chromium中抽象了一个
+sequence-lock实现~\cite{AlexisMenard2016ChromiumSeqLock}。
 
-A simple sequence locking implementation was added to \co{jemalloc()}
-in 2018~\cite{DavidGoldblatt2018seqlock}.
-The eigen library also has a special-purpose queue that is managed by
-a mechanism resembling sequence locking.
+2018年，一个简单的sequence locking实现被添加到
+\co{jemalloc()}中~\cite{DavidGoldblatt2018seqlock}。
+eigen库也有一个由类似于sequence locking的机制管理的
+特殊用途队列。
 
-\subsubsection{Production Uses of RCU}
+\subsubsection{RCU的生产用途}
 \label{sec:defer:Production Uses of RCU}
 
-IBM's VM/XA adopted passive serialization, a mechanism similar to
-RCU, some time in the 1980s~\cite{Hennessy89}.
+IBM的VM/XA在1980年代的某个时候采用了passive serialization，
+一种类似于RCU的机制~\cite{Hennessy89}。
 
-DYNIX/ptx adopted RCU in 1993~\cite{McKenney98,Slingwine95}.
+DYNIX/ptx在1993年采用了RCU~\cite{McKenney98,Slingwine95}。
 
-The Linux kernel adopted Dipankar Sarma's implementation of RCU in
-2002~\cite{Torvalds2.5.43}.
+Linux内核在2002年采用了Dipankar Sarma的RCU
+实现~\cite{Torvalds2.5.43}。
 
-The userspace RCU project started in 2009~\cite{MathieuDesnoyers2009URCU}.
+用户空间RCU项目于2009年启动~\cite{MathieuDesnoyers2009URCU}。
 
-The Knot DNS project started using the userspace RCU
-library in 2010~\cite{LubosSlovak2010KnotDNSRCU}.
-That same year, the OSv kernel added an RCU
-implementation~\cite{AviKivity2013OSvRCU},
-later adding an RCU-protected linked list~\cite{AviKivity2013OSvRCUlist}
-and an RCU-protected hash table~\cite{AviKivity2013OSvRCUhash}.
+Knot DNS项目于2010年开始使用用户空间RCU
+库~\cite{LubosSlovak2010KnotDNSRCU}。
+同年，OSv内核添加了RCU
+实现~\cite{AviKivity2013OSvRCU}，
+后来添加了RCU保护的链表~\cite{AviKivity2013OSvRCUlist}
+和RCU保护的哈希表~\cite{AviKivity2013OSvRCUhash}。
 
-In 2011, Samy Al Bahra added epochs
-(a form of RCU~\cite{UCAM-CL-TR-579,KeirFraser2007withoutLocks})
-to the Concurrency Kit
-library~\cite{SamyAlBahra2011ckEpoch}.
+2011年，Samy Al Bahra向Concurrency Kit库添加了epoch
+（RCU的一种形式~\cite{UCAM-CL-TR-579,KeirFraser2007withoutLocks}）~\cite{SamyAlBahra2011ckEpoch}。
 
-NetBSD began using the aforementioned passive serialization with v6.0 in
-2012~\cite{NetBSD2012pserialize}.
-Among other things, passive serialization is used in
-NetBSD packet filter (NPF)~\cite{MindaugasRasiukevicius2014NPFRCU}.
+NetBSD在2012年的v6.0中开始使用上述passive
+serialization~\cite{NetBSD2012pserialize}。
+其中，passive serialization被用于NetBSD数据包过滤器
+（NPF）~\cite{MindaugasRasiukevicius2014NPFRCU}。
 
-Paolo Bonzini added RCU support to the QEMU emulator in 2015 via a
-friendly fork of the userspace RCU
-library~\cite{MikeDay2013RCUqemu,PaoloBonzini2013QEMURCU}.
+2015年，Paolo Bonzini通过用户空间RCU库的友好分支向QEMU模拟器
+添加了RCU支持~\cite{MikeDay2013RCUqemu,PaoloBonzini2013QEMURCU}。
 
-In 2015, Maxim Khizhinsky added RCU to
-libcds~\cite{MaxKhiszinsky2015C++RCU}.
+2015年，Maxim Khizhinsky向libcds添加了
+RCU~\cite{MaxKhiszinsky2015C++RCU}。
 
-Mindaugas Rasiukevicius implemented libqsbr in 2016, which features
-\IXacr{qsbr} and \IXacrf{ebr}~\cite{MindaugasRasiukevicius2016libqsbr},
-both of which are types of implementations of RCU\@.
+Mindaugas Rasiukevicius于2016年实现了libqsbr，
+其中包含\IXacr{qsbr}和\IXacrf{ebr}~\cite{MindaugasRasiukevicius2016libqsbr}，
+两者都是RCU的实现类型。
 
-Sheth et al.~\cite{HarshalSheth2016goRCU}
-demonstrated the value of leveraging Go's garbage
-collector to provide RCU-like functionality, and
-the Go programming language provides a \co{Value} type that can
-provide this functionality.\footnote{
-	See \url{https://golang.org/pkg/sync/atomic/\#Value}, particularly
-	the ``Example (ReadMostly)''.}
+Sheth等人~\cite{HarshalSheth2016goRCU}
+展示了利用Go的垃圾收集器提供类RCU功能的价值，
+Go编程语言提供了一种\co{Value}类型可以提供此
+功能。\footnote{
+	见\url{https://golang.org/pkg/sync/atomic/\#Value}，
+	特别是"Example (ReadMostly)"。}
 
-Matt Klein describes an RCU-like mechanism that is used in the Envoy
-Proxy~\cite{MattKlein2017EnvoyRCU}.
+Matt Klein描述了Envoy Proxy中使用的一种类RCU
+机制~\cite{MattKlein2017EnvoyRCU}。
 
-Honnappa Nagarahalli added an RCU library to the Data Plane Development
-Kit (DPDK) in 2018~\cite{HonnappaNagarahalli2018dpdkRCU}.
+Honnappa Nagarahalli于2018年向数据平面开发套件（DPDK）添加了
+RCU库~\cite{HonnappaNagarahalli2018dpdkRCU}。
 
-Stjepan Glavina merged an epoch-based RCU implementation into the
-\co{crossbeam} set of concurrency-support ``crates'' for the Rust
-language~\cite{StjepanGlavina2018RustRCU}.
+Stjepan Glavina将基于epoch的RCU实现合并到了Rust语言的
+\co{crossbeam}并发支持"crate"集中~\cite{StjepanGlavina2018RustRCU}。
 
-Jason Donenfeld produced an RCU implementation as part of his port of
-WireGuard to Windows~NT kernel~\cite{JasonDonenfeld2021:WindowsNTwireguardRCU}.
+Jason Donenfeld在将WireGuard移植到Windows~NT内核的过程中
+实现了一个RCU实现~\cite{JasonDonenfeld2021:WindowsNTwireguardRCU}。
 
-Finally, any garbage-collected concurrent language (not just Go!\@) gets
-the update side of an RCU implementation at zero incremental cost.
+最后，任何支持垃圾收集的并发语言（不仅仅是Go！\@）都可以
+以零增量成本获得RCU实现的更新侧。
 
-\subsubsection{Summary of Production Uses}
+\subsubsection{生产用途总结}
 \label{sec:defer:Summary of Production Uses}
 
-Perhaps the time will come when sequence locking, hazard pointers, and
-RCU are all as heavily used and as well known as are reference counters.
-Until that time comes, the current production uses of these mechanisms
-should help guide the choice of mechanism as well as showing how best
-to apply each of them.
-And with that, we have uncovered the last of the mysteries put forth on
-\cpageref{sec:defer:Mysteries Which to choose}.
+也许有一天，sequence locking、hazard pointer和RCU都会像
+引用计数器一样被广泛使用和熟知。
+在那一天到来之前，这些机制的当前生产用途应该有助于指导
+机制的选择，并展示如何最好地应用每种机制。
+至此，我们揭开了\cpageref{sec:defer:Mysteries Which to choose}
+上提出的最后一个谜题。
 
-The next section discusses updates, a ticklish issue for many of the
-read-mostly mechanisms described in this chapter.
+下一节讨论更新操作，这对本章描述的许多读多写少机制来说是
+一个棘手的问题。

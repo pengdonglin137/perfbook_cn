@@ -2,136 +2,121 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Deferred Processing}{Deferred Processing}{qqzdefer}
+\QuickQuizChapter{chp:Deferred Processing}{延迟处理}{qqzdefer}
 %
-\Epigraph{All things come to those who wait.}{Violet Fane}
+\Epigraph{好事总会降临到有耐心等待的人身上。}{Violet Fane}
 
-The strategy of deferring work goes back before the dawn of recorded
-history.
-It has occasionally been derided as procrastination or even as sheer laziness.
-However, in the last few decades workers have recognized this strategy's value
-in simplifying and streamlining parallel algorithms~\cite{Kung80,
-HMassalinPhD,ValerieAurora2008Synthesis}.
-Believe it or not, ``laziness'' in parallel programming often outperforms and
-out-scales industriousness!
-These performance and scalability benefits stem from the fact that
-deferring work can enable weakening of synchronization primitives,
-thereby reducing synchronization overhead.
+推迟工作的策略可以追溯到有记载的历史之前。
+它偶尔被嘲笑为拖延，甚至是纯粹的懒惰。
+然而，在过去几十年中，工作者们已经认识到这种策略在简化和优化
+并行算法方面的价值~\cite{Kung80,
+HMassalinPhD,ValerieAurora2008Synthesis}。
+信不信由你，并行编程中的``懒惰''往往能在性能和可扩展性方面
+超越勤劳！
+这些性能和可扩展性优势源于这样一个事实：推迟工作可以使同步原语弱化，
+从而降低同步开销。
 
-Those who are willing and able to read and understand this chapter
-will uncover many mysteries, including:
+那些愿意并且能够阅读和理解本章的人将揭开许多秘密，包括：
 
 \begin{enumerate}
-\item	The reference-counting trap that awaits unwary developers of
-	concurrent code.
+\item	等待并发代码粗心开发者的 reference counting 陷阱。
 \label{sec:defer:Mysteries reference-counting trap}
-\item	A concurrent reference counter that avoids not only this trap,
-	but also avoids expensive atomic read-modify-write accesses,
-	and in addition avoids as well as writes of any kind to the data
-	structure being traversed.
+\item	一种并发引用计数器，它不仅避免了这个陷阱，
+	而且还避免了昂贵的原子读-修改-写访问，
+	此外还避免了对所遍历数据结构的任何类型的写操作。
 \label{sec:defer:Mysteries hazard pointers}
-\item	The under-appreciated restricted form of software transactional
-	memory that is used heavily within the Linux kernel.
+\item	被低估的受限形式的软件事务内存，
+	在 Linux 内核中被大量使用。
 \label{sec:defer:Mysteries sequence locking}
-\item	A synchronization primitive that allows a concurrently updated
-	linked data structure to be traversed using exactly the same
-	sequence of machine instructions that might be used to traverse
-	a sequential implementation of that same data structure.
+\item	一种同步原语，允许对并发更新的链式数据结构进行遍历，
+	使用的机器指令序列与遍历该数据结构的顺序实现完全相同。
 \label{sec:defer:Mysteries RCU}
-\item	A synchronization primitive whose use cases are far more
-	conceptually more complex than is the primitive itself.
+\item	一种同步原语，其使用场景在概念上远比原语本身复杂。
 \label{sec:defer:Mysteries RCU Use Cases}
-\item	How to choose among the various deferred-processing primitives.
+\item	如何在各种延迟处理原语之间进行选择。
 \label{sec:defer:Mysteries Which to choose}
 \end{enumerate}
 
-General approaches of work deferral include
-reference counting (\cref{sec:defer:Reference Counting}),
-hazard pointers (\cref{sec:defer:Hazard Pointers}),
-sequence locking (\cref{sec:defer:Sequence Locks}),
-and RCU (\cref{sec:defer:Read-Copy Update (RCU)}).
-Finally, \cref{sec:defer:Which to Choose?}
-describes how to choose among the work-deferral schemes covered in
-this chapter and \cref{sec:defer:What About Updates?}
-discusses updates.
-But first, \cref{sec:defer:Running Example} will introduce an example
-algorithm that will be used to compare and contrast these approaches.
+工作延迟的一般方法包括
+reference counting（\cref{sec:defer:Reference Counting}）、
+hazard pointers（\cref{sec:defer:Hazard Pointers}）、
+sequence locking（\cref{sec:defer:Sequence Locks}）、
+和 RCU（\cref{sec:defer:Read-Copy Update (RCU)}）。
+最后，\cref{sec:defer:Which to Choose?}
+描述如何在本章涵盖的工作延迟方案中进行选择，
+\cref{sec:defer:What About Updates?}
+讨论更新操作。
+但首先，\cref{sec:defer:Running Example}将介绍一个示例算法，
+用于比较和对比这些方法。
 
-\section{Running Example}
+\section{运行示例}
 \label{sec:defer:Running Example}
 %
-\epigraph{An ounce of application is worth a ton of abstraction.}
+\epigraph{一盎司的实践胜过一吨的抽象。}
 	 {Booker T.~Washington}
 
-This chapter will use a simplified packet-routing algorithm to demonstrate
-the value of these approaches and to allow them to be compared.
-Routing algorithms are used in operating-system kernels to
-deliver each outgoing TCP/IP packet to the appropriate network interface.
-This particular algorithm is a simplified version of the classic 1980s
-packet-train-optimized algorithm used in BSD UNIX~\cite{VanJacobson88},
-consisting of a simple linked list.\footnote{
-	In other words, this is not OpenBSD, NetBSD, or even
-	FreeBSD, but none other than Pre-BSD\@.}
-Modern routing algorithms use more complex data structures, however a
-simple algorithm will help highlight issues specific to parallelism in
-a straightforward setting.
+本章将使用一个简化的数据包路由算法来展示这些方法的价值，
+并允许对它们进行比较。
+路由算法在操作系统内核中用于将每个发出的 TCP/IP 数据包
+传递到适当的网络接口。
+这个特定算法是 BSD UNIX~\cite{VanJacobson88}中使用的经典 1980 年代
+数据包列车优化算法的简化版本，
+由一个简单的链表组成。\footnote{
+	换句话说，这不是 OpenBSD、NetBSD，甚至也不是
+	FreeBSD，而是 Pre-BSD\@。}
+现代路由算法使用更复杂的数据结构，然而简单的算法有助于在
+直观的环境中突出并行性特有的问题。
 
-We further simplify the algorithm by reducing the search key from
-a quadruple consisting of source and destination IP addresses and
-ports all the way down to a simple integer.
-The value looked up and returned will also be a simple integer,
-so that the data structure is as shown in
-\cref{fig:defer:Pre-BSD Packet Routing List}, which
-directs packets with address~42 to interface~1, address~56 to
-interface~3, and address~17 to interface~7.
-This list will normally be searched frequently and updated rarely.
-In \cref{chp:Hardware and its Habits}
-we learned that the best ways to evade inconvenient laws of physics, such as
-the finite speed of light and the atomic nature of matter, are to
-either partition the data or to rely on read-mostly sharing.
-This chapter applies read-mostly sharing techniques to Pre-BSD packet
-routing.
+我们进一步简化该算法，将搜索键从由源和目的 IP 地址及端口
+组成的四元组一直缩减为一个简单的整数。
+查找和返回的值也将是一个简单的整数，
+因此数据结构如\cref{fig:defer:Pre-BSD Packet Routing List}所示，
+它将地址~42 定向到接口~1，地址~56 定向到接口~3，
+地址~17 定向到接口~7。
+这个列表通常被频繁搜索且很少更新。
+在\cref{chp:Hardware and its Habits}中
+我们了解到，规避不便的物理定律（如光速有限和物质的原子本性）
+的最佳方法是对数据进行分区或依赖读多共享。
+本章将读多共享技术应用于 Pre-BSD 数据包路由。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RouteList}}
-\caption{Pre-BSD Packet Routing List}
+\caption{Pre-BSD 数据包路由列表}
 \label{fig:defer:Pre-BSD Packet Routing List}
 \end{figure}
 
 \begin{listing}
 \input{CodeSamples/defer/route_seq@lookup_add_del.fcv}
-\caption{Sequential Pre-BSD Routing Table}
+\caption{顺序 Pre-BSD 路由表}
 \label{lst:defer:Sequential Pre-BSD Routing Table}
 \end{listing}
 
-\Cref{lst:defer:Sequential Pre-BSD Routing Table} (\path{route_seq.c})
-shows a simple single-threaded implementation corresponding to
-\cref{fig:defer:Pre-BSD Packet Routing List}.
+\Cref{lst:defer:Sequential Pre-BSD Routing Table}（\path{route_seq.c}）
+展示了对应于\cref{fig:defer:Pre-BSD Packet Routing List}的
+简单单线程实现。
 \begin{fcvref}[ln:defer:route_seq:lookup_add_del:entry]
-\Clnrefrange{b}{e} define a \co{route_entry} structure and
-\clnref{header} defines
-the \co{route_list} header.
+\Clnrefrange{b}{e}定义了 \co{route_entry} 结构，
+\clnref{header}定义了 \co{route_list} 头节点。
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_seq:lookup_add_del:lookup]
-\Clnrefrange{b}{e} define \co{route_lookup()}, which sequentially searches
-\co{route_list}, returning the corresponding \co{->iface}, or
-\co{ULONG_MAX} if there is no such route entry.
+\Clnrefrange{b}{e}定义了 \co{route_lookup()}，它顺序搜索
+\co{route_list}，返回对应的 \co{->iface}，
+如果没有这样的路由条目则返回 \co{ULONG_MAX}。
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_seq:lookup_add_del:add]
-\Clnrefrange{b}{e} define \co{route_add()}, which allocates a
-\co{route_entry} structure, initializes it, and adds it to the
-list, returning \co{-ENOMEM} in case of memory-allocation failure.
+\Clnrefrange{b}{e}定义了 \co{route_add()}，它分配一个
+\co{route_entry} 结构，对其进行初始化并添加到列表中，
+在内存分配失败时返回 \co{-ENOMEM}。
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_seq:lookup_add_del:del]
-Finally, \clnrefrange{b}{e} define \co{route_del()}, which removes and
-frees the specified \co{route_entry} structure if it exists,
-or returns \co{-ENOENT} otherwise.
+最后，\clnrefrange{b}{e}定义了 \co{route_del()}，如果指定的
+\co{route_entry} 结构存在则将其移除并释放，
+否则返回 \co{-ENOENT}。
 \end{fcvref}
 
-This single-threaded implementation serves as a prototype for the various
-concurrent implementations in this chapter, and also as an estimate of
-ideal scalability and performance.
+这个单线程实现作为本章各种并发实现的原型，
+也作为理想可扩展性和性能的估计基准。
 
 \input{defer/refcnt}
 \input{defer/hazptr}

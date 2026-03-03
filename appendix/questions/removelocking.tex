@@ -2,43 +2,34 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Why Not Remove Locking?}
+\section{为什么不去掉锁？}
 \label{sec:app:questions:Why Not Remove Locking?}
 %
-\epigraph{A great number of people think they are thinking when they
-	  are merely rearranging their prejudices.}
+\epigraph{许多人以为自己在思考，其实只是在重新排列他们的偏见。}
 	 {William James}
 
-There can be no doubt that many have cast locking as the evil villain
-of parallel programming, and not entirely without reason.
-And there are important examples where lockless code does much better
-than its locked counterpart, a few of which are discussed in
-\cref{sec:advsync:Non-Blocking Synchronization}.
+毫无疑问，许多人把锁视为并行编程的万恶之源，这也不是完全没有道理的。
+确实存在一些重要的例子，其中无锁代码比其有锁的对应版本表现好得多，
+其中一些在\cref{sec:advsync:Non-Blocking Synchronization}中有所讨论。
 
-However, lockless algorithms are not guaranteed to perform and scale
-well, as shown by
-\cref{fig:count:Atomic Increment Scalability on x86} on
-\cpageref{fig:count:Atomic Increment Scalability on x86}.
-Furthermore, as a general rule, the more complex the algorithm,
-the greater the advantage of combining locking with selected
-lockless techniques, even with significant hardware support,
-as shown in
+然而，无锁算法并不能保证表现良好和具有良好的可扩展性，
+正如\cref{fig:count:Atomic Increment Scalability on x86}
+（\cpageref{fig:count:Atomic Increment Scalability on x86}）所示。
+此外，作为一般规律，算法越复杂，
+将锁与选定的无锁技术相结合的优势就越大，即使有大量的硬件支持也是如此，
+正如
 \IfEbookSize{
 \cref{tab:future:Comparison of Locking and HTM,%
 tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}
-on
-\cpageref{tab:future:Comparison of Locking and HTM,%
-tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}.
+（\cpageref{tab:future:Comparison of Locking and HTM,%
+tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}）所示。
 }{
 \cref{tab:future:Comparison of Locking (Plain and Augmented) and HTM}
-on
-\cpageref{tab:future:Comparison of Locking (Plain and Augmented) and HTM}.
+（\cpageref{tab:future:Comparison of Locking (Plain and Augmented) and HTM}）所示。
 }
 \Cref{sec:advsync:Non-Blocking Synchronization}
-looks more deeply at \IXacrl{nbs}, which is a popular
-lockless methodology.
+更深入地研究了\IXacrl{nbs}，这是一种流行的无锁方法论。
 
-As a more general rule, a sound-bite approach to parallel programming
-is not likely to end well.
-Some would argue that this is also true of many other fields of endeavor,
-especially those fields most prominently featuring sound bites.
+作为更一般的规律，用简短口号式的方法来进行并行编程不太可能有好结果。
+有些人会说这在许多其他领域也是如此，
+尤其是那些最显眼地以简短口号为特色的领域。

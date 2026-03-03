@@ -2,170 +2,164 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Micro-Optimization}
+\section{微优化}
 \label{sec:together:Micro-Optimization}
 %
-\epigraph{The devil is in the details.}{Unknown}
+\epigraph{魔鬼藏在细节中。}{佚名}
 
-The data structures shown in this book were coded straightforwardly,
-with no adaptation to the underlying system's cache hierarchy.
-In addition, many of the implementations used pointers to functions
-for key-to-hash conversions and other frequent operations.
-Although this approach provides simplicity and portability, in many
-cases it does give up some performance.
+本书中展示的数据结构都是直接编码的，
+没有针对底层系统的缓存层次结构进行调整。
+此外，许多实现使用函数指针来进行
+键到哈希的转换和其他频繁操作。
+虽然这种方法提供了简洁性和可移植性，
+但在许多情况下确实会损失一些性能。
 
-The following sections touch on specialization, memory conservation,
-and hardware considerations.
-Please do not mistake these short sections for a definitive treatise
-on this subject.
-Whole books have been written on optimizing for a specific CPU, let
-alone to the wide variety of CPU families in common use today.
+以下各节涉及特化、内存节约和硬件考虑。
+请不要把这些简短的章节误认为
+是对此主题的权威论述。
+整本书都可以写关于针对特定 CPU 的优化，
+更不用说当今常用的各种 CPU 系列了。
 
-\subsection{Specialization}
+\subsection{特化}
 \label{sec:together:Specialization}
 
-The resizable hash table presented in
 \cref{sec:datastruct:Non-Partitionable Data Structures}
-on
-\cpageref{sec:datastruct:Non-Partitionable Data Structures}
-used an opaque type for the key.
-This allows great flexibility, permitting any sort of key to be
-used, but it also incurs significant overhead due to the calls via
-of pointers to functions.
-Now, modern hardware uses sophisticated branch-prediction techniques
-to minimize this overhead, but on the other hand, real-world software
-is often larger than can be accommodated even by today's large
-hardware branch-prediction tables.
-This is especially the case for calls via pointers, in which case
-the branch prediction hardware must record a pointer in addition
-to branch-taken/branch-not-taken information.
+（\cpageref{sec:datastruct:Non-Partitionable Data Structures}）
+中介绍的可调整大小的 hash table 使用了
+不透明类型作为键。
+这允许极大的灵活性，允许使用任何类型的键，
+但由于通过函数指针调用也会产生显著的开销。
+现代硬件使用复杂的分支预测技术来最小化此开销，
+但另一方面，现实世界的软件通常比
+今天大型硬件分支预测表所能容纳的更大。
+对于通过指针的调用尤其如此，
+在这种情况下，分支预测硬件除了
+分支是否跳转的信息外，还必须记录一个指针。
 
-This overhead can be eliminated by specializing a hash-table implementation
-to a given key type and hash function, for example, by using C++ templates.
-Doing so eliminates the \co{->ht_cmp()}, \co{->ht_gethash()}, and
-\co{->ht_getkey()} function pointers in the \co{ht} structure shown in
-\cref{lst:datastruct:Resizable Hash-Table Data Structures} on
-\cpageref{lst:datastruct:Resizable Hash-Table Data Structures}.
-It also eliminates the corresponding calls through these pointers,
-which could allow the compiler to inline the resulting fixed functions,
-eliminating not only the overhead of the call instruction, but the
-argument marshalling as well.
+可以通过将 hash table 实现特化为给定的
+键类型和哈希函数来消除此开销，
+例如使用 C++ 模板。
+这样做可以消除
+\cref{lst:datastruct:Resizable Hash-Table Data Structures}
+（\cpageref{lst:datastruct:Resizable Hash-Table Data Structures}）
+中 \co{ht} 结构中的 \co{->ht_cmp()}、\co{->ht_gethash()} 和
+\co{->ht_getkey()} 函数指针。
+它还消除了通过这些指针的相应调用，
+这可以允许编译器内联生成的固定函数，
+不仅消除了调用指令的开销，
+还消除了参数编组的开销。
 
 \QuickQuiz{
-	How much do these specializations really save?
-	Are they really worth it?
+	这些特化实际上能节省多少？
+	它们真的值得吗？
 }\QuickQuizAnswer{
-	The answer to the first question is left as an exercise to
-	the reader.
-	Try specializing the resizable hash table and see how much
-	performance improvement results.
-	The second question cannot be answered in general, but must
-	instead be answered with respect to a specific use case.
-	Some use cases are extremely sensitive to performance and
-	scalability, while others are less so.
+	第一个问题的答案留给读者作为练习。
+	尝试特化可调整大小的 hash table，
+	看看能带来多少性能提升。
+	第二个问题无法笼统地回答，
+	而必须针对特定的用例来回答。
+	某些用例对性能和可扩展性极为敏感，
+	而其他用例则不那么敏感。
 }\QuickQuizEnd
 
-All that aside, one of the great benefits of modern hardware compared
-to that available when I first started learning to program back in
-the early 1970s is that much less specialization is required.
-This allows much greater productivity than was possible back in the
-days of four-kilobyte address spaces.
+抛开这些不谈，与我在 1970 年代初刚开始
+学习编程时可用的硬件相比，
+现代硬件的一大优势是所需的特化要少得多。
+这比在四千字节地址空间时代
+允许了更高的生产力。
 
-\subsection{Bits and Bytes}
+\subsection{位与字节}
 \label{sec:together:Bits and Bytes}
 
-The hash tables discussed in this chapter made almost no attempt to conserve
-memory.
-For example, the \co{->ht_idx} field in the \co{ht} structure in
-\cref{lst:datastruct:Resizable Hash-Table Data Structures} on
-\cpageref{lst:datastruct:Resizable Hash-Table Data Structures}
-always has a value of either zero or one, yet takes up a full 32 bits
-of memory.
-It could be eliminated, for example, by stealing a bit from the
-\co{->ht_resize_key} field.
-This works because the \co{->ht_resize_key} field is large enough to
-address every byte of memory and the \co{ht_bucket} structure
-is more than one byte long, so that
-the \co{->ht_resize_key} field must have several bits to spare.
+本章讨论的 hash table 几乎没有尝试节省内存。
+例如，
+\cref{lst:datastruct:Resizable Hash-Table Data Structures}
+（\cpageref{lst:datastruct:Resizable Hash-Table Data Structures}）
+中 \co{ht} 结构的 \co{->ht_idx} 字段
+始终只有零或一的值，却占用了完整的 32 位内存。
+可以通过从 \co{->ht_resize_key} 字段
+窃取一个位来消除它。
+这是可行的，因为 \co{->ht_resize_key} 字段
+大到足以寻址内存中的每个字节，
+而 \co{ht_bucket} 结构超过一个字节长，
+所以 \co{->ht_resize_key} 字段必定有
+几个多余的位可用。
 
-This sort of bit-packing trick is frequently used in data structures
-that are highly replicated, as is the \co{page} structure in the Linux
-kernel.
-However, the resizable hash table's \co{ht} structure is not all that
-highly replicated.
-It is instead the \co{ht_bucket} structures we should focus on.
-There are two major opportunities for shrinking the \co{ht_bucket} structure:
+这种位打包技巧经常用于高度复制的数据结构中，
+例如 Linux 内核中的 \co{page} 结构。
+然而，可调整大小的 hash table 的 \co{ht} 结构
+并没有那么高度复制。
+我们应该关注的反而是 \co{ht_bucket} 结构。
+缩小 \co{ht_bucket} 结构有两个主要机会：
 \begin{enumerate*}[(1)]
-\item Placing the \tco{->htb_lock} field in a low-order bit of one of the
-\tco{->htb_head} pointers and
-\item Reducing the number of pointers required.
+\item 将 \tco{->htb_lock} 字段放入
+\tco{->htb_head} 指针之一的低位中，以及
+\item 减少所需的指针数量。
 \end{enumerate*}
 
-The first opportunity might make use of bit-spinlocks in the Linux
-kernel, which are provided by the \path{include/linux/bit_spinlock.h}
-header file.
-These are used in space-critical data structures in the Linux kernel,
-but are not without their disadvantages:
+第一个机会可以利用 Linux 内核中的位自旋锁，
+它由 \path{include/linux/bit_spinlock.h}
+头文件提供。
+这些在 Linux 内核中空间关键的数据结构中使用，
+但并非没有缺点：
 
 \begin{enumerate}
-\item	They are significantly slower than the traditional spinlock
-	primitives.
-\item	They cannot participate in the lockdep deadlock detection
-	tooling in the Linux kernel~\cite{JonathanCorbet2006lockdep}.
-\item	They do not record lock ownership, further complicating
-	debugging.
-\item	They do not participate in priority boosting in \rt\ kernels,
-	which means that preemption must be disabled when holding
-	bit spinlocks, which can degrade real-time latency.
+\item	它们比传统的自旋锁原语慢得多。
+\item	它们无法参与 Linux 内核中的
+	lockdep 死锁检测工具~\cite{JonathanCorbet2006lockdep}。
+\item	它们不记录锁的所有权，
+	进一步增加了调试的复杂性。
+\item	它们不参与 \rt\ 内核中的优先级提升，
+	这意味着持有位自旋锁时必须禁用抢占，
+	这可能降低实时延迟。
 \end{enumerate}
 
-Despite these disadvantages, bit-spinlocks are extremely useful when
-memory is at a premium.
+尽管有这些缺点，
+当内存紧张时，位自旋锁极其有用。
 
-One aspect of the second opportunity was covered in
+第二个机会的一个方面在
 \cref{sec:datastruct:Other Resizable Hash Tables}
-on
-\cpageref{sec:datastruct:Other Resizable Hash Tables},
-which presented resizable hash tables that require only one
-set of bucket-list pointers in place of the pair of sets required
-by the resizable hash table presented in
+（\cpageref{sec:datastruct:Other Resizable Hash Tables}）
+中已有介绍，该节展示了只需要一组桶列表指针
+的可调整大小的 hash table，
+取代了
 \cref{sec:datastruct:Non-Partitionable Data Structures}
-on
-\cpageref{sec:datastruct:Non-Partitionable Data Structures}.
-Another approach would be to use singly linked bucket lists in
-place of the doubly linked lists used in this chapter.
-One downside of this approach is that deletion would then require
-additional overhead, either by marking the outgoing pointer
-for later removal
-or by searching the bucket list for the element being deleted.
+（\cpageref{sec:datastruct:Non-Partitionable Data Structures}）
+中介绍的可调整大小 hash table 所需的两组。
+另一种方法是使用单链桶列表
+来取代本章使用的双链表。
+这种方法的一个缺点是删除需要额外开销，
+要么通过标记待删除的指针以便稍后删除，
+要么通过搜索桶列表找到要删除的元素。
 
-In short, there is a tradeoff between minimal memory overhead on
-the one hand, and performance and simplicity on the other.
-Fortunately, the relatively large memories available on modern
-systems have allowed us to prioritize performance and simplicity
-over memory overhead.
-However, even though the year~2022's pocket-sized smartphones sport
-many gigabytes of memory and its mid-range servers sport terabytes, it
-is sometimes necessary to take extreme measures to reduce memory overhead.
+简而言之，在最小内存开销与性能和简洁性之间
+存在权衡。
+幸运的是，现代系统上相对较大的内存
+允许我们优先考虑性能和简洁性
+而非内存开销。
+然而，尽管 2022 年的袖珍型智能手机配备了
+数千兆字节的内存，中端服务器配备了太字节级内存，
+有时仍然需要采取极端措施来减少内存开销。
 
-\subsection{Hardware Considerations}
+\subsection{硬件考虑}
 \label{sec:together:Hardware Considerations}
 
-Modern computers typically move data between CPUs and main memory in
-fixed-sized blocks that range in size from 32 bytes to 256 bytes.
-These blocks are called \emph{\IXpl{cache line}}, and are extremely important
-to high performance and scalability, as was discussed in
-\cref{sec:cpu:Overheads}.
-One timeworn way to kill both performance and scalability is to
-place incompatible variables into the same cacheline.
-For example, suppose that a resizable hash table data element had
-the \co{ht_elem} structure in the same cacheline as a frequently incremented
-counter.
-The frequent incrementing would cause the cacheline to be present at
-the CPU doing the incrementing, but nowhere else.
-If other CPUs attempted to traverse the hash bucket list containing
-that element, they would incur expensive cache misses, degrading both
-performance and scalability.
+现代计算机通常以固定大小的块
+在 CPU 和主内存之间移动数据，
+块大小从 32 字节到 256 字节不等。
+这些块被称为\emph{\IXpl{cache line}}，
+对于高性能和可扩展性极其重要，
+如 \cref{sec:cpu:Overheads} 中所讨论的。
+一种久经考验的扼杀性能和可扩展性的方式是
+将不兼容的变量放入同一缓存行。
+例如，假设一个可调整大小的 hash table 数据元素
+将 \co{ht_elem} 结构与一个频繁递增的计数器
+放在同一缓存行中。
+频繁的递增将导致缓存行存在于
+执行递增的 CPU 上，而不存在于其他任何地方。
+如果其他 CPU 尝试遍历包含该元素的哈希桶列表，
+它们将遭受昂贵的缓存未命中，
+降低性能和可扩展性。
 
 \begin{listing}
 \begin{VerbatimL}
@@ -174,89 +168,86 @@ struct hash_elem {
 	long __attribute__ ((aligned(64))) counter;
 };
 \end{VerbatimL}
-\caption{Alignment for 64-Byte Cache Lines}
+\caption{64 字节缓存行的对齐}
 \label{lst:together:Alignment for 64-Byte Cache Lines}
 \end{listing}
 
-One way to solve this problem on systems with 64-byte cache line is shown in
-\cref{lst:together:Alignment for 64-Byte Cache Lines}.
-Here \GCC's \co{aligned} attribute is used to force the \co{->counter}
-and the \co{ht_elem} structure into separate cache lines.
-This would allow CPUs to traverse the hash bucket list at full speed
-despite the frequent incrementing.
+在具有 64 字节缓存行的系统上，
+解决此问题的一种方法如
+\cref{lst:together:Alignment for 64-Byte Cache Lines} 所示。
+这里使用 \GCC 的 \co{aligned} 属性
+强制 \co{->counter} 和 \co{ht_elem} 结构
+位于不同的缓存行中。
+这将允许 CPU 以全速遍历哈希桶列表，
+尽管有频繁的递增。
 
-Of course, this raises the question ``How did we know that cache lines
-are 64 bytes in size?''
-On a Linux system, this information may be obtained from the
-\path{/sys/devices/system/cpu/cpu*/cache/} directories, and it is even
-possible to make the installation process rebuild the application to
-accommodate the system's hardware structure.
-However, this would be more difficult if you wanted your application to
-also run on a variety of environments, including non-Linux systems.
-Furthermore, even if you were content to run only on Linux, such a
-self-modifying installation poses validation challenges.
-For example, systems with 32-byte cachelines might work well, but
-performance might suffer on systems with 64-byte cachelines due
-to \IX{false sharing}.
+当然，这引出了一个问题：
+``我们怎么知道缓存行是 64 字节的？''
+在 Linux 系统上，此信息可以从
+\path{/sys/devices/system/cpu/cpu*/cache/} 目录获得，
+甚至可以让安装过程重建应用程序
+以适应系统的硬件结构。
+但是，如果你希望应用程序也能在各种环境中运行，
+包括非 Linux 系统，这将更加困难。
+此外，即使你满足于只在 Linux 上运行，
+这种自修改安装也会带来验证方面的挑战。
+例如，具有 32 字节缓存行的系统可能运行良好，
+但在具有 64 字节缓存行的系统上，
+由于\IX{false sharing}，性能可能会受到影响。
 
-Fortunately, there are some rules of thumb that work reasonably well in
-practice, which were gathered into a 1995
-paper~\cite{BenjaminGamsa95a}.\footnote{
-	A number of these rules are paraphrased and expanded on here
-	with permission from Orran Krieger.}
-The first group of rules involve rearranging structures to accommodate
-cache geometry:
+幸运的是，有一些经验法则在实践中效果相当好，
+它们被收集在 1995 年的一篇论文中~\cite{BenjaminGamsa95a}。\footnote{
+	经 Orran Krieger 许可，
+	这里对其中一些规则进行了转述和扩展。}
+第一组规则涉及重新排列结构以适应缓存布局：
 
 \begin{enumerate}
-\item	Place read-mostly data far from frequently updated data.
-	For example, place read-mostly data at the beginning of the
-	structure and frequently updated data at the end.
-	Place data that is rarely accessed in between.
-\item	If the structure has groups of fields such that each group is
-	updated by an independent code path, separate these groups
-	from each other.
-	Again, it can be helpful to place rarely accessed data
-	between the groups.
-	In some cases, it might also make sense to place each such group
-	into a separate structure referenced by the original structure.
-\item	Where possible, associate update-mostly data with a CPU, thread,
-	or task.
-	We saw several very effective examples of this rule of thumb
-	in the counter implementations in
-	\cref{chp:Counting}.
-\item	Going one step further, partition your data on a per-CPU,
-	per-thread, or per-task basis, as was discussed in
-	\cref{chp:Data Ownership}.
+\item	将只读数据放在远离频繁更新数据的位置。
+	例如，将只读数据放在结构的开头，
+	频繁更新的数据放在结尾。
+	将很少访问的数据放在中间。
+\item	如果结构具有多组字段，
+	每组由独立的代码路径更新，
+	则将这些组彼此分开。
+	同样，在组之间放置很少访问的数据可能有帮助。
+	在某些情况下，将每个这样的组
+	放入由原始结构引用的单独结构中
+	也可能是有意义的。
+\item	在可能的情况下，将更新密集型数据与
+	CPU、线程或任务关联。
+	我们在 \cref{chp:Counting} 的
+	计数器实现中看到了这条经验法则的
+	几个非常有效的例子。
+\item	更进一步，按每 CPU、每线程或每任务
+	的方式划分数据，如
+	\cref{chp:Data Ownership} 中所讨论的。
 \end{enumerate}
 
-There has been some work towards automated trace-based rearrangement
-of structure
-fields~\cite{Golovanevsky:2010:TDL:2174824.2174835}.
-This work might well ease one of the more painstaking tasks
-required to get excellent performance and scalability from
-multithreaded software.
+已有一些关于基于追踪的自动化结构字段重排的
+工作~\cite{Golovanevsky:2010:TDL:2174824.2174835}。
+这项工作可能会减轻从多线程软件中获得
+出色性能和可扩展性所需的
+最费力的任务之一。
 
-An additional set of rules of thumb deal with locks:
+还有一组关于锁的经验法则：
 
 \begin{enumerate}
-\item	Given a heavily contended lock protecting data that is
-	frequently modified, take one of the following approaches:
+\item	对于保护频繁修改数据的高竞争锁，
+	采取以下方法之一：
 	\begin{enumerate}
-	\item	Place the lock in a different cacheline than the data
-		that it protects.
-	\item	Use a lock that is adapted for high contention, such
-		as a queued lock.
-	\item	Redesign to reduce lock contention.
-		(This approach is best, but is not always trivial.)
+	\item	将锁放在与其保护数据不同的缓存行中。
+	\item	使用适合高竞争的锁，
+		例如排队锁。
+	\item	重新设计以减少锁竞争。
+		（这种方法最好，但并不总是简单的。）
 	\end{enumerate}
-\item	Place uncontended locks into the same cache line as the data
-	that they protect.
-	This approach means that the cache miss that brings the
-	lock to the current CPU also brings its data.
-\item	Protect read-mostly data with \IXpl{hazard pointer}, RCU, or, for
-	long-duration critical sections, reader-writer locks.
+\item	将无竞争的锁放入与其保护数据
+	相同的缓存行中。
+	这种方法意味着将锁带到当前 CPU 的缓存未命中
+	同时也带来了其数据。
+\item	使用\IXpl{hazard pointer}、RCU 或
+	对于长时间临界区使用读写锁来保护只读数据。
 \end{enumerate}
 
-Of course, these are rules of thumb rather than absolute rules.
-Some experimentation is required to work out which are most applicable
-to a given situation.
+当然，这些是经验法则而非绝对规则。
+需要一些实验来确定哪些最适用于给定的情况。

@@ -2,250 +2,219 @@
 % mainfile: perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\chapter{Looking Forward and Back}
+\chapter{回顾与展望}
 \label{chp:Looking Forward and Back}
 %
-\Epigraph{History is the sum total of things that could have been avoided.}
+\Epigraph{历史就是本可以避免的事情的总和。}
 	  {Konrad Adenauer}
 
-You have arrived at the end of this book, well done!
-I~hope that your journey was a pleasant but challenging and worthwhile
-one.
+你已经读完了这本书，干得好！
+我希望你的旅程是愉快的，同时也是充满挑战和有价值的。
 
-For your editor and contributors, this is the end of the journey to the
-Second Edition, but for those willing to join in, it is also the start
-of the journey to the Third Edition.
-Either way, it is good to recap this past journey.
+对于编辑和贡献者来说，这是通向第二版的旅程的终点，
+但对于愿意加入的人来说，这也是通向第三版的旅程的起点。
+无论如何，回顾这段旅程是件好事。
 
-\Cref{chp:How To Use This Book} covered what this book is about, along
-with some alternatives for those interested in something other than
-low-level parallel programming.
+\Cref{chp:How To Use This Book}介绍了本书的内容，
+以及为那些对底层并行编程以外的内容感兴趣的读者提供的一些替代选择。
 
-\Cref{chp:Introduction} covered parallel-programming challenges and
-high-level approaches for addressing them.
-It also touched on ways of avoiding these challenges while nevertheless
-still gaining most of the benefits of parallelism.
+\Cref{chp:Introduction}涵盖了并行编程的挑战以及应对这些挑战的
+高层次方法。
+它还触及了在避免这些挑战的同时仍然获得并行性大部分好处的途径。
 
-\Cref{chp:Hardware and its Habits} gave a high-level overview of multicore
-hardware, especially those aspects that pose challenges for concurrent
-software.
-This \lcnamecref{chp:Hardware and its Habits} puts the blame for these
-challenges where it belongs, very much on the laws of physics and rather
-less on intransigent hardware architects and designers.
-However, there might be some things that hardware architects and engineers
-can do, and this \lcnamecref{chp:Hardware and its Habits} discusses a few of
-them.
-In the meantime, software architects and engineers must do their part
-to meet these challenges, as discussed in the rest of the book.
+\Cref{chp:Hardware and its Habits}对多核硬件进行了高层次概述，
+尤其是那些对并发软件构成挑战的方面。
+这一\lcnamecref{chp:Hardware and its Habits}将这些挑战的责任
+归于其应得之处——很大程度上归于物理定律，
+而较少归于固执的硬件架构师和设计师。
+然而，硬件架构师和工程师可能能做一些事情，
+这一\lcnamecref{chp:Hardware and its Habits}讨论了其中一些。
+与此同时，软件架构师和工程师必须尽其本分来应对这些挑战，
+正如本书其余部分所讨论的那样。
 
 \Cref{chp:Tools of the Trade}
-gave a quick overview of the tools of the low-level concurrency trade.
-\Cref{chp:Counting} then demonstrated use of those tools---and, more
-importantly, use of parallel-programming design techniques---on the
-simple but surprisingly challenging task of concurrent counting.
-So challenging, in fact, that a number of concurrent counting algorithms
-are in common use, each specialized for a different use case.
+快速概述了底层并发编程的常用工具。
+\Cref{chp:Counting}随后展示了这些工具的使用——
+更重要的是，展示了并行编程设计技术的使用——
+应用于简单但出人意料地具有挑战性的并发计数任务。
+事实上如此具有挑战性，以至于有多种并发计数算法被广泛使用，
+每种都专门针对不同的使用场景。
 
-\Cref{chp:Partitioning and Synchronization Design} dug more deeply
-into the most important parallel-programming design technique, namely
-partitioning the problem at the highest possible level.
-This \lcnamecref{chp:Partitioning and Synchronization Design} also
-overviewed a number of points in this design space.
+\Cref{chp:Partitioning and Synchronization Design}更深入地探讨了
+最重要的并行编程设计技术，即在尽可能高的层次上对问题进行分区。
+这一\lcnamecref{chp:Partitioning and Synchronization Design}还
+概述了这一设计空间中的若干要点。
 
-\Cref{chp:Locking} expounded on that parallel-programming workhorse
-(and villain), locking.
-This \lcnamecref{chp:Locking} covered a number of types of locking
-and presented some engineering solutions to many well-known and
-aggressively advertised shortcomings of locking.
+\Cref{chp:Locking}详细阐述了并行编程的主力（也是恶棍）——locking。
+这一\lcnamecref{chp:Locking}涵盖了多种类型的 locking，
+并针对 locking 的许多众所周知且被大力宣传的缺点
+提出了一些工程解决方案。
 
-\Cref{chp:Data Ownership} discussed the uses of data ownership, where
-synchronization is supplied by the association of a given data item
-with a specific thread.
-Where it applies, this approach combines excellent performance and
-scalability with profound simplicity.
+\Cref{chp:Data Ownership}讨论了 data ownership 的使用，
+其中同步由给定数据项与特定 thread 的关联来提供。
+在适用的情况下，这种方法将出色的性能和可扩展性与
+深刻的简洁性结合在一起。
 
-\Cref{chp:Deferred Processing} showed how a little procrastination can
-greatly improve performance and scalability, while in a surprisingly large
-number of cases also simplifying the code.
-A number of the mechanisms presented in this
-\lcnamecref{chp:Deferred Processing}
-take advantage of the ability of CPU caches to replicate read-only data,
-thus sidestepping the laws of physics that cruelly limit the speed of
-light and the smallness of atoms.
-\Cref{chp:Data Structures} looked at concurrent data structures, with
-emphasis on hash tables, which have a long and honorable history in
-parallel programs.
+\Cref{chp:Deferred Processing}展示了一点点拖延如何能够
+大大提高性能和可扩展性，同时在出人意料的大量情况下
+还能简化代码。
+这一\lcnamecref{chp:Deferred Processing}中介绍的多种机制
+利用了 CPU cache 复制只读数据的能力，
+从而绕开了残酷地限制光速和原子大小的物理定律。
+\Cref{chp:Data Structures}考察了并发数据结构，
+重点是 hash table，它在并行程序中有着悠久而光荣的历史。
 
-\Cref{chp:Validation} dug into code-review and testing methods, and
-\cref{chp:Formal Verification} overviewed formal verification.
-Whichever side of the formal-verification/\-testing divide you might
-be on, if code has not been thoroughly validated, it does not work.
-And that goes at least double for concurrent code.
+\Cref{chp:Validation}深入研究了代码审查和测试方法，
+\cref{chp:Formal Verification}概述了形式化验证。
+无论你站在形式化验证/测试之争的哪一边，
+如果代码没有经过彻底验证，它就不能正常工作。
+对于并发代码来说，这一点至少加倍适用。
 
-\Cref{chp:Putting It All Together} presented a number of situations
-where combining concurrency mechanisms with each other or with other
-design tricks can greatly ease parallel programmers' lives.
-\Cref{sec:advsync:Advanced Synchronization} looked at advanced
-synchronization methods, including lockless programming, \IXacrl{nbs},
-and parallel real-time computing.
-\Cref{chp:Advanced Synchronization: Memory Ordering} dug into the
-critically important topic of memory ordering, presenting techniques
-and tools to help you not only solve memory-ordering problems, but
-also to avoid them completely.
-\Cref{chp:Ease of Use} presented a brief overview of the surprisingly
-important topic of ease of use.
+\Cref{chp:Putting It All Together}展示了若干场景，
+其中将并发机制相互组合或与其他设计技巧组合，
+可以极大地改善并行程序员的工作。
+\Cref{sec:advsync:Advanced Synchronization}考察了高级同步方法，
+包括无锁编程、\IXacrl{nbs}和并行实时计算。
+\Cref{chp:Advanced Synchronization: Memory Ordering}深入探讨了
+至关重要的 memory ordering 主题，
+展示了帮助你不仅解决 memory ordering 问题，
+而且完全避免这些问题的技术和工具。
+\Cref{chp:Ease of Use}简要概述了易用性这一
+出人意料地重要的主题。
 
-Last, but definitely not least, \cref{chp:Conflicting Visions of the Future}
-expounded on a number of conflicting visions of the future, including
-CPU-technology trends, transactional memory, hardware transactional
-memory, use of formal verification in regression testing, and the
-long-standing prediction that the future of parallel programming belongs
-to functional-programming languages.
+最后但绝非最不重要的是，\cref{chp:Conflicting Visions of the Future}
+详细阐述了若干关于未来的矛盾愿景，
+包括 CPU 技术趋势、transactional memory、
+hardware transactional memory、在回归测试中使用形式化验证，
+以及长久以来关于并行编程的未来属于函数式编程语言的预测。
 
-But now that we have recapped the contents of this Second Edition, how did
-this book get started?
+但现在我们已经回顾了第二版的内容，
+这本书是如何开始的呢？
 
-Paul's parallel-programming journey started in earnest in 1990, when
-he joined Sequent Computer Systems, Inc.
-Sequent used an apprenticeship-like program in which newly hired engineers
-were placed in cubicles surrounded by experienced engineers, who mentored
-them, reviewed their code, and gave copious quantities of advice on
-a variety of topics.
-A few of the newly hired engineers were greatly helped by the fact that
-there were no on-chip caches in those days, which meant that
-logic analyzers could easily display a given CPU's instruction stream
-and memory accesses, complete with accurate timing information.
-Of course, the downside of this transparency was that CPU core clock
-frequencies were 100 times slower than those of the twenty-first
-century.
-Between apprenticeship and hardware performance transparency, these newly
-hired engineers became productive parallel programmers within two or three
-months, and some were doing ground-breaking work within a couple of years.
+Paul 的并行编程之旅真正开始于 1990 年，
+那年他加入了 Sequent Computer Systems, Inc.。
+Sequent 采用类似学徒制的培训方式，
+新聘工程师被安排在经验丰富的工程师的隔间旁边，
+后者指导他们、审查他们的代码，
+并在各种主题上给予大量建议。
+一些新聘工程师极大地受益于当时没有片上 cache 的事实，
+这意味着逻辑分析仪可以轻松显示给定 CPU 的指令流和内存访问，
+附带精确的时序信息。
+当然，这种透明性的代价是 CPU 核心时钟频率
+比 21 世纪的慢 100 倍。
+凭借学徒制和硬件性能的透明性，
+这些新聘工程师在两三个月内就成为了高效的并行程序员，
+其中一些人在几年内就做出了开创性的工作。
 
-Sequent understood that its ability to quickly train new engineers in the
-mysteries of parallelism was unusual, so it produced a slim volume that
-crystalized the company's parallel-programming wisdom~\cite{SQNTParallel},
-which joined a pair of groundbreaking papers that had been written a
-few years earlier~\cite{Beck85,Inman85}.
-People already steeped in these mysteries saluted this book and these
-papers, but novices were usually unable to benefit much from them,
-invariably making highly creative and quite destructive errors that
-were not explicitly prohibited by either the book or the papers.\footnote{
-	``But why on earth would you do \emph{that}???''
-	``Well, why not?''}
-This situation of course caused Paul to start thinking in terms of
-writing an improved book, but his efforts during this time were limited
-to internal training materials and to published papers.
+Sequent 深知其快速培训新工程师掌握并行性奥秘的能力是非凡的，
+因此出版了一本精炼的小册子，
+结晶了公司的并行编程智慧~\cite{SQNTParallel}，
+与几年前写的两篇开创性论文~\cite{Beck85,Inman85}相得益彰。
+已经精通这些奥秘的人对这本书和这些论文表示赞赏，
+但新手通常无法从中获益太多，
+总是犯出极具创意但极具破坏性的错误，
+而这些错误在书中和论文中都没有被明确禁止。\footnote{
+	``但你到底为什么要\emph{那样}做？？？''
+	``呃，为什么不呢？''}
+这种情况当然使 Paul 开始考虑写一本改进的书，
+但在这段时间里，他的努力仅限于内部培训材料和已发表的论文。
 
-By the time Sequent was acquired by IBM in 1999, many of the world's
-largest database instances ran on Sequent hardware.
-But times change, and by 2001 many of Sequent's parallel programmers
-had shifted their focus to the Linux kernel.
-After some initial reluctance, the Linux kernel community embraced
-concurrency both enthusiastically and
-effectively~\cite{SilasBoydWickizer2010LinuxScales48,McKenney:2012:BEP:2414729.2414734},
-with many excellent innovations and improvements from throughout the
-community.
-The thought of writing a book occurred to Paul from time to time, but
-life was flowing fast, so he made no progress on this project.
+到 1999 年 Sequent 被 IBM 收购时，
+世界上许多最大的数据库实例都运行在 Sequent 硬件上。
+但时代在变，到 2001 年，Sequent 的许多并行程序员
+已经将注意力转向了 Linux 内核。
+在一些最初的犹豫之后，Linux 内核社区热情且有效地
+拥抱了并发~\cite{SilasBoydWickizer2010LinuxScales48,McKenney:2012:BEP:2414729.2414734}，
+整个社区贡献了许多出色的创新和改进。
+Paul 不时想到写一本书，但生活节奏飞快，
+所以他在这个项目上没有取得进展。
 
-In 2006, Paul was invited to a conference on Linux scalability, and was
-granted the privilege of asking the last question of panel of esteemed
-parallel-programming experts.
-Paul began his question by noting that in the 15~years from 1991 to 2006,
-the price of a parallel system had dropped from that of a house to that
-of a mid-range bicycle, and it was clear that there was much more room
-for additional dramatic price decreases over the next 15~years
-extending to the year 2021.
-He also noted that decreasing price should result in greater familiarity
-and faster progress in solving parallel-programming problems.
-This led to his question:
-``In the year 2021, why wouldn't parallel programming have become routine?''
+2006 年，Paul 受邀参加一个关于 Linux 可扩展性的会议，
+并获得了在一个由著名并行编程专家组成的小组讨论中
+提出最后一个问题的殊荣。
+Paul 在提问时指出，在 1991 年到 2006 年的 15 年间，
+并行系统的价格从一栋房子的价格降到了一辆中档自行车的价格，
+而且很明显，在未来 15 年（直到 2021 年）
+还有很大的进一步大幅降价空间。
+他还指出，价格下降应该会带来更多的熟悉度，
+以及在解决并行编程问题方面更快的进展。
+这引出了他的问题：
+``到 2021 年，为什么并行编程不会变得稀松平常？''
 
-The first panelist seemed quite disdainful of anyone who would ask such
-an absurd question, and quickly responded with a soundbite answer.
-To which Paul gave a soundbite response.
-They went back and forth for some time, for example, the panelist's
-sound-bite answer ``Deadlock'' provoked Paul's sound-bite response ``Lock
-dependency checker''.
+第一位小组成员似乎相当蔑视任何会问如此荒谬问题的人，
+并迅速用一句简短的回答作出回应。
+对此 Paul 给出了同样简短的回应。
+他们来来回回了一段时间，例如，小组成员简短回答的
+``Deadlock''引出了 Paul 简短的回应``Lock dependency checker''。
 
-The panelist eventually ran out of soundbites, improvising a final
-``People like you should be hit over the head with a hammer!''
+这位小组成员最终用完了简短的回答，即兴发挥了最后一句：
+``像你这样的人应该被锤子敲头！''
 
-Paul's response was of course ``You will have to get in line for that!''
+Paul 的回应当然是``你得排队等候！''
 
-Paul turned his attention to the next panelist, who seemed torn between
-agreeing with the first panelist and not wishing to have to deal with
-Paul's series of responses.
-He therefore have a short non-committal speech.
-And so it went through the rest of the panel.
+Paul 将注意力转向了下一位小组成员，后者似乎在
+同意第一位小组成员和不想应对 Paul 的一连串回应之间左右为难。
+因此他做了一个简短的不置可否的发言。
+其余的小组成员也大致如此。
 
-Until it was the turn of the last panelist, who was someone you might have
-heard of who goes by the name of Linus Torvalds.
-Linus noted that three years earlier (that is, 2003), the initial version
-of any concurrency-related patch was usually quite poor, having design
-flaws and many bugs.
-And even when it was cleaned up enough to be accepted, bugs still
-remained.
-Linus contrasted this with the then-current situation in 2006, in which
-he said that it was not unusual for the first version of a concurrency-related
-patch to be well-designed with few or even no bugs.
-He then suggested that \emph{if} tools continued to improve, then \emph{maybe}
-parallel programming would become routine by the year 2021.\footnote{
-	Tools have in fact continued to improve, including fuzzers,
-	lock dependency checkers, static analyzers, formal verification,
-	memory models, and code-modification tools such as coccinelle.
-	Therefore, those who wish to assert that year-2021
-	parallel programming is not routine should refer to
-	\cref{chp:Introduction}'s epigraph.}
+直到轮到最后一位小组成员——一个你可能听说过的人，
+名叫 Linus Torvalds。
+Linus 指出，三年前（即 2003 年），
+任何与并发相关的补丁的初始版本通常质量很差，
+存在设计缺陷和许多 bug。
+即使清理到足以被接受，bug 仍然存在。
+Linus 将此与当时 2006 年的情况进行了对比，他说
+并发相关补丁的第一个版本就设计良好、几乎没有甚至没有 bug
+的情况并不罕见。
+然后他建议，\emph{如果}工具继续改进，
+那么\emph{也许}并行编程到 2021 年会变得稀松平常。\footnote{
+	工具确实在持续改进，包括模糊测试器、
+	lock 依赖检查器、静态分析器、形式化验证、
+	内存模型以及 coccinelle 等代码修改工具。
+	因此，那些想要断言 2021 年的并行编程并非稀松平常的人，
+	应该参考\cref{chp:Introduction}的题词。}
 
-The conference then concluded.
-Paul was not surprised to be given wide berth by many audience members,
-especially those who saw the world in the same way as did the first panelist.
-Paul was also not surprised that a few audience members thanked him for
-the question.
-However, he was quite surprised when one man came up to say ``thank
-you'' with tears streaming down his face, sobbing so hard that he could
-barely speak.
+会议随后结束了。
+Paul 并不惊讶许多观众对他敬而远之，
+尤其是那些与第一位小组成员看法相同的人。
+Paul 也不惊讶有一些观众感谢他提出了这个问题。
+然而，当一个人走过来泪流满面地说``谢谢你''，
+哽咽得几乎说不出话时，他相当惊讶。
 
-You see, this man had worked several years at Sequent, and thus very
-well understood parallel programming.
-Furthermore, he was currently assigned to a group whose job it was to
-write parallel code.
-Which was not going well.
-You see, it wasn't that they had trouble understanding his explanations
-of parallel programming.
+你看，这个人曾在 Sequent 工作了几年，
+因此非常精通并行编程。
+此外，他目前被分配到一个负责编写并行代码的团队中。
+但事情进展得并不顺利。
+不是他们在理解他对并行编程的解释方面有困难。
 
-It was that they refused to listen to him \emph{at all}.
+而是他们根本\emph{拒绝听他说话}。
 
-In short, his group was treating this man in the same way that the first
-panelist attempted to treat Paul.
-And so in that moment, Paul went from ``I should write a book some day''
-to ``I will do whatever it takes to write this book''.
-Paul is embarrassed to admit that he does not remember the man's name,
-if in fact he ever knew it.
+简而言之，他的团队对这个人的方式，
+就像第一位小组成员试图对待 Paul 的方式一样。
+于是在那一刻，Paul 从``我将来应该写一本书''
+变成了``我将竭尽全力写这本书''。
+Paul 不好意思地承认，他不记得那个人的名字，
+甚至可能从未知道过。
 
-This book is nevertheless for that man.
+尽管如此，这本书是为那个人而写的。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/UseTheRightToolsBubble}}
-\caption{The Most Important Lesson}
+\caption{最重要的一课}
 \ContributedBy{fig:summary:The Most Important Lesson}{Melissa Broussard}
 \end{figure}
 
-And this book is also for everyone else who would like to add low-level
-concurrency to their skillset.
-If you remember nothing else from this book, let it be the lesson of
-\cref{fig:summary:The Most Important Lesson}.
+这本书也是为所有希望将底层并发编程加入其技能组合的人而写的。
+如果你只记住了这本书中的一件事，
+那就记住\cref{fig:summary:The Most Important Lesson}的教训吧。
 
-And this book is also a salute to that unnamed panelist's unnamed employer.
-Some years later, this employer choose to appoint someone with more
-useful experience and fewer sound bites.
-That someone was also on a panel, and during that session he looked
-directly at me when he stated that parallel programming was perhaps 5\pct\
-more difficult than sequential programming.
+这本书也是向那位未具名小组成员的未具名雇主致敬。
+几年后，这位雇主选择任命了一位拥有更有用的经验
+和更少简短回答的人。
+此人也在一个小组讨论中，在那次讨论中，
+他直视着我说并行编程也许只比顺序编程难 5\pct。
 
-For the rest of us, when someone tries to show us a solution to pressing
-problem, perhaps we should at the very least do them the courtesy of
-listening!
+对于我们其余的人来说，当有人试图向我们展示一个
+紧迫问题的解决方案时，
+也许我们至少应该给他们一个倾听的礼遇！

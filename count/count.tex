@@ -2,758 +2,644 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Counting}{Counting}{qqzcount}
+\QuickQuizChapter{chp:Counting}{计数}{qqzcount}
 %
-\Epigraph{As easy as 1, 2, 3!}{Unknown}
+\Epigraph{简单如1、2、3！}{佚名}
 
-Counting is perhaps the simplest and most natural thing a computer can do.
-However, counting efficiently and scalably on a large
-shared-memory multiprocessor can be quite challenging.
-Furthermore, the simplicity of the underlying concept of counting
-allows us to explore the fundamental issues of concurrency without
-the distractions
-of elaborate data structures or complex synchronization primitives.
-Counting therefore provides an excellent introduction to
-parallel programming.
+计数也许是计算机能做的最简单、最自然的事情。
+然而，在大型共享内存多处理器上高效且可扩展地计数可能颇具挑战性。
+此外，计数这一底层概念的简洁性使我们能够在不受复杂数据结构或
+精巧同步原语干扰的情况下，探索并发的基本问题。
+因此，计数为并行编程提供了一个绝佳的入门途径。
 
-This chapter covers a number of special cases for which there are simple,
-fast, and scalable counting algorithms.
-But first, let us find out how much you already know about concurrent
-counting.
+本章涵盖了若干特殊情况，这些情况下存在简单、快速且可扩展的
+计数算法。
+但首先，让我们来看看你对并发计数了解多少。
 
 \EQuickQuiz{
-	Why should efficient and scalable counting be hard???
-	After all, computers have special hardware for the sole purpose
-	of doing counting!!!
+	为什么高效且可扩展的计数会很困难？
+	毕竟，计算机拥有专门用于计数的硬件！
 }\EQuickQuizAnswer{
-	Because the straightforward counting algorithms, for example,
-	atomic operations on a shared counter, either are slow and scale
-	badly, or are inaccurate, as will be seen in
-	\cref{sec:count:Why Isn't Concurrent Counting Trivial?}.
+	因为直接的计数算法——例如对共享counter进行atomic操作——要么
+	速度慢且扩展性差，要么不准确，这将在
+	\cref{sec:count:Why Isn't Concurrent Counting Trivial?}中说明。
 }\EQuickQuizEnd
 
 \EQuickQuiz{
-	{\bfseries Network-packet counting problem.}
-	Suppose that you need to collect statistics on the number
-	of networking packets transmitted and received.
-	Packets might be transmitted or received by any CPU on the system.
-	Suppose further that your system is capable of
-	handling millions of packets per second per CPU, and that
-	a systems-monitoring package reads the count every five seconds.
-	How would you implement this counter?
+	{\bfseries 网络数据包计数问题。}
+	假设你需要收集已发送和接收的网络数据包数量的统计信息。
+	数据包可能由系统上的任何CPU发送或接收。
+	进一步假设你的系统每个CPU每秒能处理数百万个数据包，
+	而系统监控程序每五秒读取一次计数值。
+	你将如何实现这个counter？
 }\EQuickQuizAnswer{
-	Hint:
-	The act of updating the counter must be blazingly fast, but
-	because the counter is read out only about once in five million
-	updates, the act of reading out the counter can be quite slow.
-	In addition, the value read out normally need not be all that
-	accurate---after all, since the counter is updated a thousand
-	times per millisecond, we should be able to work with a value
-	that is within a few thousand counts of the ``true value'',
-	whatever ``true value'' might mean in this context.
-	However, the value read out should maintain roughly the same
-	absolute error over time.
-	For example, a 1\pct\ error might be just fine when the count
-	is on the order of a million or so, but might be absolutely
-	unacceptable once the count reaches a trillion.
-	See \cref{sec:count:Statistical Counters}.
+	提示：
+	更新counter的操作必须极快，但由于counter大约每五百万次更新
+	才被读取一次，读取counter的操作可以相当慢。
+	此外，读取的值通常不需要非常精确——毕竟，既然counter
+	每毫秒更新一千次，我们应该能够接受与``真实值''相差
+	几千次的值，不管在这个语境下``真实值''意味着什么。
+	但是，读取的值应随时间保持大致相同的绝对误差。
+	例如，当计数值在百万级别时，1\pct\ 的误差可能完全可以接受，
+	但当计数值达到万亿级别时，这可能是完全不可接受的。
+	参见\cref{sec:count:Statistical Counters}。
 }\EQuickQuizEnd
 
 \QuickQuizLabel{\QcountQstatcnt}
 
 \EQuickQuiz{
-	{\bfseries Approximate structure-allocation limit problem.}
-	Suppose that you need to maintain a count of the number of
-	structures allocated in order to fail any allocations
-	once the number of structures in use exceeds a limit
-	(say, 10,000).
-	Suppose further that the structures are short-lived, the
-	limit is rarely exceeded, and a ``sloppy'' approximate limit
-	is acceptable.
+	{\bfseries 近似结构分配限制问题。}
+	假设你需要维护已分配结构数量的计数，以便在使用中的结构数量
+	超过限制（比如10,000）时拒绝任何分配。
+	进一步假设这些结构是短生命周期的，限制很少被超过，
+	且``宽松的''近似限制是可以接受的。
 }\EQuickQuizAnswer{
-	Hint:
-	The act of updating the counter must again be blazingly
-	fast, but the counter is read out each time that the
-	counter is increased.
-	However, the value read out need not be accurate
-	\emph{except} that it must distinguish approximately
-	between values below the limit and values greater than or
-	equal to the limit.
-	See \cref{sec:count:Approximate Limit Counters}.
+	提示：
+	更新counter的操作必须再次极快，但每次增加counter时
+	都要读取它。
+	然而，读取的值不需要精确，
+	\emph{除了}它必须能大致区分低于限制的值和大于或
+	等于限制的值。
+	参见\cref{sec:count:Approximate Limit Counters}。
 }\EQuickQuizEnd
 
 \QuickQuizLabel{\QcountQapproxcnt}
 
 \EQuickQuiz{
-	{\bfseries Exact structure-allocation limit problem.}
-	Suppose that you need to maintain a count of the number of
-	structures allocated in order to fail any allocations
-	once the number of structures in use exceeds an exact limit
-	(again, say 10,000).
-	Suppose further that these structures are short-lived,
-	and that the limit is rarely exceeded, that there is almost
-	always at least one structure in use, and suppose further
-	still that it is necessary to know exactly when this counter reaches
-	zero, for example, in order to free up some memory
-	that is not required unless there is at least one structure
-	in use.
+	{\bfseries 精确结构分配限制问题。}
+	假设你需要维护已分配结构数量的计数，以便在使用中的结构数量
+	超过精确限制（同样假设为10,000）时拒绝任何分配。
+	进一步假设这些结构是短生命周期的，
+	限制很少被超过，几乎总是至少有一个结构在使用中，
+	并且还需要精确知道counter何时到达零——例如，
+	为了释放某些只在至少有一个结构在使用时才需要的内存。
 }\EQuickQuizAnswer{
-	Hint:
-	The act of updating the counter must once again be blazingly
-	fast, but the counter is read out each time that the
-	counter is increased.
-	However, the value read out need not be accurate
-	\emph{except} that it absolutely must distinguish perfectly
-	between values between the limit and zero on the one hand,
-	and values that either are less than or equal to zero or
-	are greater than or equal to the limit on the other hand.
-	See \cref{sec:count:Exact Limit Counters}.
+	提示：
+	更新counter的操作必须再次极快，但每次增加counter时
+	都要读取它。
+	然而，读取的值不需要精确，
+	\emph{除了}它绝对必须完美地区分处于限制值与零之间的值
+	和小于或等于零或大于或等于限制值的值。
+	参见\cref{sec:count:Exact Limit Counters}。
 }\EQuickQuizEnd
 
 \QuickQuizLabel{\QcountQexactcnt}
 
 \EQuickQuiz{
-	{\bfseries Removable I/O device access-count problem.}
-	Suppose that you need to maintain a \IX{reference count} on a
-	heavily used removable mass-storage device, so that you
-	can tell the user when it is safe to remove the device.
-	As usual, the user indicates a desire to remove the device, and
-	the system tells the user when it is safe to do so.
+	{\bfseries 可移除I/O设备访问计数问题。}
+	假设你需要在一个高频使用的可移除大容量存储设备上
+	维护一个\IX{reference count}，
+	以便能够告诉用户何时可以安全移除该设备。
+	按照惯例，用户表示希望移除设备，
+	系统告知用户何时可以安全执行此操作。
 }\EQuickQuizAnswer{
-	Hint:
-	Yet again, the act of updating the counter must be blazingly
-	fast and scalable in order to avoid slowing down I/O operations,
-	but because the counter is read out only when the
-	user wishes to remove the device, the counter read-out
-	operation can be extremely slow.
-	Furthermore, there is no need to be able to read out
-	the counter at all unless the user has already indicated
-	a desire to remove the device.
-	In addition, the value read out need not be accurate
-	\emph{except} that it absolutely must distinguish perfectly
-	between non-zero and zero values, and even then only when
-	the device is in the process of being removed.
-	However, once it has read out a zero value, it must act
-	to keep the value at zero until it has taken some action
-	to prevent subsequent threads from gaining access to the
-	device being removed.
-	See \cref{sec:count:Applying Exact Limit Counters}.
+	提示：
+	再次，更新counter的操作必须极快且可扩展，
+	以避免减慢I/O操作，
+	但由于counter仅在用户希望移除设备时才被读取，
+	counter的读取操作可以极慢。
+	此外，除非用户已经表示希望移除设备，
+	否则根本不需要读取counter。
+	另外，读取的值不需要精确，
+	\emph{除了}它绝对必须完美地区分非零值和零值，
+	而且仅在设备处于移除过程中时才需如此。
+	但是，一旦读取到零值，就必须采取行动
+	将该值保持为零，直到已采取某些措施
+	阻止后续线程获取对正在移除的设备的访问。
+	参见\cref{sec:count:Applying Exact Limit Counters}。
 }\EQuickQuizEnd
 
 \QuickQuizLabel{\QcountQIOcnt}
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?}
-shows why counting is non-trivial.
+说明了为什么计数不是微不足道的。
 \Cref{sec:count:Statistical Counters,sec:count:Approximate Limit Counters}
-investigate network-packet counting and approximate structure-allocation
-limits, respectively.
+分别研究了网络数据包计数和近似结构分配限制。
 \Cref{sec:count:Exact Limit Counters}
-takes on exact structure-allocation limits.
-Finally, \cref{sec:count:Parallel Counting Discussion}
-presents performance measurements and discussion.
+处理精确结构分配限制。
+最后，\cref{sec:count:Parallel Counting Discussion}
+展示了性能测量结果和讨论。
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?,%
 sec:count:Statistical Counters}
-contain introductory material, while the remaining sections
-are more advanced.
+包含入门材料，其余章节内容更为高级。
 
-\section{Why Isn't Concurrent Counting Trivial?}
+\section{为什么并发计数不是微不足道的？}
 \label{sec:count:Why Isn't Concurrent Counting Trivial?}
 %
-\epigraph{Seek simplicity, and distrust it.}{Alfred North Whitehead}
+\epigraph{追求简洁，但不要轻信它。}{Alfred North Whitehead}
 
-Let's start with something simple, for example, the straightforward
-use of arithmetic shown in
-\cref{lst:count:Just Count!} (\path{count_nonatomic.c}).
+让我们从简单的东西开始，例如
+\cref{lst:count:Just Count!}（\path{count_nonatomic.c}）中展示的
+直接使用算术运算的方式。
 \begin{fcvref}[ln:count:count_nonatomic:inc-read]
-Here, we have a counter on \clnref{counter}, we increment it on
-\clnref{inc}, and we read out its value on \clnref{read}.
-What could be simpler?
+这里，我们在\clnref{counter}处有一个counter，在\clnref{inc}处
+递增它，并在\clnref{read}处读取其值。
+还有什么比这更简单的呢？
 \end{fcvref}
 
 \QuickQuiz{
-	One thing that could be simpler is \co{++} instead of that
-	concatenation of \co{READ_ONCE()} and \co{WRITE_ONCE()}.
-	Why all that extra typing???
+	比这更简单的一件事是使用\co{++}而不是那串
+	\co{READ_ONCE()}和\co{WRITE_ONCE()}的拼接。
+	为什么要多打那么多字？
 }\QuickQuizAnswer{
-	See \cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-	on \cpageref{sec:toolsoftrade:Shared-Variable Shenanigans}
-	for more information on how the compiler can cause trouble,
-	as well as how \co{READ_ONCE()} and \co{WRITE_ONCE()} can avoid
-	this trouble.
+	参见\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
+	（位于\cpageref{sec:toolsoftrade:Shared-Variable Shenanigans}），
+	了解更多关于编译器如何制造麻烦的信息，
+	以及\co{READ_ONCE()}和\co{WRITE_ONCE()}如何避免
+	这些麻烦。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/count/count_nonatomic@inc-read.fcv}
-\caption{Just Count!}
+\caption{直接计数！}
 \label{lst:count:Just Count!}
 \end{listing}
 
-This approach has the additional advantage of being blazingly fast if
-you are doing lots of reading and almost no incrementing, and on small
-systems, the performance is excellent.
+如果你进行大量读取而几乎不做递增操作，这种方法还具有极快速度的
+额外优势，而且在小型系统上性能非常出色。
 
-There is just one large fly in the ointment:
-This approach can lose counts.
-On my six-core x86 laptop, a short run invoked \co{inc_count()}
-285,824,000 times, but the final value of the counter was only
-35,385,525.
-Although approximation does have a large place in computing, loss of
-87\pct\ of the counts is a bit excessive.
+只有一个大问题：
+这种方法可能丢失计数。
+在我的六核x86笔记本电脑上，一次短暂运行调用了\co{inc_count()}
+285,824,000次，但counter的最终值仅为35,385,525。
+虽然近似计算在计算领域确实占有重要地位，但丢失87\pct\ 的计数
+未免过于夸张了。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	But can't a smart compiler prove that
+	难道一个聪明的编译器不能证明
+	\cref{lst:count:Just Count!}的
 	\clnrefr{ln:count:count_nonatomic:inc-read:inc}
-	of
-	\cref{lst:count:Just Count!}
-	is equivalent to the \co{++} operator and produce an x86
-	add-to-memory instruction?
-	And won't the CPU cache cause this to be atomic?
+	等价于\co{++}运算符，从而生成一条x86加法到内存的指令吗？
+	而且CPU缓存不会使其成为atomic的吗？
 }\QuickQuizAnswerB{
-	Although the \co{++} operator \emph{could} be atomic, there
-	is no requirement that it be so unless it is applied to a
-	C11 \co{_Atomic} variable.
-	And indeed, in the absence of \co{_Atomic}, \GCC\ often
-	chooses to load the value to a register, increment
-	the register, then store the value to memory, which is
-	decidedly non-atomic.
+	虽然\co{++}运算符\emph{可能}是atomic的，但除非将其应用于
+	C11的\co{_Atomic}变量，否则没有要求它必须如此。
+	事实上，在没有\co{_Atomic}的情况下，\GCC\ 通常
+	选择将值加载到寄存器中，递增寄存器，然后将值存储回内存，
+	这显然不是atomic的。
 
-	Furthermore, note the volatile casts in
-	\co{READ_ONCE()} and \co{WRITE_ONCE()}, which tell
-	the compiler that the location might well be an MMIO
-	device register.
-	Because MMIO registers are not cached, it would be unwise for
-	the compiler to assume that the increment operation is atomic.
+	此外，请注意\co{READ_ONCE()}和\co{WRITE_ONCE()}中的
+	volatile强制类型转换，它们告诉编译器该位置很可能是一个
+	MMIO设备寄存器。
+	因为MMIO寄存器不被缓存，编译器假设递增操作是atomic的
+	将是不明智的。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	The 8-figure accuracy on the number of failures indicates
-	that you really did test this.
-	Why would it be necessary to test such a trivial program,
-	especially when the bug is easily seen by inspection?
+	失败次数的8位精度表明你确实测试了这个程序。
+	为什么需要测试如此简单的程序，
+	特别是当这个bug通过检查代码就能轻易发现时？
 }\QuickQuizAnswerE{
-	Not only are there very few
-	trivial parallel programs, and most days I am
-	not so sure that there are many trivial sequential programs, either.
+	不仅几乎没有简单的并行程序，而且大多数时候我
+	也不敢确定有多少简单的串行程序。
 
-	No matter how small or simple the program, if you haven't tested
-	it, it does not work.
-	And even if you have tested it, Murphy's Law says that there will
-	be at least a few bugs still lurking.
+	无论程序多小多简单，如果你没有测试过，
+	它就不能工作。
+	即使你测试过了，墨菲定律也告诉我们至少还有
+	一些bug潜伏着。
 
-	Furthermore, while proofs of correctness certainly do have their
-	place, they never will replace testing, including the
-	\path{counttorture.h} test setup used here.
-	After all, proofs are only as good as the assumptions that they
-	are based on.
-	Finally, proofs can be every bit as buggy as are programs!
+	此外，虽然正确性证明确实有其用武之地，但它们永远
+	无法替代测试，包括此处使用的\path{counttorture.h}
+	测试框架。
+	毕竟，证明的可靠性取决于其所基于的假设。
+	最后，证明本身可能和程序一样存在bug！
 }\QuickQuizEndE
 }
 
 \begin{listing}
 \input{CodeSamples/count/count_atomic@inc-read.fcv}
-\caption{Just Count Atomically!}
+\caption{原子计数！}
 \label{lst:count:Just Count Atomically!}
 \end{listing}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/count/atomic_hps.pdf}}
-\caption{Atomic Increment Scalability on x86}
+\caption{x86上的Atomic递增可扩展性}
 \label{fig:count:Atomic Increment Scalability on x86}
 \end{figure}
 
-The straightforward way to count accurately is to use \IX{atomic} operations,
-as shown in
-\cref{lst:count:Just Count Atomically!} (\path{count_atomic.c}).
+准确计数的直接方法是使用\IX{atomic}操作，
+如\cref{lst:count:Just Count Atomically!}（\path{count_atomic.c}）
+所示。
 \begin{fcvref}[ln:count:count_atomic:inc-read]
-\Clnref{counter} defines an atomic variable,
-\clnref{inc} atomically increments it, and
-\clnref{read} reads it out.
+\Clnref{counter}定义了一个atomic变量，
+\clnref{inc}对其进行atomic递增，
+\clnref{read}读取其值。
 \end{fcvref}
-Because this is atomic, it keeps perfect count.
-However, it is slower:
-On my six-core x86 laptop, it is more than
-twenty times slower than non-atomic increment, even
-when only a single thread is incrementing.\footnote{
-	Interestingly enough, non-atomically incrementing a counter will
-	advance the counter more quickly than atomically incrementing
-	the counter.
-	Of course, if your only goal is to make the counter increase
-	quickly, an easier approach is to simply assign a large value
-	to the counter.
-	Nevertheless, there is likely to be a role for algorithms that
-	use carefully relaxed notions of correctness in order to gain
-	greater performance and
-	scalability~\cite{Andrews91textbook,Arcangeli03,10.5555/3241639.3241645,DavidUngar2011unsync}.}
+因为这是atomic的，所以能精确计数。
+然而，它更慢：
+在我的六核x86笔记本电脑上，即使只有单个线程在递增，
+它也比非atomic递增慢了二十多倍。\footnote{
+	有趣的是，非atomic地递增counter会比atomic地递增
+	counter更快地推进counter值。
+	当然，如果你的唯一目标是让counter快速增长，
+	更简单的方法是直接给counter赋一个大值。
+	尽管如此，使用适当放松的正确性概念来获得
+	更好的性能和可扩展性的算法很可能有其用武之地
+	~\cite{Andrews91textbook,Arcangeli03,10.5555/3241639.3241645,DavidUngar2011unsync}。}
 
-This poor performance should not be a surprise, given the discussion in
-\cref{chp:Hardware and its Habits},
-nor should it be a surprise that the performance of atomic increment
-gets slower as the number of CPUs and threads increase, as shown in
-\cref{fig:count:Atomic Increment Scalability on x86}.
-In this figure, the horizontal dashed line resting on the x~axis
-is the ideal performance that would be achieved
-by a perfectly scalable algorithm:
-With such an algorithm, a given increment would incur the same
-overhead that it would in a single-threaded program.
-Atomic increment of a single global variable is clearly
-decidedly non-ideal, and gets multiple orders of magnitude worse with
-additional CPUs.
+这种糟糕的性能并不令人意外，鉴于
+\cref{chp:Hardware and its Habits}中的讨论，
+atomic递增的性能随CPU和线程数量的增加而变慢也不足为奇，
+如\cref{fig:count:Atomic Increment Scalability on x86}所示。
+在这张图中，位于x轴上的水平虚线是
+完美可扩展算法所能达到的理想性能：
+在这样的算法中，每次递增操作的开销
+与单线程程序中相同。
+对单个全局变量的atomic递增显然远非理想，
+随着CPU的增加，性能差距达到数个数量级。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why doesn't the horizontal dashed line on the x~axis meet the
-	diagonal line at $x=1$?
+	为什么x轴上的水平虚线没有在$x=1$处与对角线相交？
 }\QuickQuizAnswerB{
-	Because of the overhead of the atomic operation.
-	The dashed line on the x~axis represents the overhead of
-	a single \emph{non-atomic} increment.
-	After all, an \emph{ideal} algorithm would not only scale
-	linearly, it would also incur no performance penalty compared
-	to single-threaded code.
+	因为atomic操作的开销。
+	x轴上的虚线表示单次\emph{非atomic}递增的开销。
+	毕竟，一个\emph{理想的}算法不仅应该线性扩展，
+	还应该与单线程代码相比不产生任何性能损失。
 
-	This level of idealism may seem severe, but if it is good
-	enough for \ppl{Linus}{Torvalds}, it is good enough for you.
+	这种理想主义标准可能看起来很严格，但如果它对
+	\ppl{Linus}{Torvalds}来说足够好，那对你来说也足够好。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But atomic increment is still pretty fast.
-	And incrementing a single variable in a tight loop sounds
-	pretty unrealistic to me, after all, most of the program's
-	execution should be devoted to actually doing work, not accounting
-	for the work it has done!
-	Why should I care about making this go faster?
+	但atomic递增还是挺快的。
+	而且在紧密循环中递增单个变量听起来
+	相当不切实际，毕竟程序的大部分执行时间应该
+	用于实际工作，而不是记录已完成的工作！
+	为什么我要关心让它更快？
 }\QuickQuizAnswerE{
-	In many cases, atomic increment will in fact be fast enough
-	for you.
-	In those cases, you should by all means use atomic increment.
+	在许多情况下，atomic递增实际上足够快。
+	在这些情况下，你完全应该使用atomic递增。
 
-	That said, there are many real-world situations where
-	more elaborate counting algorithms are required.
-	The canonical example of such a situation is counting packets
-	and bytes in highly optimized networking stacks, where it is
-	all too easy to find much of the execution time going into
-	these sorts of accounting tasks, especially on large
-	multiprocessors.
-	In fact, some workers defined the ``configuration that outperforms
-	a single thread'' (COST), finding that a surprisingly large
-	number of threads are often required to outperform a single
-	thread~\cite{FrankMcSherry2015COST}.
-	In other words, this is not a trivial matter and it is not
-	likely to go away without concerted effort.
+	话虽如此，在许多实际场景中确实需要
+	更复杂的计数算法。
+	这种场景的典型例子是在高度优化的网络栈中
+	计数数据包和字节，在大型多处理器上很容易
+	发现大量执行时间花在了这类记账任务上。
+	事实上，一些研究者定义了``超越单线程的配置''
+	（COST），发现令人惊讶的是，通常需要大量线程
+	才能超越单线程的性能~\cite{FrankMcSherry2015COST}。
+	换句话说，这不是一个微不足道的问题，
+	如果不付出努力，它不太可能自行消失。
 
-	In short, as noted at the beginning of this chapter, counting
-	provides an excellent view of the issues encountered in
-	shared-memory parallel programs.
+	简而言之，正如本章开头所指出的，计数
+	为共享内存并行程序中遇到的问题提供了
+	极好的视角。
 }\QuickQuizEndE
 }
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/GlobalInc}}
-\caption{Data Flow For Global Atomic Increment}
+\caption{全局Atomic递增的数据流}
 \label{fig:count:Data Flow For Global Atomic Increment}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3.2in}{!}{\includegraphics{cartoons/r-2014-One-one-thousand}}
-\caption{Waiting to Count}
+\caption{等待计数}
 \ContributedBy{fig:count:Waiting to Count}{Melissa Broussard}
 \end{figure}
 
-For another perspective on global atomic increment, consider
-\cref{fig:count:Data Flow For Global Atomic Increment}.
-In order for each CPU to get a chance to increment a given
-global variable, the \IX{cache line} containing that variable must
-circulate among all the CPUs, as shown by the red arrows.
-Such circulation will take significant time, courtesy of the finite speed
-of light and the non-zero size of atoms, laws of physics that were discussed in
-\cref{sec:cpu:Hardware Free Lunch?}.
-This slow circulation will in turn result in the poor performance seen in
-\cref{fig:count:Atomic Increment Scalability on x86},
-or as more fancifully depicted in
-\cref{fig:count:Waiting to Count}.
-The following sections discuss high-performance counting, which
-avoids the delays inherent in such circulation.
+从另一个角度来看全局atomic递增，请考虑
+\cref{fig:count:Data Flow For Global Atomic Increment}。
+为了让每个CPU有机会递增给定的全局变量，
+包含该变量的\IX{cache line}必须在所有CPU之间流转，
+如红色箭头所示。
+由于光速有限和原子大小非零，这种流转将花费大量时间，
+这些物理定律在\cref{sec:cpu:Hardware Free Lunch?}中已经讨论过。
+这种缓慢的流转反过来导致了
+\cref{fig:count:Atomic Increment Scalability on x86}中
+所见的糟糕性能，
+或者如\cref{fig:count:Waiting to Count}所更生动描绘的那样。
+以下章节讨论高性能计数，它避免了此类流转所固有的延迟。
 
 \QuickQuiz{
-	But why can't CPU designers simply ship the addition operation to the
-	data, avoiding the need to circulate the cache line containing
-	the global variable being incremented?
+	但是为什么CPU设计者不能简单地将加法操作发送到
+	数据所在位置，从而避免需要流转包含被递增的全局变量的
+	cache line呢？
 }\QuickQuizAnswer{
-	It might well be possible to do this in some cases.
-	However, there are a few complications:
+	在某些情况下可能确实能做到这一点。
+	但是，存在一些复杂因素：
 	\begin{enumerate}
-	\item	If the value of the variable is required, then the
-		thread will be forced to wait for the operation
-		to be shipped to the data, and then for the result
-		to be shipped back.
-	\item	If the atomic increment must be ordered with respect
-		to prior and/or subsequent operations, then the thread
-		will be forced to wait for the operation to be shipped
-		to the data, and for an indication that the operation
-		completed to be shipped back.
-	\item	Shipping operations among CPUs will likely require
-		more lines in the system interconnect, which will consume
-		more die area and more electrical power.
+	\item	如果需要变量的值，那么线程将被迫等待
+		操作被发送到数据所在位置，然后等待结果
+		被返回。
+	\item	如果atomic递增必须相对于之前和/或之后的操作
+		有序，那么线程将被迫等待操作被发送到
+		数据所在位置，并等待操作完成的指示被返回。
+	\item	在CPU之间传输操作可能需要系统互连中的
+		更多线路，这将消耗更多的芯片面积和更多的电能。
 	\end{enumerate}
-	But what if neither of the first two conditions holds?
-	Then you should think carefully about the algorithms discussed
-	in \cref{sec:count:Statistical Counters}, which achieve
-	near-ideal performance on commodity hardware.
+	但如果前两个条件都不成立呢？
+	那么你应该仔细考虑\cref{sec:count:Statistical Counters}中
+	讨论的算法，它们在通用硬件上实现了接近理想的性能。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/GlobalTreeInc}}
-\caption{Data Flow For Global Combining-Tree Atomic Increment}
+\caption{全局组合树Atomic递增的数据流}
 \label{fig:count:Data Flow For Global Combining-Tree Atomic Increment}
 \end{figure}
 
-	If either or both of the first two conditions hold, there is
-	\emph{some} hope for improved hardware.
-	One could imagine the hardware implementing a combining tree,
-	so that the increment requests from multiple CPUs are combined
-	by the hardware into a single addition when the combined request
-	reaches the hardware.
-	The hardware could also apply an order to the requests, thus
-	returning to each CPU the return value corresponding to its
-	particular atomic increment.
-	This results in instruction latency that varies as $\O{\log N}$,
-	where $N$ is the number of CPUs, as shown in
-	\cref{fig:count:Data Flow For Global Combining-Tree Atomic Increment}.
-	Some say that a few CPUs with this sort of hardware optimization
-	were in production use in the 1990s and started to reappear in
-	2011.\footnote{
-		The first reader to send a citable reference confirming
-		or invalidating this statement will be mentioned in a
-		future version of this footnote.}
+	如果前两个条件中的一个或两个成立，硬件改进
+	还是有\emph{一些}希望的。
+	可以设想硬件实现一个组合树，
+	这样来自多个CPU的递增请求在到达硬件时
+	被合并为单次加法。
+	硬件还可以对请求施加顺序，从而
+	向每个CPU返回与其特定atomic递增对应的返回值。
+	这导致指令延迟为$\O{\log N}$，
+	其中$N$是CPU数量，如
+	\cref{fig:count:Data Flow For Global Combining-Tree Atomic Increment}
+	所示。
+	据说一些具有这种硬件优化的CPU在1990年代曾投入生产使用，
+	并在2011年开始重新出现。\footnote{
+		第一个发送可引用参考文献来确认或推翻此陈述的读者
+		将在本脚注的未来版本中被提及。}
 
-	This is a great improvement over the $\O{N}$ performance
-	of current hardware shown in
-	\cref{fig:count:Data Flow For Global Atomic Increment},
-	and it is possible that hardware latencies might decrease
-	further if innovations such as three-dimensional fabrication prove
-	practical.
-	Nevertheless, we will see that in some important special cases,
-	software can do \emph{much} better.
+	相比\cref{fig:count:Data Flow For Global Atomic Increment}
+	中所示的当前硬件的$\O{N}$性能，
+	这是一个巨大的改进，
+	如果三维制造等创新证明可行的话，
+	硬件延迟可能进一步降低。
+	尽管如此，我们将看到在一些重要的特殊情况下，
+	软件能做得\emph{好得多}。
 }\QuickQuizEnd
 
-\section{Statistical Counters}
+\section{统计计数器}
 \label{sec:count:Statistical Counters}
 %
-\epigraph{Facts are stubborn things, but statistics are pliable.}
+\epigraph{事实是固执的东西，但统计数字是可以揉捏的。}
 	 {Mark Twain}
 
-This section covers the common special case of statistical counters, where
-the count is updated extremely frequently and the value is read out
-rarely, if ever.
-These will be used to solve the network-packet counting problem
-posed in \QuickQuizRef{\QcountQstatcnt}.
+本节涵盖statistical counters的常见特殊情况，其中计数值
+被极其频繁地更新，而很少甚至从不被读取。
+这些将被用来解决\QuickQuizRef{\QcountQstatcnt}中提出的
+网络数据包计数问题。
 
-\subsection{Design}
+\subsection{设计}
 
-Statistical counting is typically handled by providing a counter per
-thread (or CPU, when running in the kernel), so that each thread
-updates its own counter, as was foreshadowed in
-\cref{sec:toolsoftrade:Per-CPU Variables}
-on \cpageref{sec:toolsoftrade:Per-CPU Variables}.
-The aggregate value of the counters is read out by simply summing up
-all of the threads' counters,
-relying on the commutative and associative properties of addition.
-This is an example of the Data Ownership pattern that will be introduced in
+Statistical counting通常通过为每个线程（或在内核中运行时为每个CPU）
+提供一个counter来处理，这样每个线程更新自己的counter，
+正如\cref{sec:toolsoftrade:Per-CPU Variables}
+（\cpageref{sec:toolsoftrade:Per-CPU Variables}）中所预示的那样。
+counter的聚合值通过简单地对所有线程的counter求和来读取，
+利用加法的交换律和结合律。
+这是Data Ownership模式的一个例子，将在
 \cref{sec:SMPdesign:Data Ownership}
-on \cpageref{sec:SMPdesign:Data Ownership}.
+（\cpageref{sec:SMPdesign:Data Ownership}）中介绍。
 
 \QuickQuiz{
-	But doesn't the fact that C's ``integers'' are limited in size
-	complicate things?
+	但是C语言``整数''大小有限这个事实不会使事情复杂化吗？
 }\QuickQuizAnswer{
-	No, because modulo addition is still commutative and associative.
-	At least as long as you use unsigned integers.
-	Recall that in the C standard, overflow of signed integers results
-	in undefined behavior, never mind the fact that machines that
-	do anything other than wrap on overflow are quite rare these days.
-	Unfortunately, compilers frequently carry out optimizations that
-	assume that signed integers will not overflow, so if your code
-	allows signed integers to overflow, you can run into trouble
-	even on modern twos-complement hardware.
+	不会，因为模加法仍然满足交换律和结合律。
+	至少在你使用无符号整数的情况下是这样。
+	回忆一下，在C标准中，有符号整数的溢出导致未定义行为，
+	尽管事实上如今在溢出时做任何其他事情（而非回绕）
+	的机器相当罕见。
+	不幸的是，编译器经常执行假设有符号整数不会溢出的优化，
+	因此如果你的代码允许有符号整数溢出，即使在现代的
+	二进制补码硬件上也可能遇到麻烦。
 
-	That said, one potential source of additional complexity arises
-	when attempting to gather (say) a 64-bit sum from 32-bit
-	per-thread counters.
-	Dealing with this added complexity is left as
-	an exercise for the reader, for whom some of the techniques
-	introduced later in this chapter could be quite helpful.
+	话虽如此，当试图从32位per-thread counter中
+	收集（比方说）64位的和时，确实可能产生额外的复杂性。
+	处理这种额外复杂性留作读者的练习，
+	本章后面介绍的一些技术可能会很有帮助。
 }\QuickQuizEnd
 
-\subsection{Array-Based Implementation}
+\subsection{基于数组的实现}
 \label{sec:count:Array-Based Implementation}
 
-One way to provide per-thread variables is to allocate an array with
-one element per
-thread (presumably cache aligned and padded to avoid false sharing).
+提供per-thread变量的一种方法是分配一个数组，
+每个线程一个元素（最好是cache对齐和填充的，以避免false sharing）。
 
 \QuickQuiz{
-	An array???
-	But doesn't that limit the number of threads?
+	数组？
+	但这不是限制了线程数量吗？
 }\QuickQuizAnswer{
-	It can, and in this toy implementation, it does.
-	But it is not that hard to come up with an alternative
-	implementation that permits an arbitrary number of threads,
-	for example, using C11's \co{_Thread_local} facility,
-	as shown in
-	\cref{sec:count:Per-Thread-Variable-Based Implementation}.
+	确实可能，在这个玩具实现中确实如此。
+	但要想出一个允许任意数量线程的替代实现
+	并不困难，例如使用C11的\co{_Thread_local}功能，
+	如\cref{sec:count:Per-Thread-Variable-Based Implementation}
+	所示。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/count/count_stat@inc-read.fcv}
-\caption{Array-Based Per-Thread Statistical Counters}
+\caption{基于数组的Per-Thread Statistical Counters}
 \label{lst:count:Array-Based Per-Thread Statistical Counters}
 \end{listing}
 
-Such an array can be wrapped into per-thread primitives, as shown in
+这样的数组可以被封装成per-thread原语，如
 \cref{lst:count:Array-Based Per-Thread Statistical Counters}
-(\path{count_stat.c}).
+（\path{count_stat.c}）所示。
 \begin{fcvref}[ln:count:count_stat:inc-read]
-\Clnref{define} defines an array containing a set of per-thread counters of
-type \co{unsigned long} named, creatively enough, \co{counter}.
+\Clnref{define}定义了一个包含per-thread counter集合的数组，
+类型为\co{unsigned long}，创造性地命名为\co{counter}。
 
 \Clnrefrange{inc:b}{inc:e}
-show a function that increments the counters, using the
-\apipf{__get_thread_var()} primitive to locate the currently running
-thread's element of the \co{counter} array.
-Because this element is modified only by the corresponding thread,
-non-atomic increment suffices.
-However, this code uses \co{WRITE_ONCE()} to prevent destructive compiler
-optimizations.
-For but one example, the compiler is within its rights to use a
-to-be-stored-to location as temporary storage, thus writing what
-would be for all intents and purposes garbage to that location
-just before doing the desired store.
-This could of course be rather confusing to anything attempting to
-read out the count.
-The use of \co{WRITE_ONCE()} prevents this optimization and others besides.
+展示了一个递增counter的函数，使用
+\apipf{__get_thread_var()}原语来定位当前运行线程
+在\co{counter}数组中的元素。
+因为该元素仅由相应线程修改，
+非atomic递增即可满足。
+然而，此代码使用\co{WRITE_ONCE()}来防止破坏性的
+编译器优化。
+举一个例子，编译器有权将即将被存储的位置
+用作临时存储，从而在执行所需存储之前写入
+实际上就是垃圾的内容。
+这当然可能会让试图读取计数值的任何东西感到困惑。
+使用\co{WRITE_ONCE()}可以防止这种优化及其他类似优化。
 
 \QuickQuiz{
-	What other nasty optimizations could \GCC\ apply?
+	\GCC\ 还可能应用什么其他恶意优化？
 }\QuickQuizAnswer{
-	See \cref{sec:toolsoftrade:Shared-Variable Shenanigans,%
+	参见\cref{sec:toolsoftrade:Shared-Variable Shenanigans,%
 	sec:memorder:Compile-Time Consternation}
-	for more information.
-	One nasty optimization would be to apply common subexpression
-	elimination to successive calls to the \co{read_count()} function,
-	which might come as a surprise to code expecting changes in the
-	values returned from successive calls to that function.
+	获取更多信息。
+	一种恶意优化是对\co{read_count()}函数的连续调用
+	应用公共子表达式消除，这可能会让期望从连续调用中
+	获得不同返回值的代码感到意外。
 }\QuickQuizEnd
 
 \Clnrefrange{read:b}{read:e}
-show a function that reads out the aggregate value of the counter,
-using the \apipf{for_each_thread()} primitive to iterate over the list of
-currently running threads, and using the \apipf{per_thread()} primitive
-to fetch the specified thread's counter.
-This code also uses \co{READ_ONCE()} to ensure that the compiler doesn't
-optimize these loads into oblivion.
-For but one example, a pair of consecutive calls to \co{read_count()}
-might be inlined, and an intrepid optimizer might notice that the same
-locations were being summed and thus incorrectly conclude that it would
-be simply wonderful to sum them once and use the resulting value twice.
-This sort of optimization might be rather frustrating to people expecting
-later \co{read_count()} calls to account for the activities of other
-threads.
-The use of \co{READ_ONCE()} prevents this optimization and others besides.
+展示了一个读取counter聚合值的函数，
+使用\apipf{for_each_thread()}原语遍历当前运行线程的列表，
+并使用\apipf{per_thread()}原语获取指定线程的counter。
+此代码还使用\co{READ_ONCE()}来确保编译器不会
+将这些加载操作优化掉。
+举一个例子，一对连续的\co{read_count()}调用可能被内联，
+一个大胆的优化器可能注意到相同的位置被求和了两次，
+从而错误地得出结论：只求和一次并使用结果两次
+是个好主意。
+这种优化可能会让期望后续\co{read_count()}调用
+能反映其他线程活动的人感到沮丧。
+使用\co{READ_ONCE()}可以防止这种优化及其他类似优化。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How does the per-thread \co{counter} variable in
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
-	get initialized?
+	中的per-thread \co{counter}变量是如何初始化的？
 }\QuickQuizAnswerB{
-	The C standard specifies that the initial value of
-	global variables is zero, unless they are explicitly initialized,
-	thus implicitly initializing all the instances of \co{counter}
-	to zero.
-	Besides, in the common case where the user is interested only in
-	differences between consecutive reads from statistical counters,
-	the initial value is irrelevant.
+	C标准规定全局变量的初始值为零（除非显式初始化），
+	因此隐式地将\co{counter}的所有实例初始化为零。
+	此外，在用户只对statistical counters连续读取之间的
+	差值感兴趣的常见情况下，初始值是无关紧要的。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	How is the code in
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
-	supposed to permit more than one counter?
+	中的代码如何支持多于一个counter？
 }\QuickQuizAnswerE{
-	Indeed, this toy example does not support more than one counter.
-	Modifying it so that it can provide multiple counters is left
-	as an exercise to the reader.
+	确实，这个玩具示例不支持多于一个counter。
+	修改它使其能够提供多个counter留作读者的练习。
 }\QuickQuizEndE
 }
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/PerThreadInc}}
-\caption{Data Flow For Per-Thread Increment}
+\caption{Per-Thread递增的数据流}
 \label{fig:count:Data Flow For Per-Thread Increment}
 \end{figure}
 
-This approach scales linearly with increasing number of updater threads
-invoking \co{inc_count()}.
-As is shown by the green arrows on each CPU in
-\cref{fig:count:Data Flow For Per-Thread Increment},
-the reason for this is that each CPU can make rapid progress incrementing
-its thread's variable, without any expensive cross-system communication.
-In other words, the updating of per-CPU counters is not inconvenienced
-by slow light and big atoms\footnote{
-	Again, see \cref{sec:cpu:Hardware Free Lunch?}.}
-to anywhere near the degree as is the atomic incrementing of a single
-global counter.
-As such, this section solves the network-packet counting problem presented
-at the beginning of this chapter.
+这种方法随着调用\co{inc_count()}的更新线程数量的增加而线性扩展。
+如\cref{fig:count:Data Flow For Per-Thread Increment}中每个CPU上的
+绿色箭头所示，原因是每个CPU可以快速递增
+其线程的变量，而不需要任何昂贵的跨系统通信。
+换句话说，per-CPU counter的更新不会像单个全局counter的
+atomic递增那样受到慢光和大原子的困扰。\footnote{
+	同样，参见\cref{sec:cpu:Hardware Free Lunch?}。}
+因此，本节解决了本章开头提出的网络数据包计数问题。
 
 \QuickQuiz{
-	The read operation takes time to sum up the per-thread values,
-	and during that time, the counter could well be changing.
-	This means that the value returned by
-	\co{read_count()} in
+	读取操作需要时间来汇总per-thread的值，
+	在此期间counter很可能正在变化。
+	这意味着
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
-	will not necessarily be exact.
-	Assume that the counter is being incremented at rate
-	$r$ counts per unit time, and that \co{read_count()}'s
-	execution consumes $\Delta$ units of time.
-	What is the expected error in the return value?
+	中\co{read_count()}返回的值不一定精确。
+	假设counter以每单位时间$r$次的速率递增，
+	而\co{read_count()}的执行消耗$\Delta$个时间单位。
+	返回值的期望误差是多少？
 }\QuickQuizAnswer{
-	Let's do worst-case analysis first, followed by a less
-	conservative analysis.
+	让我们先做最坏情况分析，然后做一个不那么保守的分析。
 
-	In the worst case, the read operation completes immediately,
-	but is then delayed for $\Delta$ time units before returning,
-	in which case the worst-case error is simply $r \Delta$.
+	在最坏情况下，读取操作立即完成，
+	但在返回之前延迟了$\Delta$个时间单位，
+	此时最坏情况误差简单地为$r \Delta$。
 
-	This worst-case behavior is rather unlikely, so let us instead
-	consider the case where the reads from each of the $N$
-	counters is spaced equally over the time period $\Delta$.
-	There will be $N+1$ intervals of duration $\frac{\Delta}{N+1}$
-	between the $N$ reads.
-	The rate $r$ of increments is expected to be spread evenly over
-	the $N$ counters, for $\frac{r}{N}$ increments per unit time
-	for each individual counter.
-	The error due to the delay after the read from the last thread's
-	counter will be given by $\frac{r \Delta}{N \left( N + 1 \right)}$,
-	the second-to-last thread's counter by
-	$\frac{2 r \Delta}{N \left( N + 1 \right)}$,
-	the third-to-last by
-	$\frac{3 r \Delta}{N \left( N + 1 \right)}$,
-	and so on.
-	The total error is given by the sum of the errors due to the
-	reads from each thread's counter, which is:
+	这种最坏情况行为相当不可能，因此让我们考虑
+	从$N$个counter中的每个读取均匀分布在时间段$\Delta$内的情况。
+	在$N$次读取之间将有$N+1$个持续时间为$\frac{\Delta}{N+1}$
+	的间隔。
+	递增速率$r$预计均匀分布在$N$个counter上，
+	每个counter每单位时间$\frac{r}{N}$次递增。
+	从最后一个线程的counter读取后的延迟引起的误差
+	为$\frac{r \Delta}{N \left( N + 1 \right)}$，
+	倒数第二个线程的counter为
+	$\frac{2 r \Delta}{N \left( N + 1 \right)}$，
+	倒数第三个为
+	$\frac{3 r \Delta}{N \left( N + 1 \right)}$，
+	依此类推。
+	总误差由从每个线程counter读取产生的误差之和给出：
 
 	\begin{equation}
 		\frac{r \Delta}{N \left( N + 1 \right)}
 			\sum_{i = 1}^N i
 	\end{equation}
 
-	Expressing the summation in closed form yields:
+	将求和以闭式形式表示：
 
 	\begin{equation}
 		\frac{r \Delta}{N \left( N + 1 \right)}
 			\frac{N \left( N + 1 \right)}{2}
 	\end{equation}
 
-	Canceling yields the intuitively expected result:
+	约分得到直觉上预期的结果：
 
 	\begin{equation}
 		\frac{r \Delta}{2}
 	\label{eq:count:CounterErrorAverage}
 	\end{equation}
 
-	It is important to remember that error continues accumulating
-	as the caller executes code making use of the count returned
-	by the read operation.
-	For example, if the caller spends time $t$ executing some
-	computation based on the result of the returned count, the
-	worst-case error will have increased to $r \left(\Delta + t\right)$.
+	重要的是要记住，当调用者执行利用读取操作
+	返回的计数值的代码时，误差会继续累积。
+	例如，如果调用者花费时间$t$执行基于返回计数值
+	的某些计算，最坏情况误差将增加到$r \left(\Delta + t\right)$。
 
-	The expected error will have similarly increased to:
+	期望误差将类似地增加到：
 
 	\begin{equation}
 		r \left( \frac{\Delta}{2} + t \right)
 	\end{equation}
 
-	Of course, it is sometimes unacceptable for the counter to
-	continue incrementing during the read operation.
+	当然，有时counter在读取操作期间继续递增
+	是不可接受的。
 	\Cref{sec:count:Applying Exact Limit Counters}
-	discusses a way to handle this situation.
+	讨论了处理这种情况的方法。
 
-	Thus far, we have been considering a counter that is only
-	increased, never decreased.
-	If the counter value is being changed by $r$ counts per unit
-	time, but in either direction, we should expect the error
-	to reduce.
-	However, the worst case is unchanged because although the
-	counter \emph{could} move in either direction, the worst
-	case is when the read operation completes immediately,
-	but then is delayed for $\Delta$ time units, during which
-	time all the changes in the counter's value move it in
-	the same direction, again giving us an absolute error
-	of $r \Delta$.
+	到目前为止，我们一直在考虑一个只增不减的counter。
+	如果counter值以每单位时间$r$次的速率变化，
+	但可以是任一方向，我们应该期望误差会减少。
+	然而，最坏情况不变，因为虽然counter\emph{可以}
+	向任一方向移动，但最坏情况是读取操作立即完成，
+	然后延迟$\Delta$个时间单位，在此期间
+	counter值的所有变化都朝同一方向，
+	再次给出$r \Delta$的绝对误差。
 
-	There are a number of ways to compute the average error,
-	based on a variety of assumptions about the patterns of
-	increments and decrements.
-	For simplicity, let's assume that the $f$ fraction of
-	the operations are decrements, and that the error of interest
-	is the deviation from the counter's long-term trend line.
-	Under this assumption, if $f$ is less than or equal to 0.5,
-	each decrement will be canceled by an increment, so that
-	$2f$ of the operations will cancel each other, leaving
-	$1-2f$ of the operations being uncanceled increments.
-	On the other hand, if $f$ is greater than 0.5, $1-f$ of
-	the decrements are canceled by increments, so that the
-	counter moves in the negative direction by $-1+2\left(1-f\right)$,
-	which simplifies to $1-2f$, so that the counter moves an average
-	of $1-2f$ per operation in either case.
-	Therefore, that the long-term
-	movement of the counter is given by $\left( 1-2f \right) r$.
-	Plugging this into
-	\cref{eq:count:CounterErrorAverage} yields:
+	有多种方法可以基于各种关于递增和递减模式的
+	假设来计算平均误差。
+	为简单起见，让我们假设$f$比例的操作是递减，
+	而感兴趣的误差是偏离counter长期趋势线的偏差。
+	在此假设下，如果$f$小于或等于0.5，
+	每次递减将被一次递增抵消，因此
+	$2f$的操作将相互抵消，留下
+	$1-2f$的操作是未抵消的递增。
+	另一方面，如果$f$大于0.5，$1-f$的
+	递减被递增抵消，因此counter在负方向移动
+	$-1+2\left(1-f\right)$，
+	简化为$1-2f$，因此counter在两种情况下
+	平均每次操作移动$1-2f$。
+	因此，counter的长期移动由$\left( 1-2f \right) r$给出。
+	代入\cref{eq:count:CounterErrorAverage}得到：
 
 	\begin{equation}
 		\frac{\left( 1 - 2 f \right) r \Delta}{2}
 	\end{equation}
 
-	All that aside, in most uses of statistical counters, the
-	error in the value returned by \co{read_count()} is
-	irrelevant.
-	This irrelevance is due to the fact that the time required
-	for \co{read_count()} to execute is normally extremely
-	small compared to the time interval between successive
-	calls to \co{read_count()}.
+	除上述所有内容外，在statistical counters的大多数用途中，
+	\co{read_count()}返回值中的误差是无关紧要的。
+	这种无关紧要是因为\co{read_count()}执行所需的时间
+	通常远小于\co{read_count()}连续调用之间的时间间隔。
 }\QuickQuizEnd
 
 \QuickQuizLabel{\StatisticalCounterAccuracy}
 
-However, many implementations provide cheaper mechanisms for
-per-thread data that are free from arbitrary array-size limits.
-This is the topic of the next section.
+然而，许多实现提供了更廉价的per-thread数据机制，
+且不受任意数组大小限制。
+这是下一节的主题。
 
-\subsection{Per-Thread-Variable-Based Implementation}
+\subsection{基于per-thread变量的实现}
 \label{sec:count:Per-Thread-Variable-Based Implementation}
 
-The C language, since C11, features a \apic{_Thread_local} storage class that
-provides per-thread storage.\footnote{
-	\GCC\ provides its own \apig{__thread} storage class, which was used
-	in previous versions of this book.
-	The two methods for specifying a thread-local variable are
-	interchangeable when using \GCC\@.}
-This can be used as shown in
-\cref{lst:count:Per-Thread Statistical Counters} (\path{count_end.c})
-to implement
-a statistical counter that not only scales well and avoids arbitrary
-thread-number limits, but that also incurs little or no performance
-penalty to incrementers compared to simple non-atomic increment.
+C语言自C11起提供了\apic{_Thread_local}存储类，
+用于提供per-thread存储。\footnote{
+	\GCC\ 提供了自己的\apig{__thread}存储类，
+	在本书以前的版本中使用。
+	使用\GCC\ 时，这两种指定thread-local变量的方法
+	是可以互换的。}
+如\cref{lst:count:Per-Thread Statistical Counters}
+（\path{count_end.c}）所示，
+可以使用它来实现一个不仅扩展性好且避免了任意线程数量限制，
+而且与简单的非atomic递增相比，对递增方几乎
+不产生性能损失的statistical counter。
 
 \begin{listing}
 \input{CodeSamples/count/count_end@whole.fcv}
@@ -762,679 +648,591 @@ penalty to incrementers compared to simple non-atomic increment.
 \end{listing}
 
 \begin{fcvref}[ln:count:count_end:whole]
-\Clnrefrange{var:b}{var:e} define needed variables:
-\co{counter} is the per-thread counter
-variable, the \co{counterp[]} array allows threads to access each others'
-counters, \co{finalcount} accumulates the total as individual threads exit,
-and \co{final_mutex} coordinates between threads accumulating the total
-value of the counter and exiting threads.
+\Clnrefrange{var:b}{var:e}定义了所需的变量：
+\co{counter}是per-thread counter变量，
+\co{counterp[]}数组允许线程访问彼此的counter，
+\co{finalcount}在各个线程退出时累积总数，
+\co{final_mutex}用于协调累积counter总值的线程和正在退出的线程。
 \end{fcvref}
 
 \QuickQuiz{
-	Doesn't that explicit \co{counterp} array in
-	\cref{lst:count:Per-Thread Statistical Counters}
-	reimpose an arbitrary limit on the number of threads?
-	Why doesn't the C language provide a \co{per_thread()} interface, similar
-	to the Linux kernel's \co{per_cpu()} primitive, to allow
-	threads to more easily access each others' per-thread variables?
+	\cref{lst:count:Per-Thread Statistical Counters}中
+	那个显式的\co{counterp}数组不是又对线程数量
+	施加了任意限制吗？
+	为什么C语言不提供一个\co{per_thread()}接口，类似于
+	Linux内核的\co{per_cpu()}原语，以便让线程
+	更容易地访问其他线程的per-thread变量？
 }\QuickQuizAnswer{
-	Why indeed?
+	确实如此，为什么不呢？
 
-	To be fair, user-mode thread-local storage faces some challenges
-	that the Linux kernel gets to ignore.
-	When a user-level thread exits, its per-thread variables all
-	disappear, which complicates the problem of per-thread-variable
-	access, particularly before the advent of user-level RCU
-	(see \cref{sec:defer:Read-Copy Update (RCU)}).
-	In contrast, in the Linux kernel, when a CPU goes offline,
-	that CPU's per-CPU variables remain mapped and accessible.
+	公平地说，用户模式的thread-local存储面临一些
+	Linux内核可以忽略的挑战。
+	当用户级线程退出时，其per-thread变量全部消失，
+	这使per-thread变量的访问变得复杂，
+	特别是在用户级RCU出现之前
+	（参见\cref{sec:defer:Read-Copy Update (RCU)}）。
+	相比之下，在Linux内核中，当CPU离线时，
+	该CPU的per-CPU变量仍然保持映射和可访问。
 
-	Similarly, when a new user-level thread is created, its
-	per-thread variables suddenly come into existence.
-	In contrast, in the Linux kernel, all per-CPU variables are
-	mapped and initialized at boot time, regardless of whether
-	the corresponding CPU exists yet, or indeed, whether the
-	corresponding CPU will ever exist.
+	类似地，当创建新的用户级线程时，
+	其per-thread变量突然出现。
+	相比之下，在Linux内核中，所有per-CPU变量
+	在启动时就被映射和初始化，无论相应的CPU是否已经存在，
+	甚至无论相应的CPU是否会存在。
 
-	A key limitation that the Linux kernel imposes is a compile-time
-	maximum bound on the number of CPUs, namely, \co{CONFIG_NR_CPUS},
-	along with a typically tighter boot-time bound of \co{nr_cpu_ids}.
-	In contrast, in user space, there is not necessarily a hard-coded
-	upper limit on the number of threads.
+	Linux内核施加的一个关键限制是CPU数量的编译时最大上限，
+	即\co{CONFIG_NR_CPUS}，
+	以及通常更紧的启动时上限\co{nr_cpu_ids}。
+	相比之下，在用户空间中，线程数量不一定有硬编码的上限。
 
-	Of course, both environments must handle dynamically loaded
-	code (dynamic libraries in user space, kernel modules in the
-	Linux kernel), which increases the complexity of per-thread
-	variables.
+	当然，两种环境都必须处理动态加载的代码
+	（用户空间的动态库，Linux内核的内核模块），
+	这增加了per-thread变量的复杂性。
 
-	These complications make it significantly harder for user-space
-	environments to provide access to other threads' per-thread
-	variables.
-	Nevertheless, such access is highly useful, and it is hoped
-	that it will someday appear.
+	这些复杂性使得用户空间环境提供对其他线程的
+	per-thread变量的访问变得困难得多。
+	尽管如此，这种访问非常有用，
+	希望它有朝一日能出现。
 
-	In the meantime, textbook examples such as this one can use
-	arrays whose limits can be easily adjusted by the user.
-	Alternatively, such arrays can be dynamically allocated and
-	expanded as needed at runtime.
-	Finally, variable-length data structures such as linked
-	lists can be used, as is done in the userspace RCU
-	library~\cite{MathieuDesnoyers2009URCU,MathieuDesnoyers2012URCU}.
-	This last approach can also reduce \IX{false sharing} in some cases.
+	同时，像这样的教科书示例可以使用限制可由用户
+	轻松调整的数组。
+	或者，这样的数组可以在运行时动态分配和按需扩展。
+	最后，可以使用可变长度数据结构（如链表），
+	就像用户空间RCU库
+	~\cite{MathieuDesnoyers2009URCU,MathieuDesnoyers2012URCU}中所做的那样。
+	最后这种方法在某些情况下还可以减少\IX{false sharing}。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_end:whole:inc]
-The \co{inc_count()} function used by updaters is quite simple, as can
-be seen on \clnrefrange{b}{e}.
+更新方使用的\co{inc_count()}函数相当简单，
+如\clnrefrange{b}{e}所示。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end:whole:read]
-The \co{read_count()} function used by readers is a bit more complex.
-\Clnref{acquire} acquires a lock to exclude exiting threads, and
-\clnref{release} releases it.
-\Clnref{sum:init} initializes the sum to the count accumulated by those threads that
-have already exited, and
-\clnrefrange{loop:b}{loop:e} sum the counts being accumulated
-by threads currently running.
-Finally, \clnref{return} returns the sum.
+读取方使用的\co{read_count()}函数稍微复杂一些。
+\Clnref{acquire}获取一个lock以排斥正在退出的线程，
+\clnref{release}释放它。
+\Clnref{sum:init}将sum初始化为已退出线程累积的计数值，
+\clnrefrange{loop:b}{loop:e}对当前运行线程正在累积的
+计数值求和。
+最后，\clnref{return}返回总和。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:count:count_end:whole:read]
-	Doesn't the check for \co{NULL} on \clnref{check} of
-	\cref{lst:count:Per-Thread Statistical Counters}
-	add extra branch mispredictions?
-	Why not have a variable set permanently to zero, and point
-	unused counter-pointers to that variable rather than setting
-	them to \co{NULL}?
+	\cref{lst:count:Per-Thread Statistical Counters}中
+	\clnref{check}处对\co{NULL}的检查不会增加
+	额外的分支预测错误吗？
+	为什么不设一个永远为零的变量，让未使用的counter指针
+	指向该变量而不是设为\co{NULL}？
 	\end{fcvref}
 }\QuickQuizAnswerB{
-	This is a reasonable strategy.
-	Checking for the performance difference is left as an exercise
-	for the reader.
-	However, please keep in mind that the fastpath is not
-	\co{read_count()}, but rather \co{inc_count()}.
+	这是一个合理的策略。
+	检查性能差异留作读者的练习。
+	但请记住，快速路径不是\co{read_count()}，
+	而是\co{inc_count()}。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why on earth do we need something as heavyweight as a \emph{lock}
-	guarding the summation in the function \co{read_count()} in
-	\cref{lst:count:Per-Thread Statistical Counters}?
+	为什么在
+	\cref{lst:count:Per-Thread Statistical Counters}中
+	的\co{read_count()}函数中需要像\emph{lock}这样
+	重量级的东西来保护求和？
 }\QuickQuizAnswerE{
-	Remember, when a thread exits, its per-thread variables disappear.
-	Therefore, if we attempt to access a given thread's per-thread
-	variables after that thread exits, we will get a segmentation
-	fault.
-	The lock coordinates summation and thread exit, preventing this
-	scenario.
+	记住，当线程退出时，其per-thread变量会消失。
+	因此，如果我们在线程退出后试图访问该线程的
+	per-thread变量，将会得到段错误。
+	lock协调求和和线程退出，防止这种情况发生。
 
-	Of course, we could instead read-acquire a reader-writer lock,
-	but \cref{chp:Deferred Processing} will introduce even
-	lighter-weight mechanisms for implementing the required coordination.
+	当然，我们可以使用读写lock来读获取，
+	但\cref{chp:Deferred Processing}将介绍
+	更轻量级的机制来实现所需的协调。
 
-	Another approach would be to use an array instead of a per-thread
-	variable, which, as Alexey Roytman notes, would eliminate
-	the tests against \co{NULL}.
-	However, array accesses are often slower than accesses to
-	per-thread variables, and use of an array would imply a
-	fixed upper bound on the number of threads.
-	Also, note that neither tests nor locks are needed on the
-	\co{inc_count()} fastpath.
+	另一种方法是使用数组而不是per-thread变量，
+	正如Alexey Roytman指出的，这将消除
+	对\co{NULL}的测试。
+	然而，数组访问通常比per-thread变量的访问慢，
+	而且使用数组意味着线程数量有固定上限。
+	另外，请注意\co{inc_count()}快速路径上
+	既不需要测试也不需要lock。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:count:count_end:whole:reg]
-\Clnrefrange{b}{e} show the \co{count_register_thread()}
-function, which
-must be called by each thread before its first use of this counter.
-This function simply sets up this thread's element of the \co{counterp[]}
-array to point to its per-thread \co{counter} variable.
+\Clnrefrange{b}{e}展示了\co{count_register_thread()}函数，
+每个线程在首次使用此counter之前必须调用该函数。
+该函数简单地设置此线程在\co{counterp[]}数组中的元素，
+使其指向自己的per-thread \co{counter}变量。
 \end{fcvref}
 
 \QuickQuiz{
-	Why on earth do we need to acquire the lock in
-	\co{count_register_thread()} in
-	\cref{lst:count:Per-Thread Statistical Counters}?
-	It is a single properly aligned machine-word store to a location
-	that no other thread is modifying, so it should be atomic anyway,
-	right?
+	为什么在\cref{lst:count:Per-Thread Statistical Counters}中
+	的\co{count_register_thread()}中需要获取lock？
+	它只是对一个没有其他线程在修改的、正确对齐的
+	机器字大小的位置进行存储，所以它应该本身就是
+	atomic的，对吧？
 }\QuickQuizAnswer{
-	This lock could in fact be omitted, but better safe than
-	sorry, especially given that this function is executed only at
-	thread startup, and is therefore not on any critical path.
-	Now, if we were testing on machines with thousands of CPUs,
-	we might need to omit the lock, but on machines with ``only''
-	a hundred or so CPUs, there is no need to get fancy.
+	这个lock实际上可以省略，但安全起见更好，
+	特别是考虑到这个函数仅在线程启动时执行，
+	因此不在任何关键路径上。
+	现在，如果我们在有数千个CPU的机器上测试，
+	可能需要省略lock，但在``仅有''一百个左右CPU的机器上，
+	没有必要花哨。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_end:whole:unreg]
-\Clnrefrange{b}{e} show the \co{count_unregister_thread()}
-function, which
-must be called prior to exit by each thread that previously called
-\co{count_register_thread()}.
-\Clnref{acquire} acquires the lock, and
-\clnref{release} releases it, thus excluding any
-calls to \co{read_count()} as well as other calls to
-\co{count_unregister_thread()}.
-\Clnref{add} adds this thread's \co{counter} to the global
-\co{finalcount},
-and then \clnref{NULL} \co{NULL}s out its \co{counterp[]} array entry.
-A subsequent call to \co{read_count()} will see the exiting thread's
-count in the global \co{finalcount}, and will skip the exiting thread
-when sequencing through the \co{counterp[]} array, thus obtaining
-the correct total.
+\Clnrefrange{b}{e}展示了\co{count_unregister_thread()}函数，
+之前调用过\co{count_register_thread()}的每个线程在退出前
+必须调用该函数。
+\Clnref{acquire}获取lock，
+\clnref{release}释放它，从而排斥
+\co{read_count()}的调用以及其他
+\co{count_unregister_thread()}的调用。
+\Clnref{add}将此线程的\co{counter}加到全局\co{finalcount}上，
+然后\clnref{NULL}将其\co{counterp[]}数组条目设为\co{NULL}。
+随后的\co{read_count()}调用将在全局\co{finalcount}中看到
+退出线程的计数，并在遍历\co{counterp[]}数组时跳过该退出线程，
+从而获得正确的总数。
 \end{fcvref}
 
-This approach gives updaters almost exactly the same performance as
-a non-atomic add, and also scales linearly.
-On the other hand, concurrent reads contend for a single global lock,
-and therefore perform poorly and scale abysmally.
-However, this is not a problem for statistical counters, where incrementing
-happens often and readout happens almost never.
-Of course, this approach is considerably more complex than the
-array-based scheme, due to the fact that a given thread's per-thread
-variables vanish when that thread exits.
+这种方法使更新方获得与非atomic加法几乎完全相同的性能，
+并且也是线性扩展的。
+另一方面，并发读取争用单个全局lock，
+因此性能差且扩展性极差。
+然而，对于statistical counters来说这不是问题，
+因为递增频繁而读取几乎从不发生。
+当然，由于给定线程的per-thread变量在该线程退出时消失，
+这种方法比基于数组的方案复杂得多。
 
 \QuickQuiz{
-	Fine, but the Linux kernel doesn't have to acquire a lock
-	when reading out the aggregate value of per-CPU counters.
-	So why should user-space code need to do this???
+	好吧，但Linux内核在读取per-CPU counter的
+	聚合值时不需要获取lock。
+	那为什么用户空间代码需要这样做？
 }\QuickQuizAnswer{
-	Remember, the Linux kernel's per-CPU variables are always
-	accessible, even if the corresponding CPU is offline---even
-	if the corresponding CPU never existed and never will exist.
+	记住，Linux内核的per-CPU变量始终是可访问的，
+	即使相应的CPU离线——即使相应的CPU从未存在且永远不会存在。
 
 \begin{listing}
 \input{CodeSamples/count/count_tstat@whole.fcv}
-\caption{Per-Thread Statistical Counters With Lockless Summation}
+\caption{带无锁求和的Per-Thread Statistical Counters}
 \label{lst:count:Per-Thread Statistical Counters With Lockless Summation}
 \end{listing}
 
-	One workaround is to ensure that each thread continues to exist
-	until all threads are finished, as shown in
-	\cref{lst:count:Per-Thread Statistical Counters With Lockless Summation}
-	(\path{count_tstat.c}).
-	Analysis of this code is left as an exercise to the reader,
-	however, please note that it requires tweaks in the
-	\path{counttorture.h} counter-evaluation scheme.
-	(Hint:
-		See \co{#ifndef KEEP_GCC_THREAD_LOCAL}.)
-	\Cref{chp:Deferred Processing} will introduce
-	synchronization mechanisms that handle this situation in a much
-	more graceful manner.
+	一种解决方法是确保每个线程继续存在直到所有线程完成，
+	如\cref{lst:count:Per-Thread Statistical Counters With Lockless Summation}
+	（\path{count_tstat.c}）所示。
+	此代码的分析留作读者的练习，
+	但请注意它需要对\path{counttorture.h} counter评估方案
+	进行调整。
+	（提示：参见\co{#ifndef KEEP_GCC_THREAD_LOCAL}。）
+	\Cref{chp:Deferred Processing}将介绍
+	以更加优雅的方式处理这种情况的同步机制。
 }\QuickQuizEnd
 
-Both the array-based and \co{_Thread_local}-based approaches offer excellent
-update-side performance and scalability.
-However, these benefits result in large read-side expense for large
-numbers of threads.
-The next section shows one way to reduce read-side expense while
-still retaining the update-side scalability.
+基于数组和基于\co{_Thread_local}的方法都提供了出色的
+更新端性能和可扩展性。
+然而，这些优势导致大量线程时读取端的开销很大。
+下一节展示了一种在保持更新端可扩展性的同时
+降低读取端开销的方法。
 
-\subsection{Eventually Consistent Implementation}
+\subsection{最终一致性实现}
 \label{sec:count:Eventually Consistent Implementation}
 
-One way to retain update-side scalability while greatly improving
-read-side performance is to weaken consistency requirements.
-The counting algorithm in the previous section is guaranteed to
-return a value between the value that an ideal counter would have
-taken on near the beginning of \co{read_count()}'s execution and
-that near the end of \co{read_count()}'s execution.
-\emph{Eventual consistency}~\cite{WernerVogels:2009:EventuallyConsistent}
-provides a weaker guarantee:
-In absence of calls to \co{inc_count()}, calls to
-\co{read_count()} will eventually return an accurate count.
+在保持更新端可扩展性的同时大幅提高读取端性能的一种方法
+是放松一致性要求。
+前一节中的计数算法保证返回的值介于
+\co{read_count()}执行开始附近理想counter的值和
+执行结束附近的值之间。
+\emph{最终一致性}~\cite{WernerVogels:2009:EventuallyConsistent}
+提供了更弱的保证：
+在没有\co{inc_count()}调用的情况下，
+\co{read_count()}调用将最终返回准确的计数值。
 
-We exploit eventual consistency by maintaining a global counter.
-However, updaters only manipulate their per-thread counters.
-A separate thread is provided to transfer counts from the per-thread
-counters to the global counter.
-Readers simply access the value of the global counter.
-If updaters are active, the value used by the readers will be out of
-date, however, once updates cease, the global counter will eventually
-converge on the true value---hence this approach qualifies as
-eventually consistent.
+我们通过维护一个全局counter来利用最终一致性。
+但是，更新方仅操作其per-thread counter。
+一个单独的线程负责将per-thread counter的计数值
+传输到全局counter。
+读取方只需访问全局counter的值。
+如果更新方处于活动状态，读取方使用的值将过时，
+然而，一旦更新停止，全局counter最终将收敛到
+真实值——因此这种方法属于最终一致性。
 
 \begin{listing}
 \ebresizeverb{1.0}{\input{CodeSamples/count/count_stat_eventual@whole.fcv}}
-\caption{Array-Based Per-Thread Eventually Consistent Counters}
+\caption{基于数组的Per-Thread最终一致性Counters}
 \label{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_stat_eventual:whole]
-The implementation is shown in
+实现如
 \cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-(\path{count_stat_eventual.c}).
+（\path{count_stat_eventual.c}）所示。
 \Clnrefrange{per_thr_cnt}{glb_cnt}
-show the per-thread variable and the global variable that
-track the counter's value, and \clnref{stopflag} shows \co{stopflag}
-which is used to coordinate termination (for the case where we want
-to terminate the program with an accurate counter value).
-The \co{inc_count()} function shown on
-\clnrefrange{inc:b}{inc:e} is similar to its
-counterpart in
-\cref{lst:count:Array-Based Per-Thread Statistical Counters}.
-The \co{read_count()} function shown on
-\clnrefrange{read:b}{read:e} simply returns the
-value of the \co{global_count} variable.
+展示了跟踪counter值的per-thread变量和全局变量，
+\clnref{stopflag}展示了用于协调终止的\co{stopflag}
+（用于我们希望以准确counter值终止程序的情况）。
+\clnrefrange{inc:b}{inc:e}所示的\co{inc_count()}函数类似于
+\cref{lst:count:Array-Based Per-Thread Statistical Counters}中的对应函数。
+\clnrefrange{read:b}{read:e}所示的\co{read_count()}函数
+简单地返回\co{global_count}变量的值。
 
-However, the \co{count_init()} function on
-\clnrefrange{init:b}{init:e}
-creates the \co{eventual()} thread shown on
-\clnrefrange{eventual:b}{eventual:e}, which
-cycles through all the threads,
-summing the per-thread local \co{counter} and storing the
-sum to the \co{global_count} variable.
-The \co{eventual()} thread waits an arbitrarily chosen one millisecond
-between passes.
+然而，\clnrefrange{init:b}{init:e}上的\co{count_init()}函数
+创建了\clnrefrange{eventual:b}{eventual:e}所示的\co{eventual()}线程，
+该线程循环遍历所有线程，
+对per-thread本地\co{counter}求和并将结果存储到
+\co{global_count}变量中。
+\co{eventual()}线程在每次遍历之间等待任意选择的一毫秒。
 
 \QuickQuiz{
-	Wouldn't that period scan be bad for battery lifetime?
+	这种周期性扫描不会对电池寿命有害吗？
 }\QuickQuizAnswer{
-	It quite likely would.
-	Can you think of other more battery-friendly ways to update
-	the \co{global_count} variable?
+	很可能会。
+	你能想到其他更节能的方式来更新\co{global_count}变量吗？
 }\QuickQuizEnd
 
-The \co{count_cleanup()} function on
-\clnrefrange{cleanup:b}{cleanup:e} coordinates termination.
-The call to \co{smp_load_acquire()} here and the call to \co{smp_store_release()}
-in \co{eventual()} ensure that all updates to \co{global_count} are visible
-to code following the call to \co{count_cleanup()}.
+\clnrefrange{cleanup:b}{cleanup:e}上的\co{count_cleanup()}函数
+协调终止。
+这里的\co{smp_load_acquire()}调用和\co{eventual()}中的
+\co{smp_store_release()}调用确保对\co{global_count}的所有更新
+对\co{count_cleanup()}调用之后的代码可见。
 
-This approach gives extremely fast counter read-out while still
-supporting linear counter-update scalability.
-However, this excellent read-side performance and update-side scalability
-comes at the cost of the additional thread running \co{eventual()}.
+这种方法提供了极快的counter读取，同时仍然支持
+线性的counter更新可扩展性。
+然而，这种出色的读取端性能和更新端可扩展性
+是以运行\co{eventual()}的额外线程为代价的。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why doesn't \co{inc_count()} in
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-	need to use atomic instructions?
-	After all, we now have multiple threads accessing the per-thread
-	counters!
+	为什么\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中的
+	\co{inc_count()}不需要使用atomic指令？
+	毕竟，我们现在有多个线程访问per-thread counter！
 }\QuickQuizAnswerB{
-	Because one of the two threads only reads, and because the
-	variable is aligned and machine-sized, non-atomic instructions
-	suffice.
-	That said, the \co{READ_ONCE()} macro is used to prevent
-	compiler optimizations that might otherwise prevent the
-	counter updates from becoming visible to
-	\co{eventual()}.\footnote{
-		A simple definition of \co{READ_ONCE()} is shown in
-		\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}.}
+	因为两个线程中的一个只进行读取，并且由于
+	变量是对齐的且是机器字大小的，非atomic指令即可满足。
+	话虽如此，使用了\co{READ_ONCE()}宏来防止
+	可能阻止counter更新对\co{eventual()}可见的
+	编译器优化。\footnote{
+		\co{READ_ONCE()}的一个简单定义见
+		\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}。}
 
-	An older version of this algorithm did in fact use atomic
-	instructions, kudos to Ersoy Bayramoglu for pointing out that
-	they are in fact unnecessary.
-	However, note that on a 32-bit system,
-	the per-thread \co{counter} variables
-	might need to be limited to 32 bits in order to sum them accurately,
-	but with a 64-bit \co{global_count} variable to avoid overflow.
-	In this case, it is necessary to zero the per-thread
-	\co{counter} variables periodically in order to avoid overflow,
-	which does require atomic instructions.
-	It is extremely important to note that this zeroing cannot
-	be delayed too long or overflow of the smaller per-thread
-	variables will result.
-	This approach therefore imposes real-time requirements on the
-	underlying system, and in turn must be used with extreme care.
+	该算法的早期版本实际上使用了atomic指令，
+	感谢Ersoy Bayramoglu指出它们实际上是不必要的。
+	然而，请注意在32位系统上，
+	per-thread \co{counter}变量可能需要限制为32位
+	才能准确求和，但使用64位的\co{global_count}变量
+	来避免溢出。
+	在这种情况下，有必要周期性地将per-thread
+	\co{counter}变量清零以避免溢出，
+	这确实需要atomic指令。
+	极其重要的是，这种清零不能延迟太久，
+	否则较小的per-thread变量将会溢出。
+	因此这种方法对底层系统施加了实时要求，
+	必须极其谨慎地使用。
 
-	In contrast, if all variables are the same size, overflow
-	of any variable is harmless because the eventual sum
-	will be modulo the word size.
+	相比之下，如果所有变量大小相同，
+	任何变量的溢出都是无害的，因为最终的总和
+	将是模字长的。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	Won't the single global thread in the function \co{eventual()} of
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-	be just as severe a bottleneck as a global lock would be?
+	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中
+	\co{eventual()}函数中的单个全局线程不会像全局lock一样
+	成为严重的瓶颈吗？
 }\QuickQuizAnswerM{
-	In this case, no.
-	What will happen instead is that as the number of threads increases,
-	the estimate of the counter
-	value returned by \co{read_count()} will become more inaccurate.
+	在这种情况下不会。
+	相反会发生的是，随着线程数量的增加，
+	\co{read_count()}返回的counter值估计将变得更加不准确。
 }\QuickQuizEndM
 %
 \QuickQuizM{
-	Won't the estimate returned by \co{read_count()} in
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-	become increasingly
-	inaccurate as the number of threads rises?
+	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中
+	\co{read_count()}返回的估计值不会随着线程数量的增加
+	而变得越来越不准确吗？
 }\QuickQuizAnswerM{
-	Yes.
-	If this proves problematic, one fix is to provide multiple
-	\co{eventual()} threads, each covering its own subset of
-	the other threads.
-	In more extreme cases, a tree-like hierarchy of
-	\co{eventual()} threads might be required.
+	是的。
+	如果这被证明是个问题，一种修复方法是提供多个
+	\co{eventual()}线程，每个覆盖其他线程的一个子集。
+	在更极端的情况下，可能需要\co{eventual()}线程的
+	树状层次结构。
 }\QuickQuizEndM
 %
 \QuickQuizM{
-	Given that in the eventually\-/consistent algorithm shown in
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-	both reads and updates have extremely low overhead
-	and are extremely scalable, why would anyone bother with the
-	implementation described in
-	\cref{sec:count:Array-Based Implementation},
-	given its costly read-side code?
+	鉴于在\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}所示的
+	最终一致性算法中，读取和更新的开销都极低且极具可扩展性，
+	为什么有人还会使用
+	\cref{sec:count:Array-Based Implementation}中描述的实现，
+	考虑到它昂贵的读取端代码？
 }\QuickQuizAnswerM{
-	The thread executing \co{eventual()} consumes CPU time.
-	As more of these eventually\-/consistent counters are added,
-	the resulting \co{eventual()} threads will eventually
-	consume all available CPUs.
-	This implementation therefore suffers a different sort of
-	scalability limitation, with the scalability limit being in
-	terms of the number of eventually consistent counters rather
-	than in terms of the number of threads or CPUs.
+	执行\co{eventual()}的线程消耗CPU时间。
+	随着越来越多的最终一致性counter被添加，
+	产生的\co{eventual()}线程最终将消耗所有可用CPU。
+	因此，这种实现存在不同类型的可扩展性限制，
+	该限制体现在最终一致性counter的数量上，
+	而非线程或CPU的数量上。
 
-	Of course, it is possible to make other tradeoffs.
-	For example, a single thread could be created to handle all
-	eventually\-/consistent counters, which would limit the
-	overhead to a single CPU, but would result in increasing
-	update-to-read latencies as the number of counters increased.
-	Alternatively, that single thread could track the update rates
-	of the counters, visiting the frequently\-/updated counters
-	more frequently.
-	In addition, the number of threads handling the counters could
-	be set to some fraction of the total number of CPUs, and
-	perhaps also adjusted at runtime.
-	Finally, each counter could specify its latency, and
-	deadline\-/scheduling techniques could be used to provide
-	the required latencies to each counter.
+	当然，可以做出其他权衡。
+	例如，可以创建单个线程来处理所有最终一致性counter，
+	这将把开销限制在单个CPU上，
+	但随着counter数量的增加，更新到读取的延迟会增加。
+	或者，该单个线程可以跟踪counter的更新速率，
+	更频繁地访问频繁更新的counter。
+	此外，处理counter的线程数量可以设置为
+	CPU总数的某个比例，并且也许还可以在运行时调整。
+	最后，每个counter可以指定其延迟，
+	可以使用截止时间调度技术为每个counter
+	提供所需的延迟。
 
-	There are no doubt many other tradeoffs that could be made.
+	毫无疑问还有许多其他可能的权衡。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	What is the accuracy of the estimate returned by \co{read_count()} in
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}?
+	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中
+	\co{read_count()}返回的估计值的准确度如何？
 }\QuickQuizAnswerE{
-	A straightforward way to evaluate this estimate is to use the
-	analysis derived in \QuickQuizARef{\StatisticalCounterAccuracy},
-	but set $\Delta$ to the interval between the beginnings of
-	successive runs of the \co{eventual()} thread.
-	Handling the case where a given counter has multiple \co{eventual()}
-	threads is left as an exercise for the reader.
+	评估此估计的一种直接方法是使用
+	\QuickQuizARef{\StatisticalCounterAccuracy}中推导的分析，
+	但将$\Delta$设置为\co{eventual()}线程连续运行开始之间的间隔。
+	处理给定counter具有多个\co{eventual()}线程的情况
+	留作读者的练习。
 }\QuickQuizEndE
 }
 
-\subsection{Discussion}
+\subsection{讨论}
 
-These three implementations show that it is possible to obtain
-near-uniprocessor performance for statistical counters, despite running
-on a parallel machine.
+这三种实现表明，尽管运行在并行机器上，
+仍然可以为statistical counters获得接近单处理器的性能。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What fundamental difference is there between counting packets
-	and counting the total number of bytes in the packets, given
-	that the packets vary in size?
+	计数数据包和计数数据包中的总字节数之间有什么根本区别，
+	假设数据包大小不同？
 }\QuickQuizAnswerB{
-	When counting packets, the counter is only incremented by the
-	value one.
-	On the other hand, when counting bytes, the counter might
-	be incremented by largish numbers.
+	计数数据包时，counter仅递增值1。
+	另一方面，计数字节时，counter可能递增
+	相当大的数字。
 
-	Why does this matter?
-	Because in the increment-by-one case, the value returned will
-	be exact in the sense that the counter must necessarily have
-	taken on that value at some point in time, even if it is impossible
-	to say precisely when that point occurred.
-	In contrast, when counting bytes, two different threads might
-	return values that are inconsistent with any global ordering
-	of operations.
+	为什么这很重要？
+	因为在递增值为1的情况下，返回的值在以下意义上是精确的：
+	counter在某个时间点必然取过该值，
+	即使无法准确说出该时间点何时发生。
+	相比之下，在计数字节时，两个不同的线程可能返回
+	与操作的任何全局排序不一致的值。
 
-	To see this, suppose that thread~0 adds the value three to its
-	counter, thread~1 adds the value five to its counter, and
-	threads~2 and~3 sum the counters.
-	If the system is ``weakly ordered'' or if the compiler
-	uses aggressive optimizations, thread~2 might find the
-	sum to be three and thread~3 might find the sum to be five.
-	The only possible global orders of the sequence of values
-	of the counter are 0,3,8 and 0,5,8, and neither order is
-	consistent with the results obtained.
+	为了看到这一点，假设线程~0向其counter加3，
+	线程~1向其counter加5，
+	线程~2和线程~3对counter求和。
+	如果系统是``弱排序''的，或者编译器使用激进的优化，
+	线程~2可能发现总和为3，线程~3可能发现总和为5。
+	counter值序列仅有的全局顺序是0,3,8和0,5,8，
+	两种顺序都与获得的结果不一致。
 
-	If you missed this one, you are not alone.
-	Michael Scott used this question to stump Paul E.~McKenney
-	during Paul's Ph.D. defense.
+	如果你没答对这个问题，你并不孤单。
+	Michael Scott在Paul E.~McKenney的博士答辩中
+	用这个问题难住了Paul。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Given that the reader must sum all the threads' counters, this
-	counter-read operation could take a long time given large numbers
-	of threads.
-	Is there any way that the increment operation can remain
-	fast and scalable while allowing readers to also enjoy
-	not only reasonable performance and scalability, but also
-	good accuracy?
+	鉴于读取方必须对所有线程的counter求和，
+	当线程数量很大时，这个counter读取操作可能需要很长时间。
+	有没有什么方法使递增操作保持快速和可扩展，
+	同时让读取方也能享有不仅合理的性能和可扩展性，
+	而且还有良好的准确性？
 }\QuickQuizAnswerE{
-	One approach would be to maintain a global approximation
-	to the value, similar to the approach described in
-	\cref{sec:count:Eventually Consistent Implementation}.
-	Updaters would increment their per-thread variable, but when it
-	reached some predefined limit, atomically add it to a global
-	variable, then zero their per-thread variable.
-	This would permit a tradeoff between average increment overhead
-	and accuracy of the value read out.
-	In particular, it would allow sharp bounds on the read-side
-	inaccuracy.
+	一种方法是维护一个全局近似值，
+	类似于\cref{sec:count:Eventually Consistent Implementation}中描述的方法。
+	更新方会递增其per-thread变量，但当它达到某个预定限制时，
+	将其atomic地加到全局变量上，然后将per-thread变量清零。
+	这将允许在平均递增开销和读取值的准确性之间进行权衡。
+	特别是，它将允许对读取端不准确性设定明确的界限。
 
-	Another approach makes use of the fact that readers often care
-	only about certain transitions in value, not in the exact value.
-	This approach is examined in
-	\cref{sec:count:Approximate Limit Counters}.
+	另一种方法利用了这样一个事实：读取方通常只关心
+	值的某些转变，而不是精确的值。
+	这种方法在\cref{sec:count:Approximate Limit Counters}中进行了研究。
 
-	The reader is encouraged to think up and try out other approaches,
-	for example, using a combining tree.
+	鼓励读者想出并尝试其他方法，
+	例如使用组合树。
 }\QuickQuizEndE
 }
 
-Given what has been presented in this section, you should now be able
-to answer the Quick Quiz about statistical counters for networking
-near the beginning of this chapter.
+根据本节所介绍的内容，你现在应该能够回答
+本章开头附近关于网络statistical counters的Quick Quiz了。
 
-\section{Approximate Limit Counters}
+\section{近似限值计数器}
 \label{sec:count:Approximate Limit Counters}
 %
-\epigraph{An approximate answer to the right problem is worth a good deal
-	  more than an exact answer to an approximate problem.}
+\epigraph{对正确问题的近似答案远比对近似问题的精确答案更有价值。}
 	 {John Tukey}
 
-Another special case of counting involves limit-checking.
-For example, as noted in the approximate structure-allocation limit
-problem in \QuickQuizRef{\QcountQapproxcnt},
-suppose that you need to maintain a count of the number of
-structures allocated in order to fail any allocations once the number
-of structures in use exceeds a limit, in this case, 10,000.
-Suppose further that these structures are short-lived, that this
-limit is rarely exceeded, and that this limit is approximate in
-that it is OK either to exceed it sometimes by some bounded amount
-or to fail to reach it sometimes, again by some bounded amount.
-See \cref{sec:count:Exact Limit Counters}
-if you instead need the limit to be exact.
+计数的另一个特殊情况涉及限制检查。
+例如，如\QuickQuizRef{\QcountQapproxcnt}中的
+近似结构分配限制问题所述，
+假设你需要维护已分配结构数量的计数，
+以便在使用中的结构数量超过限制（本例中为10,000）时
+拒绝任何分配。
+进一步假设这些结构是短生命周期的，此限制很少被超过，
+且此限制是近似的——即偶尔超出某个有界数量
+或偶尔未达到某个有界数量都是可以接受的。
+如果你需要限制是精确的，参见\cref{sec:count:Exact Limit Counters}。
 
-\subsection{Design}
+\subsection{设计}
 
-One possible design for limit counters is to divide the limit of 10,000
-by the number of threads, and give each thread a fixed pool of structures.
-For example, given 100 threads, each thread would manage its own pool
-of 100 structures.
-This approach is simple, and in some cases works well, but it does not
-handle the common case where a given structure is allocated by one
-thread and freed by another~\cite{McKenney93}.
-On the one hand, if a given thread takes credit for any structures it
-frees, then the thread doing most of the allocating runs out
-of structures, while the threads doing most of the freeing have lots
-of credits that they cannot use.
-On the other hand, if freed structures are credited to the CPU that
-allocated them, it will be necessary for CPUs to manipulate each
-others' counters, which will require expensive \IX{atomic} instructions
-or other means of communicating between threads.\footnote{
-	That said, if each structure will always be freed
-	by the same CPU (or thread) that allocated it, then
-	this simple partitioning approach works extremely well.}
+limit counter的一种可能设计是将10,000的限制除以线程数量，
+给每个线程一个固定的结构池。
+例如，给定100个线程，每个线程将管理自己的100个结构的池。
+这种方法简单，在某些情况下效果很好，但它无法处理
+常见的情况：一个结构由一个线程分配而由另一个线程
+释放~\cite{McKenney93}。
+一方面，如果给定线程为其释放的任何结构记账，
+那么做大部分分配的线程会耗尽结构，
+而做大部分释放的线程则拥有大量无法使用的额度。
+另一方面，如果释放的结构记在分配它们的CPU名下，
+则需要CPU操作彼此的counter，这将需要昂贵的
+\IX{atomic}指令或其他线程间通信手段。\footnote{
+	话虽如此，如果每个结构总是由分配它的
+	同一CPU（或线程）释放，那么这种简单的分区方法
+	效果极好。}
 
-In short, for many important workloads, we cannot fully partition the counter.
-Given that partitioning the counters was what brought the excellent
-update-side performance for the three schemes discussed in
-\cref{sec:count:Statistical Counters}, this might be grounds
-for some pessimism.
-However, the eventually consistent algorithm presented in
-\cref{sec:count:Eventually Consistent Implementation}
-provides an interesting hint.
-Recall that this algorithm kept two sets of books, a
-per-thread \co{counter} variable for updaters and a \co{global_count}
-variable for readers, with an \co{eventual()} thread that periodically
-updated \co{global_count} to be eventually consistent with the values
-of the per-thread \co{counter}.
-The per-thread \co{counter} perfectly partitioned the counter value, while
-\co{global_count} kept the full value.
+简而言之，对于许多重要的工作负载，我们无法完全分区counter。
+鉴于分区counter正是
+\cref{sec:count:Statistical Counters}中讨论的三种方案
+带来出色更新端性能的原因，这可能令人悲观。
+然而，\cref{sec:count:Eventually Consistent Implementation}中
+提出的最终一致性算法提供了一个有趣的提示。
+回忆一下，该算法保持两套账目：
+用于更新方的per-thread \co{counter}变量和用于读取方的
+\co{global_count}变量，
+由一个\co{eventual()}线程周期性地更新\co{global_count}
+使其与per-thread \co{counter}的值最终一致。
+per-thread \co{counter}完美分区了counter值，
+而\co{global_count}保持完整值。
 
-For limit counters, we can use a variation on this theme where we
-\emph{partially partition} the counter.
-For example, consider four threads with each having not only a
-per-thread \co{counter}, but also a per-thread maximum value (call
-it \co{countermax}).
+对于limit counters，我们可以使用这个主题的变体，
+即\emph{部分分区}counter。
+例如，考虑四个线程，每个线程不仅有一个
+per-thread \co{counter}，还有一个per-thread最大值
+（称之为\co{countermax}）。
 
-But then what happens if a given thread needs to increment its
-\co{counter}, but \co{counter} is equal to its \co{countermax}?
-The trick here is to move half of that thread's \co{counter} value
-to a \co{globalcount}, then increment \co{counter}.
-For example, if a given thread's \co{counter} and \co{countermax}
-variables were both equal to 10, we do the following:
+但如果给定线程需要递增其\co{counter}，
+而\co{counter}已等于其\co{countermax}，该怎么办？
+这里的技巧是将该线程\co{counter}值的一半
+移到\co{globalcount}，然后递增\co{counter}。
+例如，如果给定线程的\co{counter}和\co{countermax}
+变量都等于10，我们执行以下操作：
 
 \begin{enumerate}
-\item	Acquire a global lock.
-\item	Add five to \co{globalcount}.
-\item	To balance out the addition, subtract five from this
-	thread's \co{counter}.
-\item	Release the global lock.
-\item	Increment this thread's \co{counter}, resulting in a value of six.
+\item	获取全局lock。
+\item	向\co{globalcount}加5。
+\item	为了平衡这次加法，从此线程的\co{counter}中减去5。
+\item	释放全局lock。
+\item	递增此线程的\co{counter}，得到值6。
 \end{enumerate}
 
-Although this procedure still requires a global lock, that lock need only be
-acquired once for every five increment operations, greatly reducing
-that lock's level of \IXalt{contention}{lock contention}.
-We can reduce this contention as low as we wish by increasing the
-value of \co{countermax}.
-However, the corresponding penalty for increasing the value of
-\co{countermax} is reduced accuracy of \co{globalcount}.
-To see this, note that on a four-CPU system, if \co{countermax}
-is equal to ten, \co{globalcount} will be in error by at most
-40 counts.
-In contrast, if \co{countermax} is increased to 100, \co{globalcount}
-might be in error by as much as 400 counts.
+虽然此过程仍然需要全局lock，但该lock只需要每五次递增操作
+获取一次，大大降低了该lock的\IXalt{竞争}{lock contention}程度。
+我们可以通过增加\co{countermax}的值将此竞争降低到任意水平。
+然而，增加\co{countermax}值的相应代价是
+\co{globalcount}的准确性降低。
+要看到这一点，请注意在四CPU系统上，如果\co{countermax}
+等于10，\co{globalcount}的误差最多为40次。
+相比之下，如果\co{countermax}增加到100，\co{globalcount}
+的误差可能高达400次。
 
-This raises the question of just how much we care about \co{globalcount}'s
-deviation from the aggregate value of the counter, where this aggregate value
-is the sum of \co{globalcount} and each thread's \co{counter} variable.
-The answer to this question depends on how far the aggregate value is
-from the counter's limit (call it \co{globalcountmax}).
-The larger the difference between these two values, the larger \co{countermax}
-can be without risk of exceeding the \co{globalcountmax} limit.
-This means that the
-value of a given thread's \co{countermax} variable can be set
-based on this difference.
-When far from the limit, the \co{countermax} per-thread variables are
-set to large values to optimize for performance and scalability, while
-when close to the limit, these same variables are set to small values
-to minimize the error in the checks against the \co{globalcountmax} limit.
+这引出了一个问题：我们究竟多关心\co{globalcount}
+偏离counter聚合值的程度，其中聚合值是
+\co{globalcount}和每个线程的\co{counter}变量之和。
+这个问题的答案取决于聚合值距counter限制
+（称之为\co{globalcountmax}）还有多远。
+这两个值之间的差距越大，\co{countermax}
+就可以越大而不冒超过\co{globalcountmax}限制的风险。
+这意味着给定线程的\co{countermax}变量值可以
+基于这个差距来设置。
+当远离限制时，\co{countermax} per-thread变量设置为较大值
+以优化性能和可扩展性，
+而接近限制时，这些变量设置为较小值
+以最小化对\co{globalcountmax}限制检查的误差。
 
-This design is an example of \emph{parallel fastpath}, which is an important
-design pattern in which the common case executes with no expensive
-instructions and no interactions between threads, but where occasional
-use is also made of a more conservatively designed
-(and higher overhead) global algorithm.
-This design pattern is covered in more detail in
-\cref{sec:SMPdesign:Parallel Fastpath}.
+这种设计是\emph{parallel fastpath}的一个例子，
+这是一种重要的设计模式，其中常见情况不执行昂贵指令
+且线程之间没有交互，但偶尔也使用更保守设计的
+（且开销更高的）全局算法。
+此设计模式在\cref{sec:SMPdesign:Parallel Fastpath}中有更详细的介绍。
 
-\subsection{Simple Limit Counter Implementation}
+\subsection{简单限值计数器实现}
 \label{sec:count:Simple Limit Counter Implementation}
 
 \begin{fcvref}[ln:count:count_lim:variable]
 \Cref{lst:count:Simple Limit Counter Variables}
-shows both the per-thread and global variables used by this
-implementation.
-The per-thread \co{counter} and \co{countermax} variables are the
-corresponding thread's local counter and the upper bound on that
-counter, respectively.
-The \co{globalcountmax} variable on
-\clnref{globalcountmax} contains the upper
-bound for the aggregate counter, and the \co{globalcount} variable
-on \clnref{globalcount} is the global counter.
-The sum of \co{globalcount} and each thread's \co{counter} gives
-the aggregate value of the overall counter.
-The \co{globalreserve} variable on
-\clnref{globalreserve} is at least the sum of all of the
-per-thread \co{countermax} variables.
+展示了此实现使用的per-thread和全局变量。
+per-thread \co{counter}和\co{countermax}变量分别是
+相应线程的本地counter和该counter的上限。
+\clnref{globalcountmax}上的\co{globalcountmax}变量
+包含聚合counter的上限，
+\clnref{globalcount}上的\co{globalcount}变量是全局counter。
+\co{globalcount}和每个线程的\co{counter}之和给出了
+整体counter的聚合值。
+\clnref{globalreserve}上的\co{globalreserve}变量
+至少是所有per-thread \co{countermax}变量之和。
 \end{fcvref}
-The relationship among these variables is shown by
-\cref{fig:count:Simple Limit Counter Variable Relationships}:
+这些变量之间的关系如
+\cref{fig:count:Simple Limit Counter Variable Relationships}所示：
 \begin{enumerate}
-\item	The sum of \co{globalcount} and \co{globalreserve} must
-	be less than or equal to \co{globalcountmax}.
-\item	The sum of all threads' \co{countermax} values must be
-	less than or equal to \co{globalreserve}.
-\item	Each thread's \co{counter} must be less than or equal to
-	that thread's \co{countermax}.
+\item	\co{globalcount}和\co{globalreserve}之和
+	必须小于或等于\co{globalcountmax}。
+\item	所有线程的\co{countermax}值之和
+	必须小于或等于\co{globalreserve}。
+\item	每个线程的\co{counter}必须小于或等于
+	该线程的\co{countermax}。
 \end{enumerate}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@variable.fcv}
-\caption{Simple Limit Counter Variables}
+\caption{简单Limit Counter变量}
 \label{lst:count:Simple Limit Counter Variables}
 \end{listing}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{count/count_lim}}
-\caption{Simple Limit Counter Variable Relationships}
+\caption{简单Limit Counter变量关系}
 \label{fig:count:Simple Limit Counter Variable Relationships}
 \end{figure}
 
-Each element of the \co{counterp[]} array references the corresponding
-thread's \co{counter} variable, and, finally, the \co{gblcnt_mutex}
-spinlock guards all of the global variables, in other words, no thread
-is permitted to access or modify any of the global variables unless it
-has acquired \co{gblcnt_mutex}.
+\co{counterp[]}数组的每个元素引用对应线程的\co{counter}变量，
+最后，\co{gblcnt_mutex} spinlock保护所有全局变量，
+换句话说，除非线程已获取\co{gblcnt_mutex}，
+否则不允许访问或修改任何全局变量。
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@add_sub_read.fcv}
-\caption{Simple Limit Counter Add, Subtract, and Read}
+\caption{简单Limit Counter的加法、减法和读取}
 \label{lst:count:Simple Limit Counter Add; Subtract; and Read}
 \end{listing}
 
 \Cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
-shows the \co{add_count()}, \co{sub_count()}, and \co{read_count()}
-functions (\path{count_lim.c}).
+展示了\co{add_count()}、\co{sub_count()}和\co{read_count()}
+函数（\path{count_lim.c}）。
 
 \QuickQuiz{
-	Why does
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
-	provide \co{add_count()} and \co{sub_count()} instead of the
-	\co{inc_count()} and \co{dec_count()} interfaces show in
-	\cref{sec:count:Statistical Counters}?
+	为什么\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
+	提供\co{add_count()}和\co{sub_count()}而不是
+	\cref{sec:count:Statistical Counters}中所示的
+	\co{inc_count()}和\co{dec_count()}接口？
 }\QuickQuizAnswer{
-	Because structures come in different sizes.
-	Of course, a limit counter corresponding to a specific size
-	of structure might still be able to use
-	\co{inc_count()} and \co{dec_count()}.
+	因为结构有不同的大小。
+	当然，对应于特定大小结构的limit counter
+	可能仍然可以使用\co{inc_count()}和\co{dec_count()}。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:add]
-\Clnrefrange{b}{e} show \co{add_count()},
-which adds the specified value \co{delta}
-to the counter.
-\Clnref{checklocal} checks to see if there is room for
-\co{delta} on this thread's
-\co{counter}, and, if so,
-\clnref{add} adds it and \clnref{return:ls} returns success.
-This is the \co{add_counter()} fastpath, and it does no atomic operations,
-references only per-thread variables, and should not incur any cache misses.
+\Clnrefrange{b}{e}展示了\co{add_count()}，
+它将指定值\co{delta}加到counter上。
+\Clnref{checklocal}检查此线程的\co{counter}上
+是否有空间容纳\co{delta}，
+如果有，\clnref{add}执行加法，\clnref{return:ls}返回成功。
+这是\co{add_counter()}的快速路径，它不执行任何atomic操作，
+仅引用per-thread变量，不应引起任何cache miss。
 \end{fcvref}
 
 \begin{listing}
@@ -1444,262 +1242,236 @@ references only per-thread variables, and should not incur any cache misses.
 		return 1;
 	}
 \end{VerbatimL}
-\caption{Intuitive Fastpath}
+\caption{直觉上的快速路径}
 \label{lst:count:Intuitive Fastpath}
 \end{listing}
 
 \QuickQuiz{
-	What is with the strange form of the condition on
-	\clnrefr{ln:count:count_lim:add_sub_read:add:checklocal} of
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}?
-	Why not the more intuitive form of the fastpath shown in
-	\cref{lst:count:Intuitive Fastpath}?
+	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}中
+	\clnrefr{ln:count:count_lim:add_sub_read:add:checklocal}
+	上那个奇怪形式的条件是怎么回事？
+	为什么不使用\cref{lst:count:Intuitive Fastpath}中所示的
+	更直观形式的快速路径？
 }\QuickQuizAnswer{
-	Two words.
-	``Integer overflow.''
+	两个词：``整数溢出。''
 
-	Try the formulation in \cref{lst:count:Intuitive Fastpath}
-	with \co{counter} equal to~10 and
-	\co{delta} equal to \co{ULONG_MAX}.
-	Then try it again with the code shown in
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}.
+	用\co{counter}等于~10、
+	\co{delta}等于\co{ULONG_MAX}来试试
+	\cref{lst:count:Intuitive Fastpath}中的公式。
+	然后再用
+	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
+	中所示的代码试一试。
 
-	A good understanding of integer overflow will be required for
-	the rest of this example, so if you have never dealt with
-	integer overflow before, please try several examples to get
-	the hang of it.
-	Integer overflow can sometimes be more difficult to get right
-	than parallel algorithms!
+	要理解本示例的其余部分，需要对整数溢出有良好的理解，
+	因此如果你以前从未处理过整数溢出，
+	请尝试几个例子来掌握要领。
+	整数溢出有时可能比并行算法更难处理正确！
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:add]
-If the test on
-\clnref{checklocal} fails, we must access global variables, and thus
-must acquire \co{gblcnt_mutex} on
-\clnref{acquire}, which we release on \clnref{release:f}
-in the failure case or on \clnref{release:s} in the success case.
-\Clnref{globalize} invokes \co{globalize_count()}, shown in
-\cref{lst:count:Simple Limit Counter Utility Functions},
-which clears the thread-local variables, adjusting the global variables
-as needed, thus simplifying global processing.
-(But don't take \emph{my} word for it, try coding it yourself!)
-\Clnref{checkglb:b,checkglb:e} check to see
-if addition of \co{delta} can be accommodated,
-with the meaning of the expression preceding the less-than sign shown in
-\cref{fig:count:Simple Limit Counter Variable Relationships}
-as the difference in height of the two red (leftmost) bars.
-If the addition of \co{delta} cannot be accommodated, then
-\clnref{release:f} (as noted earlier) releases \co{gblcnt_mutex} and
-\clnref{return:gf}
-returns indicating failure.
+如果\clnref{checklocal}上的测试失败，我们必须访问全局变量，
+因此必须在\clnref{acquire}上获取\co{gblcnt_mutex}，
+在失败情况下于\clnref{release:f}释放，
+在成功情况下于\clnref{release:s}释放。
+\Clnref{globalize}调用\co{globalize_count()}
+（见\cref{lst:count:Simple Limit Counter Utility Functions}），
+该函数清除线程本地变量，并根据需要调整全局变量，
+从而简化全局处理。
+（但不要只听\emph{我}说，请自己尝试编写！）
+\Clnref{checkglb:b,checkglb:e}检查是否能容纳\co{delta}的加法，
+小于号前面表达式的含义如
+\cref{fig:count:Simple Limit Counter Variable Relationships}中
+两个红色（最左边的）柱子的高度差所示。
+如果无法容纳\co{delta}的加法，
+则\clnref{release:f}（如前所述）释放\co{gblcnt_mutex}，
+\clnref{return:gf}返回失败。
 
-Otherwise, we take the slowpath.
-\Clnref{addglb} adds \co{delta} to \co{globalcount}, and then
-\clnref{balance} invokes \co{balance_count()} (shown in
-\cref{lst:count:Simple Limit Counter Utility Functions})
-in order to update both the global and the per-thread variables.
-This call to \co{balance_count()}
-will usually set this thread's \co{countermax} to re-enable the fastpath.
-\Clnref{release:s} then releases
-\co{gblcnt_mutex} (again, as noted earlier), and, finally,
-\clnref{return:gs} returns indicating success.
+否则，我们走慢速路径。
+\Clnref{addglb}将\co{delta}加到\co{globalcount}上，然后
+\clnref{balance}调用\co{balance_count()}
+（见\cref{lst:count:Simple Limit Counter Utility Functions}）
+以更新全局和per-thread变量。
+这次\co{balance_count()}调用通常会设置此线程的
+\co{countermax}以重新启用快速路径。
+\Clnref{release:s}然后释放\co{gblcnt_mutex}（同样如前所述），
+最后\clnref{return:gs}返回成功。
 \end{fcvref}
 
 \QuickQuiz{
-	Why does \co{globalize_count()} zero the per-thread variables,
-	only to later call \co{balance_count()} to refill them in
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}?
-	Why not just leave the per-thread variables non-zero?
+	为什么在\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}中
+	\co{globalize_count()}先将per-thread变量清零，
+	然后再调用\co{balance_count()}来重新填充它们？
+	为什么不直接让per-thread变量保持非零？
 }\QuickQuizAnswer{
-	That is in fact what an earlier version of this code did.
-	But addition and subtraction are extremely cheap, and handling
-	all of the special cases that arise is quite complex.
-	Again, feel free to try it yourself, but beware of integer
-	overflow!
+	实际上，该代码的早期版本就是这么做的。
+	但加法和减法极其廉价，而处理所有出现的特殊情况
+	相当复杂。
+	同样，请随意自己尝试，但要小心整数溢出！
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:sub]
-\Clnrefrange{b}{e} show \co{sub_count()},
-which subtracts the specified
-\co{delta} from the counter.
-\Clnref{checklocal} checks to see if the per-thread counter can accommodate
-this subtraction, and, if so, \clnref{sub} does the subtraction and
-\clnref{return:ls} returns success.
-These lines form \co{sub_count()}'s fastpath, and, as with
-\co{add_count()}, this fastpath executes no costly operations.
+\Clnrefrange{b}{e}展示了\co{sub_count()}，
+它从counter中减去指定的\co{delta}。
+\Clnref{checklocal}检查per-thread counter是否能容纳此次减法，
+如果能，\clnref{sub}执行减法，
+\clnref{return:ls}返回成功。
+这些行构成了\co{sub_count()}的快速路径，
+与\co{add_count()}一样，此快速路径不执行任何昂贵操作。
 
-If the fastpath cannot accommodate subtraction of \co{delta},
-execution proceeds to the slowpath on
-\clnrefrange{acquire}{return:gs}.
-Because the slowpath must access global state, \clnref{acquire}
-acquires \co{gblcnt_mutex}, which is released either by \clnref{release:f}
-(in case of failure) or by \clnref{release:s} (in case of success).
-\Clnref{globalize} invokes \co{globalize_count()}, shown in
-\cref{lst:count:Simple Limit Counter Utility Functions},
-which again clears the thread-local variables, adjusting the global variables
-as needed.
-\Clnref{checkglb} checks to see if the counter can accommodate subtracting
-\co{delta}, and, if not, \clnref{release:f} releases \co{gblcnt_mutex}
-(as noted earlier) and \clnref{return:gf} returns failure.
+如果快速路径无法容纳\co{delta}的减法，
+执行继续到\clnrefrange{acquire}{return:gs}的慢速路径。
+因为慢速路径必须访问全局状态，\clnref{acquire}
+获取\co{gblcnt_mutex}，它由\clnref{release:f}
+（失败情况）或\clnref{release:s}（成功情况）释放。
+\Clnref{globalize}调用\co{globalize_count()}
+（见\cref{lst:count:Simple Limit Counter Utility Functions}），
+同样清除线程本地变量并根据需要调整全局变量。
+\Clnref{checkglb}检查counter是否能容纳\co{delta}的减法，
+如果不能，\clnref{release:f}释放\co{gblcnt_mutex}
+（如前所述），\clnref{return:gf}返回失败。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Given that \co{globalreserve} counted against us in \co{add_count()},
-	why doesn't it count for us in \co{sub_count()} in
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}?
+	既然\co{globalreserve}在\co{add_count()}中对我们不利，
+	为什么它在
+	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
+	的\co{sub_count()}中不对我们有利呢？
 }\QuickQuizAnswerB{
-	The \co{globalreserve} variable tracks the sum of all threads'
-	\co{countermax} variables.
-	The sum of these threads' \co{counter} variables might be anywhere
-	from zero to \co{globalreserve}.
-	We must therefore take a conservative approach, assuming that
-	all threads' \co{counter} variables are full in \co{add_count()}
-	and that they are all empty in \co{sub_count()}.
+	\co{globalreserve}变量跟踪所有线程\co{countermax}变量之和。
+	这些线程的\co{counter}变量之和可能在零到
+	\co{globalreserve}之间的任何位置。
+	因此我们必须采取保守的方法，
+	在\co{add_count()}中假设所有线程的\co{counter}变量都是满的，
+	在\co{sub_count()}中假设它们都是空的。
 
-	But remember this question, as we will come back to it later.
+	但请记住这个问题，我们稍后会回来讨论它。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Suppose that one thread invokes \co{add_count()} shown in
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read},
-	and then another thread invokes \co{sub_count()}.
-	Won't \co{sub_count()} return failure even though the value of
-	the counter is non-zero?
+	假设一个线程调用了
+	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}
+	中的\co{add_count()}，然后另一个线程调用\co{sub_count()}。
+	\co{sub_count()}不会返回失败，即使counter的值不为零？
 }\QuickQuizAnswerE{
-	Indeed it will!
-	In many cases, this will be a problem, as discussed in
-	\cref{sec:count:Simple Limit Counter Discussion}, and
-	in those cases the algorithms from
-	\cref{sec:count:Exact Limit Counters}
-	will likely be preferable.
+	确实会！
+	在许多情况下，这将是一个问题，
+	如\cref{sec:count:Simple Limit Counter Discussion}所讨论的，
+	在这些情况下，\cref{sec:count:Exact Limit Counters}
+	中的算法可能更可取。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:sub]
-If, on the other hand, \clnref{checkglb} finds that the counter \emph{can}
-accommodate subtracting \co{delta}, we complete the slowpath.
-\Clnref{subglb} does the subtraction and then
-\clnref{balance} invokes \co{balance_count()} (shown in
-\cref{lst:count:Simple Limit Counter Utility Functions})
-in order to update both global and per-thread variables
-(hopefully re-enabling the fastpath).
-Then \clnref{release:s} releases \co{gblcnt_mutex}, and
-\clnref{return:gs} returns success.
+另一方面，如果\clnref{checkglb}发现counter\emph{能}容纳
+\co{delta}的减法，我们完成慢速路径。
+\Clnref{subglb}执行减法，然后
+\clnref{balance}调用\co{balance_count()}
+（见\cref{lst:count:Simple Limit Counter Utility Functions}）
+以更新全局和per-thread变量
+（希望能重新启用快速路径）。
+然后\clnref{release:s}释放\co{gblcnt_mutex}，
+\clnref{return:gs}返回成功。
 \end{fcvref}
 
 \QuickQuiz{
-	Why have both \co{add_count()} and \co{sub_count()} in
-	\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}?
-	Why not simply pass a negative number to \co{add_count()}?
+	为什么在\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}中
+	同时有\co{add_count()}和\co{sub_count()}？
+	为什么不简单地向\co{add_count()}传递一个负数？
 }\QuickQuizAnswer{
-	Given that \co{add_count()} takes an \co{unsigned} \co{long}
-	as its argument, it is going to be a bit tough to pass it a
-	negative number.
-	And unless you have some anti-matter memory, there is little
-	point in allowing negative numbers when counting the number
-	of structures in use!
+	鉴于\co{add_count()}接受\co{unsigned} \co{long}
+	作为参数，向它传递负数将会相当困难。
+	而且除非你有什么反物质内存，
+	在计算使用中的结构数量时允许负数也没什么意义！
 
-	All kidding aside, it would of course be possible to combine
-	\co{add_count()} and \co{sub_count()}, however, the \co{if}
-	conditions on the combined function would be more complex
-	than in the current pair of functions, which would in turn
-	mean slower execution of these fast paths.
+	撇开玩笑不谈，当然可以合并
+	\co{add_count()}和\co{sub_count()}，但合并函数中的
+	\co{if}条件将比当前这对函数中的更复杂，
+	这反过来意味着这些快速路径的执行会更慢。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:read]
-\Clnrefrange{b}{e} show \co{read_count()},
-which returns the aggregate value
-of the counter.
-It acquires \co{gblcnt_mutex} on \clnref{acquire}
-and releases it on \clnref{release},
-excluding global operations from \co{add_count()} and \co{sub_count()},
-and, as we will see, also excluding thread creation and exit.
-\Clnref{initsum} initializes local variable \co{sum} to the value of
-\co{globalcount}, and then the loop spanning
-\clnrefrange{loop:b}{loop:e} sums the
-per-thread \co{counter} variables.
-\Clnref{return} then returns the sum.
+\Clnrefrange{b}{e}展示了\co{read_count()}，
+它返回counter的聚合值。
+它在\clnref{acquire}获取\co{gblcnt_mutex}，
+在\clnref{release}释放它，
+排斥\co{add_count()}和\co{sub_count()}的全局操作，
+并且如我们将看到的，还排斥线程创建和退出。
+\Clnref{initsum}将局部变量\co{sum}初始化为\co{globalcount}的值，
+然后\clnrefrange{loop:b}{loop:e}的循环
+对per-thread \co{counter}变量求和。
+\Clnref{return}然后返回总和。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@utility.fcv}
-\caption{Simple Limit Counter Utility Functions}
+\caption{简单Limit Counter工具函数}
 \label{lst:count:Simple Limit Counter Utility Functions}
 \end{listing}
 
 \Cref{lst:count:Simple Limit Counter Utility Functions}
-shows a number of utility functions used by the \co{add_count()},
-\co{sub_count()}, and \co{read_count()} primitives shown in
-\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}.
+展示了\co{add_count()}、\co{sub_count()}和\co{read_count()}
+原语（见\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}）
+使用的一些工具函数。
 
 \begin{fcvref}[ln:count:count_lim:utility:globalize]
-\Clnrefrange{b}{e} show \co{globalize_count()},
-which zeros the current thread's
-per-thread counters, adjusting the global variables appropriately.
-It is important to note that this function does not change the aggregate
-value of the counter, but instead changes how the counter's current value
-is represented.
-\Clnref{add} adds the thread's \co{counter} variable to \co{globalcount},
-and \clnref{zero} zeroes \co{counter}.
-Similarly, \clnref{sub} subtracts the per-thread \co{countermax} from
-\co{globalreserve}, and \clnref{zeromax} zeroes \co{countermax}.
-It is helpful to refer to
-\cref{fig:count:Simple Limit Counter Variable Relationships}
-when reading both this function and \co{balance_count()}, which is next.
+\Clnrefrange{b}{e}展示了\co{globalize_count()}，
+它将当前线程的per-thread counter清零，并适当调整全局变量。
+重要的是，此函数不改变counter的聚合值，
+而是改变counter当前值的表示方式。
+\Clnref{add}将线程的\co{counter}变量加到\co{globalcount}上，
+\clnref{zero}将\co{counter}清零。
+类似地，\clnref{sub}从\co{globalreserve}中减去per-thread
+\co{countermax}，\clnref{zeromax}将\co{countermax}清零。
+阅读此函数和下面的\co{balance_count()}时，
+参考\cref{fig:count:Simple Limit Counter Variable Relationships}
+会有所帮助。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_lim:utility:balance]
-\Clnrefrange{b}{e} show \co{balance_count()},
-which is roughly speaking
-the inverse of \co{globalize_count()}.
-This function's job is to set the current thread's
-\co{countermax} variable to the largest value that avoids the risk
-of the counter exceeding the \co{globalcountmax} limit.
-Changing the current thread's \co{countermax} variable of course
-requires corresponding adjustments to \co{counter}, \co{globalcount}
-and \co{globalreserve}, as can be seen by referring back to
-\cref{fig:count:Simple Limit Counter Variable Relationships}.
-By doing this, \co{balance_count()} maximizes use of
-\co{add_count()}'s and \co{sub_count()}'s low-overhead fastpaths.
-As with \co{globalize_count()}, \co{balance_count()} is not permitted
-to change the aggregate value of the counter.
+\Clnrefrange{b}{e}展示了\co{balance_count()}，
+粗略地说是\co{globalize_count()}的逆操作。
+此函数的任务是将当前线程的\co{countermax}变量
+设置为最大值，同时避免counter超过\co{globalcountmax}限制的风险。
+改变当前线程的\co{countermax}变量当然需要
+对\co{counter}、\co{globalcount}和\co{globalreserve}
+做相应调整，如参考
+\cref{fig:count:Simple Limit Counter Variable Relationships}
+所示。
+通过这样做，\co{balance_count()}最大化了
+\co{add_count()}和\co{sub_count()}低开销快速路径的使用。
+与\co{globalize_count()}一样，\co{balance_count()}
+不允许改变counter的聚合值。
 
-\Clnrefrange{share:b}{share:e} compute this thread's share of
-that portion of
-\co{globalcountmax} that is not already covered by either
-\co{globalcount} or \co{globalreserve}, and assign the
-computed quantity to this thread's \co{countermax}.
-\Clnref{adjreserve} makes the corresponding adjustment to \co{globalreserve}.
-\Clnref{middle} sets this thread's \co{counter} to the middle of the range
-from zero to \co{countermax}.
-\Clnref{check} checks to see whether \co{globalcount} can in fact accommodate
-this value of \co{counter}, and, if not,
-\clnref{adjcounter} decreases \co{counter}
-accordingly.
-Finally, in either case,
-\clnref{adjglobal} makes the corresponding adjustment to
-\co{globalcount}.
+\Clnrefrange{share:b}{share:e}计算此线程在
+\co{globalcountmax}中尚未被\co{globalcount}或\co{globalreserve}
+覆盖的部分的份额，并将计算出的数量赋给此线程的\co{countermax}。
+\Clnref{adjreserve}对\co{globalreserve}做相应调整。
+\Clnref{middle}将此线程的\co{counter}设置为零到\co{countermax}
+范围的中间值。
+\Clnref{check}检查\co{globalcount}是否实际上能容纳
+此\co{counter}值，如果不能，
+\clnref{adjcounter}相应减少\co{counter}。
+最后，在两种情况下，\clnref{adjglobal}对\co{globalcount}
+做相应调整。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:count:count_lim:utility:balance]
-	Why set \co{counter} to \co{countermax / 2} in \clnref{middle} of
-	\cref{lst:count:Simple Limit Counter Utility Functions}?
-	Wouldn't it be simpler to just take \co{countermax} counts?
+	为什么在\cref{lst:count:Simple Limit Counter Utility Functions}的
+	\clnref{middle}将\co{counter}设置为\co{countermax / 2}？
+	直接取\co{countermax}次计数不是更简单吗？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:count:count_lim:utility:balance]
-	First, it really is reserving \co{countermax} counts
-	(see \clnref{adjreserve}), however,
-	it adjusts so that only half of these are actually in use
-	by the thread at the moment.
-	This allows the thread to carry out at least \co{countermax / 2}
-	increments or decrements before having to refer back to
-	\co{globalcount} again.
+	首先，它确实保留了\co{countermax}次计数
+	（见\clnref{adjreserve}），但是
+	它调整为当前线程实际只使用其中一半。
+	这允许线程执行至少\co{countermax / 2}次
+	递增或递减，然后才需要再次引用\co{globalcount}。
 
-	Note that the accounting in \co{globalcount} remains accurate,
-	thanks to the adjustment in \clnref{adjglobal}.
+	注意\co{globalcount}中的记账保持准确，
+	这要归功于\clnref{adjglobal}的调整。
 	\end{fcvref}
 }\QuickQuizEnd
 
@@ -1710,1061 +1482,950 @@ Finally, in either case,
 }{
 \resizebox{5in}{!}{\includegraphics{count/globbal}}
 }
-\caption{Schematic of Globalization and Balancing}
+\caption{全局化和平衡的示意图}
 \label{fig:count:Schematic of Globalization and Balancing}
 \end{figure*}
 
-It is helpful to look at a schematic depicting how the relationship
-of the counters changes with the execution of first
-\co{globalize_count()} and then \co{balance_count()}, as shown in
-\cref{fig:count:Schematic of Globalization and Balancing}.
-Time advances from left to right, with the leftmost configuration
-roughly that of
-\cref{fig:count:Simple Limit Counter Variable Relationships}.
-The center configuration shows the relationship of these same counters
-after \co{globalize_count()} is executed by thread~0.
-As can be seen from the figure, thread~0's \co{counter} (``c~0'' in
-the figure) is added to \co{globalcount}, while the value of
-\co{globalreserve} is reduced by this same amount.
-Both thread~0's \co{counter} and its \co{countermax}
-(``cm~0'' in the figure) are reduced to zero.
-The other three threads' counters are unchanged.
-Note that this change did not affect the overall value of the counter,
-as indicated by the bottommost dotted line connecting the leftmost
-and center configurations.
-In other words, the sum of \co{globalcount} and the four threads'
-\co{counter} variables is the same in both configurations.
-Similarly, this change did not affect the sum of \co{globalcount} and
-\co{globalreserve}, as indicated by the upper dotted line.
+看一个描绘counter关系如何随
+\co{globalize_count()}和\co{balance_count()}的执行
+而变化的示意图是很有帮助的，
+如\cref{fig:count:Schematic of Globalization and Balancing}所示。
+时间从左到右推进，最左边的配置大致是
+\cref{fig:count:Simple Limit Counter Variable Relationships}的配置。
+中间的配置展示了线程~0执行\co{globalize_count()}后
+这些counter之间的关系。
+从图中可以看出，线程~0的\co{counter}（图中的``c~0''）
+被加到\co{globalcount}上，而\co{globalreserve}的值
+减少了相同的量。
+线程~0的\co{counter}和\co{countermax}
+（图中的``cm~0''）都减少到零。
+其他三个线程的counter不变。
+注意此更改没有影响counter的整体值，
+如连接最左和中间配置的最下方虚线所示。
+换句话说，\co{globalcount}和四个线程的\co{counter}变量之和
+在两个配置中相同。
+类似地，此更改没有影响\co{globalcount}和\co{globalreserve}之和，
+如上方虚线所示。
 
-The rightmost configuration shows the relationship of these counters
-after \co{balance_count()} is executed, again by thread~0.
-One-quarter of the remaining count, denoted by the vertical line extending
-up from all three configurations, is added to thread~0's
-\co{countermax} and half of that to thread~0's \co{counter}.
-The amount added to thread~0's \co{counter} is also subtracted from
-\co{globalcount} in order to avoid changing the overall value of the
-counter (which is again the sum of \co{globalcount} and the three
-threads' \co{counter} variables), again as indicated by the lowermost
-of the two dotted lines connecting the center and rightmost configurations.
-The \co{globalreserve} variable is also adjusted so that this variable
-remains equal to the sum of the four threads' \co{countermax}
-variables.
-Because thread~0's \co{counter} is less than its \co{countermax},
-thread~0 can once again increment the counter locally.
+最右边的配置展示了线程~0再次执行\co{balance_count()}后
+这些counter之间的关系。
+剩余计数的四分之一（由从所有三个配置向上延伸的垂直线表示）
+被加到线程~0的\co{countermax}上，其中一半加到线程~0的\co{counter}上。
+加到线程~0的\co{counter}上的量也从\co{globalcount}中减去，
+以避免改变counter的整体值
+（它仍然是\co{globalcount}和三个线程的\co{counter}变量之和），
+再次如连接中间和最右配置的两条虚线中较低的一条所示。
+\co{globalreserve}变量也被调整，使此变量保持等于
+四个线程的\co{countermax}变量之和。
+因为线程~0的\co{counter}小于其\co{countermax}，
+线程~0可以再次本地递增counter。
 
 \QuickQuiz{
-	In \cref{fig:count:Schematic of Globalization and Balancing},
-	even though a quarter of the remaining count up to the limit is
-	assigned to thread~0, only an eighth of the remaining count is
-	consumed, as indicated by the uppermost dotted line connecting
-	the center and the rightmost configurations.
-	Why is that?
+	在\cref{fig:count:Schematic of Globalization and Balancing}中，
+	尽管剩余计数到限制的四分之一被分配给线程~0，
+	但只有八分之一的剩余计数被消耗了，
+	如连接中间和最右配置的最上方虚线所示。
+	为什么会这样？
 }\QuickQuizAnswer{
-	The reason this happened is that thread~0's \co{counter} was
-	set to half of its \co{countermax}.
-	Thus, of the quarter assigned to thread~0, half of that quarter
-	(one eighth) came from \co{globalcount}, leaving the other half
-	(again, one eighth) to come from the remaining count.
+	这发生的原因是线程~0的\co{counter}被设置为
+	其\co{countermax}的一半。
+	因此，在分配给线程~0的四分之一中，
+	该四分之一的一半（即八分之一）来自\co{globalcount}，
+	另一半（同样是八分之一）来自剩余计数。
 
-	There are two purposes for taking this approach:
+	采用这种方法有两个目的：
 	\begin{enumerate*}[(1)]
-	\item To allow thread~0 to use the fastpath for decrements as
-	well as increments and
-	\item To reduce the inaccuracies if all threads are monotonically
-	incrementing up towards the limit.
+	\item 允许线程~0对递减和递增都使用快速路径，
+	\item 如果所有线程都在单调递增趋向限制时减少不准确性。
 	\end{enumerate*}
-	To see this last point, step through the algorithm and watch
-	what it does.
+	要看到最后一点，请逐步执行算法并观察它的行为。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:utility:register]
-\Clnrefrange{b}{e} show \co{count_register_thread()},
-which sets up state for
-newly created threads.
-This function simply installs
-a pointer to the newly created thread's \co{counter} variable into
-the corresponding entry of the \co{counterp[]} array under the protection
-of \co{gblcnt_mutex}.
+\Clnrefrange{b}{e}展示了\co{count_register_thread()}，
+它为新创建的线程设置状态。
+此函数简单地在\co{gblcnt_mutex}保护下
+将指向新创建线程的\co{counter}变量的指针
+安装到\co{counterp[]}数组的相应条目中。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_lim:utility:unregister]
-Finally, \clnrefrange{b}{e} show \co{count_unregister_thread()},
-which tears down
-state for a soon-to-be-exiting thread.
-\Clnref{acquire} acquires \co{gblcnt_mutex} and
-\clnref{release} releases it.
-\Clnref{globalize} invokes \co{globalize_count()}
-to clear out this thread's
-counter state, and \clnref{clear} clears this thread's entry in the
-\co{counterp[]} array.
+最后，\clnrefrange{b}{e}展示了\co{count_unregister_thread()}，
+它为即将退出的线程拆除状态。
+\Clnref{acquire}获取\co{gblcnt_mutex}，
+\clnref{release}释放它。
+\Clnref{globalize}调用\co{globalize_count()}
+清除此线程的counter状态，
+\clnref{clear}清除此线程在\co{counterp[]}数组中的条目。
 \end{fcvref}
 
-\subsection{Simple Limit Counter Discussion}
+\subsection{简单限值计数器讨论}
 \label{sec:count:Simple Limit Counter Discussion}
 
-This type of counter is quite fast when aggregate values are near zero,
-with some overhead due to the comparison and branch in both
-\co{add_count()}'s and \co{sub_count()}'s fastpaths.
-However, the use of a per-thread \co{countermax} reserve means that
-\co{add_count()} can fail even when
-the aggregate value of the counter is nowhere near \co{globalcountmax}.
-Similarly, \co{sub_count()} can fail
-even when the aggregate value of the counter is nowhere near zero.
+当聚合值接近零时，这种类型的counter相当快，
+由于\co{add_count()}和\co{sub_count()}快速路径中的
+比较和分支会有一些开销。
+然而，使用per-thread \co{countermax}储备意味着
+即使counter的聚合值远未接近\co{globalcountmax}，
+\co{add_count()}也可能失败。
+类似地，即使counter的聚合值远未接近零，
+\co{sub_count()}也可能失败。
 
-In many cases, this is unacceptable.
-Even if the \co{globalcountmax} is intended to be an approximate limit,
-there is usually a limit to exactly how much approximation can be tolerated.
-One way to limit the degree of approximation is to impose an upper limit
-on the value of the per-thread \co{countermax} instances.
-This task is undertaken in the next section.
+在许多情况下，这是不可接受的。
+即使\co{globalcountmax}打算作为近似限制，
+通常也有一个可容忍的近似程度限制。
+限制近似程度的一种方法是对per-thread \co{countermax}实例
+的值施加上限。
+这个任务在下一节中进行。
 
-\subsection{Approximate Limit Counter Implementation}
+\subsection{近似限值计数器实现}
 \label{sec:count:Approximate Limit Counter Implementation}
 
-Because this implementation (\path{count_lim_app.c}) is quite similar to
-that in the previous section
-(\cref{lst:count:Simple Limit Counter Variables,%
+因为此实现（\path{count_lim_app.c}）与前一节中的实现
+（\cref{lst:count:Simple Limit Counter Variables,%
 lst:count:Simple Limit Counter Add; Subtract; and Read,%
-lst:count:Simple Limit Counter Utility Functions}),
-only the changes are shown here.
+lst:count:Simple Limit Counter Utility Functions}）
+非常相似，这里只展示差异。
 \Cref{lst:count:Approximate Limit Counter Variables}
-is identical to
-\cref{lst:count:Simple Limit Counter Variables},
-with the addition of \co{MAX_COUNTERMAX}, which sets the maximum
-permissible value of the per-thread \co{countermax} variable.
+与\cref{lst:count:Simple Limit Counter Variables}相同，
+增加了\co{MAX_COUNTERMAX}，它设置per-thread
+\co{countermax}变量的最大允许值。
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_app@variable.fcv}
-\caption{Approximate Limit Counter Variables}
+\caption{Approximate Limit Counter变量}
 \label{lst:count:Approximate Limit Counter Variables}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_app@balance.fcv}
-\caption{Approximate Limit Counter Balancing}
+\caption{Approximate Limit Counter平衡}
 \label{lst:count:Approximate Limit Counter Balancing}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_app:balance]
-Similarly,
-\cref{lst:count:Approximate Limit Counter Balancing}
-is identical to the \co{balance_count()} function in
-\cref{lst:count:Simple Limit Counter Utility Functions},
-with the addition of
-\clnref{enforce:b,enforce:e}, which enforce the
-\co{MAX_COUNTERMAX} limit on the per-thread \co{countermax} variable.
+类似地，\cref{lst:count:Approximate Limit Counter Balancing}
+与\cref{lst:count:Simple Limit Counter Utility Functions}中的
+\co{balance_count()}函数相同，
+增加了\clnref{enforce:b,enforce:e}，
+它们对per-thread \co{countermax}变量强制执行
+\co{MAX_COUNTERMAX}限制。
 \end{fcvref}
 
-\subsection{Approximate Limit Counter Discussion}
+\subsection{近似限值计数器讨论}
 
-These changes greatly reduce the limit inaccuracy seen in the previous version,
-but present another problem:
-Any given value of \co{MAX_COUNTERMAX} will cause a workload-dependent
-fraction of accesses to fall off the fastpath.
-As the number of threads increase, non-fastpath execution will become both
-a performance and a scalability problem.
-However, we will defer this problem and turn instead to counters
-with exact limits.
+这些更改大大减少了前一版本中看到的限制不准确性，
+但带来了另一个问题：
+任何给定的\co{MAX_COUNTERMAX}值都将导致取决于工作负载的
+一部分访问偏离快速路径。
+随着线程数量的增加，非快速路径执行将成为
+性能和可扩展性问题。
+然而，我们将暂缓讨论此问题，转而关注
+具有精确限制的counter。
 
-\section{Exact Limit Counters}
+\section{精确限值计数器}
 \label{sec:count:Exact Limit Counters}
 %
-\epigraph{Exactitude can be expensive.
-	  Spend wisely.}{Unknown}
+\epigraph{精确是有代价的。请明智地花费。}{佚名}
 
-To solve the exact structure-allocation limit problem noted in
-\QuickQuizRef{\QcountQexactcnt},
-we need a limit counter that can tell exactly when its limits are
-exceeded.
-One way of implementing such a limit counter is to
-cause threads that have reserved counts to give them up.
-One way to do this is to use \IX{atomic} instructions.
-Of course, atomic instructions will slow down the fastpath, but on the
-other hand, it would be silly not to at least give them a try.
+要解决\QuickQuizRef{\QcountQexactcnt}中提出的
+精确结构分配限制问题，
+我们需要一个能精确判断其限制何时被超过的limit counter。
+实现这样一个limit counter的一种方法是
+让已保留计数的线程交出这些计数。
+一种做法是使用\IX{atomic}指令。
+当然，atomic指令会减慢快速路径，但另一方面，
+至少试试也不失为明智之举。
 
-\subsection{Atomic Limit Counter Implementation}
+\subsection{原子限值计数器实现}
 \label{sec:count:Atomic Limit Counter Implementation}
 
-Unfortunately,
-if one thread is to safely remove counts from another thread,
-both threads will need to atomically manipulate that thread's
-\co{counter} and \co{countermax} variables.
-The usual way to do this is to combine these two variables into a
-single variable,
-for example, given a 32-bit variable, using the high-order 16 bits to
-represent \co{counter} and the low-order 16 bits to represent
-\co{countermax}.
+不幸的是，如果一个线程要安全地从另一个线程移除计数，
+两个线程都需要atomic地操作该线程的
+\co{counter}和\co{countermax}变量。
+通常的做法是将这两个变量合并为单个变量，
+例如，给定一个32位变量，使用高16位表示\co{counter}，
+低16位表示\co{countermax}。
 
 \QuickQuiz{
-	Why is it necessary to atomically manipulate the thread's
-	\co{counter} and \co{countermax} variables as a unit?
-	Wouldn't it be good enough to atomically manipulate them
-	individually?
+	为什么需要将线程的\co{counter}和\co{countermax}变量
+	作为一个整体进行atomic操作？
+	单独对它们进行atomic操作不够吗？
 }\QuickQuizAnswer{
-	This might well be possible, but great care is required.
-	Note that removing \co{counter} without first zeroing
-	\co{countermax} could result in the corresponding thread
-	increasing \co{counter} immediately after it was zeroed,
-	completely negating the effect of zeroing the counter.
+	这也许是可能的，但需要非常小心。
+	注意，如果不先将\co{countermax}清零就移除\co{counter}，
+	可能导致相应线程在\co{counter}被清零后立即增加它，
+	完全抵消了清零counter的效果。
 
-	The opposite ordering, namely zeroing \co{countermax} and then
-	removing \co{counter}, can also result in a non-zero
-	\co{counter}.
-	To see this, consider the following sequence of events:
+	相反的顺序，即先清零\co{countermax}再移除\co{counter}，
+	也可能导致\co{counter}非零。
+	要看到这一点，考虑以下事件序列：
 
 	\begin{enumerate}
-	\item	Thread~A fetches its \co{countermax}, and finds that
-		it is non-zero.
-	\item	Thread~B zeroes Thread~A's \co{countermax}.
-	\item	Thread~B removes Thread~A's \co{counter}.
-	\item	Thread~A, having found that its \co{countermax}
-		is non-zero, proceeds to add to its \co{counter},
-		resulting in a non-zero value for \co{counter}.
+	\item	线程~A获取其\co{countermax}，发现它不为零。
+	\item	线程~B将线程~A的\co{countermax}清零。
+	\item	线程~B移除线程~A的\co{counter}。
+	\item	线程~A发现其\co{countermax}不为零后，
+		继续向其\co{counter}加值，
+		导致\co{counter}值非零。
 	\end{enumerate}
 
-	Again, it might well be possible to atomically manipulate
-	\co{countermax} and \co{counter} as separate variables,
-	but it is clear that great care is required.
-	It is also quite likely that doing so will slow down the
-	fastpath.
+	同样，分别对\co{countermax}和\co{counter}进行
+	atomic操作也许是可能的，
+	但显然需要非常小心。
+	而且这样做很可能会减慢快速路径。
 
-	Exploring these possibilities are left as exercises for
-	the reader.
+	探索这些可能性留作读者的练习。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_atomic@var_access.fcv}
-\caption{Atomic Limit Counter Variables and Access Functions}
+\caption{Atomic Limit Counter变量和访问函数}
 \label{lst:count:Atomic Limit Counter Variables and Access Functions}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_atomic:var_access:var]
-The variables and access functions for a simple atomic limit counter
-are shown in
+一个简单的atomic limit counter的变量和访问函数如
 \cref{lst:count:Atomic Limit Counter Variables and Access Functions}
-(\path{count_lim_atomic.c}).
-The \co{counter} and \co{countermax} variables in earlier algorithms
-are combined into the single variable \co{counterandmax} shown on
-\clnref{candmax}, with \co{counter} in the upper half and \co{countermax} in
-the lower half.
-This variable is of type \apik{atomic_t}, which has an underlying
-representation of \co{int}.
+（\path{count_lim_atomic.c}）所示。
+早期算法中的\co{counter}和\co{countermax}变量
+被合并为\clnref{candmax}上的单个变量\co{counterandmax}，
+\co{counter}在高半部分，\co{countermax}在低半部分。
+此变量的类型为\apik{atomic_t}，其底层表示为\co{int}。
 
-\Clnrefrange{def:b}{def:e} show the definitions for \co{globalcountmax}, \co{globalcount},
-\co{globalreserve}, \co{counterp}, and \co{gblcnt_mutex}, all of which
-take on roles similar to their counterparts in
-\cref{lst:count:Approximate Limit Counter Variables}.
-\Clnref{CM_BITS} defines \co{CM_BITS}, which gives the number of bits in each half
-of \co{counterandmax}, and \clnref{MAX_CMAX} defines \co{MAX_COUNTERMAX}, which
-gives the maximum value that may be held in either half of
-\co{counterandmax}.
+\Clnrefrange{def:b}{def:e}展示了\co{globalcountmax}、\co{globalcount}、
+\co{globalreserve}、\co{counterp}和\co{gblcnt_mutex}的定义，
+它们的角色与
+\cref{lst:count:Approximate Limit Counter Variables}中的对应部分类似。
+\Clnref{CM_BITS}定义了\co{CM_BITS}，它给出\co{counterandmax}
+每半部分的位数，\clnref{MAX_CMAX}定义了\co{MAX_COUNTERMAX}，
+它给出\co{counterandmax}任一半部分可容纳的最大值。
 \end{fcvref}
 
 \QuickQuiz{
-	In what way does
-	\clnrefr{ln:count:count_lim_atomic:var_access:var:CM_BITS} of
-	\cref{lst:count:Atomic Limit Counter Variables and Access Functions}
-	violate the C standard?
+	\cref{lst:count:Atomic Limit Counter Variables and Access Functions}的
+	\clnrefr{ln:count:count_lim_atomic:var_access:var:CM_BITS}
+	在什么方面违反了C标准？
 }\QuickQuizAnswer{
-	It assumes eight bits per byte.
-	This assumption does hold for all current commodity microprocessors
-	that can be easily assembled into shared-memory multiprocessors,
-	but certainly does not hold for all computer systems that have
-	ever run C code.
-	(What could you do instead in order to comply with the C standard?
-	What drawbacks would it have?)
+	它假设每字节八位。
+	这个假设对所有当前可以轻松组装成共享内存多处理器的
+	商用微处理器都成立，但对所有曾经运行过C代码的
+	计算机系统并非如此。
+	（你可以做什么来替代以符合C标准？会有什么缺点？）
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim_atomic:var_access:split_int]
-\Clnrefrange{b}{e} show the \co{split_counterandmax_int()}
-function, which,
-when given the underlying \co{int} from the
-\co{atomic_t counterandmax} variable, splits it into its
-\co{counter} (\co{c})
-and \co{countermax} (\co{cm}) components.
-\Clnref{msh} isolates the most-significant half of this \co{int},
-placing the result as specified by argument \co{c},
-and \clnref{lsh} isolates the least-significant half of this \co{int},
-placing the result as specified by argument \co{cm}.
+\Clnrefrange{b}{e}展示了\co{split_counterandmax_int()}函数，
+当给定\co{atomic_t counterandmax}变量的底层\co{int}时，
+将其拆分为\co{counter}（\co{c}）
+和\co{countermax}（\co{cm}）组件。
+\Clnref{msh}隔离此\co{int}的最高有效半部分，
+将结果放在参数\co{c}指定的位置，
+\clnref{lsh}隔离此\co{int}的最低有效半部分，
+将结果放在参数\co{cm}指定的位置。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_lim_atomic:var_access:split]
-\Clnrefrange{b}{e} show the \co{split_counterandmax()} function, which
-picks up the underlying \co{int} from the specified variable
-on \clnref{int}, stores it as specified by the \co{old} argument on
-\clnref{old}, and then invokes \co{split_counterandmax_int()} to split
-it on \clnref{split_int}.
+\Clnrefrange{b}{e}展示了\co{split_counterandmax()}函数，
+它在\clnref{int}获取指定变量的底层\co{int}，
+在\clnref{old}将其存储为\co{old}参数所指定的位置，
+然后在\clnref{split_int}调用\co{split_counterandmax_int()}
+进行拆分。
 \end{fcvref}
 
 \QuickQuiz{
-	Given that there is only one \co{counterandmax} variable,
-	why bother passing in a pointer to it on
-	\clnrefr{ln:count:count_lim_atomic:var_access:split:func} of
-	\cref{lst:count:Atomic Limit Counter Variables and Access Functions}?
+	既然只有一个\co{counterandmax}变量，
+	为什么在\cref{lst:count:Atomic Limit Counter Variables and Access Functions}的
+	\clnrefr{ln:count:count_lim_atomic:var_access:split:func}上
+	还要传入指向它的指针？
 }\QuickQuizAnswer{
-	There is only one \co{counterandmax} variable \emph{per thread}.
-	Later, we will see code that needs to pass other threads'
-	\co{counterandmax} variables to \co{split_counterandmax()}.
+	每个线程有一个\co{counterandmax}变量。
+	稍后，我们将看到需要将其他线程的
+	\co{counterandmax}变量传递给\co{split_counterandmax()}的代码。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim_atomic:var_access:merge]
-\Clnrefrange{b}{e} show the \co{merge_counterandmax()} function, which
-can be thought of as the inverse of \co{split_counterandmax()}.
-\Clnref{merge} merges the \co{counter} and \co{countermax}
-values passed in \co{c} and \co{cm}, respectively, and returns
-the result.
+\Clnrefrange{b}{e}展示了\co{merge_counterandmax()}函数，
+它可以被看作\co{split_counterandmax()}的逆操作。
+\Clnref{merge}合并通过\co{c}和\co{cm}传入的
+\co{counter}和\co{countermax}值，并返回结果。
 \end{fcvref}
 
 \QuickQuiz{
-	Why does \co{merge_counterandmax()} in
-	\cref{lst:count:Atomic Limit Counter Variables and Access Functions}
-	return an \co{int} rather than storing directly into an
-	\co{atomic_t}?
+	为什么\cref{lst:count:Atomic Limit Counter Variables and Access Functions}中的
+	\co{merge_counterandmax()}返回\co{int}
+	而不是直接存储到\co{atomic_t}中？
 }\QuickQuizAnswer{
-	Later, we will see that we need the \co{int} return to pass
-	to the \co{atomic_cmpxchg()} primitive.
+	稍后，我们将看到需要将\co{int}返回值
+	传递给\co{atomic_cmpxchg()}原语。
 }\QuickQuizEnd
 
 \begin{listing}
 \ebresizeverb{.81}{\input{CodeSamples/count/count_lim_atomic@add_sub.fcv}}
-\caption{Atomic Limit Counter Add and Subtract}
+\caption{Atomic Limit Counter加法和减法}
 \label{lst:count:Atomic Limit Counter Add and Subtract}
 \end{listing}
 
 \Cref{lst:count:Atomic Limit Counter Add and Subtract}
-shows the \co{add_count()} and \co{sub_count()} functions.
+展示了\co{add_count()}和\co{sub_count()}函数。
 
 \begin{fcvref}[ln:count:count_lim_atomic:add_sub:add]
-\Clnrefrange{b}{e} show \co{add_count()}, whose fastpath spans
-\clnrefrange{fast:b}{return:fs},
-with the remainder of the function being the slowpath.
-\Clnrefrange{fast:b}{loop:e} of the fastpath form a compare-and-swap
-(CAS) loop, with
-the \apik{atomic_cmpxchg()} primitive on
-\clnrefrange{atmcmpex}{loop:e} performing the
-actual CAS\@.
-\Clnref{split} splits the current thread's \co{counterandmax} variable into its
-\co{counter} (in \co{c}) and \co{countermax} (in \co{cm}) components,
-while placing the underlying \co{int} into \co{old}.
-\Clnref{check} checks whether the amount \co{delta} can be accommodated
-locally (taking care to avoid integer overflow), and if not,
-\clnref{goto} transfers to the slowpath.
-Otherwise, \clnref{merge} combines an updated \co{counter} value with the
-original \co{countermax} value into \co{new}.
-The \co{atomic_cmpxchg()} primitive on
-\clnrefrange{atmcmpex}{loop:e} then atomically
-compares this thread's \co{counterandmax} variable to \co{old},
-updating its value to \co{new} if the comparison succeeds.
-If the comparison succeeds, \clnref{return:fs} returns success, otherwise,
-execution continues in the loop at \clnref{fast:b}.
+\Clnrefrange{b}{e}展示了\co{add_count()}，其快速路径覆盖
+\clnrefrange{fast:b}{return:fs}，
+函数的其余部分为慢速路径。
+快速路径的\clnrefrange{fast:b}{loop:e}构成一个比较并交换
+（CAS）循环，
+\clnrefrange{atmcmpex}{loop:e}上的\apik{atomic_cmpxchg()}原语
+执行实际的CAS。
+\Clnref{split}将当前线程的\co{counterandmax}变量拆分为
+\co{counter}（\co{c}中）和\co{countermax}（\co{cm}中）组件，
+同时将底层\co{int}放入\co{old}中。
+\Clnref{check}检查\co{delta}量是否能在本地容纳
+（注意避免整数溢出），如果不能，
+\clnref{goto}转到慢速路径。
+否则，\clnref{merge}将更新后的\co{counter}值与
+原始\co{countermax}值合并为\co{new}。
+\clnrefrange{atmcmpex}{loop:e}上的\co{atomic_cmpxchg()}原语
+然后atomic地将此线程的\co{counterandmax}变量与\co{old}比较，
+如果比较成功则将其值更新为\co{new}。
+如果比较成功，\clnref{return:fs}返回成功，
+否则执行在\clnref{fast:b}继续循环。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Yecch!
-	Why the ugly \co{goto} on
-	\clnrefr{ln:count:count_lim_atomic:add_sub:add:goto} of
-	\cref{lst:count:Atomic Limit Counter Add and Subtract}?
-	Haven't you heard of the \co{break} statement???
+	呸！
+	\cref{lst:count:Atomic Limit Counter Add and Subtract}
+	\clnrefr{ln:count:count_lim_atomic:add_sub:add:goto}上
+	那个丑陋的\co{goto}是怎么回事？
+	你没听说过\co{break}语句吗？
 }\QuickQuizAnswerB{
-	Replacing the \co{goto} with a \co{break} would require keeping
-	a flag to determine whether or not
+	用\co{break}替换\co{goto}需要保留一个标志
+	来确定是否应该在
 	\clnrefr{ln:count:count_lim_atomic:add_sub:add:return:fs}
-	should return, which
-	is not the sort of thing you want on a fastpath.
-	If you really hate the \co{goto} that much, your best bet would
-	be to pull the fastpath into a separate function that returned
-	success or failure, with ``failure'' indicating a need for the
-	slowpath.
-	This is left as an exercise for goto-hating readers.
+	处返回，
+	这不是你在快速路径上想要的东西。
+	如果你真的那么讨厌\co{goto}，最好的办法是
+	将快速路径提取到一个返回成功或失败的单独函数中，
+	``失败''表示需要慢速路径。
+	这留作讨厌goto的读者的练习。
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:count:count_lim_atomic:add_sub:add]
-	Why would the \co{atomic_cmpxchg()} primitive at
-	\clnrefrange{atmcmpex}{loop:e} of
 	\cref{lst:count:Atomic Limit Counter Add and Subtract}
-	ever fail?
-	After all, we picked up its old value on \clnref{split} and have not
-	changed it!
+	\clnrefrange{atmcmpex}{loop:e}上的
+	\co{atomic_cmpxchg()}原语为什么会失败？
+	毕竟，我们在\clnref{split}上获取了它的旧值，
+	而且没有改变它！
 	\end{fcvref}
 }\QuickQuizAnswerE{
 	\begin{fcvref}[ln:count:count_lim_atomic:add_sub:add]
-	Later, we will see how the \co{flush_local_count()} function in
-	\cref{lst:count:Atomic Limit Counter Utility Functions 1}
-	might update this thread's \co{counterandmax} variable concurrently
-	with the execution of the fastpath on
-	\clnrefrange{fast:b}{loop:e} of
-	\cref{lst:count:Atomic Limit Counter Add and Subtract}.
+	稍后，我们将看到
+	\cref{lst:count:Atomic Limit Counter Utility Functions 1}中的
+	\co{flush_local_count()}函数如何可能与
+	\cref{lst:count:Atomic Limit Counter Add and Subtract}
+	\clnrefrange{fast:b}{loop:e}上的快速路径
+	并发更新此线程的\co{counterandmax}变量。
 	\end{fcvref}
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:count:count_lim_atomic:add_sub:add]
-\Clnrefrange{slow:b}{return:ss} of
-\cref{lst:count:Atomic Limit Counter Add and Subtract}
-show \co{add_count()}'s slowpath, which is protected by \co{gblcnt_mutex},
-which is acquired on \clnref{acquire} and released on
-\clnref{release:f,release:s}.
-\Clnref{globalize} invokes \co{globalize_count()},
-which moves this thread's
-state to the global counters.
-\Clnrefrange{checkglb:b}{checkglb:e} check whether
-the \co{delta} value can be accommodated by
-the current global state, and, if not, \clnref{flush} invokes
-\co{flush_local_count()} to flush all threads' local state to the
-global counters, and then
-\clnrefrange{checkglb:nb}{checkglb:ne} recheck whether \co{delta} can
-be accommodated.
-If, after all that, the addition of \co{delta} still cannot be accommodated,
-then \clnref{release:f} releases \co{gblcnt_mutex} (as noted earlier), and
-then \clnref{return:sf} returns failure.
+\cref{lst:count:Atomic Limit Counter Add and Subtract}的
+\Clnrefrange{slow:b}{return:ss}
+展示了\co{add_count()}的慢速路径，
+它由\co{gblcnt_mutex}保护，
+在\clnref{acquire}获取，在\clnref{release:f,release:s}释放。
+\Clnref{globalize}调用\co{globalize_count()}，
+将此线程的状态移到全局counter。
+\Clnrefrange{checkglb:b}{checkglb:e}检查当前全局状态
+是否能容纳\co{delta}值，如果不能，\clnref{flush}调用
+\co{flush_local_count()}将所有线程的本地状态刷新到
+全局counter，然后\clnrefrange{checkglb:nb}{checkglb:ne}
+重新检查是否能容纳\co{delta}。
+如果经过所有这些之后，\co{delta}的加法仍然无法容纳，
+则\clnref{release:f}释放\co{gblcnt_mutex}（如前所述），
+然后\clnref{return:sf}返回失败。
 
-Otherwise, \clnref{addglb} adds \co{delta} to the global counter,
-\clnref{balance}
-spreads counts to the local state if appropriate, \clnref{release:s} releases
-\co{gblcnt_mutex} (again, as noted earlier), and finally,
-\clnref{return:ss}
-returns success.
+否则，\clnref{addglb}将\co{delta}加到全局counter上，
+\clnref{balance}在适当时将计数分配到本地状态，
+\clnref{release:s}释放\co{gblcnt_mutex}（同样如前所述），
+最后\clnref{return:ss}返回成功。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_lim_atomic:add_sub:sub]
-\Clnrefrange{b}{e} of
-\cref{lst:count:Atomic Limit Counter Add and Subtract}
-show \co{sub_count()}, which is structured similarly to
-\co{add_count()}, having a fastpath on
-\clnrefrange{fast:b}{fast:e} and a slowpath on
-\clnrefrange{slow:b}{slow:e}.
-A line-by-line analysis of this function is left as an exercise to
-the reader.
+\cref{lst:count:Atomic Limit Counter Add and Subtract}的
+\Clnrefrange{b}{e}
+展示了\co{sub_count()}，其结构与\co{add_count()}类似，
+快速路径在\clnrefrange{fast:b}{fast:e}，
+慢速路径在\clnrefrange{slow:b}{slow:e}。
+此函数的逐行分析留作读者的练习。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_atomic@read.fcv}
-\caption{Atomic Limit Counter Read}
+\caption{Atomic Limit Counter读取}
 \label{lst:count:Atomic Limit Counter Read}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_atomic:read]
-\Cref{lst:count:Atomic Limit Counter Read} shows \co{read_count()}.
-\Clnref{acquire} acquires \co{gblcnt_mutex} and
-\clnref{release} releases it.
-\Clnref{initsum} initializes local variable \co{sum} to the value of
-\co{globalcount}, and the loop spanning
-\clnrefrange{loop:b}{loop:e} adds the
-per-thread counters to this sum, isolating each per-thread counter
-using \co{split_counterandmax} on \clnref{split}.
-Finally, \clnref{return} returns the sum.
+\Cref{lst:count:Atomic Limit Counter Read}展示了\co{read_count()}。
+\Clnref{acquire}获取\co{gblcnt_mutex}，
+\clnref{release}释放它。
+\Clnref{initsum}将局部变量\co{sum}初始化为\co{globalcount}的值，
+\clnrefrange{loop:b}{loop:e}的循环将per-thread counter
+加到此总和中，在\clnref{split}使用\co{split_counterandmax}
+隔离每个per-thread counter。
+最后，\clnref{return}返回总和。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_atomic@utility1.fcv}
-\caption{Atomic Limit Counter Utility Functions 1}
+\caption{Atomic Limit Counter工具函数1}
 \label{lst:count:Atomic Limit Counter Utility Functions 1}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_atomic@utility2.fcv}
-\caption{Atomic Limit Counter Utility Functions 2}
+\caption{Atomic Limit Counter工具函数2}
 \label{lst:count:Atomic Limit Counter Utility Functions 2}
 \end{listing}
 
 \Cref{lst:count:Atomic Limit Counter Utility Functions 1,%
 lst:count:Atomic Limit Counter Utility Functions 2}
-show the utility functions
-\co{globalize_count()},
-\co{flush_local_count()},
-\co{balance_count()},
-\co{count_register_thread()}, and
-\co{count_unregister_thread()}.
+展示了工具函数
+\co{globalize_count()}、
+\co{flush_local_count()}、
+\co{balance_count()}、
+\co{count_register_thread()}和
+\co{count_unregister_thread()}。
 \begin{fcvref}[ln:count:count_lim_atomic:utility1:globalize]
-The code for \co{globalize_count()} is shown on
-\clnrefrange{b}{e}
-of \cref{lst:count:Atomic Limit Counter Utility Functions 1}, and
-is similar to that of previous algorithms, with the addition of
-\clnref{split}, which is now required to split out \co{counter} and
-\co{countermax} from \co{counterandmax}.
+\co{globalize_count()}的代码在
+\cref{lst:count:Atomic Limit Counter Utility Functions 1}的
+\clnrefrange{b}{e}上展示，
+与前面算法类似，增加了\clnref{split}，
+现在需要它来从\co{counterandmax}中拆分出
+\co{counter}和\co{countermax}。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_lim_atomic:utility1:flush]
-The code for \co{flush_local_count()}, which moves all threads' local
-counter state to the global counter, is shown on
-\clnrefrange{b}{e}.
-\Clnref{checkrsv} checks to see if the value of
-\co{globalreserve} permits
-any per-thread counts, and, if not, \clnref{return:n} returns.
-Otherwise, \clnref{initzero} initializes local variable \co{zero} to a combined
-zeroed \co{counter} and \co{countermax}.
-The loop spanning \clnrefrange{loop:b}{loop:e} sequences
-through each thread.
-\Clnref{checkp} checks to see if the current thread has counter state,
-and, if so, \clnrefrange{atmxchg}{glbrsv} move that state
-to the global counters.
-\Clnref{atmxchg} atomically fetches the current thread's state
-while replacing it with zero.
-\Clnref{split} splits this state into its \co{counter}
-(in local variable \co{c})
-and \co{countermax} (in local variable \co{cm}) components.
-\Clnref{glbcnt} adds this thread's \co{counter} to \co{globalcount}, while
-\clnref{glbrsv} subtracts this thread's \co{countermax} from \co{globalreserve}.
+\co{flush_local_count()}的代码在
+\clnrefrange{b}{e}上展示，
+它将所有线程的本地counter状态移到全局counter。
+\Clnref{checkrsv}检查\co{globalreserve}的值
+是否允许任何per-thread计数，如果不允许，\clnref{return:n}返回。
+否则，\clnref{initzero}将局部变量\co{zero}初始化为
+合并的零\co{counter}和\co{countermax}。
+\clnrefrange{loop:b}{loop:e}的循环遍历每个线程。
+\Clnref{checkp}检查当前线程是否有counter状态，
+如果有，\clnrefrange{atmxchg}{glbrsv}将该状态
+移到全局counter。
+\Clnref{atmxchg}在用零替换的同时atomic地获取
+当前线程的状态。
+\Clnref{split}将此状态拆分为\co{counter}
+（局部变量\co{c}中）和\co{countermax}（局部变量\co{cm}中）组件。
+\Clnref{glbcnt}将此线程的\co{counter}加到\co{globalcount}上，
+\clnref{glbrsv}从\co{globalreserve}中减去此线程的\co{countermax}。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What stops a thread from simply refilling its
-	\co{counterandmax} variable immediately after
-	\co{flush_local_count()} on
-	\clnrefr{ln:count:count_lim_atomic:utility1:flush:b} of
+	什么阻止线程在
 	\cref{lst:count:Atomic Limit Counter Utility Functions 1}
-	empties it?
+	\clnrefr{ln:count:count_lim_atomic:utility1:flush:b}上的
+	\co{flush_local_count()}清空其
+	\co{counterandmax}变量后立即重新填充它？
 }\QuickQuizAnswerB{
-	This other thread cannot refill its \co{counterandmax}
-	until the caller of \co{flush_local_count()} releases the
-	\co{gblcnt_mutex}.
-	By that time, the caller of \co{flush_local_count()} will have
-	finished making use of the counts, so there will be no problem
-	with this other thread refilling---assuming that the value
-	of \co{globalcount} is large enough to permit a refill.
+	在\co{flush_local_count()}的调用者释放
+	\co{gblcnt_mutex}之前，其他线程无法重新填充其
+	\co{counterandmax}。
+	届时，\co{flush_local_count()}的调用者将已完成
+	对计数值的使用，因此其他线程的重新填充不会有问题——
+	假设\co{globalcount}的值足够大，允许重新填充。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	What prevents concurrent execution of the fastpath of either
-	\co{add_count()} or \co{sub_count()} from interfering with
-	the \co{counterandmax} variable while
-	\co{flush_local_count()} is accessing it on
-	\clnrefr{ln:count:count_lim_atomic:utility1:flush:atmxchg} of
-	\cref{lst:count:Atomic Limit Counter Utility Functions 1}?
+	什么阻止\co{add_count()}或\co{sub_count()}快速路径的
+	并发执行在
+	\cref{lst:count:Atomic Limit Counter Utility Functions 1}
+	\clnrefr{ln:count:count_lim_atomic:utility1:flush:atmxchg}上的
+	\co{flush_local_count()}访问\co{counterandmax}变量时
+	对其进行干扰？
 }\QuickQuizAnswerE{
-	Nothing.
-	Consider the following three cases:
+	没有什么能阻止。
+	考虑以下三种情况：
 	\begin{enumerate}
-	\item	If \co{flush_local_count()}'s \co{atomic_xchg()} executes
-		before the \co{split_counterandmax()} of either fastpath,
-		then the fastpath will see a zero \co{counter} and
-		\co{countermax}, and will thus transfer to the slowpath
-		(unless of course \co{delta} is zero).
-	\item	If \co{flush_local_count()}'s \co{atomic_xchg()} executes
-		after the \co{split_counterandmax()} of either fastpath,
-		but before that fastpath's \co{atomic_cmpxchg()},
-		then the \co{atomic_cmpxchg()} will fail, causing the
-		fastpath to restart, which reduces to case~1 above.
-	\item	If \co{flush_local_count()}'s \co{atomic_xchg()} executes
-		after the \co{atomic_cmpxchg()} of either fastpath,
-		then the fastpath will (most likely) complete successfully
-		before \co{flush_local_count()} zeroes the thread's
-		\co{counterandmax} variable.
+	\item	如果\co{flush_local_count()}的\co{atomic_xchg()}
+		在任一快速路径的\co{split_counterandmax()}之前执行，
+		则快速路径将看到零\co{counter}和\co{countermax}，
+		从而转到慢速路径（除非\co{delta}为零）。
+	\item	如果\co{flush_local_count()}的\co{atomic_xchg()}
+		在任一快速路径的\co{split_counterandmax()}之后
+		但在该快速路径的\co{atomic_cmpxchg()}之前执行，
+		则\co{atomic_cmpxchg()}将失败，导致快速路径重启，
+		这归结为上面的情况~1。
+	\item	如果\co{flush_local_count()}的\co{atomic_xchg()}
+		在任一快速路径的\co{atomic_cmpxchg()}之后执行，
+		则快速路径（很可能）在\co{flush_local_count()}
+		清零线程的\co{counterandmax}变量之前成功完成。
 	\end{enumerate}
-	Either way, the race is resolved correctly.
+	无论如何，竞争都被正确解决。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:count:count_lim_atomic:utility2]
-\Clnrefrange{balance:b}{balance:e} on
 \cref{lst:count:Atomic Limit Counter Utility Functions 2}
-show the code for \co{balance_count()}, which refills
-the calling thread's local \co{counterandmax} variable.
-This function is quite similar to that of the preceding algorithms,
-with changes required to handle the merged \co{counterandmax} variable.
-Detailed analysis of the code is left as an exercise for the reader,
-as it is with the \co{count_register_thread()} function starting on
-\clnref{register:b} and the \co{count_unregister_thread()} function starting on
-\clnref{unregister:b}.
+\Clnrefrange{balance:b}{balance:e}
+展示了\co{balance_count()}的代码，
+它重新填充调用线程的本地\co{counterandmax}变量。
+此函数与前面算法非常相似，
+需要进行更改以处理合并的\co{counterandmax}变量。
+代码的详细分析留作读者的练习，
+\clnref{register:b}开始的\co{count_register_thread()}函数
+和\clnref{unregister:b}开始的\co{count_unregister_thread()}函数
+也同样留作练习。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How can
-	\clnrefr{ln:count:count_lim_atomic:utility2:balance:atmcset} of
-	\co{balance_count()} in
-	\cref{lst:count:Atomic Limit Counter Utility Functions 2}
-	work correctly in face of concurrent \co{flush_local_count()}
-	updates to this variable?
+	\cref{lst:count:Atomic Limit Counter Utility Functions 2}中
+	\co{balance_count()}的
+	\clnrefr{ln:count:count_lim_atomic:utility2:balance:atmcset}
+	如何在并发\co{flush_local_count()}更新此变量的情况下
+	正确工作？
 }\QuickQuizAnswerB{
-	It wouldn't work if they were executed concurrently!
-	But no worries.
-	The callers of both \co{balance_count()} and
-	\co{flush_local_count()} hold \co{gblcnt_mutex}, so
-	only one may be executing at a given time.
+	如果它们并发执行的话，确实无法工作！
+	但不用担心。
+	\co{balance_count()}和\co{flush_local_count()}的调用者
+	都持有\co{gblcnt_mutex}，因此在给定时刻只有一个
+	可以执行。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Does the \co{atomic_set()} primitive in \co{balance_count()}
-	really need to be atomic?
+	\co{balance_count()}中的\co{atomic_set()}原语
+	真的需要是atomic的吗？
 }\QuickQuizAnswerE{
-	No, it does not.
-	As far as the code in question is concerned,
-	the \co{atomic_set()} updates the per-thread variable
-	\co{counterandmax} of its own, whose value can only be updated
-	either from its own thread's fastpaths or from slowpaths of all
-	updaters.
-	As the \co{atomic_set()} is in the slowpath, it can never
-	race with other atomic operations.
+	不需要。
+	就相关代码而言，\co{atomic_set()}更新的是
+	其自身线程的per-thread变量\co{counterandmax}，
+	该变量的值只能由其自身线程的快速路径或
+	所有更新方的慢速路径更新。
+	由于\co{atomic_set()}在慢速路径中，它永远不会
+	与其他atomic操作竞争。
 
-	So, even if this code is ported to an ISA where a plain store
-	to an \co{atomic_t} can interfere with atomic read-modify-write
-	operations, a non-atomic \co{atomic_set()} should work.
+	因此，即使此代码被移植到普通存储可以
+	干扰对\co{atomic_t}的atomic读-修改-写操作的ISA上，
+	非atomic的\co{atomic_set()}也应该能工作。
 
-	That said, such an optimization in slowpaths which is effective
-	only for those peculiar ISAs might not be worth bothering.
+	话虽如此，这种仅对那些特殊ISA有效的
+	慢速路径优化可能不值得费心。
 }\QuickQuizEndE
 }			% End of \QuickQuizSeries
 
-The next section qualitatively evaluates this design.
+下一节对此设计进行定性评估。
 \ebFloatBarrier
 
-\subsection{Atomic Limit Counter Discussion}
+\subsection{原子限值计数器讨论}
 
-This is the first implementation that actually allows the counter to
-be run all the way to either of its limits, but it does so at the
-expense of adding atomic operations to the fastpaths, which slow down
-the fastpaths significantly on some systems.
-Although some workloads might tolerate this slowdown, it is worthwhile
-looking for algorithms with better write-side performance.
-One such algorithm uses a signal handler to steal counts from other
-threads.
-Because signal handlers run in the context of the signaled thread,
-atomic operations are not necessary, as shown in the next section.
+这是第一个真正允许counter一直运行到其任一限制的实现，
+但代价是在快速路径中添加了atomic操作，
+这在某些系统上会显著减慢快速路径。
+虽然某些工作负载可能容忍这种减速，
+但值得寻找具有更好写入端性能的算法。
+一种这样的算法使用signal handler从其他线程窃取计数。
+因为signal handler在被信号中断的线程的上下文中运行，
+atomic操作不是必需的，如下一节所示。
 
 \QuickQuiz{
-	But signal handlers can be migrated to some other
-	CPU while running.
-	Doesn't this possibility require that atomic instructions
-	and memory barriers are required to reliably communicate
-	between a thread and a signal handler that interrupts that
-	thread?
+	但signal handler可以在运行时被迁移到其他CPU上。
+	这种可能性不需要atomic指令和内存屏障来
+	在线程和中断该线程的signal handler之间
+	可靠通信吗？
 }\QuickQuizAnswer{
-	No.
-	If the signal handler is migrated to another CPU, then the
-	interrupted thread is also migrated along with it.
+	不需要。
+	如果signal handler被迁移到另一个CPU，
+	被中断的线程也随之迁移。
 }\QuickQuizEnd
 
-\subsection{Signal-Theft Limit Counter Design}
+\subsection{信号窃取限值计数器设计}
 \label{sec:count:Signal-Theft Limit Counter Design}
 
-Even though per-thread state will now be manipulated only by the
-corresponding thread, there will still need to be synchronization
-with the signal handlers.
-This synchronization is provided by the state machine shown in
-\cref{fig:count:Signal-Theft State Machine}.
+即使per-thread状态现在仅由相应线程操作，
+仍然需要与signal handler进行同步。
+此同步由\cref{fig:count:Signal-Theft State Machine}
+所示的状态机提供。
 
 \begin{figure}
 \centering
 \resizebox{2in}{!}{\includegraphics{count/sig-theft}}
-\caption{Signal-Theft State Machine}
+\caption{Signal-Theft状态机}
 \label{fig:count:Signal-Theft State Machine}
 \end{figure}
 
-The state machine starts out in the IDLE state, and when \co{add_count()}
-or \co{sub_count()} find that the combination of the local thread's count
-and the global count cannot accommodate the request, the corresponding
-slowpath sets each thread's \co{theft} state to REQ (unless that thread
-has no count, in which case it transitions directly to READY)\@.
-Only the slowpath, which holds the \co{gblcnt_mutex} lock, is permitted to
-transition from the IDLE state, as indicated by the green color.\footnote{
-	For those with black-and-white versions of this book,
-	IDLE and READY are green, REQ is red, and ACK is blue.}
-The slowpath then sends a signal to each thread, and the corresponding
-signal handler checks the corresponding thread's \co{theft} and
-\co{counting} variables.
-If the \co{theft} state is not REQ, then the signal handler is not
-permitted to change the state, and therefore simply returns.
-Otherwise, if the \co{counting} variable is set, indicating that
-the current thread's fastpath is in progress, the signal handler
-sets the \co{theft} state to ACK, otherwise to READY\@.
+状态机从IDLE状态开始，当\co{add_count()}或\co{sub_count()}
+发现本地线程的计数与全局计数的组合无法容纳请求时，
+相应的慢速路径将每个线程的\co{theft}状态设置为REQ
+（除非该线程没有计数，此时直接转换到READY）。
+只有持有\co{gblcnt_mutex} lock的慢速路径才允许
+从IDLE状态转换，如绿色所示。\footnote{
+	对于持有黑白版本本书的读者，
+	IDLE和READY是绿色，REQ是红色，ACK是蓝色。}
+然后慢速路径向每个线程发送信号，
+相应的signal handler检查对应线程的\co{theft}和
+\co{counting}变量。
+如果\co{theft}状态不是REQ，则signal handler
+不允许改变状态，因此简单地返回。
+否则，如果\co{counting}变量已设置（表示当前线程的
+快速路径正在进行中），signal handler将\co{theft}状态
+设置为ACK，否则设为READY。
 
-If the \co{theft} state is ACK,
-only the fastpath is permitted to change
-the \co{theft} state, as indicated by the blue color.
-When the fastpath completes, it sets the \co{theft} state to READY\@.
+如果\co{theft}状态为ACK，
+只有快速路径才允许改变\co{theft}状态，如蓝色所示。
+当快速路径完成时，它将\co{theft}状态设置为READY。
 
-Once the slowpath sees a thread's \co{theft} state is READY, the
-slowpath is permitted to steal that thread's count.
-The slowpath then sets that thread's \co{theft} state to IDLE\@.
+一旦慢速路径看到线程的\co{theft}状态为READY，
+慢速路径就被允许窃取该线程的计数。
+然后慢速路径将该线程的\co{theft}状态设置为IDLE。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	In \cref{fig:count:Signal-Theft State Machine}, why is
-	the REQ \co{theft} state colored red?
+	在\cref{fig:count:Signal-Theft State Machine}中，
+	为什么REQ \co{theft}状态用红色标记？
 }\QuickQuizAnswerB{
-	To indicate that only the fastpath is permitted to change the
-	\co{theft} state, and that if the thread remains in this
-	state for too long, the thread running the slowpath will
-	resend the POSIX signal.
+	表示只有快速路径才允许改变\co{theft}状态，
+	如果线程在此状态停留太久，
+	运行慢速路径的线程将重新发送POSIX信号。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	In \cref{fig:count:Signal-Theft State Machine}, what is
-	the point of having separate REQ and ACK \co{theft} states?
-	Why not simplify the state machine by collapsing
-	them into a single REQACK state?
-	Then whichever of the signal handler or the fastpath gets there
-	first could set the state to READY\@.
+	在\cref{fig:count:Signal-Theft State Machine}中，
+	拥有单独的REQ和ACK \co{theft}状态有什么意义？
+	为什么不通过将它们合并为单个REQACK状态来简化状态机？
+	那么signal handler或快速路径中先到达的
+	就可以将状态设为READY。
 }\QuickQuizAnswerE{
-	Reasons why collapsing the REQ and ACK states would be a very
-	bad idea include:
+	合并REQ和ACK状态是一个非常糟糕的主意，
+	原因包括：
 	\begin{enumerate}
-	\item	The slowpath uses the REQ and ACK states to determine
-		whether the signal should be retransmitted.
-		If the states were collapsed, the slowpath would have
-		no choice but to send redundant signals, which would
-		have the unhelpful effect of needlessly slowing down
-		the fastpath.
-	\item	The following race would result:
+	\item	慢速路径使用REQ和ACK状态来确定
+		是否应重新传输信号。
+		如果状态被合并，慢速路径将别无选择
+		只能发送冗余信号，这将产生
+		不必要地减慢快速路径的不良效果。
+	\item	将产生以下竞争：
 		\begin{enumerate}
-		\item	The slowpath sets a given thread's state to REQACK.
-		\item	That thread has just finished its fastpath, and
-			notes the REQACK state.
-		\item	The thread receives the signal, which also notes
-			the REQACK state, and, because there is no fastpath
-			in effect, sets the state to READY\@.
-		\item	The slowpath notes the READY state, steals the
-			count, and sets the state to IDLE, and completes.
-		\item	The fastpath sets the state to READY, disabling
-			further fastpath execution for this thread.
+		\item	慢速路径将给定线程的状态设置为REQACK。
+		\item	该线程刚刚完成其快速路径，
+			并注意到REQACK状态。
+		\item	线程接收到信号，signal handler也注意到
+			REQACK状态，并且由于没有快速路径
+			在进行中，将状态设为READY。
+		\item	慢速路径注意到READY状态，窃取计数，
+			将状态设为IDLE，并完成。
+		\item	快速路径将状态设为READY，
+			禁用了该线程的后续快速路径执行。
 		\end{enumerate}
-		The basic problem here is that the combined REQACK state
-		can be referenced by both the signal handler and the
-		fastpath.
-		The clear separation maintained by the four-state
-		setup ensures orderly state transitions.
+		这里的基本问题是合并的REQACK状态
+		可以被signal handler和快速路径同时引用。
+		四状态设置维护的清晰分离确保了有序的状态转换。
 	\end{enumerate}
-	That said, you might well be able to make a three-state setup
-	work correctly.
-	If you do succeed, compare carefully to the four-state setup.
-	Is the three-state solution really preferable, and why or why not?
+	话虽如此，你也许能够使三状态设置正确工作。
+	如果你成功了，请仔细与四状态设置进行比较。
+	三状态解决方案真的更好吗？为什么？
 }\QuickQuizEndE
 }
 
-\subsection{Signal-Theft Limit Counter Implementation}
+\subsection{信号窃取限值计数器实现}
 \label{sec:count:Signal-Theft Limit Counter Implementation}
 
 \begin{fcvref}[ln:count:count_lim_sig:data]
 \Cref{lst:count:Signal-Theft Limit Counter Data}
-(\path{count_lim_sig.c})
-shows the data structures used by the signal-theft based counter
-implementation.
-\Clnrefrange{value:b}{value:e} define the states and values
-for the per-thread theft state machine
-described in the preceding section.
-\Clnrefrange{var:b}{var:e} are similar to earlier implementations,
-with the addition of
-\clnref{maxp,theftp} to allow remote access to a
-thread's \co{countermax}
-and \co{theft} variables, respectively.
+（\path{count_lim_sig.c}）
+展示了基于signal-theft的counter实现使用的数据结构。
+\Clnrefrange{value:b}{value:e}定义了前一节描述的
+per-thread theft状态机的状态和值。
+\Clnrefrange{var:b}{var:e}与早期实现类似，
+增加了\clnref{maxp,theftp}以允许远程访问
+线程的\co{countermax}和\co{theft}变量。
 \end{fcvref}
 
 \begin{listing}
 \ebresizeverb{.9}{\input{CodeSamples/count/count_lim_sig@data.fcv}}
-\caption{Signal-Theft Limit Counter Data}
+\caption{Signal-Theft Limit Counter数据}
 \label{lst:count:Signal-Theft Limit Counter Data}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_sig:migration:globalize]
 \Cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}
-shows the functions responsible for migrating counts between per-thread
-variables and the global variables.
-\Clnrefrange{b}{e} show \co{globalize_count()},
-which is identical to earlier
-implementations.
+展示了负责在per-thread变量和全局变量之间迁移计数的函数。
+\Clnrefrange{b}{e}展示了\co{globalize_count()}，
+与早期实现相同。
 \end{fcvref}
 \begin{fcvref}[ln:count:count_lim_sig:migration:flush_sig]
-\Clnrefrange{b}{e} show \co{flush_local_count_sig()},
-which is the signal
-handler used in the theft process.
-\Clnref{check:REQ,return:n} check to see if
-the \co{theft} state is REQ, and, if not
-returns without change.
-\Clnref{set:ACK} sets the \co{theft} state to ACK, and, if
-\clnref{check:fast} sees that
-this thread's fastpaths are not running, \clnref{set:READY} uses
-\co{smp_store_release()} to set the \co{theft}
-state to READY, further ensuring that any change to \co{counter} in
-the fastpath happens before this change of \co{theft} to READY\@.
+\Clnrefrange{b}{e}展示了\co{flush_local_count_sig()}，
+它是theft过程中使用的signal handler。
+\Clnref{check:REQ,return:n}检查\co{theft}状态是否为REQ，
+如果不是则不做更改直接返回。
+\Clnref{set:ACK}将\co{theft}状态设为ACK，
+如果\clnref{check:fast}发现此线程的快速路径未在运行，
+\clnref{set:READY}使用\co{smp_store_release()}
+将\co{theft}状态设为READY，
+进一步确保快速路径中对\co{counter}的任何更改
+发生在\co{theft}更改为READY之前。
 \end{fcvref}
 
 \begin{listing}
 \ebresizeverb{.839}{\input{CodeSamples/count/count_lim_sig@migration.fcv}}
-\caption{Signal-Theft Limit Counter Value-Migration Functions}
+\caption{Signal-Theft Limit Counter值迁移函数}
 \label{lst:count:Signal-Theft Limit Counter Value-Migration Functions}
 \end{listing}
 
 \QuickQuiz{
-	In \cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions},
-	doesn't \co{flush_local_count_sig()} need stronger memory barriers?
+	在\cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}中，
+	\co{flush_local_count_sig()}不需要更强的内存屏障吗？
 }\QuickQuizAnswer{
-	No, that \co{smp_store_release()} suffices because this code
-	communicates only with \co{flush_local_count()}, and there is
-	no need for store-to-load ordering.
+	不需要，那个\co{smp_store_release()}就够了，
+	因为此代码仅与\co{flush_local_count()}通信，
+	而且不需要store-to-load排序。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim_sig:migration:flush]
-\Clnrefrange{b}{e} show \co{flush_local_count()}, which is called from the
-slowpath to flush all threads' local counts.
-The loop spanning
-\clnrefrange{loop:b}{loop:e} advances the \co{theft} state for each
-thread that has local count, and also sends that thread a signal.
-\Clnref{skip} skips any non-existent threads.
-Otherwise, \clnref{checkmax} checks to see if the current thread holds any local
-count, and, if not, \clnref{READY} sets the thread's \co{theft} state to READY
-and \clnref{next} skips to the next thread.
-Otherwise, \clnref{REQ} sets the thread's \co{theft} state to REQ and
-\clnref{signal} sends the thread a signal.
+\Clnrefrange{b}{e}展示了\co{flush_local_count()}，
+它从慢速路径调用以刷新所有线程的本地计数。
+\clnrefrange{loop:b}{loop:e}的循环
+为每个持有本地计数的线程推进\co{theft}状态，
+并向该线程发送信号。
+\Clnref{skip}跳过任何不存在的线程。
+否则，\clnref{checkmax}检查当前线程是否持有本地计数，
+如果没有，\clnref{READY}将线程的\co{theft}状态设为READY，
+\clnref{next}跳到下一个线程。
+否则，\clnref{REQ}将线程的\co{theft}状态设为REQ，
+\clnref{signal}向线程发送信号。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	In \cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions},
-	why is it safe for
-	\clnrefr{ln:count:count_lim_sig:migration:flush:checkmax}
-	to directly access the other thread's
-	\co{countermax} variable?
+	在\cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}中，
+	为什么\clnrefr{ln:count:count_lim_sig:migration:flush:checkmax}
+	可以安全地直接访问其他线程的\co{countermax}变量？
 }\QuickQuizAnswerB{
-	Because the other thread is not permitted to change the value
-	of its \co{countermax} variable unless it holds the
-	\co{gblcnt_mutex} lock.
-	But the caller has acquired this lock, so it is not possible
-	for the other thread to hold it, and therefore the other thread
-	is not permitted to change its \co{countermax} variable.
-	We can therefore safely access it---but not change it.
+	因为除非持有\co{gblcnt_mutex} lock，
+	否则不允许其他线程更改其\co{countermax}变量的值。
+	但调用者已获取此lock，因此其他线程不可能持有它，
+	因此不允许更改其\co{countermax}变量。
+	所以我们可以安全地访问它——但不能更改它。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	In \cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions},
-	why doesn't
-	\clnrefr{ln:count:count_lim_sig:migration:flush:signal}
-	check for the current thread sending itself
-	a signal?
+	在\cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}中，
+	为什么\clnrefr{ln:count:count_lim_sig:migration:flush:signal}
+	不检查当前线程是否在向自己发送信号？
 }\QuickQuizAnswerM{
-	There is no need for an additional check.
-	The caller of \co{flush_local_count()} has already invoked
-	\co{globalize_count()}, so the check on
+	不需要额外检查。
+	\co{flush_local_count()}的调用者已经调用了
+	\co{globalize_count()}，因此
 	\clnrefr{ln:count:count_lim_sig:migration:flush:checkmax}
-	will have succeeded, skipping the later \co{pthread_kill()}.
+	上的检查将成功，跳过后面的\co{pthread_kill()}。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	The code shown in
 	\cref{lst:count:Signal-Theft Limit Counter Data,%
-	lst:count:Signal-Theft Limit Counter Value-Migration Functions}
-	works with \GCC\ and POSIX\@.
-	What would be required to make it also conform to the ISO C standard?
+	lst:count:Signal-Theft Limit Counter Value-Migration Functions}中
+	所示的代码适用于\GCC\ 和POSIX。
+	要使其同时符合ISO C标准需要什么？
 }\QuickQuizAnswerE{
-	The \co{theft} variable must be of type \co{sig_atomic_t}
-	to guarantee that it can be safely shared between the signal
-	handler and the code interrupted by the signal.
+	\co{theft}变量必须是\co{sig_atomic_t}类型，
+	以保证它可以在signal handler和
+	被信号中断的代码之间安全共享。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:count:count_lim_sig:migration:flush]
-The loop spanning \clnrefrange{loop2:b}{loop2:e} waits until each
-thread reaches READY state,
-then steals that thread's count.
-\Clnrefrange{skip:nonexist}{next2} skip any non-existent threads,
-and the loop spanning
-\clnrefrange{loop3:b}{loop3:e} waits until the current
-thread's \co{theft} state becomes READY\@.
-\Clnref{block} blocks for a millisecond to avoid priority-inversion problems,
-and if \clnref{check:REQ} determines that the thread's signal has not yet arrived,
-\clnref{signal2} resends the signal.
-Execution reaches \clnref{thiev:b} when the thread's \co{theft} state becomes
-READY, so \clnrefrange{thiev:b}{thiev:e} do the thieving.
-\Clnref{IDLE} then sets the thread's \co{theft} state back to IDLE\@.
+\clnrefrange{loop2:b}{loop2:e}的循环
+等待每个线程达到READY状态，然后窃取该线程的计数。
+\Clnrefrange{skip:nonexist}{next2}跳过不存在的线程，
+\clnrefrange{loop3:b}{loop3:e}的循环
+等待当前线程的\co{theft}状态变为READY。
+\Clnref{block}阻塞一毫秒以避免优先级反转问题，
+如果\clnref{check:REQ}确定线程的信号尚未到达，
+\clnref{signal2}重新发送信号。
+当线程的\co{theft}状态变为READY时执行到达\clnref{thiev:b}，
+因此\clnrefrange{thiev:b}{thiev:e}执行窃取。
+\Clnref{IDLE}然后将线程的\co{theft}状态设回IDLE。
 \end{fcvref}
 
 \QuickQuiz{
-	In \cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions},
-	why does \clnrefr{ln:count:count_lim_sig:migration:flush:signal2}
-	resend the signal?
+	在\cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}中，
+	为什么\clnrefr{ln:count:count_lim_sig:migration:flush:signal2}
+	要重新发送信号？
 }\QuickQuizAnswer{
-	Because many operating systems over several decades have
-	had the property of losing the occasional signal.
-	Whether this is a feature or a bug is debatable, but
-	irrelevant.
-	The obvious symptom from the user's viewpoint will not be
-	a kernel bug, but rather a user application hanging.
+	因为数十年来许多操作系统都有偶尔丢失信号的特性。
+	这是特性还是bug尚有争议，但无关紧要。
+	从用户的角度来看，明显的症状不是内核bug，
+	而是用户应用程序挂起。
 
-	\emph{Your} user application hanging!
+	\emph{你的}用户应用程序挂起！
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim_sig:migration:balance]
-\Clnrefrange{b}{e} show \co{balance_count()}, which is similar to that of
-earlier examples.
+\Clnrefrange{b}{e}展示了\co{balance_count()}，
+与早期示例类似。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_sig@add.fcv}
-\caption{Signal-Theft Limit Counter Add Function}
+\caption{Signal-Theft Limit Counter加法函数}
 \label{lst:count:Signal-Theft Limit Counter Add Function}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_sig@sub.fcv}
-\caption{Signal-Theft Limit Counter Subtract Function}
+\caption{Signal-Theft Limit Counter减法函数}
 \label{lst:count:Signal-Theft Limit Counter Subtract Function}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_sig:add]
 \Cref{lst:count:Signal-Theft Limit Counter Add Function}
-shows the \co{add_count()} function.
-The fastpath spans \clnrefrange{fast:b}{return:fs}, and the slowpath
-\clnrefrange{acquire}{return:ss}.
-\Clnref{fast:b} sets the per-thread \co{counting} variable to 1 so that
-any subsequent signal handlers interrupting this thread will
-set the \co{theft} state to ACK rather than READY, allowing this
-fastpath to complete properly.
-\Clnref{barrier:1} prevents the compiler from reordering any of the fastpath body
-to precede the setting of \co{counting}.
-\Clnref{check:b,check:e} check to see
-if the per-thread data can accommodate
-the \co{add_count()} and if there is no ongoing theft in progress,
-and if so \clnref{add:f} does the fastpath addition and
-\clnref{fasttaken} notes that
-the fastpath was taken.
+展示了\co{add_count()}函数。
+快速路径覆盖\clnrefrange{fast:b}{return:fs}，
+慢速路径覆盖\clnrefrange{acquire}{return:ss}。
+\Clnref{fast:b}将per-thread \co{counting}变量设为1，
+这样任何后续中断此线程的signal handler将
+把\co{theft}状态设为ACK而不是READY，
+允许此快速路径正确完成。
+\Clnref{barrier:1}防止编译器将快速路径主体的任何部分
+重排到\co{counting}的设置之前。
+\Clnref{check:b,check:e}检查per-thread数据是否能容纳
+\co{add_count()}且没有正在进行的theft，
+如果是，\clnref{add:f}执行快速路径加法，
+\clnref{fasttaken}记录快速路径已被采用。
 
-In either case, \clnref{barrier:2} prevents the compiler from reordering the
-fastpath body to follow \clnref{clearcnt}, which permits any subsequent signal
-handlers to undertake theft.
-\Clnref{barrier:3} again disables compiler reordering, and then
-\clnref{check:ACK}
-checks to see if the signal handler deferred the \co{theft}
-state-change to READY, and, if so, \clnref{READY} uses
-\co{smp_store_release()} to set the \co{theft} state to
-READY, further ensuring that
-any CPU that sees the READY state also sees the effects
-of \clnref{add:f}.
-If the fastpath addition at \clnref{add:f} was executed, then
-\clnref{return:fs} returns
-success.
+在两种情况下，\clnref{barrier:2}防止编译器将
+快速路径主体重排到\clnref{clearcnt}之后，
+后者允许任何后续signal handler进行theft。
+\Clnref{barrier:3}再次禁用编译器重排，
+然后\clnref{check:ACK}检查signal handler
+是否延迟了\co{theft}状态到READY的更改，
+如果是，\clnref{READY}使用\co{smp_store_release()}
+将\co{theft}状态设为READY，
+进一步确保任何看到READY状态的CPU
+也看到\clnref{add:f}的效果。
+如果\clnref{add:f}上的快速路径加法已执行，
+则\clnref{return:fs}返回成功。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_sig@read.fcv}
-\caption{Signal-Theft Limit Counter Read Function}
+\caption{Signal-Theft Limit Counter读取函数}
 \label{lst:count:Signal-Theft Limit Counter Read Function}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_sig:add]
-Otherwise, we fall through to the slowpath starting at \clnref{acquire}.
-The structure of the slowpath is similar to those of earlier examples,
-so its analysis is left as an exercise to the reader.
+否则，我们落入从\clnref{acquire}开始的慢速路径。
+慢速路径的结构与早期示例类似，
+其分析留作读者的练习。
 \end{fcvref}
-Similarly, the structure of \co{sub_count()} on
-\cref{lst:count:Signal-Theft Limit Counter Subtract Function}
-is the same
-as that of \co{add_count()}, so the analysis of \co{sub_count()} is also
-left as an exercise for the reader, as is the analysis of
-\co{read_count()} in
-\cref{lst:count:Signal-Theft Limit Counter Read Function}.
+类似地，\cref{lst:count:Signal-Theft Limit Counter Subtract Function}上
+\co{sub_count()}的结构与\co{add_count()}相同，
+因此\co{sub_count()}的分析也留作读者的练习，
+\cref{lst:count:Signal-Theft Limit Counter Read Function}中
+\co{read_count()}的分析亦然。
 
 \begin{listing}
 \input{CodeSamples/count/count_lim_sig@initialization.fcv}
-\caption{Signal-Theft Limit Counter Initialization Functions}
+\caption{Signal-Theft Limit Counter初始化函数}
 \label{lst:count:Signal-Theft Limit Counter Initialization Functions}
 \end{listing}
 
 \begin{fcvref}[ln:count:count_lim_sig:initialization:init]
-\Clnrefrange{b}{e} of
-\cref{lst:count:Signal-Theft Limit Counter Initialization Functions}
-show \co{count_init()}, which set up \co{flush_local_count_sig()}
-as the signal handler for \co{SIGUSR1},
-enabling the \apipx{pthread_kill()} calls in \co{flush_local_count()}
-to invoke \co{flush_local_count_sig()}.
-The code for thread registry and unregistry is similar to that of
-earlier examples, so its analysis is left as an exercise for the
-reader.
+\cref{lst:count:Signal-Theft Limit Counter Initialization Functions}的
+\Clnrefrange{b}{e}
+展示了\co{count_init()}，它将\co{flush_local_count_sig()}
+设置为\co{SIGUSR1}的signal handler，
+使\co{flush_local_count()}中的\apipx{pthread_kill()}调用
+能够调用\co{flush_local_count_sig()}。
+线程注册和注销的代码与早期示例类似，
+其分析留作读者的练习。
 \end{fcvref}
 
-\subsection{Signal-Theft Limit Counter Discussion}
+\subsection{信号窃取限值计数器讨论}
 
-The signal-theft implementation runs more than eight times as fast as the
-atomic implementation on my six-core x86 laptop.
-Is it always preferable?
+Signal-theft实现在我的六核x86笔记本电脑上
+比atomic实现快八倍以上。
+它总是更好的选择吗？
 
-The signal-theft implementation would be vastly preferable on Pentium-4
-systems, given their slow atomic instructions, but the old 80386-based
-Sequent Symmetry systems would do much better with the shorter path
-length of the atomic implementation.
-However, this increased update-side performance comes at the
-prices of higher read-side overhead:
-Those POSIX signals are not free.
-If ultimate performance is of the essence, you will need to measure
-them both on the system that your application is to be deployed on.
-
-\QuickQuiz{
-	Not only are POSIX signals slow, sending one to each thread
-	simply does not scale.
-	What would you do if you had (say) 10,000 threads and needed
-	the read side to be fast?
-}\QuickQuizAnswer{
-	One approach is to use the techniques shown in
-	\cref{sec:count:Eventually Consistent Implementation},
-	summarizing an approximation to the overall counter value in
-	a single variable.
-	Another approach would be to use multiple threads to carry
-	out the reads, with each such thread interacting with a
-	specific subset of the updating threads.
-}\QuickQuizEnd
-
-This is but one reason why high-quality APIs are so important:
-They permit implementations to be changed as required by ever-changing
-hardware performance characteristics.
+Signal-theft实现在Pentium-4系统上将是极其可取的，
+鉴于其缓慢的atomic指令，但基于老式80386的
+Sequent Symmetry系统使用atomic实现较短的路径长度
+会做得更好。
+然而，这种增加的更新端性能是以更高的读取端开销为代价的：
+那些POSIX信号不是免费的。
+如果极致性能至关重要，你需要在应用程序将要部署的
+系统上对两者进行测量。
 
 \QuickQuiz{
-	What if you want an exact limit counter to be exact only for
-	its lower limit, but to allow the upper limit to be inexact?
+	POSIX信号不仅慢，向每个线程发送一个信号
+	根本无法扩展。
+	如果你有（比方说）10,000个线程，
+	需要读取端快速，你会怎么做？
 }\QuickQuizAnswer{
-	One simple solution is to overstate the upper limit by the
-	desired amount.
-	The limiting case of such overstatement results in the
-	upper limit being set to the largest value that the counter is
-	capable of representing.
+	一种方法是使用\cref{sec:count:Eventually Consistent Implementation}
+	中展示的技术，在单个变量中汇总整体counter值的近似值。
+	另一种方法是使用多个线程来执行读取，
+	每个线程与更新线程的特定子集交互。
 }\QuickQuizEnd
 
-\subsection{Applying Exact Limit Counters}
+这只是高质量API如此重要的原因之一：
+它们允许随着不断变化的硬件性能特征按需更改实现。
+
+\QuickQuiz{
+	如果你想要一个exact limit counter仅对其下限精确，
+	但允许上限不精确呢？
+}\QuickQuizAnswer{
+	一个简单的解决方案是将上限夸大所需的数量。
+	这种夸大的极限情况是将上限设置为
+	counter能够表示的最大值。
+}\QuickQuizEnd
+
+\subsection{精确限值计数器的应用}
 \label{sec:count:Applying Exact Limit Counters}
 
-Although the exact limit counter implementations presented in this
-section can be very useful, they are not much help if the counter's value
-remains near zero at all times, as it might when counting the number
-of outstanding accesses to an I/O device.
-The high overhead of such near-zero counting is especially painful
-given that we normally don't care how many references there are.
-As noted in the removable I/O device access-count problem posed by
-\QuickQuizRef{\QcountQIOcnt},
-the number of accesses is irrelevant except in those rare cases when
-someone is actually trying to remove the device.
+虽然本节介绍的exact limit counter实现非常有用，
+但如果counter的值始终接近零（例如计算对I/O设备的
+未完成访问次数时可能出现的情况），
+它们就帮不了什么忙了。
+考虑到我们通常不关心有多少引用，
+这种接近零计数的高开销尤为痛苦。
+如\QuickQuizRef{\QcountQIOcnt}中提出的
+可移除I/O设备访问计数问题所述，
+访问次数是无关紧要的，除了在某人实际尝试
+移除设备的罕见情况下。
 
-One simple solution to this problem is to add a large ``bias''
-(for example, one billion) to the
-counter in order to ensure that the value is far enough from zero that
-the counter can operate efficiently.
-When someone wants to remove the device, this bias is subtracted from
-the counter value.
-Counting the last few accesses will be quite inefficient,
-but the important point is that the many prior accesses will have been
-counted at full speed.
+这个问题的一个简单解决方案是给counter添加一个大的``偏置''
+（例如十亿），以确保值距零足够远，
+使counter能够高效运行。
+当有人想要移除设备时，从counter值中减去此偏置。
+计数最后几次访问将相当低效，
+但重要的是之前的许多访问都以全速被计数了。
 
 \QuickQuiz{
-	What else had you better have done when using a biased counter?
+	使用偏置counter时，你最好还做了什么？
 }\QuickQuizAnswer{
-	You had better have set the upper limit to be large enough
-	accommodate the bias, the expected maximum number of accesses,
-	and enough ``slop'' to allow the counter to work efficiently
-	even when the number of accesses is at its maximum.
+	你最好已将上限设置得足够大，
+	以容纳偏置、预期最大访问次数，
+	以及足够的``余量''来允许counter即使在
+	访问次数达到最大值时也能高效工作。
 }\QuickQuizEnd
 
-Although a biased counter can be quite helpful and useful, it is only a
-partial solution to the removable I/O device access-count problem
-called out on
-\cpageref{chp:Counting}.
-When attempting to remove a device, we must not only know the precise
-number of current I/O accesses, we also need to prevent any future
-accesses from starting.
-One way to accomplish this is to read-acquire a reader-writer lock
-when updating the counter, and to write-acquire that same reader-writer
-lock when checking the counter.
-Code for doing I/O might be as follows:
+虽然偏置counter可以非常有用，但它只是
+\cpageref{chp:Counting}上提出的可移除I/O设备
+访问计数问题的部分解决方案。
+当试图移除设备时，我们不仅必须知道当前I/O访问的
+精确数量，还需要防止任何未来的访问开始。
+一种实现方法是在更新counter时读获取读写lock，
+在检查counter时写获取同一读写lock。
+执行I/O的代码可能如下：
 
 \begin{fcvlabel}[ln:count:inline:I/O]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -2782,30 +2443,27 @@ if (removing) {			\lnlbl[check]
 \end{fcvlabel}
 
 \begin{fcvref}[ln:count:inline:I/O]
-\Clnref{acq} read-acquires the lock, and either
-\clnref{rel1} or~\lnref{rel2} releases it.
-\Clnref{check} checks to see if the device is being removed, and, if so,
-\clnref{rel1} releases the lock and
-\clnref{cancel} cancels the I/O, or takes whatever
-action is appropriate given that the device is to be removed.
-Otherwise, \clnref{inc} increments the access count,
-\clnref{rel2} releases the
-lock, \clnref{do} performs the I/O, and
-\clnref{dec} decrements the access count.
+\Clnref{acq}读获取lock，
+\clnref{rel1}或~\lnref{rel2}释放它。
+\Clnref{check}检查设备是否正在被移除，如果是，
+\clnref{rel1}释放lock，
+\clnref{cancel}取消I/O或采取设备即将移除时适当的操作。
+否则，\clnref{inc}递增访问计数，
+\clnref{rel2}释放lock，
+\clnref{do}执行I/O，
+\clnref{dec}递减访问计数。
 \end{fcvref}
 
 \QuickQuiz{
-	This is ridiculous!
-	We are \emph{read}-acquiring a reader-writer lock to
-	\emph{update} the counter?
-	What are you playing at???
+	这太荒谬了！
+	我们在\emph{读}获取读写lock来\emph{更新}counter？
+	你在搞什么？
 }\QuickQuizAnswer{
-	Strange, perhaps, but true!
-	Almost enough to make you think that the name
-	``reader-writer lock'' was poorly chosen, isn't it?
+	奇怪，也许，但确实如此！
+	几乎足以让你觉得``读写lock''这个名字起得不好，不是吗？
 }\QuickQuizEnd
 
-The code to remove the device might be as follows:
+移除设备的代码可能如下：
 
 \begin{fcvlabel}[ln:count:inline:remove]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -2820,71 +2478,59 @@ remove_device();		\lnlbl[remove]
 \end{fcvlabel}
 
 \begin{fcvref}[ln:count:inline:remove]
-\Clnref{acq} write-acquires the lock and
-\clnref{rel} releases it.
-\Clnref{note} notes that the device is being removed, and the loop spanning
-\clnrefrange{loop:b}{loop:e} waits for any I/O operations to complete.
-Finally, \clnref{remove} does any additional processing needed to prepare for
-device removal.
+\Clnref{acq}写获取lock，\clnref{rel}释放它。
+\Clnref{note}记录设备正在被移除，
+\clnrefrange{loop:b}{loop:e}的循环等待所有I/O操作完成。
+最后，\clnref{remove}执行为设备移除准备所需的额外处理。
 \end{fcvref}
 
 \QuickQuiz{
-	What other issues would need to be accounted for in a real system?
+	在实际系统中还需要考虑哪些其他问题？
 }\QuickQuizAnswer{
-	A huge number!
+	非常多！
 
-	Here are a few to start with:
+	以下是一些入门级的：
 
 	\begin{enumerate}
-	\item	There could be any number of devices, so that the
-		global variables are inappropriate, as are the
-		lack of arguments to functions like \co{do_io()}.
-	\item	Polling loops can be problematic in real systems,
-		wasting CPU time and energy.
-		In many cases, an event-driven design is far better,
-		for example, where the last completing I/O wakes up the
-		device-removal thread.
-	\item	The I/O might fail, and so \co{do_io()} will likely
-		need a return value.
-	\item	If the device fails, the last I/O might never complete.
-		In such cases, there might need to be some sort of
-		timeout to allow error recovery.
-	\item	Both \co{add_count()} and \co{sub_count()} can
-		fail, but their return values are not checked.
-	\item	Reader-writer locks do not scale well.
-		One way of avoiding the high read-acquisition costs
-		of reader-writer locks is presented in
-		\cref{chp:Locking,chp:Deferred Processing}.
+	\item	可能有任意数量的设备，因此全局变量不合适，
+		像\co{do_io()}这样的函数也缺少参数。
+	\item	轮询循环在实际系统中可能有问题，
+		浪费CPU时间和能量。
+		在许多情况下，事件驱动设计要好得多，
+		例如最后完成的I/O唤醒设备移除线程。
+	\item	I/O可能失败，因此\co{do_io()}可能需要返回值。
+	\item	如果设备故障，最后一个I/O可能永远不会完成。
+		在这种情况下，可能需要某种超时来允许错误恢复。
+	\item	\co{add_count()}和\co{sub_count()}都可能失败，
+		但它们的返回值没有被检查。
+	\item	读写lock扩展性不好。
+		避免读写lock高读获取成本的一种方法在
+		\cref{chp:Locking,chp:Deferred Processing}中介绍。
 	\end{enumerate}
 }\QuickQuizEnd
 
-\section{Parallel Counting Discussion}
+\section{并行计数讨论}
 \label{sec:count:Parallel Counting Discussion}
 %
-\epigraph{This idea that there is generality in the specific is of
-	  far-reaching importance.}
+\epigraph{具体中蕴含普遍性这一思想具有深远的重要性。}
 	 {Douglas R. Hofstadter}
 
-This chapter has presented the reliability, performance, and
-scalability problems with traditional counting primitives.
-The C-language \co{++} operator is not guaranteed to function reliably in
-multithreaded code, and atomic operations to a single variable neither
-perform nor scale well.
-This chapter therefore presented a number of counting algorithms that
-perform and scale extremely well in certain special cases.
+本章介绍了传统计数原语的可靠性、性能和可扩展性问题。
+C语言的\co{++}运算符不保证在多线程代码中可靠运行，
+而对单个变量的atomic操作既不具备良好的性能也无法很好地扩展。
+因此，本章介绍了多种在某些特殊情况下
+性能和扩展性极好的计数算法。
 
-It is well worth reviewing the lessons from these counting algorithms.
-To that end,
-\cref{sec:count:Parallel Counting Validation}
-overviews requisite validation,
+回顾这些计数算法的经验教训很有价值。
+为此，\cref{sec:count:Parallel Counting Validation}
+概述了必要的验证，
 \cref{sec:count:Parallel Counting Performance}
-summarizes performance and scalability,
+总结了性能和可扩展性，
 \cref{sec:count:Parallel Counting Specializations}
-discusses the need for specialization,
-and finally,
-\cref{sec:count:Parallel Counting Lessons}
-enumerates lessons learned and calls attention to later chapters that
-will expand on these lessons.
+讨论了专门化的必要性，
+最后，\cref{sec:count:Parallel Counting Lessons}
+列举了所学的经验教训，并引导读者关注将在后续章节中
+扩展这些教训的内容。
 
 \begin{table*}
 \rowcolors{4}{}{lightgray}
@@ -2929,398 +2575,352 @@ will expand on these lessons.
 	\bottomrule
 \end{tabular}
 }
-\caption{Statistical/Limit Counter Performance on x86}
+\caption{x86上的Statistical/Limit Counter性能}
 \label{tab:count:Statistical/Limit Counter Performance on x86}
 \end{table*}
 
-\subsection{Parallel Counting Validation}
+\subsection{并行计数验证}
 \label{sec:count:Parallel Counting Validation}
 
-Many of the algorithms in this section are quite simple, so much so
-that it is tempting to declare them to be correct by construction or
-by inspection.
-Unfortunately, it is all too easy for those carrying out the construction
-or the inspection to become overconfident, tired, confused, or just plain
-sloppy, all of which can result in bugs.
-And early implementations of these limit counters have in fact contained
-bugs, in some cases aided and abetted by the complexities inherent in
-maintaining a 64-bit count on a 32-bit system.
-Therefore, validation is not optional, even for the simple algorithms
-presented in this chapter.
+本节中的许多算法相当简单，简单到令人倾向于
+宣布它们构造正确或检查正确。
+不幸的是，执行构造或检查的人太容易变得过于自信、
+疲劳、困惑或只是粗心大意，所有这些都可能导致bug。
+而且这些limit counter的早期实现确实包含了bug，
+在某些情况下，在32位系统上维护64位计数的
+固有复杂性助长了这些bug。
+因此，即使对于本章中介绍的简单算法，验证也不是可选的。
 
-The statistical counters are tested for acting like counters
-(``\path{counttorture.h}''), that is, that the aggregate sum in
-the counter changes by the sum of the amounts added by the various
-update-side threads.
+Statistical counters通过充当counter的测试
+（``\path{counttorture.h}''）进行验证，
+即counter中的聚合总和随各个更新端线程添加的
+金额总和而变化。
 
-The limit counters are also tested for acting like counters
-(``\path{limtorture.h}''), and additionally checked for their ability
-to accommodate the specified limit.
+Limit counters也通过充当counter的测试
+（``\path{limtorture.h}''）进行验证，
+并额外检查其容纳指定限制的能力。
 
-Both of these test suites produce performance data that is used
-in \cref{sec:count:Parallel Counting Performance}.
+这两个测试套件都产生了
+\cref{sec:count:Parallel Counting Performance}中使用的
+性能数据。
 
-Although this level of validation is good and sufficient for textbook
-implementations such as these, it would be wise to apply additional
-validation before putting similar algorithms into production.
-\Cref{chp:Validation} describes additional approaches to testing, and
-given the simplicity of most of these counting algorithms, most of
-the techniques described in \cref{chp:Formal Verification} can also
-be quite helpful.
+虽然这种程度的验证对于像这样的教科书实现已经足够好，
+但在将类似算法投入生产之前，应用额外的验证会是明智之举。
+\Cref{chp:Validation}描述了测试的其他方法，
+鉴于大多数这些计数算法的简洁性，
+\cref{chp:Formal Verification}中描述的大多数技术也很有帮助。
 
-\subsection{Parallel Counting Performance}
+\subsection{并行计数性能}
 \label{sec:count:Parallel Counting Performance}
 
-The top half of \cref{tab:count:Statistical/Limit Counter Performance on x86}
-shows the performance of the four parallel statistical counting
-algorithms.
-All four algorithms provide near-perfect linear scalability for updates.
-The per-thread-variable implementation (\path{count_end.c})
-is significantly faster on
-updates than the array-based implementation
-(\path{count_stat.c}), but is slower at reads on large numbers of core,
-and suffers severe \IX{lock contention} when there are many parallel readers.
-This contention can be addressed using the deferred-processing
-techniques introduced in
-\cref{chp:Deferred Processing},
-as shown on the \path{count_end_rcu.c} row of
-\cref{tab:count:Statistical/Limit Counter Performance on x86}.
-Deferred processing also shines on the \path{count_stat_eventual.c} row,
-courtesy of eventual consistency.
+\cref{tab:count:Statistical/Limit Counter Performance on x86}的上半部分
+展示了四种并行statistical counting算法的性能。
+所有四种算法在更新方面都提供了近乎完美的线性可扩展性。
+基于per-thread变量的实现（\path{count_end.c}）
+在更新方面明显快于基于数组的实现
+（\path{count_stat.c}），但在大量核心的读取上更慢，
+并且在有许多并行读取者时遭受严重的\IX{lock contention}。
+可以使用\cref{chp:Deferred Processing}中介绍的
+延迟处理技术来解决这种竞争，
+如\cref{tab:count:Statistical/Limit Counter Performance on x86}的
+\path{count_end_rcu.c}行所示。
+延迟处理在\path{count_stat_eventual.c}行上也表现出色，
+这得益于最终一致性。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	On the \path{count_stat.c} row of
-	\cref{tab:count:Statistical/Limit Counter Performance on x86},
-	we see that the read-side scales linearly with the number of
-	threads.
-	How is that possible given that the more threads there are,
-	the more per-thread counters must be summed up?
+	在\cref{tab:count:Statistical/Limit Counter Performance on x86}的
+	\path{count_stat.c}行中，我们看到读取端随线程数量
+	线性扩展。
+	考虑到线程越多需要汇总的per-thread counter越多，
+	这怎么可能？
 }\QuickQuizAnswerB{
-	The read-side code must scan the entire fixed-size array, regardless
-	of the number of threads, so there is no difference in performance.
-	In contrast, in the last two algorithms, readers must do more
-	work when there are more threads.
-	In addition, the last two algorithms interpose an additional
-	level of indirection because they map from integer thread ID
-	to the corresponding \co{_Thread_local} variable.
+	读取端代码必须扫描整个固定大小的数组，
+	不管线程数量多少，因此性能没有差异。
+	相比之下，在后两种算法中，读取者在线程更多时
+	必须做更多工作。
+	此外，后两种算法引入了额外的间接层，
+	因为它们需要从整数线程ID映射到
+	相应的\co{_Thread_local}变量。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Even on the fourth row of
-	\cref{tab:count:Statistical/Limit Counter Performance on x86},
-	the read-side performance of these statistical counter
-	implementations is pretty horrible.
-	So why bother with them?
+	即使在\cref{tab:count:Statistical/Limit Counter Performance on x86}的
+	第四行，这些statistical counter实现的
+	读取端性能也相当糟糕。
+	那为什么还要使用它们？
 }\QuickQuizAnswerE{
-	``Use the right tool for the job.''
+	``用合适的工具做合适的事。''
 
-	As can be seen from
-	\cref{fig:count:Atomic Increment Scalability on x86},
-	single-variable atomic increment need not apply for any job
-	involving heavy use of parallel updates.
-	In contrast, the algorithms shown in the top half of
+	从\cref{fig:count:Atomic Increment Scalability on x86}
+	可以看出，单变量atomic递增
+	不适合任何涉及大量并行更新的工作。
+	相比之下，\cref{tab:count:Statistical/Limit Counter Performance on x86}
+	上半部分所示的算法在处理更新密集的情况时
+	表现出色。
+	当然，如果你面对的是读取密集的情况，
+	应该使用其他方法，例如具有单个atomic递增变量
+	的最终一致性设计，该变量可以通过单次加载读出，
+	类似于\cref{sec:count:Eventually Consistent Implementation}
+	中使用的方法。
+}\QuickQuizEndE
+}
+
+\cref{tab:count:Statistical/Limit Counter Performance on x86}的下半部分
+展示了并行limit counting算法的性能。
+精确执行限制会导致显著的更新端性能损失，
+尽管在这个x86系统上，可以通过用信号替代atomic操作
+来减少这种损失。
+所有这些实现在面对并发读取者时都遭受
+读取端lock竞争。
+
+\QuickQuizSeries{%
+\QuickQuizB{
+	根据\cref{tab:count:Statistical/Limit Counter Performance on x86}
+	下半部分所示的性能数据，
+	我们应该总是优先选择信号而不是atomic操作，对吧？
+}\QuickQuizAnswerB{
+	这取决于工作负载。
+	注意在64核系统上，你需要超过一百次非atomic操作
+	（每次大约有40纳秒的性能增益）才能弥补
+	一次信号的开销（接近5\emph{微秒}的性能损失）。
+	虽然不乏具有更高读取强度的工作负载，
+	你需要考虑你的特定工作负载。
+
+	此外，虽然内存屏障在历史上与普通指令相比一直很昂贵，
+	你应该在将要运行的特定硬件上检查这一点。
+	计算机硬件的特性确实会随时间变化，
+	算法也必须相应地变化。
+}\QuickQuizEndB
+%
+\QuickQuizE{
+	是否可以应用高级技术来解决
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
-	do an excellent job of handling update-heavy situations.
-	Of course, if you have a read-mostly situation, you should
-	use something else, for example, an eventually consistent design
-	featuring a single atomically incremented
-	variable that can be read out using a single load,
-	similar to the approach used in
-	\cref{sec:count:Eventually Consistent Implementation}.
-}\QuickQuizEndE
-}
-
-The bottom half of \cref{tab:count:Statistical/Limit Counter Performance on x86}
-shows the performance of the parallel limit-counting algorithms.
-Exact enforcement of the limits incurs a substantial update-side
-performance penalty, although on this x86 system that penalty can be
-reduced by substituting signals for atomic operations.
-All of these implementations suffer from read-side lock contention
-in the face of concurrent readers.
-
-\QuickQuizSeries{%
-\QuickQuizB{
-	Given the performance data shown in the bottom half of
-	\cref{tab:count:Statistical/Limit Counter Performance on x86},
-	we should always prefer signals over atomic operations, right?
-}\QuickQuizAnswerB{
-	That depends on the workload.
-	Note that on a 64-core system, you need more than
-	one hundred non-atomic operations (with roughly
-	a 40-nanosecond performance gain) to make up for even one
-	signal (with almost a 5-\emph{microsecond} performance loss).
-	Although there are no shortage of workloads with far greater
-	read intensity, you will need to consider your particular
-	workload.
-
-	In addition, although memory barriers have historically been
-	expensive compared to ordinary instructions, you should
-	check this on the specific hardware you will be running.
-	The properties of computer hardware do change over time,
-	and algorithms must change accordingly.
-}\QuickQuizEndB
-%
-\QuickQuizE{
-	Can advanced techniques be applied to address the lock
-	contention for readers seen in the bottom half of
-	\cref{tab:count:Statistical/Limit Counter Performance on x86}?
+	下半部分中读取者看到的lock竞争？
 }\QuickQuizAnswerE{
-	One approach is to give up some update-side performance, as is
-	done with scalable non-zero indicators
-	(SNZI)~\cite{FaithEllen:2007:SNZI}.
-	There are a number of other ways one might go about this, and these
-	are left as exercises for the reader.
-	Any number of approaches that apply hierarchy, which replace
-	frequent global-lock acquisitions with local lock acquisitions
-	corresponding to lower levels of the hierarchy, should work quite well.
+	一种方法是牺牲一些更新端性能，
+	就像可扩展非零指示器
+	（SNZI）~\cite{FaithEllen:2007:SNZI}所做的那样。
+	还有其他多种方法可以做到这一点，
+	留作读者的练习。
+	任何应用层次结构的方法——用对应于层次结构较低级别的
+	本地lock获取替代频繁的全局lock获取——都应该效果很好。
 }\QuickQuizEndE
 }
 
-In short, this chapter has demonstrated a number of counting algorithms
-that perform and scale extremely well in a number of special cases.
-But must our parallel counting be confined to special cases?
-Wouldn't it be better to have a general algorithm that operated
-efficiently in all cases?
-The next section looks at these questions.
+简而言之，本章展示了在多种特殊情况下
+性能和扩展性极好的计数算法。
+但我们的并行计数必须局限于特殊情况吗？
+拥有一个在所有情况下都高效运行的通用算法不是更好吗？
+下一节将探讨这些问题。
 
-\subsection{Parallel Counting Specializations}
+\subsection{并行计数的专门化}
 \label{sec:count:Parallel Counting Specializations}
 
-The fact that these algorithms only work well in their respective special
-cases might be considered a major problem with parallel programming in
-general.
-After all, the C-language \co{++} operator works just fine in single-threaded
-code, and not just for special cases, but in general, right?
+这些算法仅在各自的特殊情况下才能良好工作，
+这一事实可能被视为并行编程整体的一个主要问题。
+毕竟，C语言的\co{++}运算符在单线程代码中工作得很好，
+而且不仅在特殊情况下，在一般情况下也是如此，对吧？
 
-This line of reasoning does contain a grain of truth, but is in essence
-misguided.
-The problem is not parallelism as such, but rather scalability.
-To understand this, first consider the C-language \co{++} operator.
-The fact is that it does \emph{not} work in general, only for a restricted
-range of numbers.
-If you need to deal with 1,000-digit decimal numbers, the C-language \co{++}
-operator will not work for you.
+这种推理确实包含一粒真理，但本质上是误导的。
+问题不在于并行性本身，而在于可扩展性。
+要理解这一点，首先考虑C语言的\co{++}运算符。
+事实上它\emph{并不}在一般情况下工作，
+只在有限范围的数字内工作。
+如果你需要处理1,000位十进制数，
+C语言的\co{++}运算符对你不起作用。
 
 \QuickQuiz{
-	The \co{++} operator works just fine for 1,000-digit numbers!
-	Haven't you heard of operator overloading???
+	\co{++}运算符对1,000位数完全可以工作！
+	你没听说过运算符重载吗？
 }\QuickQuizAnswer{
-	In the C++ language, you might well be able to use \co{++}
-	on a 1,000-digit number, assuming that you had access to a
-	class implementing such numbers.
-	But as of 2021, the C language does not permit operator overloading.
+	在C++语言中，你也许确实可以对1,000位数使用\co{++}，
+	假设你能访问一个实现此类数字的类。
+	但截至2021年，C语言不允许运算符重载。
 }\QuickQuizEnd
 
-This problem is not specific to arithmetic.
-Suppose you need to store and query data.
-Should you use an ASCII file?
-XML\@?
-A relational database?
-A linked list?
-A dense array?
-A B-tree?
-A radix tree?
-Or one of the plethora of other data
-structures and environments that permit data to be stored and queried?
-It depends on what you need to do, how fast you need it done, and how
-large your data set is---even on sequential systems.
+这个问题不限于算术运算。
+假设你需要存储和查询数据。
+你应该使用ASCII文件？
+XML？
+关系数据库？
+链表？
+密集数组？
+B树？
+基数树？
+还是允许存储和查询数据的众多其他数据结构和环境之一？
+这取决于你需要做什么、需要多快完成、以及数据集有多大
+——即使在串行系统上也是如此。
 
-Similarly, if you need to count, your solution will depend on how large
-of numbers you need to work with, how many CPUs need to be manipulating
-a given number concurrently, how the number is to be used, and what
-level of performance and scalability you will need.
+类似地，如果你需要计数，你的解决方案将取决于
+你需要处理多大的数字、多少个CPU需要并发操作
+同一个数字、该数字如何使用，以及你需要什么级别的
+性能和可扩展性。
 
-Nor is this problem specific to software.
-The design for a bridge meant to allow people to walk across a small brook
-might be a simple as a single wooden plank.
-But you would probably not use a plank to span the kilometers-wide mouth of
-the Columbia River, nor would such a design be advisable for bridges
-carrying concrete trucks.
-In short, just as bridge design must change with increasing span and load,
-so must software design change as the number of CPUs increases.
-That said, it would be good to automate this process, so that the
-software adapts to changes in hardware configuration and in workload.
-There has in fact been some research into this sort of
-automation~\cite{Appavoo03a,Soules03a}, and the Linux kernel does some
-boot-time reconfiguration, including limited binary rewriting.
-This sort of adaptation will become increasingly important as the
-number of CPUs on mainstream systems continues to increase.
+这个问题也不限于软件。
+一座用于让人步行穿过小溪的桥的设计
+可能简单到只是一块木板。
+但你可能不会用一块木板来跨越数公里宽的
+哥伦比亚河河口，这种设计也不适合
+承载混凝土运输车的桥梁。
+简而言之，正如桥梁设计必须随跨度和载荷的增加而改变，
+软件设计也必须随CPU数量的增加而改变。
+话虽如此，自动化这个过程会很好，
+使软件适应硬件配置和工作负载的变化。
+事实上，已经有一些关于这种自动化的研究
+~\cite{Appavoo03a,Soules03a}，
+Linux内核确实进行了一些启动时的重新配置，
+包括有限的二进制重写。
+随着主流系统上CPU数量的持续增加，
+这种适应将变得越来越重要。
 
-In short, as discussed in
-\cref{chp:Hardware and its Habits},
-the laws of physics constrain parallel software just as surely as they
-constrain mechanical artifacts such as bridges.
-These constraints force specialization, though in the case of software
-it might be possible to automate the choice of specialization to
-fit the hardware and workload in question.
+简而言之，如\cref{chp:Hardware and its Habits}所讨论的，
+物理定律对并行软件的约束与对桥梁等
+机械制品的约束同样确定。
+这些约束迫使专门化，尽管在软件的情况下，
+有可能自动选择适合当前硬件和工作负载的专门化方案。
 
-Of course, even generalized counting is quite specialized.
-We need to do a great number of other things with computers.
-The next section relates what we have learned from counters to
-topics taken up later in this book.
+当然，即使是通用计数也是相当专门化的。
+我们需要用计算机做大量其他事情。
+下一节将我们从counter中学到的东西
+与本书后续章节讨论的主题联系起来。
 
-\subsection{Parallel Counting Lessons}
+\subsection{并行计数的经验教训}
 \label{sec:count:Parallel Counting Lessons}
 
-The opening paragraph of this chapter promised that our study of counting
-would provide an excellent introduction to parallel programming.
-This section makes explicit connections between the lessons from
-this chapter and the material presented in a number of later chapters.
+本章的开头段落承诺我们对计数的研究将为并行编程
+提供绝佳的入门。
+本节明确建立了本章经验教训与后续章节内容之间的联系。
 
-The examples in this chapter have shown that an important scalability
-and performance tool is \emph{partitioning}.
-The counters might be fully partitioned, as in the statistical counters
-discussed in \cref{sec:count:Statistical Counters},
-or partially partitioned as in the limit counters discussed in
-\cref{sec:count:Approximate Limit Counters,%
-sec:count:Exact Limit Counters}.
-Partitioning will be considered in far greater depth in
-\cref{chp:Partitioning and Synchronization Design},
-and partial parallelization in particular in
-\cref{sec:SMPdesign:Parallel Fastpath}, where it is called
-\emph{parallel fastpath}.
+本章的示例表明，一个重要的可扩展性和性能工具是\emph{分区}。
+Counter可以是完全分区的，
+如\cref{sec:count:Statistical Counters}中讨论的
+statistical counters，
+也可以是部分分区的，
+如\cref{sec:count:Approximate Limit Counters,%
+sec:count:Exact Limit Counters}中讨论的limit counters。
+分区将在\cref{chp:Partitioning and Synchronization Design}中
+更深入地讨论，
+特别是部分并行化将在\cref{sec:SMPdesign:Parallel Fastpath}中讨论，
+在那里它被称为\emph{parallel fastpath}。
 
 \QuickQuiz{
-	But if we are going to have to partition everything, why bother
-	with shared-memory multithreading?
-	Why not just partition the problem completely and run as
-	multiple processes, each in its own address space?
+	但如果我们要将所有东西都分区，
+	为什么还要使用共享内存多线程？
+	为什么不完全分区问题并作为多个进程运行，
+	每个进程在自己的地址空间中？
 }\QuickQuizAnswer{
-	Indeed, multiple processes with separate address spaces can be
-	an excellent way to exploit parallelism, as the proponents of
-	the fork-join methodology and the Erlang language would be very
-	quick to tell you.
-	However, there are also some advantages to shared-memory parallelism:
+	确实，拥有独立地址空间的多进程可以是
+	利用并行性的绝佳方式，
+	fork-join方法论和Erlang语言的支持者会非常
+	乐意告诉你这一点。
+	然而，共享内存并行性也有一些优势：
 	\begin{enumerate}
-	\item	Only the most performance-critical portions of the
-		application must be partitioned, and such portions
-		are usually a small fraction of the application.
-	\item	Although cache misses are quite slow compared to
-		individual register-to-register instructions,
-		they are typically considerably faster than
-		inter-process-communication primitives, which in
-		turn are considerably faster than things like
-		TCP/IP networking.
-	\item	Shared-memory multiprocessors are readily available
-		and quite inexpensive, so, in stark contrast to the
-		1990s, there is little cost penalty for use of
-		shared-memory parallelism.
+	\item	只有应用程序中性能最关键的部分
+		需要被分区，这些部分通常是
+		应用程序的一小部分。
+	\item	虽然cache miss与单个寄存器到寄存器指令
+		相比相当慢，但它们通常比进程间通信原语
+		快得多，而进程间通信原语反过来又比
+		TCP/IP网络之类的东西快得多。
+	\item	共享内存多处理器容易获得且价格低廉，
+		因此，与1990年代形成鲜明对比的是，
+		使用共享内存并行性几乎没有成本惩罚。
 	\end{enumerate}
-	As always, use the right tool for the job!
+	一如既往，用合适的工具做合适的事！
 }\QuickQuizEnd
 
-The partially partitioned counting algorithms used locking to
-guard the global data, and locking is the subject of
-\cref{chp:Locking}.
-In contrast, the partitioned data tended to be fully under the control of
-the corresponding thread, so that no synchronization whatsoever was required.
-This \emph{data ownership} will be introduced in
-\cref{sec:SMPdesign:Data Ownership}
-and discussed in more detail in
-\cref{chp:Data Ownership}.
+部分分区的计数算法使用lock来保护全局数据，
+lock是\cref{chp:Locking}的主题。
+相比之下，已分区的数据往往完全由相应线程控制，
+因此根本不需要任何同步。
+这种\emph{data ownership}将在
+\cref{sec:SMPdesign:Data Ownership}中介绍，
+并在\cref{chp:Data Ownership}中更详细地讨论。
 
-Because integer addition and subtraction are extremely cheap
-compared to typical synchronization operations, achieving reasonable
-scalability requires synchronization operations be used sparingly.
-One way of achieving this is to batch the addition and subtraction
-operations, so that a great many of these cheap operations are handled
-by a single synchronization operation.
-Batching optimizations of one sort or another are used by each of
-the counting algorithms listed in
-\cref{tab:count:Statistical/Limit Counter Performance on x86}.
+由于整数加法和减法与典型的同步操作相比极其廉价，
+要实现合理的可扩展性，需要谨慎使用同步操作。
+实现这一目标的一种方法是批量处理加法和减法操作，
+使大量这些廉价操作由单个同步操作处理。
+\cref{tab:count:Statistical/Limit Counter Performance on x86}中
+列出的每种计数算法都使用了某种形式的批量优化。
 
-Finally, the eventually consistent statistical counter discussed in
-\cref{sec:count:Eventually Consistent Implementation}
-showed how deferring activity (in that case, updating the global
-counter) can provide substantial performance and scalability benefits.
-This approach allows common case code to use much cheaper synchronization
-operations than would otherwise be possible.
-\Cref{chp:Deferred Processing} will examine a number of additional
-ways that deferral can improve performance, scalability, and even
-real-time response.
+最后，\cref{sec:count:Eventually Consistent Implementation}中
+讨论的最终一致性statistical counter表明，
+延迟活动（在此情况下是更新全局counter）
+可以提供显著的性能和可扩展性优势。
+这种方法允许常见情况下的代码使用
+比其他方式便宜得多的同步操作。
+\Cref{chp:Deferred Processing}将研究延迟可以改善性能、
+可扩展性甚至实时响应的多种其他方式。
 
-Summarizing the summary:
+总结要点：
 
 \begin{enumerate}
-\item	Partitioning promotes performance and scalability.
-\item	Partial partitioning, that is, partitioning applied only to
-	common code paths, works almost as well.
-\item	Partial partitioning can be applied to code (as in
-	\cref{sec:count:Statistical Counters}'s statistical
-	counters' partitioned updates and non-partitioned reads), but also
-	across time (as in
-	\cref{sec:count:Approximate Limit Counters}'s and
-	\cref{sec:count:Exact Limit Counters}'s
-	limit counters running fast when far from
-	the limit, but slowly when close to the limit).
-\item	Partitioning across time often batches updates locally
-	in order to reduce the number of expensive global operations,
-	thereby decreasing synchronization overhead, in turn
-	improving performance and scalability.
-	All the algorithms shown in
+\item	分区促进性能和可扩展性。
+\item	部分分区——即仅应用于常见代码路径的分区——
+	效果几乎一样好。
+\item	部分分区可以应用于代码（如
+	\cref{sec:count:Statistical Counters}的statistical
+	counters的分区更新和非分区读取），也可以跨时间应用
+	（如\cref{sec:count:Approximate Limit Counters}和
+	\cref{sec:count:Exact Limit Counters}的limit counters
+	在远离限制时运行快而接近限制时运行慢）。
+\item	跨时间分区通常在本地批量更新，
+	以减少昂贵的全局操作次数，
+	从而减少同步开销，进而改善性能和可扩展性。
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
-	make heavy use of batching.
-\item	Read-only code paths should remain read-only:
-	Spurious synchronization writes to shared memory kill performance
-	and scalability, as seen in the \path{count_end.c} row of
-	\cref{tab:count:Statistical/Limit Counter Performance on x86}.
-\item	Judicious use of delay promotes performance and scalability, as
-	seen in \cref{sec:count:Eventually Consistent Implementation}.
-\item	Parallel performance and scalability is usually a balancing act:
-	Beyond a certain point, optimizing some code paths will degrade
-	others.
-	The \path{count_stat.c} and \path{count_end_rcu.c} rows of
+	中展示的所有算法都大量使用了批量处理。
+\item	只读代码路径应保持只读：
+	对共享内存的无谓同步写入会扼杀性能和可扩展性，
+	如\cref{tab:count:Statistical/Limit Counter Performance on x86}的
+	\path{count_end.c}行所示。
+\item	明智地使用延迟可以促进性能和可扩展性，
+	如\cref{sec:count:Eventually Consistent Implementation}所示。
+\item	并行性能和可扩展性通常是一种平衡行为：
+	超过某个点后，优化某些代码路径会降低其他路径的性能。
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
-	illustrate this point.
-\item	Different levels of performance and scalability will affect
-	algorithm and data-structure design, as do a large number of
-	other factors.
+	的\path{count_stat.c}和\path{count_end_rcu.c}行
+	说明了这一点。
+\item	不同级别的性能和可扩展性将影响算法和
+	数据结构设计，许多其他因素也是如此。
 	\Cref{fig:count:Atomic Increment Scalability on x86}
-	illustrates this point:
-	Atomic increment might be completely acceptable for a two-CPU
-	system, but nevertheless be completely inadequate for an eight-CPU system.
+	说明了这一点：
+	对于双CPU系统，atomic递增可能完全可以接受，
+	但对于八CPU系统却可能完全不够用。
 	% @@@ Rework the above sentence.
 \end{enumerate}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/FourTaskOrderOpt}}
-\caption{Optimization and the Four Parallel-Programming Tasks}
+\caption{优化与四大并行编程任务}
 \label{fig:count:Optimization and the Four Parallel-Programming Tasks}
 \end{figure}
 
-Summarizing still further, we have the ``big three'' methods of
-increasing performance and scalability, namely
-(1)~\emph{partitioning} over CPUs or threads,
-(2)~\emph{batching} so that more work can be done by each expensive
-synchronization operation, and
-(3)~\emph{weakening} synchronization operations where feasible.
-As a rough rule of thumb, you should apply these methods in this order,
-as was noted earlier in the discussion of
-\cref{fig:intro:Ordering of Parallel-Programming Tasks}
-on
-\cpageref{fig:intro:Ordering of Parallel-Programming Tasks}.
-The partitioning optimization applies to the
-``Resource Partitioning and Replication'' bubble,
-the batching optimization to the ``Work Partitioning'' bubble,
-and the weakening optimization to the ``Parallel Access Control'' bubble,
-as shown in
-\cref{fig:count:Optimization and the Four Parallel-Programming Tasks}.
-Of course, if you are using special-purpose hardware such as
-digital signal processors (DSPs), field-programmable gate arrays (FPGAs),
-or general-purpose graphical processing units (GPGPUs), you may need
-to pay close attention to the ``Interacting With Hardware'' bubble
-throughout the design process.
-For example, the structure of a GPGPU's hardware threads and memory
-connectivity might richly reward very careful partitioning
-and batching design decisions.
+进一步总结，我们有提高性能和可扩展性的``三大''方法，即
+(1)~跨CPU或线程\emph{分区}，
+(2)~\emph{批量处理}使每次昂贵的同步操作能完成更多工作，
+(3)~在可行时\emph{弱化}同步操作。
+作为粗略的经验法则，你应该按此顺序应用这些方法，
+正如之前在讨论
+\cpageref{fig:intro:Ordering of Parallel-Programming Tasks}上的
+\cref{fig:intro:Ordering of Parallel-Programming Tasks}时所提到的。
+分区优化适用于``资源分区和复制''气泡，
+批量优化适用于``工作分区''气泡，
+弱化优化适用于``并行访问控制''气泡，
+如\cref{fig:count:Optimization and the Four Parallel-Programming Tasks}
+所示。
+当然，如果你使用专用硬件，如数字信号处理器（DSP）、
+现场可编程门阵列（FPGA）或通用图形处理单元（GPGPU），
+你可能需要在整个设计过程中密切关注
+``与硬件交互''气泡。
+例如，GPGPU硬件线程和内存连接的结构
+可能极大地回报非常仔细的分区和批量处理设计决策。
 
-In short, as noted at the beginning of this chapter, the simplicity
-of counting have allowed us to explore many
-fundamental concurrency issues without the distraction of
-complex synchronization primitives or elaborate data structures.
-Such synchronization primitives and data structures are covered
-in later chapters.
+简而言之，正如本章开头所指出的，
+计数的简洁性使我们能够在不受复杂同步原语或
+精巧数据结构干扰的情况下探索许多基本的并发问题。
+这些同步原语和数据结构将在后续章节中介绍。
 
 \QuickQuizAnswersChp{qqzcount}

@@ -2,372 +2,310 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\subsection{RCU Fundamentals}
+\subsection{RCU基础}
 \label{sec:defer:RCU Fundamentals}
 \OriginallyPublished{sec:defer:RCU Fundamentals}{RCU Fundamentals}{Linux Weekly News}{PaulEMcKenney2007WhatIsRCUFundamentally}
 
-This section re-examines the ground covered in the previous section, but
-independent of any particular example or use case.
-People who prefer to live their lives very close to the actual code may
-wish to skip the underlying fundamentals presented in this section.
+本节重新审视前一节涵盖的内容，但不依赖于任何特定的示例或用例。
+喜欢贴近实际代码的读者可以跳过本节所介绍的底层基础知识。
 
-The common use of RCU to protect linked data structures is comprised
-of three fundamental mechanisms, the first being used for insertion,
-the second being used for deletion, and the third being used to allow
-readers to tolerate concurrent insertions and deletions.
+RCU保护链式数据结构的常见用法由三个基本机制组成，第一个用于插入，
+第二个用于删除，第三个用于允许读者容忍并发的插入和删除操作。
 \Cref{sec:defer:Publish-Subscribe Mechanism}
-describes the publish-subscribe mechanism used for insertion,
+描述了用于插入的publish-subscribe机制，
 \cref{sec:defer:Wait For Pre-Existing RCU Readers}
-describes how waiting for pre-existing RCU readers enables
-deletion,\footnote{
-	Yes, RCU being what it is, this most fundamental component of
-	RCU is covered not first, but second.}
-and
+描述了等待已有RCU读者如何实现删除，\footnote{
+	是的，RCU就是这样，这个最基本的RCU组件不是第一个介绍，
+	而是第二个。}
+而
 \cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}
-discusses how maintaining multiple versions of recently updated objects
-permits concurrent insertions and deletions.
-Finally,
+讨论了维护最近更新对象的多个版本如何允许并发的插入和删除操作。
+最后，
 \cref{sec:defer:Summary of RCU Fundamentals}
-summarizes RCU fundamentals.
+总结了RCU的基础知识。
 
-\subsubsection{Publish-Subscribe Mechanism}
+\subsubsection{发布-订阅机制}
 \label{sec:defer:Publish-Subscribe Mechanism}
 
-Because RCU readers are not excluded by RCU updaters, an RCU-protected
-data structure might change while a reader accesses it.
-The accessed data item might be moved, removed, or replaced.
-Because the data structure does not ``hold still'' for the reader,
-each reader's access can be thought of as subscribing to the current
-version of the RCU-protected data item.
-For their part, updaters can be thought of as publishing new versions.
+由于RCU读者不会被RCU更新者排斥，RCU保护的数据结构可能在读者
+访问时发生变化。
+被访问的数据项可能被移动、移除或替换。
+因为数据结构不会为读者"保持静止"，所以每个读者的访问可以被视为
+订阅（subscribe）RCU保护数据项的当前版本。
+就更新者而言，它们可以被视为发布（publish）新版本。
 
 % @@@ Merge usage section into "Which to Choose?" and suggest choices.
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/pubsub}}
-\caption{Publication/Subscription Constraints}
+\caption{发布/订阅约束}
 \label{fig:defer:Publication/Subscription Constraints}
 \end{figure}
 
-Unfortunately, as laid out in
+不幸的是，正如
 \cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-and reiterated in
-\cref{sec:defer:Minimal Insertion and Deletion},
-it is unwise to use \IXplx{plain access}{es} for these publication and subscription
-operations.
-It is instead necessary to inform both the compiler and the CPU
-of the need for care, as can be seen from
-\cref{fig:defer:Publication/Subscription Constraints},
-which illustrates interactions between concurrent executions of
-\co{ins_route()} (and its caller) and \co{access_route()} from
-\cref{lst:defer:Insertion and Deletion With Concurrent Readers}.
+中所述以及
+\cref{sec:defer:Minimal Insertion and Deletion}
+中重申的那样，
+对这些发布和订阅操作使用\IXplx{plain access}{es}是不明智的。
+相反，必须告知编译器和CPU需要小心处理，
+如\cref{fig:defer:Publication/Subscription Constraints}
+所示，该图说明了
+\cref{lst:defer:Insertion and Deletion With Concurrent Readers}
+中\co{ins_route()}（及其调用者）和\co{access_route()}并发执行之间的交互。
 
-The \co{ins_route()} column from
 \cref{fig:defer:Publication/Subscription Constraints}
-shows \co{ins_route()}'s caller allocating a new \co{route} structure,
-which then contains pre-initialization garbage.
-The caller then initializes the newly allocated structure, and then
-invokes \co{ins_route()} to publish a pointer to the new \co{route}
-structure.
-Publication does not affect the contents of the structure, which
-therefore remain valid after publication.
+中的\co{ins_route()}列显示了\co{ins_route()}的调用者分配一个新的
+\co{route}结构，此时该结构包含的是初始化前的垃圾数据。
+调用者随后初始化新分配的结构，然后调用\co{ins_route()}发布指向
+新\co{route}结构的指针。
+发布不会影响结构的内容，因此结构内容在发布后仍然有效。
 
-The \co{access_route()} column from this same figure shows
-the pointer being subscribed to and dereferenced.
-This dereference operation absolutely must see a valid \co{route}
-structure rather than pre-initialization garbage because referencing
-garbage could result in memory corruption, crashes, and hangs.
-As noted earlier, avoiding such garbage means that the publish and
-subscribe operations must inform both the compiler and the CPU of the
-need to maintain the needed ordering.
+同一图中的\co{access_route()}列显示了指针被订阅和解引用的过程。
+这个解引用操作绝对必须看到一个有效的\co{route}结构，而不是初始化
+前的垃圾数据，因为引用垃圾数据可能导致内存损坏、崩溃和挂起。
+如前所述，避免此类垃圾数据意味着发布和订阅操作必须告知编译器和CPU
+维持所需排序的必要性。
 
-Publication is carried out by \co{rcu_assign_pointer()}, which ensures that
-\co{ins_route()}'s caller's initialization is ordered before the actual
-publication operation's store of the pointer.
-In addition, \co{rcu_assign_pointer()} must be atomic in the sense that 
-concurrent readers see either the old value of the pointer or the new
-value of the pointer, but not some mash-up of these two values.
-These requirements are met by the C11 store-release operation, and in
-fact in the Linux kernel, \co{rcu_assign_pointer()} is defined in terms
-of \co{smp_store_release()}, which is similar to C11 store-release.
+发布通过\co{rcu_assign_pointer()}执行，它确保\co{ins_route()}调用者的
+初始化操作排在实际发布操作存储指针之前。
+此外，\co{rcu_assign_pointer()}必须是原子的，即并发读者看到的要么是
+指针的旧值，要么是新值，而不是两者的某种混合。
+这些要求由C11 store-release操作满足，实际上在Linux内核中，
+\co{rcu_assign_pointer()}是用\co{smp_store_release()}定义的，
+后者类似于C11 store-release。
 
-Note that if concurrent updates are required, some sort of synchronization
-mechanism will be required to mediate among multiple concurrent
-\co{rcu_assign_pointer()} calls on the same pointer.
-In the Linux kernel, locking is the mechanism of choice, but pretty
-much any synchronization mechanism may be used.
-An example of a particularly lightweight synchronization mechanism is
-\cref{chp:Data Ownership}'s data ownership:
-If each pointer is owned by a particular thread, then that thread may
-execute \co{rcu_assign_pointer()} on that pointer with no additional
-synchronization overhead.
+注意，如果需要并发更新，则需要某种同步机制来协调同一指针上的
+多个并发\co{rcu_assign_pointer()}调用。
+在Linux内核中，锁是首选机制，但几乎任何同步机制都可以使用。
+一个特别轻量级的同步机制的例子是
+\cref{chp:Data Ownership}的数据所有权：
+如果每个指针由特定线程拥有，则该线程可以在没有额外同步开销的情况下
+对该指针执行\co{rcu_assign_pointer()}。
 
 \QuickQuiz{
-	Wouldn't use of data ownership for RCU updaters mean that
-	the updates could use exactly the same sequence of instructions
-	as would the corresponding single-threaded code?
+	对RCU更新者使用数据所有权是否意味着更新可以使用与
+	相应单线程代码完全相同的指令序列？
 }\QuickQuizAnswer{
-	Sometimes, for example, on TSO systems such as x86 or the IBM
-	mainframe where a store-release operation emits a single store
-	instruction.
-	However, weakly ordered systems must also emit a memory barrier
-	or perhaps a store-release instruction.
-	In addition, removing data requires quite a bit of additional
-	work because it is necessary to wait for pre-existing readers
-	before freeing the removed data.
+	有时候是的，例如在TSO系统（如x86或IBM大型机）上，
+	store-release操作只发出一条存储指令。
+	然而，弱排序系统还必须发出memory barrier或者
+	store-release指令。
+	此外，移除数据需要相当多的额外工作，因为在释放被移除的数据
+	之前必须等待已有的读者完成。
 }\QuickQuizEnd
 
-Subscription is carried out by \co{rcu_dereference()}, which prevents
-the compiler and (in one case) the CPU from reordering the pointer
-load with later memory operations that dereference that pointer.
-Similar to \co{rcu_assign_pointer()}, \co{rcu_dereference()} must be
-atomic in the sense that the value loaded must be that from a single
-store, for example, the compiler must not tear the load.\footnote{
-	That is, the compiler must not break the load into multiple
-	smaller loads, as described under ``load tearing'' in
-	\cref{sec:toolsoftrade:Shared-Variable Shenanigans}.}
-Unfortunately, compiler support for \co{rcu_dereference()} is at best
-a work in progress~\cite{PaulEMcKennneyConsumeP0190R4,PaulEMcKenney2017markconsumeP0462R1,JFBastien2018P0750R1consume}.
-In the meantime, the Linux kernel relies on volatile loads, the details of
-the various CPU architectures, coding
-restrictions~\cite{PaulEMcKenney2014rcu-dereference},
-and, on DEC Alpha~\cite{ALPHA2002}, a memory-barrier instruction.
-However, on other architectures, \co{rcu_dereference()} typically
-emits a single load instruction, just as would the equivalent single-threaded
-code.
-The coding restrictions are described in more detail in
-\cref{sec:memorder:Address- and Data-Dependency Difficulties},
-however, the common case of field selection (\qtco{->}) works quite well.
-Software that does not require the ultimate in read-side performance
-can instead use C11 \IXpl{acquire load}, which provide the needed ordering and
-more, albeit at a cost.
-It is hoped that lighter-weight compiler support for \co{rcu_dereference()}
-will appear in due course.
+订阅通过\co{rcu_dereference()}执行，它防止编译器和（在一种情况下）
+CPU将指针加载与后续解引用该指针的内存操作重排序。
+与\co{rcu_assign_pointer()}类似，\co{rcu_dereference()}必须是原子的，
+即加载的值必须来自单次存储，例如，编译器不能拆分该加载。\footnote{
+	也就是说，编译器不能将该加载拆分为多个更小的加载，
+	如\cref{sec:toolsoftrade:Shared-Variable Shenanigans}中
+	"load tearing"下所述。}
+不幸的是，编译器对\co{rcu_dereference()}的支持充其量还在进行中~\cite{PaulEMcKennneyConsumeP0190R4,PaulEMcKenney2017markconsumeP0462R1,JFBastien2018P0750R1consume}。
+在此期间，Linux内核依赖volatile加载、各种CPU架构的细节、
+编码限制~\cite{PaulEMcKenney2014rcu-dereference}，
+以及在DEC Alpha~\cite{ALPHA2002}上的一条memory-barrier指令。
+然而，在其他架构上，\co{rcu_dereference()}通常只发出一条加载指令，
+与等效的单线程代码相同。
+编码限制在
+\cref{sec:memorder:Address- and Data-Dependency Difficulties}
+中有更详细的描述，不过，常见的字段选择（\qtco{->}）情况工作得很好。
+不需要极致读侧性能的软件可以改用C11 \IXpl{acquire load}，
+它提供了所需的排序及更多保证，但需要付出一定代价。
+希望更轻量级的\co{rcu_dereference()}编译器支持将在适当时候出现。
 
-In short, use of \co{rcu_assign_pointer()} for publishing pointers and
-use of \co{rcu_dereference()} for subscribing to them successfully avoids the
-``Not OK'' garbage loads depicted in
-\cref{fig:defer:Publication/Subscription Constraints}.
-These two primitives can therefore be used to add new data to linked
-structures without disrupting concurrent readers.
+简而言之，使用\co{rcu_assign_pointer()}发布指针和使用
+\co{rcu_dereference()}订阅指针成功避免了
+\cref{fig:defer:Publication/Subscription Constraints}
+中描述的"Not OK"垃圾加载。
+因此，这两个原语可以用于向链式结构添加新数据，而不会干扰并发读者。
 
 \QuickQuiz{
-	But suppose that updaters are adding and removing multiple data
-	items from a linked list while a reader is iterating over that
-	same list.
-	Specifically, suppose that a list initially contains elements
-	A, B, and~C, and that an updater removes element A and then
-	adds a new element D at the end of the list.
-	The reader might well see \{A, B, C, D\}, when that sequence of
-	elements never actually ever existed!
-	In what alternate universe would that qualify as ``not disrupting
-	concurrent readers''???
+	但假设更新者正在向链表中添加和移除多个数据项，
+	同时一个读者正在遍历同一链表。
+	具体来说，假设链表最初包含元素A、B和~C，
+	更新者移除了元素A，然后在链表末尾添加了新元素D。
+	读者很可能看到\{A, B, C, D\}，而这个元素序列实际上
+	从未存在过！
+	在哪个平行宇宙中这算得上"不干扰并发读者"？？？
 }\QuickQuizAnswer{
-	In the universe where an iterating reader is only required to
-	traverse elements that were present throughout the full duration
-	of the iteration.
-	In the example, that would be elements B and~C\@.
-	Because elements A and~D were each present for only part of the
-	iteration, the reader is permitted to iterate over them, but not
-	obliged to.
-	Note that this supports the common case where the reader is simply
-	looking up a single item, and does not know or care about the
-	presence or absence of other items.
+	在这样一个世界中：遍历读者只需要遍历在整个遍历期间
+	一直存在的元素。
+	在本例中，那就是元素B和~C\@。
+	因为元素A和~D各自只在遍历的一部分时间内存在，读者可以
+	遍历它们，但并非必须遍历。
+	注意，这支持了常见的情况，即读者只是查找单个项目，
+	并不知道或关心其他项目的存在与否。
 
-	If stronger consistency is required, then higher-cost
-	synchronization mechanisms are required, for example, sequence
-	locking or reader-writer locking.
-	But if stronger consistency is \emph{not} required (and it very often
-	is not), then why pay the higher cost?
+	如果需要更强的一致性，则需要更高代价的同步机制，
+	例如sequence locking或读写锁。
+	但如果不需要更强的一致性（实际上很多时候不需要），
+	为什么要付出更高的代价呢？
 }\QuickQuizEnd
 
-Adding data to a linked structure without disrupting readers is a good thing,
-as are the cases where this can be done with no added read-side cost compared
-to single-threaded readers.
-However, in most cases it is also necessary to remove data, and this is the
-subject of the next section.
+在不干扰读者的情况下向链式结构添加数据是一件好事，
+与单线程读者相比可以不增加读侧开销的情况更是如此。
+然而，在大多数情况下还需要移除数据，这是下一节的主题。
 
-\subsubsection{Wait For Pre-Existing RCU Readers}
+\subsubsection{等待已有的RCU读者}
 \label{sec:defer:Wait For Pre-Existing RCU Readers}
 
-The most basic component of RCU is waiting for things to finish.
-Of course, there are a great many other ways of waiting for things to
-finish, including reference counts, reader-writer locks, events, and so on.
-The great advantage of RCU is that it can wait for each of
-(say) 20,000 different things without having to explicitly
-track each and every one of them, and without having to worry about
-the performance degradation, scalability limitations, complex deadlock
-scenarios, and memory-leak hazards that are inherent in schemes
-using explicit tracking.
+RCU最基本的组件是等待事情完成。
+当然，还有很多其他方式来等待事情完成，包括reference counting、
+读写锁、事件等。
+RCU的巨大优势在于它可以等待（比如说）20,000个不同的事情完成，
+而不必显式跟踪每一个，也不必担心显式跟踪方案固有的性能下降、
+可扩展性限制、复杂的死锁场景和内存泄漏风险。
 
-In RCU's case, each of the things waited on is called an
-\emph{\IXBhmr{RCU read-side}{critical section}}.
-As noted in
-\cref{tab:defer:Core RCU API}, an RCU read-side critical
-section starts with an \co{rcu_read_lock()} primitive, and ends with a
-corresponding \co{rcu_read_unlock()} primitive.
-RCU read-side critical sections can be nested, and may contain pretty
-much any code, as long as that code does not contain a quiescent state.
-For example, within the Linux kernel, it is illegal to sleep within
-an RCU read-side critical section because a context switch is a quiescent
-state.\footnote{
-	However, a special form of RCU called SRCU~\cite{PaulEMcKenney2006c}
-	does permit general sleeping in SRCU read-side critical sections.}
-If you abide by these conventions, you can use RCU to wait for \emph{any}
-pre-existing RCU read-side critical section to complete, and
-\co{synchronize_rcu()} uses indirect means to do the actual
-waiting~\cite{MathieuDesnoyers2012URCU,McKenney:2013:SDS:2483852.2483867}.
+在RCU的情况下，等待的每一件事称为
+\emph{\IXBhmr{RCU read-side}{critical section}}。
+如\cref{tab:defer:Core RCU API}中所述，
+RCU read-side critical section以\co{rcu_read_lock()}原语开始，
+以相应的\co{rcu_read_unlock()}原语结束。
+RCU read-side critical section可以嵌套，并且可以包含几乎任何代码，
+只要该代码不包含quiescent state。
+例如，在Linux内核中，在RCU read-side critical section中睡眠是
+不允许的，因为上下文切换是一个quiescent state。\footnote{
+	然而，一种称为SRCU~\cite{PaulEMcKenney2006c}的特殊RCU形式
+	确实允许在SRCU read-side critical section中进行一般性睡眠。}
+如果你遵守这些约定，你可以使用RCU来等待\emph{任何}已有的
+RCU read-side critical section完成，而
+\co{synchronize_rcu()}使用间接方式来执行实际的
+等待~\cite{MathieuDesnoyers2012URCU,McKenney:2013:SDS:2483852.2483867}。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUGuaranteeFwd}}
-\caption{RCU Reader and Later Grace Period}
+\caption{RCU读者与后续Grace Period}
 \label{fig:defer:RCU Reader and Later Grace Period}
 \end{figure}
 
-The relationship between an RCU read-side critical section and a later
-RCU grace period is an if-then relationship, as illustrated by
-\cref{fig:defer:RCU Reader and Later Grace Period}.
-If any portion of a given critical section precedes the beginning of
-a given grace period, then RCU guarantees that all of that critical
-section will precede the end of that grace period.
-In the figure, \co{P0()}'s access to \co{x} precedes \co{P1()}'s access
-to this same variable, and thus also precedes the grace period generated
-by \co{P1()}'s call to \co{synchronize_rcu()}.
-It is therefore guaranteed that \co{P0()}'s access to \co{y} will precede
-\co{P1()}'s access.
-In this case, if \co{r1}'s final value is 0, then \co{r2}'s final value
-is guaranteed to also be 0.
+RCU read-side critical section与后续RCU grace period之间的关系
+是一种"如果-那么"关系，如
+\cref{fig:defer:RCU Reader and Later Grace Period}所示。
+如果给定critical section的任何部分先于给定grace period的开始，
+那么RCU保证该critical section的全部将先于该grace period的结束。
+在图中，\co{P0()}对\co{x}的访问先于\co{P1()}对同一变量的访问，
+因此也先于\co{P1()}调用\co{synchronize_rcu()}产生的grace period。
+因此可以保证\co{P0()}对\co{y}的访问将先于\co{P1()}的访问。
+在这种情况下，如果\co{r1}的最终值为0，则\co{r2}的最终值
+也保证为0。
 
 \QuickQuiz{
-	What other final values of \co{r1} and \co{r2} are possible in
-	\cref{fig:defer:RCU Reader and Later Grace Period}?
+	在\cref{fig:defer:RCU Reader and Later Grace Period}中，
+	\co{r1}和\co{r2}还有哪些其他可能的最终值？
 }\QuickQuizAnswer{
-	The \co{r1 == 0 && r2 == 0} possibility was called out in the text.
-	Given that \co{r1 == 0} implies \co{r2 == 0}, we know that
-	\co{r1 == 0 && r2 == 1} is forbidden.
-	The following discussion will show that both
-	\co{r1 == 1 && r2 == 1} and \co{r1 == 1 && r2 == 0} are possible.
+	\co{r1 == 0 && r2 == 0}的可能性已在正文中指出。
+	鉴于\co{r1 == 0}意味着\co{r2 == 0}，我们知道
+	\co{r1 == 0 && r2 == 1}是被禁止的。
+	以下讨论将表明\co{r1 == 1 && r2 == 1}和
+	\co{r1 == 1 && r2 == 0}都是可能的。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUGuaranteeRev}}
-\caption{RCU Reader and Earlier Grace Period}
+\caption{RCU读者与更早的Grace Period}
 \label{fig:defer:RCU Reader and Earlier Grace Period}
 \end{figure}
 
-The relationship between an RCU read-side critical section and an earlier
-RCU grace period is also an if-then relationship, as illustrated by
-\cref{fig:defer:RCU Reader and Earlier Grace Period}.
-If any portion of a given critical section follows the end of
-a given grace period, then RCU guarantees that all of that critical
-section will follow the beginning of that grace period.
-In the figure, \co{P0()}'s access to \co{y} follows \co{P1()}'s access
-to this same variable, and thus follows the grace period generated by
-\co{P1()}'s call to \co{synchronize_rcu()}.
-It is therefore guaranteed that \co{P0()}'s access to \co{x} will follow
-\co{P1()}'s access.
-In this case, if \co{r2}'s final value is 1, then \co{r1}'s final value
-is guaranteed to also be 1.
+RCU read-side critical section与更早的RCU grace period之间的关系
+也是一种"如果-那么"关系，如
+\cref{fig:defer:RCU Reader and Earlier Grace Period}所示。
+如果给定critical section的任何部分后于给定grace period的结束，
+那么RCU保证该critical section的全部将后于该grace period的开始。
+在图中，\co{P0()}对\co{y}的访问后于\co{P1()}对同一变量的访问，
+因此后于\co{P1()}调用\co{synchronize_rcu()}产生的grace period。
+因此可以保证\co{P0()}对\co{x}的访问将后于\co{P1()}的访问。
+在这种情况下，如果\co{r2}的最终值为1，则\co{r1}的最终值
+也保证为1。
 
 \QuickQuiz{
-	What would happen if the order of \co{P0()}'s two accesses was
-	reversed in
-	\cref{fig:defer:RCU Reader and Earlier Grace Period}?
+	如果\co{P0()}在
+	\cref{fig:defer:RCU Reader and Earlier Grace Period}
+	中的两次访问顺序颠倒，会发生什么？
 }\QuickQuizAnswer{
-	Absolutely nothing would change.
-	The fact that \co{P0()}'s loads from \co{x} and \co{y} are
-	in the same RCU read-side critical section suffices;
-	their order is irrelevant.
+	绝对不会有任何变化。
+	\co{P0()}对\co{x}和\co{y}的加载在同一个
+	RCU read-side critical section中这一事实就足够了；
+	它们的顺序无关紧要。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUGuaranteeMid}}
-\caption{RCU Reader Within Grace Period}
+\caption{Grace Period内的RCU读者}
 \label{fig:defer:RCU Reader Within Grace Period}
 \end{figure}
 
-Finally, as shown in
-\cref{fig:defer:RCU Reader Within Grace Period},
-an RCU read-side critical section can be completely overlapped by
-an RCU grace period.
-In this case, \co{r1}'s final value is 1 and \co{r2}'s final value is 0.
+最后，如\cref{fig:defer:RCU Reader Within Grace Period}所示，
+RCU read-side critical section可以被RCU grace period完全覆盖。
+在这种情况下，\co{r1}的最终值为1，\co{r2}的最终值为0。
 
-However, it cannot be the case that \co{r1}'s final value is 0 and \co{r2}'s
-final value is 1.
-This would mean that an RCU read-side critical section had completely
-overlapped a grace period, which is forbidden (or at the very least
-constitutes a bug in RCU)\@.
-RCU's wait-for-readers guarantee therefore has two parts:
+然而，不可能出现\co{r1}的最终值为0且\co{r2}的最终值为1的情况。
+这将意味着一个RCU read-side critical section完全覆盖了一个
+grace period，这是被禁止的（或者至少构成RCU的一个bug）\@。
+因此，RCU的等待读者保证有两个部分：
 \begin{enumerate*}[(1)]
-\item If any part of a given RCU read-side critical section precedes
-the beginning of a given grace period, then the entirety of that
-critical section precedes the end of that grace period.
-\item If any part of a given RCU read-side critical section follows
-the end of a given grace period, then the entirety of that
-critical section follows the beginning of that grace period.
+\item 如果给定RCU read-side critical section的任何部分先于
+给定grace period的开始，则该critical section的全部先于该
+grace period的结束。
+\item 如果给定RCU read-side critical section的任何部分后于
+给定grace period的结束，则该critical section的全部后于该
+grace period的开始。
 \end{enumerate*}
-This definition is sufficient for almost all RCU-based algorithms, but
-for those wanting more,
-simple executable formal models of RCU are available
-as part of Linux kernel v4.17 and later, as discussed in
-\cref{sec:formal:Axiomatic Approaches and RCU}.
-In addition, RCU's ordering properties are examined in much
-greater detail in \cref{sec:memorder:RCU}.
+这个定义对几乎所有基于RCU的算法都是足够的，但对于想要更多的人，
+简单的可执行RCU形式化模型作为Linux内核v4.17及更高版本的一部分
+可供使用，如\cref{sec:formal:Axiomatic Approaches and RCU}中所述。
+此外，RCU的排序属性在\cref{sec:memorder:RCU}中有更详细的讨论。
 
 \QuickQuiz{
-	What would happen if \co{P0()}'s accesses in
+	如果\co{P0()}在
 	\crefrange{fig:defer:RCU Reader and Later Grace Period}{fig:defer:RCU Reader Within Grace Period}
-	were stores?
+	中的访问是存储操作，会发生什么？
 }\QuickQuizAnswer{
-	The exact same ordering rules would apply, that is,
-	(1)~If any part of \co{P0()}'s RCU read-side critical section
-	preceded the beginning of \co{P1()}'s grace period, all of
-	\co{P0()}'s RCU read-side critical section would precede the
-	end of \co{P1()}'s grace period, and
-	(2)~If any part of \co{P0()}'s RCU read-side critical section
-	followed the end of \co{P1()}'s grace period, all of \co{P0()}'s
-	RCU read-side critical section would follow the beginning of
-	\co{P1()}'s grace period.
+	完全相同的排序规则适用，即：
+	(1)~如果\co{P0()}的RCU read-side critical section的任何部分
+	先于\co{P1()}的grace period的开始，则\co{P0()}的
+	RCU read-side critical section的全部将先于\co{P1()}的
+	grace period的结束，
+	(2)~如果\co{P0()}的RCU read-side critical section的任何部分
+	后于\co{P1()}的grace period的结束，则\co{P0()}的
+	RCU read-side critical section的全部将后于\co{P1()}的
+	grace period的开始。
 
-	It might seem strange to have RCU read-side critical sections
-	containing writes, but this capability is not only permitted,
-	but also highly useful.
-	For example, the Linux kernel frequently carries out an
-	RCU-protected traversal of a linked data structure and then
-	acquires a reference to the destination data element.
-	Because this data element must not be freed in the meantime,
-	that element's reference counter must necessarily be incremented
-	within the traversal's RCU read-side critical section.
-	However, that increment entails a write to memory.
-	Therefore, it is a very good thing that memory writes are
-	permitted within RCU read-side critical sections.
+	在RCU read-side critical section中包含写操作可能看起来
+	很奇怪，但这种能力不仅是被允许的，而且非常有用。
+	例如，Linux内核经常执行RCU保护的链式数据结构遍历，
+	然后获取目标数据元素的引用。
+	因为该数据元素在此期间不能被释放，所以该元素的引用计数
+	必须在遍历的RCU read-side critical section内递增。
+	然而，该递增操作涉及对内存的写入。
+	因此，在RCU read-side critical section中允许内存写入
+	是一件非常好的事情。
 
-	If having writes in RCU read-side critical sections still seems
-	strange, please review
-	\cref{sec:count:Applying Exact Limit Counters},
-	which presented a use case for writes in reader-writer locking
-	read-side critical sections.
+	如果在RCU read-side critical section中进行写操作仍然
+	看起来很奇怪，请回顾
+	\cref{sec:count:Applying Exact Limit Counters}，
+	其中展示了在读写锁读侧critical section中进行写操作的
+	用例。
 }\QuickQuizEnd
 
-Although RCU's wait-for-readers capability really is sometimes used to
-order the assignment of values to variables as shown in
+虽然RCU的等待读者能力确实有时被用于如
 \crefrange{fig:defer:RCU Reader and Later Grace Period}
-{fig:defer:RCU Reader Within Grace Period},
-it is more frequently used to safely free data elements removed from
-a linked structure, as was done in
-\cref{sec:defer:Introduction to RCU}.
-The general process is illustrated by the following pseudocode:
+{fig:defer:RCU Reader Within Grace Period}
+所示的变量赋值排序，但它更常被用于安全释放从链式结构中
+移除的数据元素，正如在
+\cref{sec:defer:Introduction to RCU}中所做的那样。
+一般过程由以下伪代码说明：
 
 \begin{enumerate}
-\item	Make a change, for example, remove an element from a linked list.
-\item	Wait for all pre-existing RCU read-side critical sections to
-	completely finish (for example, by using
-	\co{synchronize_rcu()}).
-\item	Clean up, for example, free the element that was replaced above.
+\item	进行更改，例如，从链表中移除一个元素。
+\item	等待所有已有的RCU read-side critical section完全完成
+	（例如，通过使用\co{synchronize_rcu()}）。
+\item	清理，例如，释放上面被替换的元素。
 \end{enumerate}
 
 \begin{figure}
@@ -377,226 +315,185 @@ The general process is illustrated by the following pseudocode:
 }{
 \resizebox{2.5in}{!}{\includegraphics{defer/RCUGPorderingSummary}}
 }
-\caption{Summary of RCU Grace-Period Ordering Guarantees}
+\caption{RCU Grace-Period排序保证总结}
 \label{fig:defer:Summary of RCU Grace-Period Ordering Guarantees}
 \end{figure}
 
-This more abstract procedure requires a more abstract diagram than
+这个更抽象的过程需要比
 \crefrange{fig:defer:RCU Reader and Later Grace Period}
-{fig:defer:RCU Reader Within Grace Period},
-which are specific to a particular litmus test.
-After all, an RCU implementation must work correctly regardless of
-the form of the RCU updates and the RCU read-side critical sections.
+{fig:defer:RCU Reader Within Grace Period}
+更抽象的图，因为那些图是针对特定石蕊测试的。
+毕竟，无论RCU更新和RCU read-side critical section的形式如何，
+RCU实现都必须正确工作。
 \Cref{fig:defer:Summary of RCU Grace-Period Ordering Guarantees}
-fills this need, showing the four possible scenarios, with time
-advancing from top to bottom within each scenario.
-Within each scenario, an RCU reader is represented by the left-hand
-stack of boxes and RCU updater by the right-hand stack.
+满足了这一需求，展示了四种可能的场景，每个场景中时间从上到下推进。
+在每个场景中，RCU读者由左侧的方框栈表示，RCU更新者由右侧的
+方框栈表示。
 
-In the first scenario, the reader starts execution before the
-updater starts the removal, so it is possible that this reader
-has a reference to the removed data element.
-Therefore, the updater must not free this element until after the
-reader completes.
-In the second scenario, the reader does not start execution until
-after the removal has completed.
-The reader cannot possibly obtain a reference to the already-removed
-data element, so this element may be freed before the reader completes.
-The third scenario is like the second, but illustrates that even when the
-reader cannot possibly obtain a reference to an element, it is still
-permissible to defer the freeing of that element until after the
-reader completes.
-In the fourth and final scenario, the reader starts execution before
-the updater starts removing the data element, but this element
-is (incorrectly) freed before the reader completed.
-A correct RCU implementation will not allow this fourth scenario to
-occur.
-This diagram thus illustrates RCU's wait-for-readers functionality:
-Given a grace period, each reader ends before the end of that grace
-period, starts after the beginning of that grace period, or both, in
-which case it is wholly contained within that grace period.
+在第一个场景中，读者在更新者开始移除之前开始执行，因此该读者
+可能持有对被移除数据元素的引用。
+因此，更新者在读者完成之前不能释放此元素。
+在第二个场景中，读者直到移除完成之后才开始执行。
+该读者不可能获得对已移除数据元素的引用，因此可以在读者完成之前
+释放该元素。
+第三个场景类似于第二个，但说明了即使读者不可能获得对某元素的引用，
+仍然允许将该元素的释放推迟到读者完成之后。
+在第四个也是最后一个场景中，读者在更新者开始移除数据元素之前
+开始执行，但该元素（错误地）在读者完成之前被释放。
+正确的RCU实现不会允许第四种场景发生。
+因此，此图说明了RCU的等待读者功能：
+给定一个grace period，每个读者要么在该grace period结束之前结束，
+要么在该grace period开始之后开始，或者两者兼有，
+在这种情况下它完全包含在该grace period内。
 
-Because RCU readers can make forward progress while updates
-are in progress, different readers might disagree about the state
-of the data structure, a topic taken up by the next section.
+因为RCU读者可以在更新进行的同时向前推进，不同的读者可能对
+数据结构的状态持不同意见，这一主题将在下一节中讨论。
 
-\subsubsection{Maintain Multiple Versions of Recently Updated Objects}
+\subsubsection{维护最近更新对象的多个版本}
 \label{sec:defer:Maintain Multiple Versions of Recently Updated Objects}
 
-This section discusses how RCU accommodates synchronization-free readers
-by maintaining multiple versions of data.
-Because these synchronization-free readers provide very weak temporal
-synchronization, RCU users compensate via spatial synchronization.
-Spatial synchronization was discussed in
-\cref{chp:Partitioning and Synchronization Design}, and is heavily used
-in practice to obtain good performance and scalability.
-In this section, spatial synchronization will be used to attain a weak
-(but useful) form of correctness as well as excellent performance and
-scalability.
+本节讨论RCU如何通过维护数据的多个版本来适应无同步读者。
+因为这些无同步读者提供的时间同步非常弱，RCU用户通过空间同步
+来补偿。
+空间同步在\cref{chp:Partitioning and Synchronization Design}中讨论过，
+并在实践中被大量使用以获得良好的性能和可扩展性。
+在本节中，空间同步将被用来实现一种弱（但有用的）正确性形式，
+以及出色的性能和可扩展性。
 
+\cref{sec:defer:Minimal Insertion and Deletion}中的
 \Cref{fig:defer:Deletion With Concurrent Readers}
-in
-\cref{sec:defer:Minimal Insertion and Deletion}
-showed a simple variant of spatial synchronization, in which different
-readers running concurrently with \co{del_route()}
-(see \cref{lst:defer:Insertion and Deletion With Concurrent Readers})
-might see the old \co{route} structure or an empty list, but either
-way get a valid result.
-Of course, a closer look at
+展示了空间同步的一个简单变体，其中与\co{del_route()}
+（见\cref{lst:defer:Insertion and Deletion With Concurrent Readers}）
+并发运行的不同读者可能看到旧的\co{route}结构或空列表，
+但无论哪种方式都能得到有效结果。
+当然，仔细查看
 \cref{fig:defer:Insertion With Concurrent Readers}
-shows that calls to \co{ins_route()} can also result in concurrent
-readers seeing different versions:
-Either the initial empty list or the newly inserted \co{route} structure.
-Note that both reference counting
-(\cref{sec:defer:Reference Counting})
-and hazard pointers
-(\cref{sec:defer:Hazard Pointers})
-can also cause concurrent readers to see different versions, but
-RCU's lightweight readers make this more likely.
+可以发现，\co{ins_route()}的调用也可能导致并发读者看到不同版本：
+要么是初始的空列表，要么是新插入的\co{route}结构。
+注意，reference counting
+（\cref{sec:defer:Reference Counting}）
+和hazard pointer
+（\cref{sec:defer:Hazard Pointers}）
+也可能导致并发读者看到不同版本，但RCU的轻量级读者使得这种情况
+更为可能。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/multver}}
-\caption{Multiple RCU Data-Structure Versions}
+\caption{RCU数据结构的多个版本}
 \label{fig:defer:Multiple RCU Data-Structure Versions}
 \end{figure}
 
-However, maintaining multiple weakly consistent versions can provide
-some surprises.
-For example, consider
-\cref{fig:defer:Multiple RCU Data-Structure Versions},
-in which a reader is traversing a linked list that is concurrently
-updated.\footnote{
-	RCU linked-list APIs may be found in
-	\cref{sec:defer:RCU Linux-Kernel API}.}
-In the first row of the figure, the reader is referencing data item~A,
-and in the second row, it advances to~B, having thus far seen A followed by~B\@.
-In the third row, an updater removes element~A and in the fourth row
-an updater adds element~E to the end of the list.
-In the fifth and final row, the reader completes its traversal, having
-seeing elements~A through~E\@.
+然而，维护多个弱一致性版本可能带来一些意外。
+例如，考虑
+\cref{fig:defer:Multiple RCU Data-Structure Versions}，
+其中一个读者正在遍历一个被并发更新的链表。\footnote{
+	RCU链表API可在
+	\cref{sec:defer:RCU Linux-Kernel API}中找到。}
+在图的第一行，读者引用数据项~A，
+在第二行，它前进到~B，到目前为止看到的是A后面跟着~B\@。
+在第三行，更新者移除了元素~A，在第四行，
+更新者在列表末尾添加了元素~E。
+在第五行也就是最后一行，读者完成了遍历，
+看到的元素为~A到~E\@。
 
-Except that there was no time at which such a list existed.
-This situation might be even more surprising than that shown in
-\cref{fig:defer:Deletion With Concurrent Readers},
-in which different concurrent readers see different versions.
-In contrast, in
+只是这样的列表从未在任何时刻存在过。
+这种情况可能比
+\cref{fig:defer:Deletion With Concurrent Readers}
+所示的情况更令人惊讶，在那里不同的并发读者看到不同版本。
+相比之下，在
 \cref{fig:defer:Multiple RCU Data-Structure Versions}
-the reader sees a version that never actually existed!
+中，读者看到的是一个从未实际存在过的版本！
 
-One way to resolve this strange situation is via weaker semantics.
-A reader traversal must encounter any data item that was present
-during the full traversal (B, C, and~D), and might or might not
-encounter data items that were present for only part of the
-traversal (A and~E)\@.
-Therefore, in this particular case, it is perfectly legitimate for
-the reader traversal to encounter all five elements.
-If this outcome is problematic, another way to resolve this situation is
-through use of stronger synchronization mechanisms, such as reader-writer
-locking, or clever use of timestamps and versioning,
-as discussed in \cref{sec:defer:Quasi Multi-Version Concurrency Control}.
-Of course, stronger mechanisms will be more expensive, but then again
-the engineering life is all about choices and tradeoffs.
+解决这种奇怪情况的一种方法是通过较弱的语义。
+读者遍历必须遇到在整个遍历期间都存在的任何数据项
+（B、C和~D），但可能遇到也可能不遇到只在遍历的一部分时间
+存在的数据项（A和~E）\@。
+因此，在这种特定情况下，读者遍历遇到所有五个元素是完全合法的。
+如果这个结果有问题，解决这种情况的另一种方法是使用更强的
+同步机制，如读写锁，或巧妙地使用时间戳和版本控制，
+如\cref{sec:defer:Quasi Multi-Version Concurrency Control}中所述。
+当然，更强的机制会更昂贵，但工程生活就是关于选择和权衡的。
 
-Strange though this situation might seem, it is entirely consistent with
-the real world.
-As we saw in
-\cref{sec:cpu:Overheads},
-the finite speed of light cannot be ignored within a computer system,
-and it most certainly cannot be ignored outside of this system.
-This in turn means that any data within the system representing state
-in the real world outside of the system is always and forever outdated,
-and thus inconsistent with the real world.
-Therefore, it is quite possible that the sequence \{A, B, C, D, E\}
-occurred in the real world, but due to speed-of-light delays was
-never represented in the computer system's memory.
-In this case, the reader's surprising traversal would correctly reflect
-reality.
+虽然这种情况看起来很奇怪，但它与现实世界完全一致。
+正如我们在\cref{sec:cpu:Overheads}中看到的，
+光速有限这一事实在计算机系统内不能被忽略，
+在系统外部更不能被忽略。
+这反过来意味着系统内表示系统外部真实世界状态的任何数据
+始终是过时的，因此与真实世界不一致。
+因此，序列\{A, B, C, D, E\}完全有可能在真实世界中发生过，
+但由于光速延迟而从未在计算机系统的内存中体现。
+在这种情况下，读者令人惊讶的遍历结果将正确反映现实。
 
-As a result, algorithms operating on real-world data must account for
-inconsistent data, either by tolerating inconsistencies or by taking
-steps to exclude or reject them.
-In many cases, these algorithms are also perfectly capable of dealing
-with inconsistencies within the system.
+因此，操作真实世界数据的算法必须考虑不一致的数据，
+要么容忍不一致性，要么采取步骤排除或拒绝它们。
+在许多情况下，这些算法也完全能够处理系统内部的不一致性。
 
-The pre-BSD packet routing example laid out in
-\cref{sec:defer:Running Example}
-is a case in point.
-The contents of a routing list is set by routing protocols, and these
-protocols feature significant delays (seconds or even minutes) to avoid
-routing instabilities.
-Therefore, once a routing update reaches a given system,
-it might well have been sending packets the wrong way for quite some time.
-Sending a few more packets the wrong way for the few microseconds during
-which the update is in flight is clearly not a problem because the same
-higher-level protocol actions that deal with delayed routing updates
-will also deal with internal inconsistencies.
+\cref{sec:defer:Running Example}中介绍的pre-BSD数据包路由
+示例就是一个很好的例证。
+路由列表的内容由路由协议设置，这些协议具有显著的延迟
+（秒甚至分钟级别），以避免路由不稳定。
+因此，一旦路由更新到达给定系统，它可能已经将数据包发送到
+错误的方向相当长时间了。
+在更新传播的几微秒内再多发送几个错误方向的数据包显然不是问题，
+因为处理延迟路由更新的相同高层协议操作也会处理内部不一致性。
 
-Nor is Internet routing the only situation tolerating inconsistencies.
-To repeat, any algorithm in which data within a system tracks
-outside-of-system state must tolerate inconsistencies, which includes
-security policies (often set by committees of humans), storage configuration,
-and WiFi access points, to say nothing of removable hardware such as
-microphones, headsets, cameras, mice, printers, and much else besides.
-Furthermore, the large number of Linux-kernel RCU API uses shown in
-\cref{fig:defer:RCU Usage in the Linux Kernel},
-combined with the Linux kernel's heavy use of reference counting
-and with increasing use of \IXpl{hazard pointer} in other projects, demonstrates
-that tolerance for such inconsistencies is more common than one might
-imagine.
+互联网路由也不是唯一容忍不一致性的情况。
+重复一下，任何系统中的数据跟踪系统外部状态的算法都必须
+容忍不一致性，这包括安全策略（通常由人类委员会制定）、
+存储配置和WiFi接入点，更不用说可移除硬件如麦克风、耳机、
+摄像头、鼠标、打印机等等。
+此外，\cref{fig:defer:RCU Usage in the Linux Kernel}所示的
+大量Linux内核RCU API使用，
+加上Linux内核大量使用reference counting以及其他项目越来越多地
+使用\IXpl{hazard pointer}，表明对此类不一致性的容忍比人们
+想象的更为常见。
 
-One root cause of this common-case tolerance of inconsistencies is
-that single-item lookups are much more common in practice than are
-full-data-structure traversals.
-After all, full-data-structure traversals are much more expensive than
-single-item lookups, so developers are motivated to avoid such traversals.
-Not only are concurrent updates less likely to affect a single-item
-lookup than they are a full traversal, but it is also the case that an
-isolated single-item lookup has no way of detecting such inconsistencies.
-As a result, in the common case, such inconsistencies are not just
-tolerable, they are in fact invisible.
+这种常见情况下对不一致性的容忍的一个根本原因是，
+单项查找在实践中比全数据结构遍历更为常见。
+毕竟，全数据结构遍历比单项查找要昂贵得多，
+因此开发者有动力避免此类遍历。
+并发更新不仅比全遍历更不容易影响单项查找，
+而且孤立的单项查找也无法检测到此类不一致性。
+因此，在常见情况下，此类不一致性不仅是可容忍的，
+实际上是不可见的。
 
-In such cases, RCU readers can be considered to be fully ordered with
-updaters, despite the fact that these readers might be executing the
-exact same sequence of machine instructions that would be executed by
-a single-threaded program, as hinted on
-\cpageref{sec:defer:Mysteries RCU}.
-For example, referring back to
-\cref{lst:defer:Insertion and Deletion With Concurrent Readers}
-on \cpageref{lst:defer:Insertion and Deletion With Concurrent Readers},
-suppose that each reader thread invokes \co{access_route()} exactly
-once during its lifetime, and that there is no other communication among
-reader and updater threads.
+在这种情况下，RCU读者可以被认为与更新者完全有序，
+尽管这些读者可能正在执行与单线程程序完全相同的机器指令序列，
+正如在\cpageref{sec:defer:Mysteries RCU}中所暗示的。
+例如，回顾
+\cpageref{lst:defer:Insertion and Deletion With Concurrent Readers}上的
+\cref{lst:defer:Insertion and Deletion With Concurrent Readers}，
+假设每个读者线程在其生命周期中恰好调用一次\co{access_route()}，
+并且读者和更新者线程之间没有其他通信。
 \begin{fcvref}[ln:defer:Insertion and Deletion With Concurrent Readers]
-Then each invocation of \co{access_route()} can be ordered after the
-\co{ins_route()} invocation that produced the \co{route} structure
-accessed by \clnref{access_rp} of the listing in \co{access_route()}
-and ordered before any subsequent
-\co{ins_route()} or \co{del_route()} invocation.
+那么每次\co{access_route()}的调用可以排在产生该\co{route}结构
+的\co{ins_route()}调用之后（该结构由清单中\co{access_route()}的
+\clnref{access_rp}行访问），并排在任何后续的
+\co{ins_route()}或\co{del_route()}调用之前。
 \end{fcvref}
 
-In summary, maintaining multiple versions is exactly what enables the
-extremely low overheads of RCU readers, and as noted earlier, many
-algorithms are unfazed by multiple versions.
-However, there are algorithms that absolutely cannot handle multiple versions.
-There are techniques for adapting such algorithms to
-RCU~\cite{PaulEdwardMcKenneyPhD}, for example, the use of sequence locking
-described in \cref{sec:together:Correlated Data Elements}.
+总之，维护多个版本正是使RCU读者具有极低开销的关键，
+而且如前所述，许多算法不受多版本的影响。
+然而，确实有些算法完全无法处理多个版本。
+有一些技术可以使此类算法适应
+RCU~\cite{PaulEdwardMcKenneyPhD}，例如
+\cref{sec:together:Correlated Data Elements}中描述的sequence locking的
+使用。
 
-\paragraph{Exercises}
+\paragraph{练习}
 \label{sec:defer:Exercises}
 
-These examples assumed that a mutex was held across the entire
-update operation, which would mean that there could be at most two
-versions of the list active at a given time.
+这些示例假设在整个更新操作期间持有互斥锁，
+这意味着在给定时间最多有两个版本的列表处于活动状态。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How would you modify the deletion example to permit more than two
-	versions of the list to be active?
+	你将如何修改删除示例以允许列表有两个以上的
+	活动版本？
 }\QuickQuizAnswerB{
-	One way of accomplishing this is as shown in
-	\cref{lst:defer:Concurrent RCU Deletion}.
+	实现这一目标的一种方式如
+	\cref{lst:defer:Concurrent RCU Deletion}所示。
 
 \begin{listing}
 \begin{VerbatimL}
@@ -611,134 +508,108 @@ else {
 	kfree(p);
 }
 \end{VerbatimL}
-\caption{Concurrent RCU Deletion}
+\caption{并发RCU删除}
 \label{lst:defer:Concurrent RCU Deletion}
 \end{listing}
 
-	Note that this means that multiple concurrent deletions might be
-	waiting in \co{synchronize_rcu()}.
+	注意，这意味着多个并发删除可能在
+	\co{synchronize_rcu()}中等待。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	How many RCU versions of a given list can be
-	active at any given time?
+	在任何给定时间，给定列表可以有多少个RCU版本
+	处于活动状态？
 }\QuickQuizAnswerM{
-	That depends on the synchronization design.
-	If a semaphore protecting the update is held across the grace period,
-	then there can be at most two versions, the old and the new.
+	这取决于同步设计。
+	如果保护更新的信号量在grace period期间一直持有，
+	则最多可以有两个版本——旧版本和新版本。
 
-	However, suppose that only the search, the update, and the
-	\co{list_replace_rcu()} were protected by a lock, so that
-	the \co{synchronize_rcu()} was outside of that lock, similar
-	to the code shown in
-	\cref{lst:defer:Concurrent RCU Deletion}.
-	Suppose further that a large number of threads undertook an
-	RCU replacement at about the same time, and that readers
-	are also constantly traversing the data structure.
+	然而，假设只有搜索、更新和\co{list_replace_rcu()}
+	受锁保护，使得\co{synchronize_rcu()}在该锁之外，
+	类似于\cref{lst:defer:Concurrent RCU Deletion}所示的代码。
+	进一步假设大量线程大约在同一时间进行RCU替换，
+	并且读者也在不断遍历数据结构。
 
-	Then the following sequence of events could occur, starting from
-	the end state of
-	\cref{fig:defer:Multiple RCU Data-Structure Versions}:
+	那么以下事件序列可能发生，从
+	\cref{fig:defer:Multiple RCU Data-Structure Versions}
+	的结束状态开始：
 
 	\begin{enumerate}
-	\item	Thread~A traverses the list, obtaining a reference to
-		Element~C.
-	\item	Thread~B replaces Element~C with a new
-		Element~F, then waits for its \co{synchronize_rcu()}
-		call to return.
-	\item	Thread~C traverses the list, obtaining a reference to
-		Element~F.
-	\item	Thread~D replaces Element~F with a new
-		Element~G, then waits for its \co{synchronize_rcu()}
-		call to return.
-	\item	Thread~E traverses the list, obtaining a reference to
-		Element~G.
-	\item	Thread~F replaces Element~G with a new
-		Element~H, then waits for its \co{synchronize_rcu()}
-		call to return.
-	\item	Thread~G traverses the list, obtaining a reference to
-		Element~H.
-	\item	And the previous two steps repeat quickly with additional
-		new elements, so that all of them happen before any of
-		the \co{synchronize_rcu()} calls return.
+	\item	线程~A遍历列表，获取对元素~C的引用。
+	\item	线程~B将元素~C替换为新元素~F，
+		然后等待其\co{synchronize_rcu()}调用返回。
+	\item	线程~C遍历列表，获取对元素~F的引用。
+	\item	线程~D将元素~F替换为新元素~G，
+		然后等待其\co{synchronize_rcu()}调用返回。
+	\item	线程~E遍历列表，获取对元素~G的引用。
+	\item	线程~F将元素~G替换为新元素~H，
+		然后等待其\co{synchronize_rcu()}调用返回。
+	\item	线程~G遍历列表，获取对元素~H的引用。
+	\item	前两步用新的元素快速重复，使得所有这些
+		操作在任何\co{synchronize_rcu()}调用返回之前完成。
 	\end{enumerate}
 
-	Thus, there can be an arbitrary number of versions active,
-	limited only by memory and by how many updates could be completed
-	within a grace period.
-	But please note that data structures that are updated so frequently
-	are not likely to be good candidates for RCU\@.
-	Nevertheless, RCU can handle high update rates when necessary.
+	因此，可以有任意数量的活动版本，仅受内存和在一个
+	grace period内可以完成多少次更新的限制。
+	但请注意，更新如此频繁的数据结构不太可能是RCU的
+	好候选者\@。
+	尽管如此，RCU在必要时可以处理高更新率。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	How can the per-update overhead of RCU be reduced?
+	如何降低RCU每次更新的开销？
 }\QuickQuizAnswerE{
-	The most effective way to reduce the per-update overhead
-	of RCU is to increase the number of updates served by
-	a given grace period.
-	This works because the per-grace period overhead is nearly
-	independent of the number of updates served by that
-	grace period.
+	降低RCU每次更新开销最有效的方法是增加由
+	给定grace period服务的更新数量。
+	这之所以有效，是因为每个grace period的开销几乎
+	与该grace period服务的更新数量无关。
 
-	One way to do this is to delay the start of a given grace
-	period in the hope that more updates requiring that grace
-	period appear in the meantime.
-	Another way is to slow down execution of the grace period
-	in the hope that more updates requiring an additional
-	grace period will accumulate in the meantime.
+	一种方法是延迟给定grace period的开始，
+	希望在此期间有更多需要该grace period的更新出现。
+	另一种方法是减慢grace period的执行速度，
+	希望在此期间有更多需要额外grace period的更新积累。
 
-	There are many other possible optimizations, and fanatically
-	devoted readers are referred to the Linux-kernel RCU
-	implementation.
+	还有许多其他可能的优化，狂热的读者可以参考
+	Linux内核的RCU实现。
 }\QuickQuizEndE
 }
 
-\subsubsection{Summary of RCU Fundamentals}
+\subsubsection{RCU基础总结}
 \label{sec:defer:Summary of RCU Fundamentals}
 
-This section has described the three fundamental components of RCU-based
-linked-structure algorithms:
+本节描述了基于RCU的链式结构算法的三个基本组件：
 
 \begin{enumerate}
-\item	A publish-subscribe mechanism for adding new data featuring
-	\co{rcu_assign_pointer()} for update-side publication and
-	\co{rcu_dereference()} for read-side subscription,
+\item	用于添加新数据的publish-subscribe机制，
+	更新侧使用\co{rcu_assign_pointer()}进行发布，
+	读侧使用\co{rcu_dereference()}进行订阅，
 
-\item	A way of waiting for pre-existing RCU readers to finish
-	based on readers being delimited by \co{rcu_read_lock()}
-	and \co{rcu_read_unlock()} on the one hand and
-	updaters waiting via \co{synchronize_rcu()} or
-	\co{call_rcu()} on the other
-	(see \cref{sec:memorder:RCU} for a formal description),
-	and
+\item	一种等待已有RCU读者完成的方式，
+	读者一侧由\co{rcu_read_lock()}和\co{rcu_read_unlock()}界定，
+	更新者一侧通过\co{synchronize_rcu()}或
+	\co{call_rcu()}等待
+	（形式化描述见\cref{sec:memorder:RCU}），
+	以及
 
-\item	A discipline of maintaining multiple versions to permit
-	change without harming or unduly delaying concurrent RCU readers.
+\item	一种维护多版本的规范，以允许更改而不伤害或
+	过度延迟并发RCU读者。
 \end{enumerate}
 
 \QuickQuiz{
-	How can RCU updaters possibly delay RCU readers, given that
-	neither \co{rcu_read_lock()} nor \co{rcu_read_unlock()}
-	spin or block?
+	既然\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+	都不会自旋或阻塞，RCU更新者怎么可能延迟RCU读者？
 }\QuickQuizAnswer{
-	The modifications undertaken by a given RCU updater will cause the
-	corresponding CPU to invalidate cache lines containing the data,
-	forcing the CPUs running concurrent RCU readers to incur expensive
-	cache misses.
-	(Can you design an algorithm that changes a data structure
-	\emph{without}
-	inflicting expensive cache misses on concurrent readers?
-	On subsequent readers?)
+	给定RCU更新者所进行的修改将导致相应CPU使包含数据的
+	缓存行无效，迫使运行并发RCU读者的CPU产生昂贵的
+	缓存未命中。
+	（你能设计一种更改数据结构而\emph{不}对并发读者造成
+	昂贵缓存未命中的算法吗？对后续读者呢？）
 }\QuickQuizEnd
 
-These three RCU components allow data to be updated in the face of concurrent
-readers that might be executing the same sequence of machine instructions
-that would be used by a reader in a single-threaded implementation.
-These RCU components can be combined in different ways to implement a
-surprising variety of different types of RCU-based algorithms, a number
-of which are presented in
-\cref{sec:defer:RCU Usage}.
-However, it is usually better to work at higher levels of abstraction.
-To this end, the next section describes the Linux-kernel API, which
-includes simple data structures such as lists.
+这三个RCU组件允许在并发读者可能正在执行与单线程实现中
+读者完全相同的机器指令序列的情况下进行数据更新。
+这些RCU组件可以以不同方式组合来实现种类繁多的不同类型的
+基于RCU的算法，其中一些在
+\cref{sec:defer:RCU Usage}中介绍。
+然而，通常更好的做法是在更高的抽象层次上工作。
+为此，下一节描述了Linux内核API，其中包括列表等简单数据结构。

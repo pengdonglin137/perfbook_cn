@@ -12,112 +12,107 @@
 \begin{tabularx}{6.8in}{p{0.95in}cXcX}
 \toprule
   &
-    & \multicolumn{1}{c}{Locking with Userspace RCU or Hazard Pointers} &
+    & \multicolumn{1}{c}{用户空间RCU或Hazard Pointer增强的锁} &
       & \multicolumn{1}{c}{Hardware Transactional Memory} \\
 \midrule
-  Basic Idea &
-    & Allow only one thread at a time to access a given set of objects. &
-      & Cause a given operation over a set of objects to execute atomically. \\
+  基本思想 &
+    & 一次只允许一个线程访问给定的一组对象。 &
+      & 使对给定对象集的操作以原子方式执行。 \\
 \midrule
-  Scope &
-    & \Pl Handles all operations. &
-      & \Pl Handles revocable operations. \\
+  适用范围 &
+    & \Pl 处理所有操作。 &
+      & \Pl 处理可撤销操作。 \\
 \addlinespace[4pt]
   &
     & &
-      & \Mn Irrevocable operations force fallback (typically to locking). \\
+      & \Mn 不可撤销操作迫使回退（通常回退到锁）。 \\
 \midrule
-  Composability &
-    & \Pl Readers limited only by grace-period-wait operations. &
-      & \Dw Limited by irrevocable operations, transaction size, and deadlock.
-        (Assuming lock-based fallback code.)\\
+  可组合性 &
+    & \Pl 读取端仅受宽限期等待操作限制。 &
+      & \Dw 受不可撤销操作、事务大小和死锁限制
+        （假设基于锁的回退代码）。\\
 \addlinespace[4pt]
   &
-    & \Mn Updaters limited by deadlock.  Readers reduce deadlock. &
+    & \Mn 更新端受死锁限制。读取端减少死锁。 &
       & \\
 \midrule
-  Scalability \& Performance &
-    & \Mn Data must be partitionable to avoid lock contention among updaters. &
-      & \Mn Data must be partitionable to avoid conflicts. \\
+  可扩展性与性能 &
+    & \Mn 数据必须可分区以避免更新端之间的锁竞争。 &
+      & \Mn 数据必须可分区以避免冲突。 \\
 \addlinespace[4pt]
   &
-    & \Pl Partitioning not needed for readers. &
-      & \\
-\cmidrule{3-5}
-  &
-    & \Dw Partitioning for updaters must typically be fixed at design time. &
-      & \Pl Dynamic adjustment of partitioning carried out automatically down
-        to cacheline boundaries. \\
-\cmidrule{3-5}
-  &
-    & \Pl Partitioning not needed for readers. &
-      & \Mn Partitioning required for fallbacks (less important for rare
-        fallbacks). \\
-\cmidrule{3-5}
-  &
-    & \Dw Updater locking primitives typically result in expensive cache misses
-      and memory-barrier instructions. &
-      & \Mn Transactions begin/end instructions typically do not result in
-        cache misses, but do have memory-ordering and overhead consequences. \\
-\cmidrule{3-5}
-  &
-    & \Pl Update-side contention effects are focused on acquisition and release,
-      so that the critical section runs at full speed. &
-      & \Mn Contention aborts conflicting transactions, even if they have been
-        running for a long time. \\
-\addlinespace[4pt]
-  &
-    & \Pl Readers do not contend with updaters or with each other. &
+    & \Pl 读取端不需要分区。 &
       & \\
 \cmidrule{3-5}
   &
-    & \Pl Read-side primitives are typically bounded wait-free with low
-      overhead.
-      (Lock-free with low overhead for hazard pointers.) &
-      & \Mn Read-only transactions subject to conflicts and rollbacks.
-        No forward-progress guarantees other than those supplied by fallback
-        code. \\
+    & \Dw 更新端的分区通常必须在设计时固定。 &
+      & \Pl 自动动态调整分区，精确到缓存行边界。 \\
 \cmidrule{3-5}
   &
-    & \Pl Privatization operations are simple, intuitive, performant, and
-      scalable when data is visible only to updaters. &
-      & \Mn Privatized data contributes to transaction size. \\
+    & \Pl 读取端不需要分区。 &
+      & \Mn 回退需要分区（对于罕见的回退不太重要）。 \\
+\cmidrule{3-5}
+  &
+    & \Dw 更新端锁原语通常导致昂贵的缓存未命中
+      和内存屏障指令。 &
+      & \Mn 事务开始/结束指令通常不会导致缓存未命中，
+        但确实有内存排序和开销影响。 \\
+\cmidrule{3-5}
+  &
+    & \Pl 更新端竞争效应集中在获取和释放上，
+      因此临界区以全速运行。 &
+      & \Mn 竞争会中止冲突的事务，即使它们已经
+        运行了很长时间。 \\
 \addlinespace[4pt]
   &
-    & \Mn Privatization operations are expensive (though still intuitive
-      and scalable) for reader-visible data. &
+    & \Pl 读取端不与更新端或彼此竞争。 &
       & \\
-\midrule
-  Hardware Support &
-    & \Pl Commodity hardware suffices. &
-      & \Mn New hardware required (and is starting to become available). \\
 \cmidrule{3-5}
   &
-    & \Pl Performance is insensitive to cache-geometry details. &
-      & \Mn Performance depends critically on cache geometry. \\
+    & \Pl 读取端原语通常是有界无等待的，开销低。
+      （Hazard pointer为无锁，开销低。） &
+      & \Mn 只读事务受冲突和回滚影响。
+        除回退代码提供的之外没有前向进展保证。 \\
+\cmidrule{3-5}
+  &
+    & \Pl 当数据仅对更新端可见时，私有化操作
+      简单、直观、高效且可扩展。 &
+      & \Mn 私有化数据增加事务大小。 \\
+\addlinespace[4pt]
+  &
+    & \Mn 对于读取端可见的数据，私有化操作开销较大
+      （但仍然直观且可扩展）。 &
+      & \\
 \midrule
-  Software Support &
-    & \Pl APIs exist, large body of code and experience, debuggers operate
-      naturally. &
-      & \Mn APIs emerging, little experience outside of DBMS, breakpoints
-        mid-transaction can be problematic. \\
+  硬件支持 &
+    & \Pl 通用硬件即可。 &
+      & \Mn 需要新硬件（正开始变得可用）。 \\
+\cmidrule{3-5}
+  &
+    & \Pl 性能不受缓存几何细节影响。 &
+      & \Mn 性能严重依赖缓存几何结构。 \\
 \midrule
-  Interaction With Other Mechanisms &
-    & \Pl Long experience of successful interaction. &
-      & \Dw Just beginning investigation of interaction. \\
+  软件支持 &
+    & \Pl API已存在，有大量代码和经验，调试器正常工作。 &
+      & \Mn API正在出现，DBMS之外经验很少，事务中的
+        断点可能有问题。 \\
 \midrule
-  Practical Apps &
-    & \Pl Yes. &
-      & \Pl Yes. \\
+  与其他机制的交互 &
+    & \Pl 有长期成功交互的经验。 &
+      & \Dw 刚刚开始研究交互。 \\
 \midrule
-  Wide Applicability &
-    & \Pl Yes. &
-      & \Mn Jury still out. \\
+  实际应用 &
+    & \Pl 有。 &
+      & \Pl 有。 \\
+\midrule
+  广泛适用性 &
+    & \Pl 有。 &
+      & \Mn 尚无定论。 \\
 \bottomrule
 \end{tabularx}
 }}
-\caption{Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM
-  (\colorbox{plus}{Advantage}, \colorbox{minus}{Disadvantage},
-  \colorbox{down}{Strong Disadvantage})}
+\caption{锁（由RCU或Hazard Pointer增强）与HTM的比较
+  （\colorbox{plus}{优势}、\colorbox{minus}{劣势}、
+  \colorbox{down}{严重劣势}）}
 \label{tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}
 \end{table*}

@@ -2,122 +2,99 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Functional Programming for Parallelism}
+\section{用于并行化的函数式编程}
 \label{sec:future:Functional Programming for Parallelism}
 %
-\epigraph{The curious failure of functional programming for parallel
-	  applications.}
+\epigraph{函数式编程在并行应用中的奇怪失败。}
 	 {Malte Skarupke}
 
-When I took my first-ever functional-programming class in the early 1980s,
-the professor asserted that the side-effect-free functional-programming
-style was well-suited to trivial parallelization and analysis.
-Thirty years later, this assertion remains, but mainstream production
-use of parallel functional languages is minimal, a state of affairs that
-might not be entirely unrelated to professor's additional
-assertion that programs should neither maintain state nor do I/O\@.
-There is niche use of functional languages such as Erlang, and
-multithreaded support has been added to several other functional languages,
-but mainstream production usage remains the province of procedural
-languages such as C, C++, Java, and Fortran (usually augmented with
-OpenMP, MPI, or coarrays).
+当我在1980年代初上第一门functional programming课时，
+教授断言无副作用的functional programming风格非常适合
+轻松实现并行化和分析。
+三十年后，这一断言依然存在，但主流生产环境中
+并行函数式语言的使用微乎其微——这种状况可能与教授的另一个断言
+（即程序既不应该维护状态也不应该进行I/O）并非完全无关。
+Erlang等函数式语言有小众应用，
+多线程支持也已添加到其他几种函数式语言中，
+但主流生产使用仍然是C、C++、Java和Fortran等过程式语言的领地
+（通常与OpenMP、MPI或coarray配合使用）。
 
-This situation naturally leads to the question ``If analysis is the goal,
-why not transform the procedural language into a functional language before
-doing the analysis?''
-There are of course a number of objections to this approach, of which
-I list but three:
+这种情况自然引出一个问题：``如果分析是目标，
+为什么不在分析之前将过程式语言转换为函数式语言？''
+当然，对这种方法有许多反对意见，其中我列出三条：
 
 \begin{enumerate}
-\item	Procedural languages often make heavy use of global variables,
-	which can be updated independently by different
-	functions, or, worse yet, by multiple threads.
-	Note that Haskell's \emph{monads} were invented to deal with
-	single-threaded global state, and that multi-threaded access to
-	global state inflicts additional violence on the functional model.
-\item	Multithreaded procedural languages often use synchronization
-	primitives such as locks, atomic operations, and transactions,
-	which inflict added violence upon the functional model.
-\item	Procedural languages can \emph{alias} function arguments,
-	for example, by passing a pointer to the same structure via two
-	different arguments to the same invocation of a given function.
-	This can result in the function unknowingly updating that
-	structure via two different (and possibly overlapping) code
-	sequences, which greatly complicates analysis.
+\item	过程式语言经常大量使用全局变量，
+	这些变量可以被不同的函数独立更新，
+	或者更糟糕的是，被多个线程独立更新。
+	注意，Haskell的\emph{monad}就是为了处理
+	单线程全局状态而发明的，而多线程访问
+	全局状态对函数式模型造成了更多的伤害。
+\item	多线程过程式语言经常使用锁、原子操作和事务等
+	同步原语，这些对函数式模型造成了更多的伤害。
+\item	过程式语言可以对函数参数进行\emph{别名化}，
+	例如，通过将指向同一结构的指针作为两个不同的参数
+	传递给同一函数的同一次调用。
+	这可能导致函数在不知情的情况下通过两个不同的
+	（可能重叠的）代码序列更新该结构，
+	这极大地使分析变得复杂。
 \end{enumerate}
 
-Of course, given the importance of global state, synchronization
-primitives, and aliasing, clever functional-programming experts have
-proposed any number of attempts to reconcile the function programming
-model to them, monads being but one case in point.
+当然，鉴于全局状态、同步原语和别名的重要性，
+聪明的functional programming专家已经提出了许多尝试
+来调和函数式编程模型与它们之间的矛盾，
+monad只是其中一个例子。
 
-Another approach is to compile the parallel procedural program into
-a functional program, then to use functional-programming tools to analyze
-the result.
-But it is possible to do much better than this, given that any real
-computation is a large finite-state machine with finite input that
-runs for a finite time interval.
-This means that any real program can be transformed into an expression,
-possibly albeit an impractically large one~\cite{VijayDSilva2012-sas}.
+另一种方法是将并行过程式程序编译为函数式程序，
+然后使用functional programming工具来分析结果。
+但完全可以比这做得更好，因为任何真实的计算
+都是一个具有有限输入并运行有限时间的大型有限状态机。
+这意味着任何真实程序都可以转换为一个表达式，
+尽管可能是一个大得不切实际的表达式~\cite{VijayDSilva2012-sas}。
 
-However, a number of the low-level kernels of parallel algorithms transform
-into expressions that are small enough to fit easily into the memories
-of modern computers.
-If such an expression is coupled with an assertion, checking to see if
-the assertion would ever fire becomes a satisfiability problem.
-Even though satisfiability problems are NP-complete, they can often
-be solved in much less time than would be required to generate the
-full state space.
-In addition, the solution time appears to be only weakly dependent on
-the underlying memory model, so that algorithms running on weakly ordered
-systems can also be checked~\cite{JadeAlglave2013-cav}.
+然而，并行算法的许多低级内核可以转换为
+足够小的表达式，可以轻松装入现代计算机的内存中。
+如果这样的表达式与一个断言相结合，检查该断言是否会触发
+就变成了一个可满足性问题。
+尽管可满足性问题是NP完全的，但通常可以在
+比生成完整状态空间所需的时间短得多的时间内解决。
+此外，求解时间似乎只弱依赖于底层内存模型，
+因此运行在弱排序系统上的算法也可以被检查~\cite{JadeAlglave2013-cav}。
 
-The general approach is to transform the program into single-static-assignment
-(SSA) form, so that each assignment to a variable creates a separate
-version of that variable.
-This applies to assignments from all the active threads, so that the
-resulting expression embodies all possible executions of the code
-in question.
-The addition of an assertion entails asking whether any combination of
-inputs and initial values can result in the assertion firing, which,
-as noted above, is exactly the satisfiability problem.
+一般方法是将程序转换为静态单赋值（SSA）形式，
+使得对变量的每次赋值都创建该变量的一个单独版本。
+这适用于所有活跃线程的赋值，因此生成的表达式
+包含了所讨论代码的所有可能执行。
+添加一个断言就相当于询问输入和初始值的任何组合
+是否可能导致断言触发，如上所述，
+这正是可满足性问题。
 
-One possible objection is that it does not gracefully handle arbitrary
-looping constructs.
-However, in many cases, this can be handled by unrolling the loop a
-finite number of times.
-In addition, perhaps some loops will also prove amenable to collapse
-via inductive methods.
+一个可能的反对意见是它不能优雅地处理任意循环构造。
+然而，在许多情况下，可以通过将循环展开有限次数来处理。
+此外，也许某些循环也可以通过归纳方法来折叠。
 
-Another possible objection is that spinlocks involve arbitrarily long
-loops, and any finite unrolling would fail to capture the full behavior
-of the spinlock.
-It turns out that this objection is easily overcome.
-Instead of modeling a full spinlock, model a trylock that attempts to
-obtain the lock, and aborts if it fails to immediately do so.
-The assertion must then be crafted so as to avoid firing in cases
-where a spinlock aborted due to the lock not being immediately available.
-Because the logic expression is independent of time, all possible
-concurrency behaviors will be captured via this approach.
+另一个可能的反对意见是自旋锁涉及任意长的循环，
+任何有限的展开都无法捕获自旋锁的完整行为。
+事实证明这个反对意见很容易克服。
+不是建模完整的自旋锁，而是建模一个trylock，它尝试
+获取锁，如果不能立即获取就中止。
+然后必须精心构造断言，以避免在自旋锁因锁不可立即获取
+而中止的情况下触发。
+因为逻辑表达式与时间无关，所有可能的并发行为
+都将通过这种方法被捕获。
 
-A final objection is that this technique is unlikely to be able to handle
-a full-sized software artifact such as the millions of lines of code making
-up the Linux kernel.
-This is likely the case, but the fact remains that exhaustive validation
-of each of the much smaller parallel primitives within the Linux kernel
-would be quite valuable.
-And in fact the researchers spearheading this approach have applied it
-to non-trivial real-world code, including the Tree RCU implementation in
-the Linux
-kernel~\cite{LihaoLiang2016VerifyTreeRCU,MichalisKokologiannakis2017NidhuggRCU}.
+最后一个反对意见是，这种技术不太可能能够处理
+像Linux内核这样数百万行代码构成的完整规模的软件工件。
+这很可能是事实，但事实仍然是，对Linux内核中
+每个小得多的并行原语进行穷举验证将是相当有价值的。
+事实上，推动这一方法的研究人员已经将其应用于
+非平凡的实际代码，包括Linux内核中的Tree RCU
+实现~\cite{LihaoLiang2016VerifyTreeRCU,MichalisKokologiannakis2017NidhuggRCU}。
 
-It remains to be seen how widely applicable this technique is, but
-it is one of the more interesting innovations in the field of
-formal verification.
-Although it might well be that the functional-programming advocates
-are at long last correct in their assertion of the inevitable
-dominance of functional programming, it is clearly the case
-that this long-touted methodology is starting to see credible
-competition on its formal-verification home turf.
-There is therefore continued reason to doubt the inevitability of
-functional-programming dominance.
+这种技术的适用范围有多广还有待观察，但它是
+形式化验证领域中更有趣的创新之一。
+虽然functional programming的倡导者终于可能在其
+函数式编程必将统治一切的断言上是正确的，但显然
+这种长期被吹捧的方法论正在其形式化验证的主场
+开始面临可信的竞争。
+因此，仍然有理由怀疑functional programming统治的不可避免性。

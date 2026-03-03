@@ -2,130 +2,110 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{What is the Difference Between ``Concurrent'' and ``Parallel''?}
+\section{"并发"和"并行"有什么区别？}
 \label{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
 %
-\epigraph{If you cannot make a difference, make a distinction!}
+\epigraph{如果你不能制造差别，那就制造区别！}
 	 {Unknown}
 
-From a classic computing perspective, ``\IX{concurrent}'' and ``\IX{parallel}''
-are clearly synonyms.
-However, this has not stopped many people from drawing distinctions
-between the two, and it turns out that these distinctions can be
-understood from a couple of different perspectives.
+从经典计算的角度来看，"\IX{concurrent}"和"\IX{parallel}"
+显然是同义词。
+然而，这并没有阻止许多人在两者之间做出区分，
+而且事实证明，这些区分可以从几个不同的角度来理解。
 
-The first perspective treats ``parallel'' as an abbreviation for
-``data parallel'', and treats ``concurrent'' as pretty much everything
-else.
-From this perspective, in parallel computing, each partition of the
-overall problem can proceed completely independently, with no
-communication with other partitions.
-In this case, little or no coordination among partitions is required.
-In contrast, concurrent computing might well have tight interdependencies,
-in the form of contended locks, transactions, or other synchronization
-mechanisms.
+第一种视角将"并行"视为"数据并行"的缩写，
+而将"并发"视为几乎所有其他情况。
+从这个角度来看，在并行计算中，
+整体问题的每个分区可以完全独立地进行，
+不需要与其他分区通信。
+在这种情况下，分区之间几乎不需要协调。
+相比之下，并发计算可能有紧密的相互依赖，
+表现为有竞争的锁、事务或其他同步机制。
 
 \QuickQuiz{
-	Suppose a portion of a program uses RCU read-side primitives
-	as its only synchronization mechanism.
-	Is this parallelism or concurrency?
+	假设程序的一部分仅使用RCU读端原语作为其唯一的同步机制。
+	这是并行还是并发？
 }\QuickQuizAnswer{
-	Yes.
+	两者都是。
 }\QuickQuizEnd
 
-This of course begs the question of why such a distinction matters,
-which brings us to the second perspective, that of the underlying scheduler.
-Schedulers come in a wide range of complexities and capabilities, and
-as a rough rule of thumb, the more tightly and irregularly a set of
-parallel processes communicate, the higher the level of sophistication
-required from the scheduler.
-As such, parallel computing's avoidance of interdependencies means that
-parallel-computing programs run well on the least-capable schedulers.
-In fact, a pure data-parallel program can run successfully after
-being arbitrarily subdivided and interleaved onto a uniprocessor.\footnote{
-	Yes, this does mean that data-parallel programs are best-suited
-	for sequential execution.
-	Why did you ask?}
-In contrast, concurrent-computing programs might well require extreme
-subtlety on the part of the scheduler.
+这当然引出了这种区分为什么重要的问题，
+这就把我们带到了第二种视角，即底层调度器的视角。
+调度器的复杂性和能力范围很广，
+作为一个粗略的经验法则，一组并行进程之间的通信越紧密和不规则，
+对调度器所要求的精巧程度就越高。
+因此，并行计算避免相互依赖意味着并行计算程序可以在
+能力最弱的调度器上良好运行。
+事实上，一个纯数据并行程序在被任意细分和交错到
+单处理器上后仍然可以成功运行。\footnote{
+	是的，这确实意味着数据并行程序最适合串行执行。
+	你为什么这么问？}
+相比之下，并发计算程序可能需要调度器具有极高的精巧性。
 
-One could argue that we should simply demand a reasonable level of
-competence from the scheduler, so that we could simply ignore any
-distinctions between parallelism and concurrency.
-Although this is often a good strategy,
-there are important situations where \IX{efficiency},
-\IX{performance}, and \IX{scalability} concerns sharply limit the level
-of competence that the scheduler can reasonably offer.
-One important example is when the scheduler is implemented in
-hardware, as it often is in SIMD units or GPGPUs.
-Another example is a workload where the units of work are quite
-short, so that even a software-based scheduler must make hard choices
-between subtlety on the one hand and efficiency on the other.
+人们可以争辩说，我们应该简单地要求调度器具有合理的能力水平，
+这样我们就可以忽略并行和并发之间的任何区别。
+虽然这通常是一个好策略，
+但在一些重要的情况下，\IX{efficiency}、
+\IX{performance}和\IX{scalability}方面的考虑
+严重限制了调度器能够合理提供的能力水平。
+一个重要的例子是当调度器在硬件中实现时，
+正如在SIMD单元或GPGPU中经常出现的那样。
+另一个例子是工作单元非常短的工作负载，
+即使是基于软件的调度器也必须在精巧性和效率之间做出艰难的选择。
 
-Now, this second perspective can be thought of as making the workload
-match the available scheduler, with parallel workloads able to
-use simple schedulers and concurrent workloads requiring
-sophisticated schedulers.
+现在，第二种视角可以被认为是使工作负载与可用的调度器匹配，
+并行工作负载可以使用简单的调度器，
+而并发工作负载需要复杂的调度器。
 
-Unfortunately, this perspective does not always align with the
-dependency-based distinction put forth by the first perspective.
-For example, a highly interdependent lock-based workload
-with one thread per CPU can make do with a trivial scheduler
-because no scheduler decisions are required.
-In fact, some workloads of this type can even be run one after another
-on a sequential machine.
-Therefore, such a workload would be labeled ``concurrent'' by the first
-perspective and ``parallel'' by many taking the second perspective.
+不幸的是，这个视角并不总是与第一种视角提出的基于依赖关系的区分一致。
+例如，一个高度相互依赖的基于锁的工作负载，
+每个CPU一个线程，可以用一个简单的调度器就能应付，
+因为不需要做任何调度决策。
+事实上，这种类型的某些工作负载甚至可以在串行机器上一个接一个地运行。
+因此，这样的工作负载会被第一种视角标记为"并发"，
+而被许多采取第二种视角的人标记为"并行"。
 
 \QuickQuiz{
-	In what part of the second (scheduler-based) perspective would
-	the lock-based single-thread-per-CPU workload be considered
-	``concurrent''?
+	在第二种（基于调度器的）视角的哪个部分，
+	基于锁的单线程每CPU工作负载会被视为"并发"？
 }\QuickQuizAnswer{
-	The people who would like to arbitrarily subdivide and interleave
-	the workload.
-	Of course, an arbitrary subdivision might end up separating
-	a lock acquisition from the corresponding lock release, which
-	would prevent any other thread from acquiring that lock.
-	If the locks were pure spinlocks, this could even result in
-	deadlock.
+	那些希望任意细分和交错工作负载的人会这样认为。
+	当然，任意细分可能最终将锁的获取与对应的锁释放分开，
+	这将阻止任何其他线程获取该锁。
+	如果这些锁是纯自旋锁，这甚至可能导致死锁。
 }\QuickQuizEnd
 
-A third perspective considers concurrency to a logical manifestation of
-the source code and parallelism to be a physical manifestation of running
-that code on actual hardware.
-But then what should we make of user applications that spawn variable
-numbers of threads based on the number of CPUs available?
-Are these applications concurrent when running on a single CPU and
-parallel when running on multiple CPUs?
-If those applications are still concurrent rather than parallel
-even on multiple CPUs, what if they use facilities such as
-\co{sched_setaffinity()} to bind each of their threads to specified CPUs?
-And then does it make a difference whether such applications hard-code
-the CPU numbers on the one hand or compute the CPU numbers based on
-the available CPUs on the other?
-And if those applications are still merely concurrent, what if they
-refuse to run if fewer than (say) four CPUs are available?
-And what if the bottleneck is something other than CPUs, as discussed in
-\cref{sec:datastruct:Hash-Table Performance}?
-While these questions and variations on them are being carefully
-considered in the light of experience running such applications in
-production, please note that the scalability graphs in this book fully
-justify the word ``Parallel'' in the title.
+第三种视角认为并发是源代码的逻辑表现，
+而并行是在实际硬件上运行该代码的物理表现。
+但那么，对于根据可用CPU数量生成可变数量线程的用户应用程序，
+我们该如何看待？
+这些应用程序在单个CPU上运行时是并发的，
+而在多个CPU上运行时是并行的吗？
+如果这些应用程序即使在多个CPU上仍然是并发的而非并行的，
+那如果它们使用\co{sched_setaffinity()}等工具
+将每个线程绑定到指定的CPU上呢？
+那么，这些应用程序是硬编码CPU编号，
+还是根据可用CPU计算CPU编号，会有区别吗？
+如果这些应用程序仍然只是并发的，
+那如果它们在少于（比如说）四个CPU可用时拒绝运行呢？
+如果瓶颈是CPU以外的其他东西呢，
+正如\cref{sec:datastruct:Hash-Table Performance}中所讨论的？
+当这些问题及其变体在生产环境中运行此类应用程序的经验下
+被仔细考虑时，请注意本书中的可扩展性图表
+完全证明了书名中"并行"一词的使用。
 
-In short, this perspective might have the virtue of being easy to teach,
-but it seems to be a bit lacking from a practical viewpoint.
+简言之，这种视角可能具有易于教学的优点，
+但从实际角度来看似乎有所欠缺。
 
-Which is just fine.
-After all, no human perspective carries any weight against the objective
-universe.
+这完全没问题。
+毕竟，任何人类视角在客观宇宙面前都不具有分量。
 
-This categorization failure does not necessarily mean such perspectives
-are useless, but rather that you should take on a suitably skeptical
-frame of mind when considering whether or not to attempt to apply them.
-As always, use a give perspective where it applies and ignore it otherwise.
+这种分类失败并不一定意味着这些视角毫无用处，
+而是说当你考虑是否尝试应用它们时，
+应该持有适当怀疑的态度。
+一如既往，在适用的地方使用给定的视角，否则忽略它。
 
-In fact, it is likely that new perspectives will arise in addition
-to parallel, concurrent, map-reduce, task-based, and so on.
-Some will stand the test of time, and some will not.
-Best wishes in your quest to guess which is which!
+事实上，除了并行、并发、map-reduce、基于任务等之外，
+可能还会出现新的视角。
+有些会经受住时间的考验，有些不会。
+祝你好运，猜猜哪些能经受考验，哪些不能！

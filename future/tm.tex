@@ -2,194 +2,155 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Transactional Memory}
+\section{事务内存}
 \label{sec:future:Transactional Memory}
-\epigraph{Everything should be as simple as it can be, but not simpler.}
-	 {Albert Einstein, by way of Louis Zukofsky}
+\epigraph{一切应该尽可能简单，但不能过于简单。}
+	 {Albert Einstein，经由Louis Zukofsky}
 
-The idea of using transactions outside of databases goes back many
-decades~\cite{DBLomet1977SIGSOFT,Knight:1986:AMF:319838.319854,Herlihy93a},
-with the key difference between
-database and non-database transactions being that non-database transactions
-drop the ``D'' in the ``ACID''\footnote{
-	Atomicity, consistency, isolation, and durability.}
-properties defining database transactions.
-The idea of supporting memory-based transactions, or ``transactional memory''
-(TM), in hardware
-is more recent~\cite{Herlihy93a}, but unfortunately, support for such
-transactions in commodity hardware was not immediately forthcoming,
-despite other somewhat similar proposals being put forward~\cite{JMStone93}.
-Not long after, Shavit and Touitou proposed a software-only implementation
-of transactional memory (STM) that was capable of running on commodity
-hardware, give or take memory-ordering issues~\cite{Shavit95}.
-This proposal languished for many years, perhaps due to the fact that
-the research community's attention was absorbed by \IXacrl{nbs}
-(see \cref{sec:advsync:Non-Blocking Synchronization}).
 
-But by the turn of the century, TM started receiving
-more attention~\cite{Martinez01a,Rajwar01a}, and by the middle of the
-decade, the level of interest can only be termed
-``incandescent''~\cite{MauriceHerlihy2005-TM-manifesto.pldi,
-DanGrossman2007TMGCAnalogy}, with only a few voices of
-caution~\cite{Blundell2005DebunkTM,McKenney2007PLOSTM}.
+在数据库之外使用事务的想法可以追溯到几十年
+前~\cite{DBLomet1977SIGSOFT,Knight:1986:AMF:319838.319854,Herlihy93a}，
+数据库事务和非数据库事务之间的关键区别在于，非数据库事务
+去掉了定义数据库事务的``ACID''\footnote{
+	原子性（Atomicity）、一致性（Consistency）、隔离性（Isolation）
+	和持久性（Durability）。}
+属性中的``D''。
+在硬件中支持基于内存的事务，即``transactional memory''
+（TM）的想法出现得更
+晚~\cite{Herlihy93a}，但不幸的是，尽管也有一些类似的提案被提
+出~\cite{JMStone93}，商用硬件对此类事务的支持并未立即出现。
+不久之后，Shavit和Touitou提出了一种纯软件的
+transactional memory (STM) 实现，它能够在商用硬件上运行，
+尽管存在内存排序问题~\cite{Shavit95}。
+这一提案沉寂了多年，也许是因为研究社区的注意力被\IXacrl{nbs}
+（见\cref{sec:advsync:Non-Blocking Synchronization}）所吸引。
 
-The basic idea behind TM is to execute a section of
-code atomically, so that other threads see no intermediate state.
-As such, the semantics of TM could be implemented
-by simply replacing each transaction with a recursively acquirable
-global lock acquisition and release, albeit with abysmal performance
-and scalability.
-Much of the complexity inherent in TM implementations, whether hardware
-or software, is efficiently detecting when concurrent transactions can safely
-run in parallel.
-Because this detection is done dynamically, conflicting transactions
-can be aborted or ``rolled back'', and in some implementations, this
-failure mode is visible to the programmer.
+但到了世纪之交，TM开始受到更多
+关注~\cite{Martinez01a,Rajwar01a}，到了这个十年的中期，
+人们的兴趣只能用``白热化''来形
+容~\cite{MauriceHerlihy2005-TM-manifesto.pldi,
+DanGrossman2007TMGCAnalogy}，只有少数谨慎的
+声音~\cite{Blundell2005DebunkTM,McKenney2007PLOSTM}。
 
-Because transaction roll-back is increasingly unlikely as transaction
-size decreases, TM might become quite attractive for small memory-based
-operations,
-such as linked-list manipulations used for stacks, queues, hash tables,
-and search trees.
-However, it is currently much more difficult to make the case for large
-transactions, particularly those containing non-memory operations such
-as I/O and process creation.
-The following sections look at current challenges to the grand vision of
-``Transactional Memory Everywhere''~\cite{PaulEMcKenney2009TMeverywhere}.
-\Cref{sec:future:Outside World} examines the challenges faced
-interacting with the outside world,
-\cref{sec:future:Process Modification} looks at interactions
-with process modification primitives,
-\cref{sec:future:Synchronization} explores interactions with
-other synchronization primitives, and finally
-\cref{sec:future:Discussion} closes with some discussion.
+TM背后的基本思想是原子地执行一段代码，使得其他线程看不到中间状态。
+因此，TM的语义可以简单地通过将每个事务替换为一个可递归获取的
+全局锁的获取和释放来实现，尽管性能和可扩展性会极其糟糕。
+TM实现（无论是硬件还是软件）中固有的大部分复杂性在于
+高效地检测并发事务何时可以安全地并行运行。
+由于这种检测是动态进行的，冲突的事务可能会被中止或``回滚''，
+而且在某些实现中，这种失败模式对程序员是可见的。
 
-\subsection{Outside World}
+由于事务回滚的可能性随着事务大小的减小而降低，
+TM对于小型基于内存的操作可能变得相当有吸引力，
+例如用于栈、队列、哈希表和搜索树的链表操作。
+然而，目前对于大型事务，特别是包含I/O和进程创建等
+非内存操作的事务，要证明其适用性则困难得多。
+以下各节审视了``Transactional Memory
+Everywhere''~\cite{PaulEMcKenney2009TMeverywhere}
+这一宏大愿景当前面临的挑战。
+\Cref{sec:future:Outside World}考察了与外部世界交互所面临的挑战，
+\cref{sec:future:Process Modification}探讨了与进程修改原语的交互，
+\cref{sec:future:Synchronization}探索了与其他同步原语的交互，
+最后\cref{sec:future:Discussion}以一些讨论作为结尾。
+
+\subsection{外部世界}
 \label{sec:future:Outside World}
 
-In the wise words of \ppl{Donald}{Knuth}:
+用\ppl{Donald}{Knuth}的智慧之言来说：
 
 \begin{quote}
-	Many computer users feel that input and output are not actually part
-	of ``real programming,'' they are merely things that (unfortunately)
-	must be done in order to get information in and out of the machine.
+	许多计算机用户觉得输入和输出实际上不是``真正的编程''的一部分，
+	它们仅仅是为了将信息输入和输出机器而（不幸地）
+	必须做的事情。
 \end{quote}
 
-Whether or not we believe that input and output are ``real programming'',
-the fact is that software absolutely must deal with the outside world.
-This section therefore critiques transactional memory's outside-world
-capabilities, focusing on I/O operations, time delays, and persistent
-storage.
+无论我们是否相信输入和输出是``真正的编程''，
+事实是软件绝对必须与外部世界打交道。
+因此，本节评析transactional memory的外部世界能力，
+重点关注I/O操作、时间延迟和持久存储。
 
-And these interactions with the outside world are the rock upon which
-the claims of unconditional TM composability are shattered.
-Yes, you can compose transactions, but only as long as there are no
-intervening TM-unfriendly operations.
-Just as you can compose lock-based critical sections, but only as long
-as doing so does not introduce deadlocks.
+而这些与外部世界的交互正是TM无条件可组合性声明
+破灭的基石。
+是的，你可以组合事务，但前提是没有介入的TM不友好操作。
+正如你可以组合基于锁的临界区，但前提是这样做不会引入死锁。
 
-In the end, it is unclear whether TM really provides better composability
-than does locking in real-world code.
+最终，在实际代码中TM是否真的比锁提供更好的可组合性，
+这一点并不清楚。
 
-\subsubsection{I/O Operations}
+\subsubsection{I/O操作}
 \label{sec:future:I/O Operations}
 
-One can execute I/O operations within a lock-based critical section,
-while holding a \IX{hazard pointer}, within a sequence-locking read-side
-critical section, and from within a userspace-RCU read-side critical
-section, and even all at the same time, if need be.
-What happens when you attempt to execute an I/O operation from within
-a transaction?
+可以在基于锁的临界区内执行I/O操作，
+在持有\IX{hazard pointer}时，在sequence-locking读侧临界区内，
+以及在userspace-RCU读侧临界区内执行I/O操作，
+如果需要的话，甚至可以同时在所有这些情况下执行。
+当你尝试从事务内部执行I/O操作时会发生什么？
 
-The underlying problem is that transactions may be rolled back, for
-example, due to conflicts.
-Roughly speaking, this requires that all operations within any given
-transaction be revocable, so that executing the operation twice has
-the same effect as executing it once.
-Unfortunately, I/O is in general the prototypical irrevocable
-operation, making it difficult to include general I/O operations in
-transactions.
-In fact, general I/O is irrevocable:
-Once you have pushed the proverbial button launching the nuclear warheads,
-there is no turning back.
+根本问题在于事务可能会被回滚，例如由于冲突。
+粗略地说，这要求给定事务内的所有操作都是可撤销的，
+即执行两次操作与执行一次具有相同的效果。
+不幸的是，I/O通常是典型的不可撤销操作，
+这使得将通用I/O操作包含在事务中变得困难。
+事实上，通用I/O是不可撤销的：
+一旦你按下了发射核弹头的那个众所周知的按钮，
+就再也无法回头了。
 
-Here are some options for handling of I/O within transactions:
+以下是在事务中处理I/O的一些选项：
 
 \begin{enumerate}
-\item	Restrict I/O within transactions to buffered I/O with in-memory
-	buffers.
-	These buffers may then be included in the transaction in the
-	same way that any other memory location might be included.
-	This seems to be the mechanism of choice, and it does work
-	well in many common cases of situations such as stream I/O and
-	mass-storage I/O\@.
-	However, special handling is required in cases where multiple
-	record-oriented output streams are merged onto a single file
-	from multiple processes, as might be done using the ``a+''
-	option to \co{fopen()} or the \co{O_APPEND} flag to \co{open()}.
-	In addition, as will be seen in the next section, common
-	networking operations cannot be handled via buffering.
-\item	Prohibit I/O within transactions, so that any attempt to execute
-	an I/O operation aborts the enclosing transaction (and perhaps
-	multiple nested transactions).
-	This approach seems to be the conventional TM approach for
-	unbuffered I/O, but requires that TM interoperate with other
-	synchronization primitives tolerating I/O.
-\item	Prohibit I/O within transactions, but enlist the compiler's aid
-	in enforcing this prohibition.
-\item	Permit only one special
-	\emph{irrevocable} transaction~\cite{SpearMichaelScott2008InevitableSTM}
-	to proceed
-	at any given time, thus allowing irrevocable transactions to
-	contain I/O operations.\footnote{
-		In earlier literature, irrevocable transactions are
-		termed \emph{inevitable} transactions.}
-	This works in general, but severely limits the scalability and
-	performance of I/O operations.
-	Given that scalability and performance is a first-class goal of
-	parallelism, this approach's generality seems a bit self-limiting.
-	Worse yet, use of irrevocability to tolerate I/O operations
-	seems to greatly restrict use of manual transaction-abort
-	operations.\footnote{
-		This difficulty was pointed out by Michael Factor.
-		To see the problem, think through what TM should do
-		in response to an attempt to abort a transaction after
-		it has executed an irrevocable operation.}
-	Finally, if there is an irrevocable transaction manipulating
-	a given data item, any other transaction manipulating that
-	same data item cannot have non-blocking semantics.
-\item	Create new hardware and protocols such that I/O operations can
-	be pulled into the transactional substrate.
-	In the case of input operations, the hardware would need to
-	correctly predict the result of the operation, and to abort the
-	transaction if the prediction failed.
+\item	将事务内的I/O限制为使用内存缓冲区的缓冲I/O。
+	这些缓冲区可以像包含任何其他内存位置一样被包含在事务中。
+	这似乎是首选机制，而且在许多常见的流I/O和
+	大容量存储I/O场景中确实工作得很好。
+	然而，在多个面向记录的输出流从多个进程合并到单个文件的情况下，
+	需要特殊处理，例如使用\co{fopen()}的``a+''选项
+	或\co{open()}的\co{O_APPEND}标志时。
+	此外，如下一节所述，常见的网络操作无法通过缓冲来处理。
+\item	禁止事务内的I/O，使得任何执行I/O操作的尝试都会中止
+	包含它的事务（也许还有多个嵌套事务）。
+	这种方法似乎是非缓冲I/O的传统TM处理方式，
+	但要求TM与容忍I/O的其他同步原语互操作。
+\item	禁止事务内的I/O，但借助编译器来强制执行这一禁令。
+\item	在任何给定时间只允许一个特殊的
+	\emph{不可撤销}事务~\cite{SpearMichaelScott2008InevitableSTM}
+	进行，
+	从而允许不可撤销事务包含I/O操作。\footnote{
+		在早期文献中，不可撤销事务被称为
+		\emph{inevitable} 事务。}
+	这在一般情况下可行，但严重限制了I/O操作的可扩展性和性能。
+	鉴于可扩展性和性能是并行性的首要目标，
+	这种方法的通用性似乎有些自我限制。
+	更糟糕的是，使用不可撤销性来容忍I/O操作似乎极大地限制了
+	手动事务中止操作的使用。\footnote{
+		这一困难由Michael Factor指出。
+		要理解这个问题，请思考一下当尝试在事务执行了
+		不可撤销操作之后中止该事务时，TM应该做什么。}
+	最后，如果有一个不可撤销事务正在操作某个给定的数据项，
+	那么操作同一数据项的任何其他事务都不能具有非阻塞语义。
+\item	创建新的硬件和协议，使I/O操作能够被纳入事务基础设施中。
+	在输入操作的情况下，硬件需要正确预测操作的结果，
+	并在预测失败时中止事务。
 \end{enumerate}
 
-I/O operations are a well-known weakness of TM, and it is not clear
-that the problem of supporting I/O in transactions has a reasonable
-general solution, at least if ``reasonable'' is to include usable
-performance and scalability.
-Nevertheless, continued time and attention to this problem will likely
-produce additional progress.
+I/O操作是TM众所周知的弱点，而且在事务中支持I/O的问题
+是否有合理的通用解决方案尚不清楚，至少如果``合理''
+要包含可用的性能和可扩展性的话。
+尽管如此，持续对这一问题的关注和投入很可能会带来更多进展。
 
-\subsubsection{RPC Operations}
+\subsubsection{RPC操作}
 \label{sec:future:RPC Operations}
 
-One can execute RPCs within a lock-based critical section, while holding
-a hazard pointer, within a sequence-locking read-side critical section,
-and from within a userspace-RCU read-side critical section, and even
-all at the same time, if need be.
-What happens when you attempt to execute an RPC from within a transaction?
+可以在基于锁的临界区内执行RPC，在持有hazard pointer时，
+在sequence-locking读侧临界区内，以及在userspace-RCU读侧
+临界区内执行RPC，如果需要的话，甚至可以同时在所有这些情况下执行。
+当你尝试从事务内部执行RPC时会发生什么？
 
-If both the RPC request and its response are to be contained within the
-transaction, and if some part of the transaction depends on the result
-returned by the response, then it is not possible to use the memory-buffer
-tricks that can be used in the case of buffered I/O\@.
-Any attempt to
-take this buffering approach would deadlock the transaction, as the
-request could not be transmitted until the transaction was guaranteed
-to succeed, but the transaction's success might not be knowable until
-after the response is received, as is the case in the following example:
+如果RPC请求及其响应都要包含在事务中，并且事务的某个部分
+依赖于响应返回的结果，那么就不可能使用在缓冲I/O情况下
+可以使用的内存缓冲区技巧。
+任何尝试采用这种缓冲方法都会使事务死锁，因为请求要到事务
+保证成功后才能发送，但事务是否成功可能要到收到响应后才能
+知道，如以下示例所示：
 
 \begin{VerbatimN}[samepage=true]
 begin_trans();
@@ -199,206 +160,165 @@ a[i]++;
 end_trans();
 \end{VerbatimN}
 
-The transaction's memory footprint cannot be determined until after the
-RPC response is received, and until the transaction's memory footprint
-can be determined, it is impossible to determine whether the transaction
-can be allowed to commit.
-The only action consistent with transactional semantics is therefore to
-unconditionally abort the transaction, which is, to say the least,
-unhelpful.
+事务的内存足迹要在收到RPC响应之后才能确定，而在事务的内存足迹
+确定之前，不可能判断事务是否能够被允许提交。
+因此，与事务语义一致的唯一操作就是无条件中止事务，
+这至少可以说是毫无帮助的。
 
-Here are some options available to TM:
+以下是TM可用的一些选项：
 
 \begin{enumerate}
-\item	Prohibit RPC within transactions, so that any attempt to execute
-	an RPC operation aborts the enclosing transaction (and perhaps
-	multiple nested transactions).
-	Alternatively, enlist the compiler to enforce RPC-free
-	transactions.
-	This approach does work, but will require TM to
-	interact with other synchronization primitives.
-\item	Permit only one special
-	irrevocable transaction~\cite{SpearMichaelScott2008InevitableSTM}
-	to proceed at any given time, thus allowing irrevocable
-	transactions to contain RPC operations.
-	This works in general, but severely limits the scalability and
-	performance of RPC operations.
-	Given that scalability and performance is a first-class goal of
-	parallelism, this approach's generality seems a bit self-limiting.
-	Furthermore, use of irrevocable transactions to permit RPC
-	operations restricts manual transaction-abort operations
-	once the RPC operation has started.
-	Finally, if there is an irrevocable transaction manipulating
-	a given data item, any other transaction manipulating that
-	same data item must have blocking semantics.
-\item	Identify special cases where the success of the transaction may
-	be determined before the RPC response is received, and
-	automatically convert these to irrevocable transactions immediately
-	before sending the RPC request.
-	Of course, if several concurrent transactions attempt RPC calls
-	in this manner, it might be necessary to roll all but one of them
-	back, with consequent degradation of performance and scalability.
-	This approach nevertheless might be valuable given long-running
-	transactions ending with an RPC\@.
-	This approach must still restrict manual transaction-abort
-	operations.
-\item	Identify special cases where the RPC response may be moved out
-	of the transaction, and then proceed using techniques similar
-	to those used for buffered I/O.
-\item	Extend the transactional substrate to include the RPC server as
-	well as its client.
-	This is in theory possible, as has been demonstrated by
-	distributed databases.
-	However, it is unclear whether the requisite performance and
-	scalability requirements can be met by distributed-database
-	techniques, given that memory-based TM has no slow disk drives
-	behind which to hide such latencies.
-	Of course, given the advent of solid-state disks, it is also quite
-	possible that databases will need to redesign their approach to
-	latency hiding.
+\item	禁止事务内的RPC，使得任何执行RPC操作的尝试都会中止
+	包含它的事务（也许还有多个嵌套事务）。
+	或者，借助编译器来强制执行无RPC的事务。
+	这种方法确实可行，但需要TM与其他同步原语交互。
+\item	在任何给定时间只允许一个特殊的
+	不可撤销事务~\cite{SpearMichaelScott2008InevitableSTM}
+	进行，从而允许不可撤销事务包含RPC操作。
+	这在一般情况下可行，但严重限制了RPC操作的可扩展性和性能。
+	鉴于可扩展性和性能是并行性的首要目标，
+	这种方法的通用性似乎有些自我限制。
+	此外，使用不可撤销事务来允许RPC操作会在RPC操作开始后
+	限制手动事务中止操作。
+	最后，如果有一个不可撤销事务正在操作某个给定的数据项，
+	那么操作同一数据项的任何其他事务都必须具有阻塞语义。
+\item	识别在收到RPC响应之前就能确定事务是否成功的特殊情况，
+	并在发送RPC请求之前自动将这些事务转换为不可撤销事务。
+	当然，如果多个并发事务以这种方式尝试RPC调用，
+	可能需要回滚除一个以外的所有事务，
+	从而导致性能和可扩展性下降。
+	尽管如此，对于以RPC结尾的长时间运行事务，
+	这种方法可能仍然有价值。
+	这种方法仍然必须限制手动事务中止操作。
+\item	识别可以将RPC响应移出事务的特殊情况，
+	然后使用类似于缓冲I/O的技术来处理。
+\item	将事务基础设施扩展到包含RPC服务器及其客户端。
+	理论上这是可能的，正如分布式数据库所展示的那样。
+	然而，鉴于基于内存的TM没有慢速磁盘驱动器
+	可以用来隐藏这些延迟，分布式数据库技术能否满足
+	所需的性能和可扩展性要求尚不清楚。
+	当然，鉴于固态硬盘的出现，数据库也很有可能需要
+	重新设计其延迟隐藏方法。
 \end{enumerate}
 
-As noted in the prior section, I/O is a known weakness of TM, and RPC
-is simply an especially problematic case of I/O.
+如前一节所述，I/O是TM已知的弱点，而RPC只是I/O中
+一个特别棘手的情况。
 
-\subsubsection{Time Delays}
+\subsubsection{时间延迟}
 \label{sec:future:Time Delays}
 
-An important special case of interaction with extra-transactional accesses
-involves explicit time delays within a transaction.
-Of course, the idea of a time delay within a transaction flies in the
-face of TM's atomicity property, but this sort of thing is arguably what
-weak atomicity is all about.
-Furthermore, correct interaction with memory-mapped I/O sometimes requires
-carefully controlled timing, and applications often use time delays
-for varied purposes.
-Finally, one can execute time delays within a lock-based critical section,
-while holding a hazard pointer, within a sequence-locking read-side
-critical section, and from within a userspace-RCU read-side critical
-section, and even all at the same time, if need be.
-Doing so might not be wise from a contention or scalability viewpoint,
-but then again, doing so does not raise any fundamental conceptual issues.
+与事务外访问交互的一个重要特殊情况涉及事务内的显式时间延迟。
+当然，事务内的时间延迟与TM的原子性属性相矛盾，
+但这种情况可以说正是弱原子性要处理的问题。
+此外，与内存映射I/O的正确交互有时需要精心控制的时序，
+而应用程序经常出于各种目的使用时间延迟。
+最后，可以在基于锁的临界区内执行时间延迟，
+在持有hazard pointer时，在sequence-locking读侧临界区内，
+以及在userspace-RCU读侧临界区内执行时间延迟，
+如果需要的话，甚至可以同时在所有这些情况下执行。
+从竞争或可扩展性的角度来看，这样做可能不明智，
+但话说回来，这样做不会引发任何根本性的概念问题。
 
-So, what can TM do about time delays within transactions?
+那么，TM如何处理事务内的时间延迟？
 
 \begin{enumerate}
-\item	Ignore time delays within transactions.
-	This has an appearance of elegance, but like too many other
-	``elegant'' solutions, fails to survive first contact with
-	legacy code.
-	Such code, which might well have important time delays in critical
-	sections, would fail upon being transactionalized.
-\item	Abort transactions upon encountering a time-delay operation.
-	This is attractive, but it is unfortunately not always possible
-	to automatically detect a time-delay operation.
-	Is that tight loop carrying out a critical computation, or is it
-	simply waiting for time to elapse?
-\item	Enlist the compiler to prohibit time delays within transactions.
-\item	Let the time delays execute normally.
-	Unfortunately, some TM implementations publish modifications only
-	at commit time, which could defeat the purpose of the time delay.
+\item	忽略事务内的时间延迟。
+	这看起来很优雅，但像太多其他``优雅''的解决方案一样，
+	无法经受遗留代码的第一次考验。
+	这样的代码可能在临界区中有重要的时间延迟，
+	在被事务化时会失败。
+\item	在遇到时间延迟操作时中止事务。
+	这很有吸引力，但不幸的是，并不总是能够自动检测到
+	时间延迟操作。
+	那个紧凑的循环是在执行关键计算，还是仅仅在等待时间流逝？
+\item	借助编译器来禁止事务内的时间延迟。
+\item	让时间延迟正常执行。
+	不幸的是，一些TM实现只在提交时才发布修改，
+	这可能会违背时间延迟的目的。
 \end{enumerate}
 
-It is not clear that there is a single correct answer.
-TM implementations featuring weak atomicity that publish changes
-immediately within the transaction (rolling these changes back upon abort)
-might be reasonably well served by the last alternative.
-Even in this case, the code (or possibly even hardware) at the other
-end of the transaction may require a substantial redesign to tolerate
-aborted transactions.
-This need for redesign would make it more difficult to apply transactional
-memory to legacy code.
+目前还不清楚是否有一个单一的正确答案。
+具有弱原子性并在事务内立即发布更改（在中止时回滚这些更改）
+的TM实现可能可以很好地使用最后一种方案。
+即使在这种情况下，事务另一端的代码（甚至可能是硬件）
+也可能需要大幅重新设计以容忍被中止的事务。
+这种重新设计的需求将使得将transactional memory
+应用于遗留代码变得更加困难。
 
-\subsubsection{Persistence}
+\subsubsection{持久性}
 \label{sec:future:Persistence}
 
-There are many different types of locking primitives.
-One interesting distinction is persistence, in other words, whether the
-lock can exist independently of the address space of the process using
-the lock.
+锁原语有许多不同的类型。
+一个有趣的区别是持久性，换句话说，锁是否能够独立于使用该锁的
+进程的地址空间而存在。
 
-Non-persistent locks include \co{pthread_mutex_lock()},
-\co{pthread_rwlock_rdlock()}, and most kernel-level locking primitives.
-If the memory locations instantiating a non-persistent lock's data
-structures disappear, so does the lock.
-For typical use of \co{pthread_mutex_lock()}, this means that when the
-process exits, all of its locks vanish.
-This property can be exploited in order to trivialize lock cleanup
-at program shutdown time, but makes it more difficult for unrelated
-applications to share locks, as such sharing requires the applications
-to share memory.
+非持久锁包括\co{pthread_mutex_lock()}、
+\co{pthread_rwlock_rdlock()}以及大多数内核级锁原语。
+如果实例化非持久锁数据结构的内存位置消失，锁也随之消失。
+对于\co{pthread_mutex_lock()}的典型使用，这意味着当进程退出时，
+其所有的锁都会消失。
+这一特性可以被利用来简化程序关闭时的锁清理工作，
+但使得不相关的应用程序之间共享锁变得更加困难，
+因为这种共享需要应用程序共享内存。
 
 \QuickQuiz{
-	But suppose that an application exits while holding a
-	\co{pthread_mutex_lock()} that happens to be located in a
-	file-mapped region of memory?
+	但假设一个应用程序在持有恰好位于文件映射内存区域中的
+	\co{pthread_mutex_lock()}时退出了呢？
 }\QuickQuizAnswer{
-	Indeed, in this case the lock would persist, much to the
-	consternation of other processes attempting to acquire this
-	lock that is held by a process that no longer exists.
-	Which is why great care is required when using \co{pthread_mutex}
-	objects located in file-mapped memory regions.
+	确实，在这种情况下锁会持久存在，这会让其他试图获取
+	这个由已不存在的进程持有的锁的进程感到沮丧。
+	这就是为什么在使用位于文件映射内存区域中的\co{pthread_mutex}
+	对象时需要格外小心。
 }\QuickQuizEnd
 
-Persistent locks help avoid the need to share memory among unrelated
-applications.
-Persistent locking APIs include the flock family, \co{lockf()}, System
-V semaphores, or the \co{O_CREAT} flag to \co{open()}.
-These persistent APIs can be used to protect large-scale operations
-spanning runs of multiple applications, and, in the case of \co{O_CREAT}
-even surviving operating-system reboot.
-If need be, locks can even span multiple computer systems via distributed
-lock managers and distributed filesystems---and persist across reboots
-of any or all of those computer systems.
+持久锁有助于避免不相关应用程序之间共享内存的需求。
+持久锁API包括flock系列、\co{lockf()}、System V信号量，
+或\co{open()}的\co{O_CREAT}标志。
+这些持久API可用于保护跨越多个应用程序运行的大规模操作，
+而且在\co{O_CREAT}的情况下甚至能在操作系统重启后存活。
+如果需要的话，锁甚至可以通过分布式锁管理器和分布式文件系统
+跨越多个计算机系统——并在这些计算机系统中任何一个或全部重启后持续存在。
 
-Persistent locks can be used by any application, including applications
-written using multiple languages and software environments.
-In fact, a persistent lock might well be acquired by an application written
-in C and released by an application written in Python.
+持久锁可以被任何应用程序使用，包括使用多种语言和软件环境编写的应用程序。
+事实上，一个持久锁完全可能由一个用C编写的应用程序获取，
+并由一个用Python编写的应用程序释放。
 
-How could a similar persistent functionality be provided for TM?
+如何为TM提供类似的持久功能？
 
 \begin{enumerate}
-\item	Restrict persistent transactions to special-purpose environments
-	designed to support them, for example, SQL\@.
-	This clearly works, given the decades-long history of database
-	systems, but does not provide the same degree of flexibility
-	provided by persistent locks.
-\item	Use snapshot facilities provided by some storage devices and/or
-	filesystems.
-	Unfortunately, this does not handle network communication,
-	nor does it handle I/O to devices that do not provide snapshot
-	capabilities, for example, memory sticks.
-\item	Build a time machine.
-\item	Avoid the problem entirely by using existing persistent facilities,
-	presumably avoiding such use within transactions.
+\item	将持久事务限制在专门设计来支持它们的特殊用途环境中，
+	例如SQL。
+	鉴于数据库系统几十年的历史，这显然是可行的，
+	但不能提供持久锁所提供的同等程度的灵活性。
+\item	使用某些存储设备和/或文件系统提供的快照功能。
+	不幸的是，这无法处理网络通信，
+	也无法处理对不提供快照功能的设备的I/O，例如U盘。
+\item	制造一台时光机。
+\item	完全避免这个问题，使用现有的持久设施，
+	大概要避免在事务内使用这些设施。
 \end{enumerate}
 
-Of course, the fact that it is called transactional \emph{memory}
-should give us pause, as the name itself conflicts with the concept of
-a persistent transaction.
-It is nevertheless worthwhile to consider this possibility as an important
-test case probing the inherent limitations of transactional memory.
+当然，它被称为transactional \emph{memory}这一事实
+应该让我们三思，因为这个名称本身就与持久事务的概念相矛盾。
+不过，将这种可能性作为探测transactional memory固有局限性的
+重要测试用例来考虑仍然是值得的。
 
-\subsection{Process Modification}
+\subsection{进程修改}
 \label{sec:future:Process Modification}
 
-Processes are not eternal:
-They are created and destroyed, their memory mappings are modified,
-they are linked to dynamic libraries, and they are debugged.
-These sections look at how transactional memory can handle an
-ever-changing execution environment.
+进程不是永恒的：
+它们被创建和销毁，它们的内存映射被修改，
+它们与动态库链接，它们被调试。
+这些小节探讨transactional memory如何处理不断变化的执行环境。
 
-\subsubsection{Multithreaded Transactions}
+\subsubsection{多线程事务}
 \label{sec:future:Multithreaded Transactions}
 
-It is perfectly legal to create processes and threads while holding
-a lock or, for that matter, while holding a hazard pointer, within
-a sequence-locking read-side critical section, and from within a
-userspace-RCU read-side critical section, and even all at the same time,
-if need be.
-Not only is it legal, but it is quite simple, as can be seen from the
-following code fragment:
+在持有锁的同时创建进程和线程是完全合法的，
+或者更确切地说，在持有hazard pointer时，在sequence-locking
+读侧临界区内，以及在userspace-RCU读侧临界区内也是如此，
+如果需要的话，甚至可以同时在所有这些情况下执行。
+这不仅是合法的，而且非常简单，从以下代码片段可以看出：
 
 \begin{VerbatimN}
 pthread_mutex_lock(...);
@@ -409,1056 +329,864 @@ for (i = 0; i < ncpus; i++)
 pthread_mutex_unlock(...);
 \end{VerbatimN}
 
-This pseudo-code fragment uses \co{pthread_create()} to spawn one thread
-per CPU, then uses \co{pthread_join()} to wait for each to complete,
-all under the protection of \co{pthread_mutex_lock()}.
-The effect is to execute a lock-based critical section in parallel,
-and one could obtain a similar effect using \co{fork()} and \co{wait()}.
-Of course, the critical section would need to be quite large to justify
-the thread-spawning overhead, but there are many examples of large
-critical sections in production software.
+这段伪代码使用\co{pthread_create()}为每个CPU生成一个线程，
+然后使用\co{pthread_join()}等待每个线程完成，
+全部在\co{pthread_mutex_lock()}的保护下进行。
+其效果是并行执行一个基于锁的临界区，
+使用\co{fork()}和\co{wait()}也可以获得类似的效果。
+当然，临界区需要足够大才能证明线程创建开销的合理性，
+但在生产软件中有许多大型临界区的例子。
 
-What might TM do about thread spawning within a transaction?
+TM如何处理事务内的线程创建？
 
 \begin{enumerate}
-\item	Declare \co{pthread_create()} to be illegal within transactions,
-	preferably by aborting the transaction.
-	Alternatively, enlist the compiler to enforce
-	\co{pthread_create()}-free transactions.
-\item	Permit \co{pthread_create()} to be executed within a
-	transaction, but only the parent thread will be considered to
-	be part of the transaction.
-	This approach seems to be reasonably compatible with existing and
-	posited TM implementations, but seems to be a trap for the unwary.
-	This approach raises further questions, such as how to handle
-	conflicting child-thread accesses.
-\item	Convert the \co{pthread_create()}s to function calls.
-	This approach is also an attractive nuisance, as it does not
-	handle the not-uncommon cases where the child threads communicate
-	with one another.
-	In addition, it does not permit concurrent execution of the body
-	of the transaction.
-\item	Extend the transaction to cover the parent and all child threads.
-	This approach raises interesting questions about the nature of
-	conflicting accesses, given that the parent and children are
-	presumably permitted to conflict with each other, but not with
-	other threads.
-	It also raises interesting questions as to what should happen
-	if the parent thread does not wait for its children before
-	committing the transaction.
-	Even more interesting, what happens if the parent conditionally
-	executes \co{pthread_join()} based on the values of variables
-	participating in the transaction?
-	The answers to these questions are reasonably straightforward
-	in the case of locking.
-	The answers for TM are left as an exercise for the reader.
+\item	声明\co{pthread_create()}在事务内是非法的，
+	最好是通过中止事务来实现。
+	或者，借助编译器来强制执行无\co{pthread_create()}的事务。
+\item	允许在事务内执行\co{pthread_create()}，
+	但只有父线程被视为事务的一部分。
+	这种方法似乎与现有的和设想的TM实现合理兼容，
+	但对于不知情者来说似乎是一个陷阱。
+	这种方法引发了更多问题，例如如何处理冲突的子线程访问。
+\item	将\co{pthread_create()}转换为函数调用。
+	这种方法也是一个有吸引力的陷阱，因为它无法处理
+	子线程之间相互通信这一并不罕见的情况。
+	此外，它不允许事务主体的并发执行。
+\item	将事务扩展为覆盖父线程和所有子线程。
+	这种方法引发了关于冲突访问性质的有趣问题，
+	因为父线程和子线程大概被允许相互冲突，
+	但不能与其他线程冲突。
+	它还引发了如果父线程在提交事务之前不等待其子线程
+	会发生什么的有趣问题。
+	更有趣的是，如果父线程根据参与事务的变量值
+	有条件地执行\co{pthread_join()}会怎样？
+	在锁的情况下，这些问题的答案相当直接。
+	TM的答案留给读者作为练习。
 \end{enumerate}
 
-Given that parallel execution of transactions is commonplace in the
-database world, it is perhaps surprising that current TM proposals do
-not provide for it.
-On the other hand, the example above is a fairly sophisticated use
-of locking that is not normally found in simple textbook examples,
-so perhaps its omission is to be expected.
-That said, some researchers are using transactions to autoparallelize
-code~\cite{ArunRaman2010MultithreadedTransactions},
-and there are rumors that other TM researchers are investigating
-fork/join parallelism within transactions, so perhaps this topic will
-soon be addressed more thoroughly.
+鉴于事务的并行执行在数据库世界中是司空见惯的，
+当前的TM提案不支持这一点也许令人惊讶。
+另一方面，上面的例子是锁的一种相当复杂的用法，
+在简单的教科书示例中通常看不到，
+所以它的缺失也许是可以预期的。
+话虽如此，一些研究人员正在使用事务来自动并行化
+代码~\cite{ArunRaman2010MultithreadedTransactions}，
+据传其他TM研究人员正在研究事务内的fork/join并行性，
+因此这个话题也许很快就会得到更全面的讨论。
 
-\subsubsection{The \tco{exec()} System Call}
+\subsubsection{\tco{exec()}系统调用}
 \label{sec:future:The exec System Call}
 
-One can execute an \co{exec()} system call within a lock-based critical
-section, while holding a hazard pointer, within a sequence-locking
-read-side critical section, and from within a userspace-RCU read-side
-critical section, and even all at the same time, if need be.
-The exact semantics depends on the type of primitive.
+可以在基于锁的临界区内执行\co{exec()}系统调用，
+在持有hazard pointer时，在sequence-locking读侧临界区内，
+以及在userspace-RCU读侧临界区内执行，
+如果需要的话，甚至可以同时在所有这些情况下执行。
+确切的语义取决于原语的类型。
 
-In the case of non-persistent primitives (including
-\co{pthread_mutex_lock()}, \co{pthread_rwlock_rdlock()}, and userspace RCU),
-if the \co{exec()} succeeds, the whole address space vanishes, along
-with any locks being held.
-Of course, if the \co{exec()} fails, the address space still lives,
-so any associated locks would also still live.
-A bit strange perhaps, but well defined.
+对于非持久原语（包括\co{pthread_mutex_lock()}、
+\co{pthread_rwlock_rdlock()}和userspace RCU），
+如果\co{exec()}成功，整个地址空间消失，
+连同任何正在持有的锁。
+当然，如果\co{exec()}失败，地址空间仍然存在，
+因此任何相关的锁也仍然存在。
+也许有点奇怪，但定义明确。
 
-On the other hand, persistent primitives (including the flock family,
-\co{lockf()}, System V semaphores, and the \co{O_CREAT} flag to
-\co{open()}) would survive regardless of whether the \co{exec()}
-succeeded or failed, so that the \co{exec()}ed program might well
-release them.
+另一方面，持久原语（包括flock系列、\co{lockf()}、
+System V信号量和\co{open()}的\co{O_CREAT}标志）
+无论\co{exec()}成功还是失败都会继续存在，
+因此被\co{exec()}执行的程序完全可以释放它们。
 
 \QuickQuiz{
-	What about non-persistent primitives represented by data
-	structures in \co{mmap()} regions of memory?
-	What happens when there is an \co{exec()} within a critical
-	section of such a primitive?
+	那么由\co{mmap()}内存区域中的数据结构表示的
+	非持久原语呢？
+	当在这种原语的临界区内执行\co{exec()}时会发生什么？
 }\QuickQuizAnswer{
-	If the \co{exec()}ed program maps those same regions of
-	memory, then this program could in principle simply release
-	the lock.
-	The question as to whether this approach is sound from a
-	software-engineering viewpoint is left as an exercise for
-	the reader.
+	如果被\co{exec()}执行的程序映射了相同的内存区域，
+	那么该程序原则上可以简单地释放锁。
+	从软件工程的角度来看这种方法是否合理，
+	留给读者作为练习。
 }\QuickQuizEnd
 
-What happens when you attempt to execute an \co{exec()} system call
-from within a transaction?
+当你尝试从事务内部执行\co{exec()}系统调用时会发生什么？
 
 \begin{enumerate}
-\item	Disallow \co{exec()} within transactions, so that the enclosing
-	transactions abort upon encountering the \co{exec()}.
-	This is well defined, but clearly requires non-TM synchronization
-	primitives for use in conjunction with \co{exec()}.
-\item	Disallow \co{exec()} within transactions, with the compiler
-	enforcing this prohibition.
-	There is a draft specification for TM in C++ that takes
-	this approach, allowing functions to be decorated with
-	the \co{transaction_safe} and \co{transaction_unsafe}
-	attributes.\footnote{
-		Thanks to Mark Moir for pointing me at this spec, and
-		to Michael Wong for having pointed me at an earlier
-		revision some time back.}
-	This approach has some advantages over aborting the transaction
-	at runtime, but again requires non-TM synchronization primitives
-	for use in conjunction with \co{exec()}.
-	One disadvantage is the need to decorate a great many library
-	functions with \co{transaction_safe} and \co{transaction_unsafe}
-	attributes.
-\item	Treat the transaction in a manner similar to non-persistent
-	locking primitives, so that the transaction survives if \co{exec()}
-	fails, and silently commits if the \co{exec()} succeeds.
-	The case where only some of the variables affected by the
-	transaction reside in \co{mmap()}ed memory (and thus could
-	survive a successful \co{exec()} system call) is left as an
-	exercise for the reader.
-\item	Abort the transaction (and the \co{exec()} system call) if the
-	\co{exec()} system call would have succeeded, but allow the
-	transaction to continue if the \co{exec()} system call would
-	fail.
-	This is in some sense the ``correct'' approach, but it would
-	require considerable work for a rather unsatisfying result.
+\item	禁止事务内的\co{exec()}，使得包含它的事务在遇到\co{exec()}时中止。
+	这定义明确，但显然需要非TM同步原语来配合\co{exec()}使用。
+\item	禁止事务内的\co{exec()}，由编译器强制执行此禁令。
+	有一个C++ TM草案规范采用了这种方法，
+	允许函数使用\co{transaction_safe}和\co{transaction_unsafe}
+	属性进行修饰。\footnote{
+		感谢Mark Moir向我指出了这个规范，
+		也感谢Michael Wong此前向我指出了更早的修订版本。}
+	这种方法相比在运行时中止事务有一些优势，
+	但同样需要非TM同步原语来配合\co{exec()}使用。
+	一个缺点是需要为大量库函数添加\co{transaction_safe}和
+	\co{transaction_unsafe}属性。
+\item	以类似于非持久锁原语的方式对待事务，
+	使得如果\co{exec()}失败则事务继续存在，
+	如果\co{exec()}成功则静默提交。
+	只有部分受事务影响的变量驻留在\co{mmap()}内存中
+	（因此可以在\co{exec()}系统调用成功后存活）的情况
+	留给读者作为练习。
+\item	如果\co{exec()}系统调用本来会成功，
+	则中止事务（和\co{exec()}系统调用），
+	但如果\co{exec()}系统调用本来会失败，
+	则允许事务继续。
+	这在某种意义上是``正确''的方法，
+	但需要大量工作却得到相当不令人满意的结果。
 \end{enumerate}
 
-The \co{exec()} system call is perhaps the strangest example of an
-obstacle to universal TM applicability, as it is not completely clear
-what approach makes sense, and some might argue that this is merely a
-reflection of the perils of real-life interaction with \co{exec()}.
-That said, the two options prohibiting \co{exec()} within transactions
-are perhaps the most logical of the group.
+\co{exec()}系统调用也许是TM普遍适用性障碍中最奇特的例子，
+因为目前还不完全清楚哪种方法有意义，
+有些人可能会认为这仅仅是与\co{exec()}的现实交互
+中的困境的反映。
+话虽如此，禁止事务内\co{exec()}的两个选项
+也许是这组选项中最合乎逻辑的。
 
-Similar issues surround the \co{exit()} and \co{kill()} system calls,
-as well as a \co{longjmp()} or an exception that would exit the transaction.
-(Where did the \co{longjmp()} or exception come from?)
+类似的问题也围绕着\co{exit()}和\co{kill()}系统调用，
+以及会退出事务的\co{longjmp()}或异常。
+（\co{longjmp()}或异常是从哪里来的？）
 
-\subsubsection{Dynamic Linking and Loading}
+\subsubsection{动态链接和加载}
 \label{sec:future:Dynamic Linking and Loading}
 
-Lock-based critical section, code holding a hazard pointer,
-sequence-locking read-side critical sections, and userspace-RCU read-side
-critical sections can (separately or in combination) legitimately contain
-code that invokes dynamically linked and loaded functions, including C/C++
-shared libraries and Java class libraries.
-Of course, the code contained in these libraries is by definition
-unknowable at compile time.
-So, what happens if a dynamically loaded function is invoked within
-a transaction?
+基于锁的临界区、持有hazard pointer的代码、
+sequence-locking读侧临界区和userspace-RCU读侧临界区
+可以（单独或组合地）合法地包含调用动态链接和加载的函数的代码，
+包括C/C++共享库和Java类库。
+当然，这些库中包含的代码在编译时根据定义是不可知的。
+那么，如果在事务内调用一个动态加载的函数会发生什么？
 
-This question has two parts:
+这个问题有两个部分：
 \begin{enumerate*}[(a)]
-\item How do you dynamically link and load a function within a transaction
-and
-\item What do you do about the unknowable nature of the code within
-this function?
+\item 如何在事务内动态链接和加载一个函数，以及
+\item 如何处理该函数内代码的不可知性质？
 \end{enumerate*}
-To be fair, item (b) poses some challenges for locking and userspace-RCU
-as well, at least in theory.
-For example, the dynamically linked function might introduce a \IX{deadlock}
-for locking or might (erroneously) introduce a \IX{quiescent state} into a
-userspace-RCU read-side critical section.
-The difference is that while the class of operations permitted in locking
-and userspace-RCU critical sections is well-understood, there appears
-to still be considerable uncertainty in the case of TM\@.
-In fact, different implementations of TM seem to have different restrictions.
+公平地说，问题(b)至少在理论上也给锁和userspace-RCU带来了一些挑战。
+例如，动态链接的函数可能会为锁引入\IX{deadlock}（死锁），
+或者可能（错误地）在userspace-RCU读侧临界区中引入
+\IX{quiescent state}（静止状态）。
+区别在于，虽然锁和userspace-RCU临界区中允许的操作类别已被充分理解，
+但在TM的情况下似乎仍然存在相当大的不确定性。
+事实上，不同的TM实现似乎有不同的限制。
 
-So what can TM do about dynamically linked and loaded library functions?
-Options for part (a), the actual loading of the code, include the following:
+那么TM如何处理动态链接和加载的库函数呢？
+对于部分(a)即代码的实际加载，选项包括以下内容：
 
 \begin{enumerate}
-\item	Treat the dynamic linking and loading in a manner similar to a
-	page fault, so that the function is loaded and linked, possibly
-	aborting the transaction in the process.
-	If the transaction is aborted, the retry will find the function
-	already present, and the transaction can thus be expected to
-	proceed normally.
-\item	Disallow dynamic linking and loading of functions from within
-	transactions.
+\item	以类似于缺页错误的方式处理动态链接和加载，
+	使得函数被加载和链接，可能在此过程中中止事务。
+	如果事务被中止，重试将发现函数已经存在，
+	因此可以预期事务正常进行。
+\item	禁止在事务内动态链接和加载函数。
 \end{enumerate}
 
-Options for part (b), the inability to detect TM-unfriendly operations
-in a not-yet-loaded function, possibilities include the following:
+对于部分(b)即无法检测尚未加载的函数中TM不友好的操作，
+可能的选项包括以下内容：
 
 \begin{enumerate}
-\item	Just execute the code:
-	If there are any TM-unfriendly operations in the function,
-	simply abort the transaction.
-	Unfortunately, this approach makes it impossible for the compiler
-	to determine whether a given group of transactions may be safely
-	composed.
-	One way to permit composability regardless is irrevocable
-	transactions, however, current implementations permit only a
-	single irrevocable transaction to proceed at any given time,
-	which can severely limit performance and scalability.
-	Irrevocable transactions also to restrict use of manual
-	transaction-abort operations.
-	Finally, if there is an irrevocable transaction manipulating
-	a given data item, any other transaction manipulating that
-	same data item cannot have non-blocking semantics.
-\item	Decorate the function declarations indicating which functions
-	are TM-friendly.
-	These decorations can then be enforced by the compiler's type system.
-	Of course, for many languages, this requires language extensions
-	to be proposed, standardized, and implemented, with the
-	corresponding time delays, and also with the corresponding
-	decoration of a great many otherwise uninvolved library functions.
-	That said, the standardization effort is already in
-	progress~\cite{Ali-Reza-Adl-Tabatabai2009CppTM,Ali-Reza-Adl-Tabatabai2012CppTM}.
-\item	As above, disallow dynamic linking and loading of functions from
-	within transactions.
+\item	直接执行代码：
+	如果函数中有任何TM不友好的操作，则简单地中止事务。
+	不幸的是，这种方法使编译器无法确定一组给定的事务
+	是否可以安全地组合。
+	无论如何都允许可组合性的一种方式是不可撤销事务，
+	然而当前的实现在任何给定时间只允许一个不可撤销事务进行，
+	这可能严重限制性能和可扩展性。
+	不可撤销事务也会限制手动事务中止操作的使用。
+	最后，如果有一个不可撤销事务正在操作某个给定的数据项，
+	操作同一数据项的任何其他事务都不能具有非阻塞语义。
+\item	修饰函数声明以指示哪些函数是TM友好的。
+	这些修饰可以由编译器的类型系统来强制执行。
+	当然，对于许多语言来说，这需要提出、标准化和实现语言扩展，
+	带有相应的时间延迟，以及对大量原本无关的库函数
+	进行相应的修饰。
+	话虽如此，标准化工作已经在
+	进行中~\cite{Ali-Reza-Adl-Tabatabai2009CppTM,Ali-Reza-Adl-Tabatabai2012CppTM}。
+\item	如上所述，禁止在事务内动态链接和加载函数。
 \end{enumerate}
 
-I/O operations are of course a known weakness of TM, and dynamic linking
-and loading can be thought of as yet another special case of I/O\@.
-Nevertheless, the proponents of TM must either solve this problem, or
-resign themselves to a world where TM is but one tool of several in the
-parallel programmer's toolbox.
-(To be fair, a number of TM proponents have long since resigned themselves
-to a world containing more than just TM.)
+I/O操作当然是TM已知的弱点，而动态链接和加载
+可以被视为I/O的又一个特殊情况。
+尽管如此，TM的支持者必须要么解决这个问题，
+要么接受TM只是并行程序员工具箱中几个工具之一这样的现实。
+（公平地说，许多TM支持者早已接受了一个不仅仅包含TM的世界。）
 
-\subsubsection{Memory-Mapping Operations}
+\subsubsection{内存映射操作}
 \label{sec:future:Memory-Mapping Operations}
 
-It is perfectly legal to execute memory-mapping operations (including
-\co{mmap()}, \co{shmat()}, and \co{munmap()}~\cite{TheOpenGroup1997SUS})
-within a lock-based critical section, while holding a hazard pointer,
-within a sequence-locking read-side critical section, and from within a
-userspace-RCU read-side critical section, and even all at the same time,
-if need be.
-What happens when you attempt to execute such an operation from within
-a transaction?
-More to the point, what happens if the memory region being remapped
-contains some variables participating in the current thread's transaction?
-And what if this memory region contains variables participating in some
-other thread's transaction?
+在基于锁的临界区内执行内存映射操作（包括\co{mmap()}、
+\co{shmat()}和\co{munmap()}~\cite{TheOpenGroup1997SUS}）
+是完全合法的，在持有hazard pointer时、
+在sequence-locking读侧临界区内、以及在userspace-RCU读侧
+临界区内也是如此，如果需要的话甚至可以同时在所有这些情况下执行。
+当你尝试从事务内部执行这样的操作时会发生什么？
+更关键的是，如果被重映射的内存区域包含参与当前线程事务的
+某些变量会怎样？
+如果这个内存区域包含参与其他线程事务的变量又会怎样？
 
-It should not be necessary to consider cases where the TM system's
-metadata is remapped, given that most locking primitives do not define
-the outcome of remapping their lock variables.
+不需要考虑TM系统的元数据被重映射的情况，
+因为大多数锁原语都不定义重映射其锁变量的结果。
 
-Here are some TM memory-mapping options:
+以下是一些TM内存映射选项：
 
 \begin{enumerate}
-\item	Memory remapping is illegal within a transaction, and will result
-	in all enclosing transactions being aborted.
-	This does simplify things somewhat, but also requires that TM
-	interoperate with synchronization primitives that do tolerate
-	remapping from within their critical sections.
-\item	Memory remapping is illegal within a transaction, and the
-	compiler is enlisted to enforce this prohibition.
-\item	Memory mapping is legal within a transaction, but aborts all
-	other transactions having variables in the region mapped over.
-\item	Memory mapping is legal within a transaction, but the mapping
-	operation will fail if the region being mapped overlaps with
-	the current transaction's footprint.
-\item	All memory-mapping operations, whether within or outside a
-	transaction, check the region being mapped against the memory
-	footprint of all transactions in the system.
-	If there is overlap, then the memory-mapping operation fails.
-\item	The effect of memory-mapping operations that overlap the memory
-	footprint of any transaction in the system is determined by the
-	TM conflict manager, which might dynamically determine whether
-	to fail the memory-mapping operation or abort any conflicting
-	transactions.
+\item	事务内的内存重映射是非法的，将导致所有包含它的事务被中止。
+	这确实在某种程度上简化了问题，但也要求TM与那些在其临界区内
+	容忍重映射的同步原语互操作。
+\item	事务内的内存重映射是非法的，由编译器强制执行此禁令。
+\item	事务内的内存映射是合法的，但会中止所有在被映射区域中
+	拥有变量的其他事务。
+\item	事务内的内存映射是合法的，但如果被映射的区域与当前事务的
+	内存足迹重叠，映射操作将失败。
+\item	所有内存映射操作，无论是在事务内还是事务外，
+	都检查被映射区域是否与系统中所有事务的内存足迹冲突。
+	如果有重叠，则内存映射操作失败。
+\item	与系统中任何事务的内存足迹重叠的内存映射操作的效果
+	由TM冲突管理器决定，它可以动态确定是让内存映射操作失败
+	还是中止任何冲突的事务。
 \end{enumerate}
 
-It is interesting to note that \co{munmap()} leaves the relevant region
-of memory unmapped, which could have additional interesting
-implications.\footnote{
-	This difference between mapping and unmapping was noted by
-	Josh Triplett.}
+值得注意的是，\co{munmap()}会使相关内存区域处于未映射状态，
+这可能有额外的有趣含义。\footnote{
+	映射和取消映射之间的这种差异由Josh Triplett指出。}
 
-\subsubsection{Debugging}
+\subsubsection{调试}
 \label{sec:future:Debugging}
 
-The usual debugging operations such as breakpoints work normally within
-lock-based critical sections and from usespace-RCU read-side critical sections.
-However, in initial transactional-memory hardware
-implementations~\cite{DaveDice2009ASPLOSRockHTM} an exception within
-a transaction will abort that transaction, which in turn means that
-breakpoints abort all enclosing transactions.
+通常的调试操作如断点在基于锁的临界区内和userspace-RCU读侧
+临界区内正常工作。
+然而，在最初的transactional-memory硬件
+实现~\cite{DaveDice2009ASPLOSRockHTM}中，事务内的异常
+将中止该事务，这反过来意味着断点会中止所有包含它的事务。
 
-So how can transactions be debugged?
+那么如何调试事务？
 
 \begin{enumerate}
-\item	Use software emulation techniques within transactions containing
-	breakpoints.
-	Of course, it might be necessary to emulate all transactions
-	any time a breakpoint is set within the scope of any transaction.
-	If the runtime system is unable to determine whether or not a
-	given breakpoint is within the scope of a transaction, then it
-	might be necessary to emulate all transactions just to be on
-	the safe side.
-	However, this approach might impose significant overhead, which
-	might in turn obscure the bug being pursued.
-\item	Use only hardware TM implementations that are capable of
-	handling breakpoint exceptions.
-	Unfortunately, as of this writing (March 2021), all such
-	implementations are research prototypes.
-\item	Use only software TM implementations, which are
-	(very roughly speaking) more tolerant of exceptions than are
-	the simpler of the hardware TM implementations.
-	Of course, software TM tends to have higher overhead than hardware
-	TM, so this approach may not be acceptable in all situations.
-\item	Program more carefully, so as to avoid having bugs in the
-	transactions in the first place.
-	As soon as you figure out how to do this, please do let everyone
-	know the secret!
+\item	在包含断点的事务中使用软件仿真技术。
+	当然，每当在任何事务的范围内设置断点时，
+	可能需要仿真所有事务。
+	如果运行时系统无法确定给定的断点是否在事务的范围内，
+	那么为了安全起见，可能需要仿真所有事务。
+	然而，这种方法可能会带来显著的开销，
+	这反过来可能会掩盖正在追踪的bug。
+\item	仅使用能够处理断点异常的硬件TM实现。
+	不幸的是，截至本文撰写时（2021年3月），所有此类
+	实现都是研究原型。
+\item	仅使用软件TM实现，它们（非常粗略地说）
+	比较简单的硬件TM实现对异常更具容忍性。
+	当然，软件TM的开销往往比硬件TM更高，
+	因此这种方法可能并非在所有情况下都可接受。
+\item	更仔细地编程，以便首先避免在事务中出现bug。
+	一旦你弄清楚如何做到这一点，请务必让大家都知道这个秘诀！
 \end{enumerate}
 
-There is some reason to believe that transactional memory will deliver
-\IX{productivity} improvements compared to other synchronization mechanisms,
-but it does seem quite possible that these improvements could easily
-be lost if traditional debugging techniques cannot be applied to
-transactions.
-This seems especially true if transactional memory is to be used by
-novices on large transactions.
-In contrast, macho ``top-gun'' programmers might be able to dispense with
-such debugging aids, especially for small transactions.
+有一些理由相信transactional memory将带来与其他同步机制相比的
+\IX{productivity}（生产力）改进，
+但这些改进如果传统调试技术不能应用于事务的话，
+似乎很容易被丧失。
+如果transactional memory要被新手用于大型事务，
+这一点似乎尤其正确。
+相比之下，硬派的``顶尖''程序员也许能够不用这些调试辅助工具，
+尤其是对于小型事务。
 
-Therefore, if transactional memory is to deliver on its productivity
-promises to novice programmers, the debugging problem does need to
-be solved.
+因此，如果transactional memory要兑现其对新手程序员的生产力承诺，
+调试问题确实需要得到解决。
 
-\subsection{Synchronization}
+\subsection{同步}
 \label{sec:future:Synchronization}
 
-If transactional memory someday proves that it can be everything to everyone,
-it will not need to interact with any other synchronization mechanism.
-Until then, it will need to work with synchronization mechanisms that
-can do what it cannot, or that work more naturally in a given situation.
-The following sections outline the current challenges in this area.
+如果transactional memory有朝一日证明它能够满足所有人的所有需求，
+那么它就不需要与任何其他同步机制交互。
+在那之前，它需要与能做它不能做之事的同步机制配合工作，
+或者与在给定情况下更自然地工作的同步机制配合。
+以下各节概述了该领域当前的挑战。
 
-\subsubsection{Locking}
+\subsubsection{锁}
 \label{sec:future:Locking}
 
-It is commonplace to acquire locks while holding other locks, which works
-quite well, at least as long as the usual well-known software-engineering
-techniques are employed to avoid deadlock.
-It is not unusual to acquire locks from within RCU read-side critical
-sections, which eases deadlock concerns because RCU read-side primitives
-cannot participate in lock-based deadlock cycles.
-It is also possible to acquire locks while holding hazard pointers and
-within sequence-lock read-side critical sections.
-But what happens when you attempt to acquire a lock from within a transaction?
+在持有其他锁的同时获取锁是很常见的做法，这工作得很好，
+至少只要使用了通常众所周知的软件工程技术来避免死锁。
+从RCU读侧临界区内获取锁也不罕见，
+这减轻了死锁方面的担忧，因为RCU读侧原语
+不能参与基于锁的死锁循环。
+在持有hazard pointer和sequence-lock读侧临界区内也可以获取锁。
+但当你尝试从事务内部获取锁时会发生什么？
 
-In theory, the answer is trivial:
-Simply manipulate the data structure representing the lock as part of
-the transaction, and everything works out perfectly.
-In practice, a number of non-obvious complications~\cite{Volos2008TRANSACT}
-can arise, depending on implementation details of the TM system.
-These complications can be resolved, but at the cost of a 45\pct\ increase in
-overhead for locks acquired outside of transactions and a 300\pct\ increase
-in overhead for locks acquired within transactions.
-Although these overheads might be acceptable for transactional
-programs containing small amounts of locking, they are often completely
-unacceptable for production-quality lock-based programs wishing to use
-the occasional transaction.
+理论上，答案很简单：
+只需将表示锁的数据结构作为事务的一部分进行操作，
+一切就会完美运作。
+在实践中，根据TM系统的实现细节，可能会出现许多
+不明显的复杂情况~\cite{Volos2008TRANSACT}。
+这些复杂情况可以解决，但代价是在事务外获取锁的开销增加45\pct，
+在事务内获取锁的开销增加300\pct。
+虽然这些开销对于包含少量锁的事务性程序可能是可以接受的，
+但对于希望偶尔使用事务的生产级基于锁的程序来说，
+这些开销往往是完全不可接受的。
 
-Here are some options available to TM:
+以下是TM可用的一些选项：
 
 \begin{enumerate}
-\item	Use only locking-friendly TM implementations~\cite{DaveDice2006DISC}.
-	Unfortunately, the locking-unfriendly implementations have some
-	attractive properties, including low overhead for successful
-	transactions and the ability to accommodate extremely large
-	transactions.
-\item	Use TM only ``in the small'' when introducing TM to lock-based
-	programs, thereby accommodating the limitations of
-	locking-friendly TM implementations.
-\item	Set aside locking-based legacy systems entirely, re-implementing
-	everything in terms of transactions.
-	This approach has no shortage of advocates, but this requires
-	that all the issues described in this series be resolved.
-	During the time it takes to resolve these issues, competing
-	synchronization mechanisms will of course also have the
-	opportunity to improve.
-\item	Use TM strictly as an optimization in lock-based systems, as was
-	done by the TxLinux~\cite{ChistopherJRossbach2007a} group and
-	by a great many transactional lock elision
-	projects~\cite{MartinPohlack2011HTM2TLE,Kleen:2014:SEL:2566590.2576793,PascalFelber2016rwlockElision,SeongJaePark2020HTMRCUlock}.
-	This approach seems sound, but leaves the locking design
-	constraints (such as the need to avoid deadlock) firmly in place.
-\item	Strive to reduce the overhead imposed on locking primitives.
+\item	仅使用对锁友好的TM实现~\cite{DaveDice2006DISC}。
+	不幸的是，对锁不友好的实现具有一些有吸引力的属性，
+	包括成功事务的低开销和能够容纳极大事务的能力。
+\item	在将TM引入基于锁的程序时仅``小规模''使用TM，
+	从而适应对锁友好的TM实现的限制。
+\item	完全搁置基于锁的遗留系统，用事务重新实现一切。
+	这种方法不缺少倡导者，但这要求
+	本系列中描述的所有问题都得到解决。
+	在解决这些问题所需的时间内，竞争的同步机制
+	当然也有机会得到改进。
+\item	严格将TM用作基于锁系统中的优化，正如
+	TxLinux~\cite{ChistopherJRossbach2007a}小组和
+	大量transactional lock elision
+	项目~\cite{MartinPohlack2011HTM2TLE,Kleen:2014:SEL:2566590.2576793,PascalFelber2016rwlockElision,SeongJaePark2020HTMRCUlock}所做的那样。
+	这种方法似乎是合理的，但锁的设计约束
+	（如需要避免死锁）仍然完全保留。
+\item	努力减少施加在锁原语上的开销。
 \end{enumerate}
 
-The fact that there could possibly be a problem interfacing TM and locking
-came as a surprise to many, which underscores the need to try out new
-mechanisms and primitives in real-world production software.
-Fortunately, the advent of open source means that a huge quantity of
-such software is now freely available to everyone, including researchers.
+TM和锁之间可能存在接口问题这一事实令许多人感到惊讶，
+这突显了在实际生产软件中试用新机制和原语的必要性。
+幸运的是，开源的出现意味着大量这样的软件现在对所有人
+（包括研究人员）都是免费可用的。
 
-\subsubsection{Reader-Writer Locking}
+\subsubsection{读写锁}
 \label{sec:future:Reader-Writer Locking}
 
-It is commonplace to read-acquire reader-writer locks while holding
-other locks, which just works, at least as long as the usual well-known
-software-engineering techniques are employed to avoid deadlock.
-Read-acquiring reader-writer locks from within RCU read-side critical
-sections also works, and doing so eases deadlock concerns because RCU
-read-side primitives cannot participate in lock-based deadlock cycles.
-It is also possible to acquire locks while holding hazard pointers and
-within sequence-lock read-side critical sections.
-But what happens when you attempt to read-acquire a reader-writer lock
-from within a transaction?
+在持有其他锁的同时以读模式获取读写锁是很常见的做法，
+这直接就能工作，至少只要使用了通常众所周知的软件工程技术
+来避免死锁。
+从RCU读侧临界区内以读模式获取读写锁也能工作，
+而且这样做减轻了死锁方面的担忧，
+因为RCU读侧原语不能参与基于锁的死锁循环。
+在持有hazard pointer和sequence-lock读侧临界区内也可以获取锁。
+但当你尝试从事务内部以读模式获取读写锁时会发生什么？
 
-Unfortunately, the straightforward approach to read-acquiring the
-traditional counter-based reader-writer lock within a transaction defeats
-the purpose of the reader-writer lock.
-To see this, consider a pair of transactions concurrently attempting to
-read-acquire the same reader-writer lock.
-Because read-acquisition involves modifying the reader-writer lock's
-data structures, a conflict will result, which will roll back one of
-the two transactions.
-This behavior is completely inconsistent with the reader-writer lock's
-goal of allowing concurrent readers.
+不幸的是，在事务中以直接的方式读获取传统的基于计数器的读写锁
+会违背读写锁的目的。
+要理解这一点，考虑一对事务同时尝试读获取同一个读写锁。
+因为读获取涉及修改读写锁的数据结构，
+会产生冲突，这将回滚两个事务中的一个。
+这种行为与读写锁允许并发读者的目标完全不一致。
 
-Here are some options available to TM:
+以下是TM可用的一些选项：
 
 \begin{enumerate}
-\item	Use per-CPU or per-thread reader-writer
-	locking~\cite{WilsonCHsieh92a}, which allows a
-	given CPU (or thread, respectively) to manipulate only local
-	data when read-acquiring the lock.
-	This would avoid the conflict between the two transactions
-	concurrently read-acquiring the lock, permitting both to proceed,
-	as intended.
-	Unfortunately, (1)~the write-acquisition overhead of
-	per-CPU/thread locking can be extremely high, (2)~the memory
-	overhead of per-CPU/thread locking can be prohibitive, and
-	(3)~this transformation is available only when you have access to
-	the source code in question.
-	Other more-recent scalable
-	reader-writer locks~\cite{YossiLev2009SNZIrwlock}
-	might avoid some or all of these problems.
-\item	Use TM only ``in the small'' when introducing TM to lock-based
-	programs, thereby avoiding read-acquiring reader-writer locks
-	from within transactions.
-\item	Set aside locking-based legacy systems entirely, re-implementing
-	everything in terms of transactions.
-	This approach has no shortage of advocates, but this requires
-	that \emph{all} the issues described in this series be resolved.
-	During the time it takes to resolve these issues, competing
-	synchronization mechanisms will of course also have the
-	opportunity to improve.
-\item	Use TM strictly as an optimization in lock-based systems, as was
-	done by the TxLinux~\cite{ChistopherJRossbach2007a} group,
-	and as has been done by more recent work using TM to elide
-	reader-writer locks~\cite{PascalFelber2016rwlockElision}.
-	This approach seems sound, at least on \Power{8}
-	CPUs~\cite{Le:2015:TMS:3266491.3266500}, but leaves the locking
-	design constraints (such as the need to avoid deadlock) firmly
-	in place.
+\item	使用per-CPU或per-thread读写
+	锁~\cite{WilsonCHsieh92a}，它允许给定的CPU
+	（或线程）在读获取锁时仅操作本地数据。
+	这将避免两个事务同时读获取锁之间的冲突，
+	允许两者如预期那样继续进行。
+	不幸的是，(1)~per-CPU/thread锁的写获取开销可能极高，
+	(2)~per-CPU/thread锁的内存开销可能令人望而却步，
+	(3)~这种转换仅在你能访问相关源代码时才可用。
+	其他更新的可扩展读写锁~\cite{YossiLev2009SNZIrwlock}
+	可能避免部分或全部这些问题。
+\item	在将TM引入基于锁的程序时仅``小规模''使用TM，
+	从而避免从事务内部读获取读写锁。
+\item	完全搁置基于锁的遗留系统，用事务重新实现一切。
+	这种方法不缺少倡导者，但这要求
+	本系列中描述的\emph{所有}问题都得到解决。
+	在解决这些问题所需的时间内，竞争的同步机制
+	当然也有机会得到改进。
+\item	严格将TM用作基于锁系统中的优化，正如
+	TxLinux~\cite{ChistopherJRossbach2007a}小组所做的，
+	以及更近期使用TM来省略读写锁的
+	工作~\cite{PascalFelber2016rwlockElision}所做的那样。
+	这种方法似乎是合理的，至少在\Power{8}
+	CPU~\cite{Le:2015:TMS:3266491.3266500}上是这样，
+	但锁的设计约束（如需要避免死锁）仍然完全保留。
 \end{enumerate}
 
-Of course, there might well be other non-obvious issues surrounding
-combining TM with reader-writer locking, as there in fact were with
-exclusive locking.
+当然，将TM与读写锁结合可能还有其他不明显的问题，
+就像与排他锁结合时实际上确实出现了问题一样。
 
-\subsubsection{Deferred Reclamation}
+\subsubsection{延迟回收}
 \label{sec:future:Deferred Reclamation}
 
-This section focuses mainly on RCU\@.
-Similar issues and possible resolutions arise when combining TM with
-other deferred-reclamation mechanisms such as
-\IXalt{reference counters}{reference count} and
-hazard pointers.
-In the text below, known differences are specifically called out.
+本节主要关注RCU。
+将TM与其他延迟回收机制（如\IXalt{reference counters}{reference count}
+和hazard pointers）结合时也会出现类似的问题和可能的解决方案。
+在下面的文本中，已知的差异会被特别指出。
 
-Reference counting, hazard pointers, and RCU are all heavily used, as noted in
-\cref{sec:defer:RCU Related Work,sec:defer:Which to Choose? (Production Use)}.
-This means that any TM implementation that chooses not to surmount each
-and every challenge called out in this section needs to interoperate
-cleanly and efficiently with all of these synchronization mechanisms.
+引用计数、hazard pointers和RCU都被大量使用，如
+\cref{sec:defer:RCU Related Work,sec:defer:Which to Choose? (Production Use)}
+中所述。
+这意味着任何选择不克服本节中指出的每个挑战的TM实现
+都需要与所有这些同步机制干净而高效地互操作。
 
-The TxLinux group from the University of Texas at Austin appears to be
-the group to take on the challenge of RCU/TM
-interoperability~\cite{ChistopherJRossbach2007a}.
-Because they applied TM to the Linux 2.6 kernel, which uses RCU, they
-had no choice but to integrate TM and RCU, with TM taking the place of
-locking for RCU updates.
-Unfortunately, although the paper does state that the RCU implementation's
-locks (e.g., \co{rcu_ctrlblk.lock}) were converted to transactions,
-it is silent about what was done with those locks used by RCU-based updates
-(for example, \co{dcache_lock}).
+德克萨斯大学奥斯汀分校的TxLinux小组似乎是
+接受RCU/TM互操作性挑战的
+小组~\cite{ChistopherJRossbach2007a}。
+因为他们将TM应用于使用RCU的Linux 2.6内核，
+所以他们别无选择，只能集成TM和RCU，用TM取代锁来进行RCU更新。
+不幸的是，虽然论文确实指出RCU实现的锁
+（例如\co{rcu_ctrlblk.lock}）被转换为事务，
+但对于那些由基于RCU的更新使用的锁
+（例如\co{dcache_lock}）做了什么却没有提及。
 
-More recently, \ppl{Dimitrios}{Siakavaras} et al.~have applied
-HTM and RCU to search trees~\cite{Siakavaras2017CombiningHA,DimitriosSiakavaras2020RCU-HTM-B+Trees},
-\ppl{Christina}{Giannoula} et al.~have used HTM and RCU to color
-graphs~\cite{ChristinaGiannoula2018HTM-RCU-graphcoloring},
-and
-\ppl{SeongJae}{Park} et al.~have used HTM and RCU to optimize high-contention
-locking on \IXacr{numa} systems~\cite{SeongJaePark2020HTMRCUlock}.
+更近期，\ppl{Dimitrios}{Siakavaras}等人将HTM和RCU应用于搜索
+树~\cite{Siakavaras2017CombiningHA,DimitriosSiakavaras2020RCU-HTM-B+Trees}，
+\ppl{Christina}{Giannoula}等人使用HTM和RCU来对图进行
+着色~\cite{ChristinaGiannoula2018HTM-RCU-graphcoloring}，
+而\ppl{SeongJae}{Park}等人使用HTM和RCU来优化\IXacr{numa}系统上的
+高竞争锁~\cite{SeongJaePark2020HTMRCUlock}。
 
-It is important to note that RCU permits readers and updaters to run
-concurrently, further permitting RCU readers to access data that is in
-the act of being updated.
-Of course, this property of RCU, whatever its performance, scalability,
-and real-time-response benefits might be, flies in the face of the
-underlying atomicity properties of TM, although the \Power{8} CPU family's
-suspended-transaction facility~\cite{Le:2015:TMS:3266491.3266500} makes
-it an exception to this rule.
+重要的是要注意，RCU允许读者和更新者并发运行，
+进一步允许RCU读者访问正在被更新的数据。
+当然，RCU的这一特性，无论其性能、可扩展性和
+实时响应优势如何，都与TM的底层原子性属性相矛盾，
+尽管\Power{8} CPU系列的挂起事务
+设施~\cite{Le:2015:TMS:3266491.3266500}使其成为这一规则的例外。
 
-So how should TM-based updates interact with concurrent RCU readers?
-Some possibilities are as follows:
+那么基于TM的更新应该如何与并发RCU读者交互？
+一些可能的方式如下：
 
 \begin{enumerate}
-\item	RCU readers abort concurrent conflicting TM updates.
-	This is in fact the approach taken by the TxLinux project.
-	This approach does preserve RCU semantics, and also preserves
-	RCU's read-side performance, scalability, and real-time-response
-	properties, but it does have the unfortunate side-effect of
-	unnecessarily aborting conflicting updates.
-	In the worst case, a long sequence of RCU readers could
-	potentially starve all updaters, which could in theory result
-	in system hangs.
-	In addition, not all TM implementations offer the strong atomicity
-	required to implement this approach, and for good reasons.
-\item	RCU readers that run concurrently with conflicting TM updates
-	get old (pre-transaction) values from any conflicting RCU loads.
-	This preserves RCU semantics and performance, and also prevents
-	RCU-update \IX{starvation}.
-	However, not all TM implementations can provide timely access
-	to old values of variables that have been tentatively updated
-	by an in-flight transaction.
-	In particular, log-based TM implementations that maintain
-	old values in the log (thus providing excellent TM commit
-	performance) are not likely to be happy with this approach.
-	Perhaps the \co{rcu_dereference()} primitive can be leveraged
-	to permit RCU to access the old values within a greater range
-	of TM implementations, though performance might still be an issue.
-	Nevertheless, there are popular TM implementations that have
-	been integrated with RCU in this
-	manner~\cite{DonaldEPorter2007TRANSACT,PhilHoward2011RCUTMRBTree,
-	PhilipWHoward2013RCUrbtree}.
-\item	If an RCU reader executes an access that conflicts with an
-	in-flight transaction, then that RCU access is delayed until
-	the conflicting transaction either commits or aborts.
-	This approach preserves RCU semantics, but not RCU's performance
-	or real-time response, particularly in presence of long-running
-	transactions.
-	In addition, not all TM implementations are capable of delaying
-	conflicting accesses.
-	Nevertheless, this approach seems eminently reasonable for hardware
-	TM implementations that support only small transactions.
-\item	RCU readers are converted to transactions.
-	This approach pretty much guarantees that RCU is compatible with
-	any TM implementation, but it also imposes TM's rollbacks on RCU
-	read-side critical sections, destroying RCU's real-time response
-	guarantees, and also degrading RCU's read-side performance.
-	Furthermore, this approach is infeasible in cases where any of
-	the RCU read-side critical sections contains operations that
-	the TM implementation in question is incapable of handling.
-	This approach is more difficult to apply to hazard pointers and
-	reference counters, which do not have a sharply defined notion
-	of a reader as a section of code.
-\item	Many update-side uses of RCU modify a single pointer to publish
-	a new data structure.
-	In some of these cases, RCU can safely be permitted to see a
-	transactional pointer update that is subsequently rolled back,
-	as long as the transaction respects memory ordering and as long
-	as the roll-back process uses \co{call_rcu()} to free up the
-	corresponding structure.
-	Unfortunately, not all TM implementations respect memory barriers
-	within a transaction.
-	Apparently, the thought is that because transactions are supposed
-	to be atomic, the ordering of the accesses within the transaction
-	is not supposed to matter.
-\item	Prohibit use of TM in RCU updates.
-	This is guaranteed to work, but restricts use of TM.
+\item	RCU读者中止并发冲突的TM更新。
+	这实际上是TxLinux项目采用的方法。
+	这种方法确实保留了RCU语义，也保留了RCU的读侧性能、
+	可扩展性和实时响应特性，但它有一个不幸的副作用，
+	即不必要地中止冲突的更新。
+	在最坏的情况下，一长串RCU读者可能饿死所有更新者，
+	这在理论上可能导致系统挂起。
+	此外，不是所有TM实现都提供实现此方法所需的强原子性，
+	而且有充分的理由。
+\item	与冲突TM更新并发运行的RCU读者从任何冲突的RCU加载中
+	获取旧的（事务前的）值。
+	这保留了RCU语义和性能，也防止了RCU更新\IX{starvation}（饥饿）。
+	然而，不是所有TM实现都能及时提供对已被进行中事务
+	暂时更新的变量旧值的访问。
+	特别是，在日志中维护旧值的基于日志的TM实现
+	（因此提供了出色的TM提交性能）不太可能喜欢这种方法。
+	也许可以利用\co{rcu_dereference()}原语来允许RCU
+	在更广泛的TM实现中访问旧值，
+	尽管性能可能仍然是个问题。
+	尽管如此，有流行的TM实现已经以这种方式与RCU
+	集成~\cite{DonaldEPorter2007TRANSACT,PhilHoward2011RCUTMRBTree,
+	PhilipWHoward2013RCUrbtree}。
+\item	如果RCU读者执行了与进行中事务冲突的访问，
+	那么该RCU访问将被延迟，直到冲突事务提交或中止。
+	这种方法保留了RCU语义，但不保留RCU的性能或实时响应，
+	特别是在存在长时间运行事务的情况下。
+	此外，不是所有TM实现都能够延迟冲突的访问。
+	尽管如此，对于仅支持小型事务的硬件TM实现，
+	这种方法似乎非常合理。
+\item	RCU读者被转换为事务。
+	这种方法基本上保证了RCU与任何TM实现兼容，
+	但它也将TM的回滚强加于RCU读侧临界区，
+	破坏了RCU的实时响应保证，也降低了RCU的读侧性能。
+	此外，在任何RCU读侧临界区包含相关TM实现无法处理的
+	操作的情况下，这种方法是不可行的。
+	这种方法更难应用于hazard pointers和引用计数，
+	因为它们没有将读者作为代码段的明确定义。
+\item	RCU的许多更新侧用法修改单个指针来发布新的数据结构。
+	在其中一些情况下，只要事务尊重内存排序并且回滚过程
+	使用\co{call_rcu()}来释放相应的结构，
+	就可以安全地允许RCU看到随后被回滚的事务性指针更新。
+	不幸的是，不是所有TM实现都尊重事务内的内存屏障。
+	显然，人们的想法是，因为事务应该是原子的，
+	事务内访问的顺序不应该有影响。
+\item	禁止在RCU更新中使用TM。
+	这保证可以工作，但限制了TM的使用。
 \end{enumerate}
 
-It seems likely that additional approaches will be uncovered, especially
-given the advent of user-level RCU and hazard-pointer
-implementations.\footnote{
-	Kudos to the TxLinux group, Maged Michael, and Josh Triplett
-	for coming up with a number of the above alternatives.}
-It is interesting to note that many of the better performing and
-scaling STM implementations make use of RCU-like techniques
-internally~\cite{UCAM-CL-TR-579,KeirFraser2007withoutLocks,Gu:2019:PSE:3358807.3358885,Kim:2019:MSR:3297858.3304040}.
+可能还会发现更多的方法，特别是考虑到用户级RCU和
+hazard-pointer实现的出现。\footnote{
+	感谢TxLinux小组、Maged Michael和Josh Triplett
+	提出了上述多种替代方案。}
+有趣的是，许多性能和可扩展性较好的STM实现在内部使用了
+类RCU技术~\cite{UCAM-CL-TR-579,KeirFraser2007withoutLocks,Gu:2019:PSE:3358807.3358885,Kim:2019:MSR:3297858.3304040}。
 
 \QuickQuiz{
-	MV-RLU looks pretty good!
-	Doesn't it beat RCU hands down?
+	MV-RLU看起来相当不错！
+	它是不是完胜RCU？
 }\QuickQuizAnswer{
-	One might get that impression from a quick read of the abstract,
-	but more careful readers will notice the ``for a wide range of
-	workloads'' phrase in the last sentence.
-	It turns out that this phrase is quite important:
+	快速阅读摘要可能会给人这种印象，
+	但更仔细的读者会注意到最后一句中的``对于广泛的工作负载''
+	这一短语。
+	事实证明这个短语相当重要：
 
 	\begin{enumerate}
-	\item	Their RCU evaluation uses synchronous grace periods, which
-		needlessly throttle updates, as noted in their
-		Section~6.2.1.
-		See \cref{fig:datastruct:Read-Side RCU-Protected Hash-Table Performance For Schroedinger's Zoo in the Presence of Updates}
-		\cpageref{fig:datastruct:Read-Side RCU-Protected Hash-Table Performance For Schroedinger's Zoo in the Presence of Updates}
-		of this book to see that the venerable asynchronous
-		\co{call_rcu()} primitive enables RCU to perform and
-		scale quite well with large numbers of updaters.
-		Furthermore, in Section~3.7 of their paper, the authors
-		admit that asynchronous grace periods are important to
-		MV-RLU scalability.
-		A fair comparison would also allow RCU the benefits of
-		asynchrony.
-	\item	They use a poorly tuned 1,000-bucket hash table containing
-		10,000~elements.
-		In addition, their 448~hardware threads need considerably
-		more than 1,000~buckets to avoid the lock contention
-		that they correctly state limits RCU performance in
-		their benchmarks.
-		A useful comparison would feature a properly tuned
-		hash table.
-	\item	Their RCU hash table used per-bucket locks, which they
-		call out as a bottleneck, which is not a surprise given
-		the long hash chains and small ratio of buckets to threads.
-		A number of their competing mechanisms instead use
-		lockfree techniques, thus avoiding the per-bucket-lock
-		bottleneck, which cynics might claim sheds some light
-		on the authors' otherwise inexplicable choice of poorly
-		tuned hash tables.
-		The first graph in the middle row of the authors'
-		Figure~4 show what RCU can achieve if not hobbled by
-		artificial bottlenecks, as does the first portion of
-		the second graph in that same row.
-	\item	Their linked-list operation permits RLU to do concurrent
-		modifications of different elements in the list, while
-		RCU is forced to serialize updates.
-		Again, RCU has always worked just fine in conjunction
-		with lockless updaters, a fact that has been set forth
-		in academic literature that the authors
-		cited~\cite{MathieuDesnoyers2012URCU}.
-		A fair comparison would use the same style of update
-		for RCU as it does for MV-RLU.
-	\item	The authors fail to consider combining RCU and sequence
-		locking, which is used in the Linux kernel to give
-		readers coherent views of multi-pointer updates.
-	\item	The authors fail to consider RCU-based solutions to the
-		Issaquah Challenge~\cite{PaulEMcKenney2016IssaquahCPPCON},
-		which also gives readers a coherent view of multi-pointer
-		updates, albeit with a weaker view of ``coherent''.
+	\item	他们的RCU评估使用了同步宽限期，这不必要地
+		限制了更新速度，正如他们的第6.2.1节所述。
+		参见本书的\cref{fig:datastruct:Read-Side RCU-Protected Hash-Table Performance For Schroedinger's Zoo in the Presence of Updates}
+		\cpageref{fig:datastruct:Read-Side RCU-Protected Hash-Table Performance For Schroedinger's Zoo in the Presence of Updates}，
+		可以看到历史悠久的异步\co{call_rcu()}原语
+		使RCU能够在大量更新者的情况下表现和扩展得相当好。
+		此外，在他们论文的第3.7节中，作者承认
+		异步宽限期对MV-RLU的可扩展性很重要。
+		公平的比较也应该允许RCU享受异步的好处。
+	\item	他们使用了一个调优不佳的含10,000个元素的
+		1,000桶哈希表。
+		此外，他们的448个硬件线程需要远多于1,000个桶
+		才能避免他们正确指出的限制RCU在其基准测试中
+		性能的锁竞争。
+		有用的比较应该使用适当调优的哈希表。
+	\item	他们的RCU哈希表使用了per-bucket锁，
+		他们将其称为瓶颈，鉴于长哈希链和
+		桶与线程的小比率，这并不令人惊讶。
+		他们的一些竞争机制改为使用无锁技术，
+		从而避免了per-bucket锁的瓶颈，
+		愤世嫉俗者可能会声称这揭示了作者在其他方面
+		令人费解地选择调优不佳哈希表的原因。
+		作者图4中间行的第一张图显示了RCU在不受
+		人为瓶颈束缚时能达到的效果，
+		同一行第二张图的前半部分也是如此。
+	\item	他们的链表操作允许RLU对列表中不同元素进行并发修改，
+		而RCU被迫串行化更新。
+		同样，RCU一直与无锁更新者配合得很好，
+		这一事实已在作者引用的学术文献中
+		阐述~\cite{MathieuDesnoyers2012URCU}。
+		公平的比较应该对RCU使用与MV-RLU相同风格的更新。
+	\item	作者没有考虑将RCU和sequence locking结合使用，
+		Linux内核中使用这种组合来给读者
+		提供多指针更新的一致视图。
+	\item	作者没有考虑基于RCU的Issaquah
+		Challenge~\cite{PaulEMcKenney2016IssaquahCPPCON}解决方案，
+		该方案也给读者提供多指针更新的一致视图，
+		尽管对``一致''的定义较弱。
 	\end{enumerate}
 
-	It is surprising that the anonymous reviewers of this paper did
-	not demand an apples-to-apples comparison of MV-RLU and RCU\@.
-	Nevertheless, the authors should be congratulated on producing
-	an academic paper that presents an all-too-rare example of good
-	scalability combined with strong read-side coherence.
-	They are also to be congratulated on overcoming the traditional
-	academic prejudice against asynchronous grace periods,
-	which greatly aided their scalability.
+	令人惊讶的是，这篇论文的匿名审稿人没有要求
+	对MV-RLU和RCU进行同类比较。
+	尽管如此，应该祝贺作者撰写了一篇学术论文，
+	其中展示了良好可扩展性与强读侧一致性相结合的罕见例子。
+	也应该祝贺他们克服了传统学术界对异步宽限期的偏见，
+	这极大地帮助了他们的可扩展性。
 
-	Interestingly enough, RLU and RCU take different approaches to avoid
-	the inherent limitations of STM noted by \ppl{Hagit}{Attiya} et
-	al.~\cite{Attiya:2009:STMReadOnlyLimits}.
-	RCU avoids providing strict serializability and RLU avoids providing
-	invisible read-only transactions, both thus avoiding the
-	limitations.
+	有趣的是，RLU和RCU采用不同的方法来避免
+	\ppl{Hagit}{Attiya}等人指出的STM固有
+	限制~\cite{Attiya:2009:STMReadOnlyLimits}。
+	RCU避免提供严格的可串行化，RLU避免提供
+	不可见的只读事务，两者因此都避免了这些限制。
 }\QuickQuizEnd
 
-\subsubsection{Extra-Transactional Accesses}
+\subsubsection{事务外访问}
 \label{sec:future:Extra-Transactional Accesses}
 
-Within a lock-based critical section, it is perfectly legal to manipulate
-variables that are concurrently accessed or even modified outside that
-lock's critical section, with one common example being statistical
-counters.
-The same thing is possible within RCU read-side critical
-sections, and is in fact the common case.
+在基于锁的临界区内，操作在该锁的临界区外被并发访问
+甚至修改的变量是完全合法的，一个常见的例子是统计计数器。
+在RCU读侧临界区内也可以做同样的事情，
+而且这实际上是常见情况。
 
-Given mechanisms such as the so-called ``dirty reads'' that are
-prevalent in production database systems, it is not surprising
-that extra-transactional accesses have received serious attention
-from the proponents of TM, with the concept of weak
-atomicity~\cite{Blundell2006TMdeadlock} being but one case in point.
+鉴于生产数据库系统中普遍存在的所谓``脏读''等机制，
+TM的支持者认真关注事务外访问就不足为奇了，
+弱原子性~\cite{Blundell2006TMdeadlock}的概念就是一个例子。
 
-Here are some extra-transactional options:
+以下是一些事务外访问选项：
 
 \begin{enumerate}
-\item	Conflicts due to extra-transactional accesses always abort
-	transactions.
-	This is strong atomicity.
-\item	Conflicts due to extra-transactional accesses are ignored,
-	so only conflicts among transactions can abort transactions.
-	This is weak atomicity.
-\item	Transactions are permitted to carry out non-transactional
-	operations in special cases, such as when allocating memory or
-	interacting with lock-based critical sections.
-\item	Produce hardware extensions that permit some operations
-	(for example, addition) to be carried out concurrently on a
-	single variable by multiple transactions.
-\item	Introduce weak semantics to transactional memory.
-	One approach is the combination with RCU described in
-	\cref{sec:future:Deferred Reclamation},
-	while Gramoli and Guerraoui
-	survey a number of other weak-transaction
-	approaches~\cite{Gramoli:2014:DTP:2541883.2541900}, for example,
-	restricted partitioning of large
-	``elastic'' transactions into smaller transactions, thus
-	reducing conflict probabilities (albeit with tepid performance
-	and scalability).
-	Perhaps further experience will show that some uses of
-	extra-transactional accesses can be replaced by weak
-	transactions.
+\item	由事务外访问引起的冲突总是中止事务。
+	这就是强原子性。
+\item	由事务外访问引起的冲突被忽略，
+	因此只有事务之间的冲突才能中止事务。
+	这就是弱原子性。
+\item	允许事务在特殊情况下执行非事务操作，
+	例如在分配内存或与基于锁的临界区交互时。
+\item	产生允许某些操作（例如加法）由多个事务
+	在单个变量上并发执行的硬件扩展。
+\item	向transactional memory引入弱语义。
+	一种方法是\cref{sec:future:Deferred Reclamation}中描述的
+	与RCU的结合，而Gramoli和Guerraoui
+	调查了许多其他弱事务
+	方法~\cite{Gramoli:2014:DTP:2541883.2541900}，例如，
+	将大型``弹性''事务限制性地分割为较小的事务，
+	从而降低冲突概率（尽管性能和可扩展性不温不火）。
+	也许进一步的经验将表明事务外访问的某些用途
+	可以被弱事务所取代。
 \end{enumerate}
 
-It appears that transactions were conceived in a vacuum, with no
-interaction required with any other synchronization mechanism.
-If so, it is no surprise that much confusion and complexity arises when
-combining transactions with non-transactional accesses.
-But unless transactions are to be confined to small updates to isolated
-data structures, or alternatively to be confined to new programs
-that do not interact with the huge body of existing parallel code,
-then transactions absolutely must be so combined if they are to have
-large-scale practical impact in the near term.
+看起来事务是在真空中构想出来的，
+不需要与任何其他同步机制交互。
+如果是这样，当事务与非事务访问结合时出现大量混乱和复杂性
+就不足为奇了。
+但除非事务被限制在对孤立数据结构的小型更新上，
+或者被限制在不与大量现有并行代码交互的新程序上，
+否则如果事务要在近期产生大规模实际影响，
+就绝对必须进行这种结合。
 
-\subsection{Other Transactions}
+\subsection{其他事务}
 \label{sec:future:Other Transactions}
 % If we ever get epigraphs down at this level, perhaps the old
 % "Hell is other people" quote by Jean-Paul Sartre.  His clarification
 % also applies, which can be stated as "Heaven is also other people".
 
-Because transactions are to appear atomic with respect to each other,
-something must be done when multiple transactions attempt to access the
-same variable at the same time.
-If all the transactions are reading that variable and none of them are
-updating it, then that something can be ``nothing'', but otherwise
-the transactions must be at least partially serialized.
-This serialization is often achieved by aborting and rolling back some
-subset of those transactions.
+因为事务对彼此应该表现为原子的，
+当多个事务同时尝试访问同一个变量时必须采取一些措施。
+如果所有事务都在读取该变量而没有一个在更新它，
+那么可以``什么都不做''，否则事务必须至少部分串行化。
+这种串行化通常通过中止和回滚那些事务的某个子集来实现。
 
-How to choose which to abort and roll back?
+如何选择中止和回滚哪些事务？
 
-There has been much work on this question.
-The answer is ``use a contention manager'', but that simply shifts this
-question to ``what should a contention manager do?''
-A full exposition on contention managers is beyond the scope of this section.
-This section will therefore limit itself to a few seminal papers
-in this area.
+关于这个问题已经有大量的工作。
+答案是``使用竞争管理器''，但这只是将问题转移到了
+``竞争管理器应该做什么？''
+对竞争管理器的全面论述超出了本节的范围。
+因此本节将限于该领域的几篇开创性论文。
 
-Herlihy et al.~\cite{HerlihyLMS03}
-have writing transactions unconditionally abort reading transactions,
-which has the virtue of simplicity, but which can result in reader
-starvation.
-This paper also introduces the concept of early release, which can
-allow a long traversal to proceed concurrently with small updates.
-From this viewpoint, one might characterize RCU readers as ``instant
-release'', but this is a property that causes RCU readers to behave in
-a decidedly non-STM manner.
+Herlihy等人~\cite{HerlihyLMS03}
+让写事务无条件地中止读事务，
+这有简单性的优点，但可能导致读者饥饿。
+这篇论文还引入了早期释放的概念，
+它可以允许一次长遍历与小更新并发进行。
+从这个角度来看，可以将RCU读者描述为``即时释放''，
+但这是一种使RCU读者以完全不同于STM方式行为的特性。
 
-Hammond et al.~\cite{LanceHammond2004a}
-advise using small transactions, which does reduce contention-manager
-complexity, but which also fails to deliver on the full STM promise
-of automated concurrency.
-This paper also introduced annotations to identify different types of
-transactions.
+Hammond等人~\cite{LanceHammond2004a}
+建议使用小事务，这确实降低了竞争管理器的复杂性，
+但也未能兑现STM自动并发的全部承诺。
+这篇论文还引入了注解来标识不同类型的事务。
 
-Scherer and Scott~\cite{WilliamNSchererIII2005}
-describe a number of STM contention-management strategies.
-This paper defined ``visible'' and ``invisible'' readers for
-extra-transactional accesses, and discuss a number of contention-management
-strategies, including:
+Scherer和Scott~\cite{WilliamNSchererIII2005}
+描述了许多STM竞争管理策略。
+这篇论文为事务外访问定义了``可见''和``不可见''的读者，
+并讨论了许多竞争管理策略，包括：
 
 \begin{enumerate}
-\item	Exponential backoff, which they conclude required manual
-	tuning.
-\item	Preferentially abort transactions that have done the least work,
-	where the work of an aborted prior attempt to complete a
-	transactions is counted for the next retry of that transaction.
-	This has nice fairness properties, but can cause huge transactions
-	to hog the system for an extended time.
-\item	Preferentially abort transactions that have done the least work,
-	but also credit a given transaction with the work done by any
-	other transactions blocked waiting for that transaction to complete.
-	This adds a form of priority inheritance to the mix.
-\item	Track how many times a given transaction has been aborted by
-	another transaction as another way to promote some notion of
-	fairness.
-\item	Use transaction-start timestamps in order to preferentially abort
-	transactions that started most recently.
-\item	Use transaction-start timestamps, but also add an indication
-	of when a given transaction last ran to prevent preempted
-	transactions from aborting other transactions running in
-	higher-priority processes.
+\item	指数退避，他们得出结论认为需要手动调优。
+\item	优先中止完成工作量最少的事务，
+	其中之前被中止的尝试完成事务时所做的工作
+	会计入该事务下次重试的工作量。
+	这有很好的公平性属性，但可能导致大型事务
+	长时间占用系统。
+\item	优先中止完成工作量最少的事务，
+	但也将等待给定事务完成的任何其他事务所做的工作
+	计入该事务。
+	这在组合中加入了一种优先级继承的形式。
+\item	跟踪给定事务被另一个事务中止的次数，
+	作为促进某种公平性概念的另一种方式。
+\item	使用事务开始时间戳，以便优先中止最近开始的事务。
+\item	使用事务开始时间戳，但也添加给定事务上次运行时间的指示，
+	以防止被抢占的事务中止在更高优先级进程中运行的其他事务。
 \end{enumerate}
 
-This 2005 paper thus gave an early indication of the complexity inherent
-in contention management.
+这篇2005年的论文因此早期指出了竞争管理中固有的复杂性。
 
-Porter and Witchel~\cite{DonaldEPorter2007TRANSACT,Ramadan:2008:DTM:1521747.1521799}
-considered loosening STM consistency requirements in order to simplify
-contention management.
-They noted RCU as a case in which an update will cause concurrent reads
-to access old versions of the data.
+Porter和Witchel~\cite{DonaldEPorter2007TRANSACT,Ramadan:2008:DTM:1521747.1521799}
+考虑放宽STM一致性要求以简化竞争管理。
+他们指出RCU是更新会导致并发读取访问数据旧版本的一种情况。
 
-Contention management is also an issue in HTM, and will be discussed
-in \cref{sec:future:Conflict Handling,sec:future:Aborts and Rollbacks}.
+竞争管理在HTM中也是一个问题，将在
+\cref{sec:future:Conflict Handling,sec:future:Aborts and Rollbacks}
+中讨论。
 
 \QuickQuiz{
-	Why not get with the times and apply machine learning to
-	contention management?
+	为什么不与时俱进，将机器学习应用于竞争管理？
 }\QuickQuizAnswer{
-	Many transactions have sub-microsecond overheads, so it would
-	be all too easy to burn more CPU on machine learning than was
-	saved by more efficiently executing transactions.
-	Machine learning might nevertheless have a role to play in
-	tuning contention managers to specific workloads.
-	It would of course be even better to not need the tuning, but
-	sometimes ``better'' is unattainable.
+	许多事务的开销在亚微秒级别，因此在机器学习上消耗
+	比通过更高效地执行事务所节省的更多CPU是太容易的事情。
+	尽管如此，机器学习可能在将竞争管理器调优到
+	特定工作负载方面发挥作用。
+	当然，不需要调优会更好，但有时``更好''是不可实现的。
 }\QuickQuizEnd
 
-\subsection{Case Study:
+\subsection{案例研究：
 	    Sequence Locking}
 \label{sec:future:Case Study: Sequence Locking}
 
-Sequence locking, described in
-\cref{sec:defer:Sequence Locks},
-is sometimes thought of as a trivial form of STM\@.
-The sequence-locking read-side critical section is normally restricted
-to doing loads, and it is retried whenever there is a conflict with a
-sequence-locking updater.
-Crucially, sequence-locking read-side critical section do not conflict
-with each other.
-It is therefore instructive to consider how sequence locking handles
-the STM challenges called out in the preceding sections.
+\cref{sec:defer:Sequence Locks}中描述的Sequence locking
+有时被认为是STM的一种简单形式。
+Sequence-locking读侧临界区通常限于执行加载操作，
+每当与sequence-locking更新者发生冲突时就会被重试。
+至关重要的是，sequence-locking读侧临界区之间不会相互冲突。
+因此，考虑sequence locking如何处理前面各节中指出的
+STM挑战是很有启发性的。
 
-Sequence locking handles interactions with the outside world
-(\cref{sec:future:Outside World}) by simply executing the
-TM-unfriendly operation on each pass through its read-side
-critical section.
-For example, if the critical section doing an I/O write
-is retried three times, it will execute that I/O write four
-times, once for the original pass through the critical
-section and once each for the three retries.
+Sequence locking通过简单地在每次通过其读侧临界区时
+执行TM不友好的操作来处理与外部世界的交互
+（\cref{sec:future:Outside World}）。
+例如，如果执行I/O写入的临界区被重试了三次，
+它将执行四次该I/O写入，一次是原始通过临界区的执行，
+三次是每次重试各一次。
 
-Doing I/O operations within a sequence-locking read-side
-critical section might seem a bit unconventional.
-It nevertheless makes a good deal of sense to do
-an I/O write (\cref{sec:future:I/O Operations})
-to a log for historical, debugging, or auditing purposes.
-An RPC operation (\cref{sec:future:RPC Operations}) might gather needed data.
-A time delay (\cref{sec:future:Time Delays}) might serve valuable
-debugging purposes such as exercising the retry code path.
-Even persistent operations (\cref{sec:future:Persistence}) are potentially
-useful, for example, to carry out cross-application mutual exclusion.
-Alternatively, just as with STM, users of sequence locking may choose
-to buffer I/O and execute it just after the end of the read-side critical
-section.
+在sequence-locking读侧临界区内执行I/O操作
+可能看起来有些非常规。
+然而，出于历史记录、调试或审计目的
+向日志进行I/O写入（\cref{sec:future:I/O Operations}）
+是非常有意义的。
+RPC操作（\cref{sec:future:RPC Operations}）可以收集所需数据。
+时间延迟（\cref{sec:future:Time Delays}）可以为调试目的
+提供有价值的服务，例如测试重试代码路径。
+即使是持久操作（\cref{sec:future:Persistence}）也可能有用，
+例如执行跨应用程序的互斥。
+或者，就像STM一样，sequence locking的用户可以选择
+缓冲I/O并在读侧临界区结束后立即执行它。
 
-Sequence locking handles process modifications
-(\cref{sec:future:Process Modification})
-in the same way, by simply executing the process-modification operation
-on each pass through its read-side critical section.
+Sequence locking以相同的方式处理进程修改
+（\cref{sec:future:Process Modification}），
+即在其读侧临界区的每次执行中简单地执行进程修改操作。
 
-Creating processes and threads within a critical section
-(\cref{sec:future:Multithreaded Transactions})
-operates normally, though care should be taken in order to prevent
-an often-retried critical section from becoming a ``fork bomb''.
-The \co{exec()} system call (\cref{sec:future:The exec System Call})
-has perfectly reasonable (if rather drastic) semantics.
-Calls to functions within dynamic libraries
-(\cref{sec:future:Dynamic Linking and Loading}),
-such as Linux-kernel loadable modules, work just as well as do calls
-to built-in functions.
-Of course, if such a call were cause a module to load, this might result
-in a high retry probability on the first pass through the critical
-section.
-Remapping memory (\cref{sec:future:Memory-Mapping Operations})
-behaves intuitively, as least assuming that neither the code making
-up the critical section nor the sequence lock itself are remapped.
-Note that these same restrictions also apply to normal locks.
-Debuggers (\cref{sec:future:Debugging})
-work normally within sequence-locking read-side critical sections,
-just as they do within the critical sections for normal locks.
+在临界区内创建进程和线程
+（\cref{sec:future:Multithreaded Transactions}）
+正常运作，尽管应该注意防止经常重试的临界区成为``fork炸弹''。
+\co{exec()}系统调用（\cref{sec:future:The exec System Call}）
+有完全合理的（虽然相当激进的）语义。
+对动态库中函数的调用
+（\cref{sec:future:Dynamic Linking and Loading}），
+例如Linux内核可加载模块，与对内置函数的调用一样正常工作。
+当然，如果这样的调用导致模块加载，
+这可能导致临界区第一次执行时的高重试概率。
+重映射内存（\cref{sec:future:Memory-Mapping Operations}）
+行为直观，至少假设组成临界区的代码和sequence lock本身
+都没有被重映射。
+请注意，这些相同的限制也适用于普通锁。
+调试器（\cref{sec:future:Debugging}）
+在sequence-locking读侧临界区内正常工作，
+就像在普通锁的临界区内一样。
 
-Synchronization primitives (\cref{sec:future:Synchronization})
-can be used freely within sequence-locking read-side critical sections.
-Locking (\cref{sec:future:Locking}),
-reader-writer locking (\cref{sec:future:Reader-Writer Locking}),
-deferred reclamation (\cref{sec:future:Deferred Reclamation}),
-and extra-transactional accesses
-(\cref{sec:future:Extra-Transactional Accesses})
-may all be used within sequence-locking read-side critical sections,
-and all give the expected results.
+同步原语（\cref{sec:future:Synchronization}）
+可以在sequence-locking读侧临界区内自由使用。
+锁（\cref{sec:future:Locking}）、
+读写锁（\cref{sec:future:Reader-Writer Locking}）、
+延迟回收（\cref{sec:future:Deferred Reclamation}）
+以及事务外访问
+（\cref{sec:future:Extra-Transactional Accesses}）
+都可以在sequence-locking读侧临界区内使用，
+并且都给出预期的结果。
 
-Sequence locking uses a trivial contention manager
-(\cref{sec:future:Other Transactions}).
-Sequence-locking readers are always rolled back in case of a concurrent
-updater (as do Herlihy et al.~\cite{HerlihyLMS03}), sequence-locking
-updaters typically delegate their contention management to some form of
-mutual exclusion, and sequence-locking readers never conflict, and thus
-never need their non-existent contention to be managed.
-This rough-and-ready approach means that sequence-locking updaters
-can starve readers, and users of sequence locking must therefore take
-care to avoid frequent updates.
+Sequence locking使用一个简单的竞争管理器
+（\cref{sec:future:Other Transactions}）。
+Sequence-locking读者在有并发更新者的情况下总是被回滚
+（正如Herlihy等人~\cite{HerlihyLMS03}所做的），
+sequence-locking更新者通常将其竞争管理委托给某种形式的互斥，
+而sequence-locking读者从不冲突，
+因此从不需要管理其不存在的竞争。
+这种粗略直接的方法意味着sequence-locking更新者可能饿死读者，
+因此sequence locking的用户必须注意避免频繁更新。
 
-In short, sequence locking handles these STM challenges quite well.
-This might be one reason that sequence locking is heavily used in
-production.
-However, a key enabler of sequence locking is the pushing of a number
-of these challenges back onto the user.
-This approach is reasonable because sequence locking has no ambitions
-to be the one synchronization mechanism to rule them all.
-So perhaps the greatest impediment to widespread STM adoption is its
-proponents' overweening desire for full generality.
+简而言之，sequence locking相当好地处理了这些STM挑战。
+这可能是sequence locking在生产中被大量使用的原因之一。
+然而，sequence locking的一个关键使能因素是
+将许多这些挑战推回给用户。
+这种方法是合理的，因为sequence locking没有成为
+统治所有同步机制的唯一机制的野心。
+因此，也许广泛采用STM的最大障碍是
+其支持者对完全通用性的过度渴望。
 
-\subsection{Discussion}
+\subsection{讨论}
 \label{sec:future:Discussion}
 
-The obstacles to universal TM adoption lead to the following
-conclusions:
+TM普遍采用的障碍导致以下结论：
 
 \begin{enumerate}
-\item	One interesting property of TM is the fact that transactions are
-	subject to rollback and retry.
-	This property underlies TM's difficulties with irreversible
-	operations, including unbuffered I/O, RPCs, memory-mapping
-	operations, time delays, and the \co{exec()} system call.
-	This property also has the unfortunate consequence of introducing
-	all the complexities inherent in the possibility of failure,
-	often in a developer-visible manner.
-\item	Another interesting property of TM, noted by
-	Shpeisman et al.~\cite{TatianaShpeisman2009CppTM}, is that TM
-	intertwines the synchronization with the data it protects.
-	This property underlies TM's issues with I/O, memory-mapping
-	operations, extra-transactional accesses, and debugging
-	breakpoints.
-	In contrast, conventional synchronization primitives, including
-	locking and RCU, maintain a clear separation between the
-	synchronization primitives and the data that they protect.
-\item	One of the stated goals of many workers in the TM area is to
-	ease parallelization of large sequential programs.
-	As such, individual transactions are commonly expected to
-	execute serially, which might do much to explain TM's issues
-	with multithreaded transactions.
+\item	TM的一个有趣属性是事务可能被回滚和重试。
+	这一属性是TM在不可逆操作方面困难的根源，
+	包括非缓冲I/O、RPC、内存映射操作、
+	时间延迟和\co{exec()}系统调用。
+	这一属性还有一个不幸的后果，即引入了失败可能性
+	中固有的所有复杂性，而且通常以开发者可见的方式体现。
+\item	TM的另一个有趣属性，由Shpeisman
+	等人~\cite{TatianaShpeisman2009CppTM}指出，是TM将同步
+	与它保护的数据交织在一起。
+	这一属性是TM在I/O、内存映射操作、事务外访问
+	和调试断点方面问题的根源。
+	相比之下，传统的同步原语，包括锁和RCU，
+	在同步原语和它们保护的数据之间保持清晰的分离。
+\item	TM领域许多工作者的既定目标之一是
+	简化大型顺序程序的并行化。
+	因此，单个事务通常被期望串行执行，
+	这可能在很大程度上解释了TM在多线程事务方面的问题。
 \end{enumerate}
 
 \QuickQuiz{
-	Given things like \co{spin_trylock()}, how does it make any
-	sense at all to claim that TM introduces the concept of failure???
+	鉴于像\co{spin_trylock()}这样的东西，
+	声称TM引入了失败的概念怎么可能有道理？？？
 }\QuickQuizAnswer{
-	When using locking, \co{spin_trylock()} is a choice, with a
-	corresponding failure-free choice being \co{spin_lock()},
-	which is used in the common case, as in there are more than
-	100 times as many calls to \co{spin_lock()} than to
-	\co{spin_trylock()} in the v5.11 Linux kernel.
-	When using TM, the only failure-free choice is the irrevocable
-	transaction, which is not used in the common case.
-	In fact, the irrevocable transaction is not even available
-	in all TM implementations.
+	使用锁时，\co{spin_trylock()}是一种选择，
+	相应的无失败选择是\co{spin_lock()}，
+	它在通常情况下使用，即在v5.11 Linux内核中
+	对\co{spin_lock()}的调用是对\co{spin_trylock()}调用的
+	100多倍。
+	使用TM时，唯一的无失败选择是不可撤销事务，
+	它在通常情况下不被使用。
+	事实上，不可撤销事务甚至并非在所有TM实现中都可用。
 }\QuickQuizEnd
 
-What should TM researchers and developers do about all of this?
+TM研究人员和开发者应该如何应对所有这些问题？
 
-One approach is to focus on TM in the small, focusing on small
-transactions where hardware assist potentially provides substantial
-advantages over other synchronization primitives and on small programs
-where there is some evidence for increased productivity for a combined
-TM-locking approach~\cite{VPankratius2011TMvsLockingProductivity}.
-Sun took the small-transaction approach with its Rock research
-CPU~\cite{DaveDice2009ASPLOSRockHTM}.
-Some TM researchers seem to agree with these two small-is-beautiful
-approaches~\cite{JMStone93}, others have much higher hopes for TM, and yet others
-hint that high TM aspirations might be TM's worst
-enemy~\cite[Section 6]{Attiya:2010:ICT:1835698.1835699}.
-It is nonetheless quite possible that TM will be able to take on larger
-problems, and this section has listed a few of the issues that must be
-resolved if TM is to achieve this lofty goal.
+一种方法是关注小规模的TM，聚焦于硬件辅助可能比其他同步原语
+提供显著优势的小型事务，以及有证据表明TM与锁结合的方法能够
+提高生产力的小型程序~\cite{VPankratius2011TMvsLockingProductivity}。
+Sun在其Rock研究CPU~\cite{DaveDice2009ASPLOSRockHTM}中
+采用了小事务方法。
+一些TM研究人员似乎同意这两种``小即是美''的
+方法~\cite{JMStone93}，其他人对TM寄予更高期望，
+而还有一些人暗示高TM抱负可能是TM最大的
+敌人~\cite[Section 6]{Attiya:2010:ICT:1835698.1835699}。
+尽管如此，TM完全有可能能够处理更大的问题，
+而本节列出了如果TM要实现这一崇高目标
+必须解决的几个问题。
 
-Of course, everyone involved should treat this as a learning experience.
-It would seem that TM researchers have great deal to learn from
-practitioners who have successfully built large software systems using
-traditional synchronization primitives.
+当然，所有参与者都应该将此视为学习经历。
+看起来TM研究人员有很多东西需要向那些
+使用传统同步原语成功构建了大型软件系统的
+实践者学习。
 
-And vice versa.
+反之亦然。
 
 \QuickQuiz{
-	What is to learn?
-	Why not just use TM for memory-based data structures and locking
-	for those rare cases featuring the many silly corner cases listed
-	in this silly section???
+	有什么要学的？
+	为什么不直接对基于内存的数据结构使用TM，
+	对那些涉及本节列出的许多愚蠢极端情况的
+	罕见情况使用锁？
 }\QuickQuizAnswer{
-	The year 2005 just called, and it wants its incandescent TM
-	marketing hype back.
+	2005年刚打来电话，它想要回它那白热化的TM营销炒作。
 
-	In the year 2023, TM still has significant proving to do,
-	even with the advent of HTM, which is covered in the
-	upcoming
-	\cref{sec:future:Hardware Transactional Memory}.
+	在2023年，TM仍然有很多需要证明的地方，
+	即使有了HTM的出现，这将在接下来的
+	\cref{sec:future:Hardware Transactional Memory}中介绍。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/TM-the-vision}}
-\caption{The STM Vision}
+\caption{STM的愿景}
 \ContributedBy{fig:future:The STM Vision}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2.7in}{!}{\includegraphics{cartoons/TM-the-reality-conflict}}
-\caption{The STM Reality:
-			  Conflicts}
+\caption{STM的现实：冲突}
 \ContributedBy{fig:future:The STM Reality: Conflicts}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/TM-the-reality-nonidempotent}}
-\caption{The STM Reality:
-			  Irrevocable Operations}
+\caption{STM的现实：不可撤销操作}
 \ContributedBy{fig:future:The STM Reality: Irrevocable Operations}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2.7in}{!}{\includegraphics{cartoons/TM-the-reality-realtime}}
-\caption{The STM Reality:
-			  Realtime Response}
+\caption{STM的现实：实时响应}
 \ContributedBy{fig:future:The STM Reality: Realtime Response}{Melissa Broussard}
 \end{figure}
 
-But for the moment, the current state of STM
-can best be summarized with a series of cartoons.
-First,
-\cref{fig:future:The STM Vision}
-shows the STM vision.
-As always, the reality is a bit more nuanced, as fancifully depicted by
+但就目前而言，STM的当前状态最好用一系列漫画来总结。
+首先，\cref{fig:future:The STM Vision}展示了STM的愿景。
+一如既往，现实要更加微妙，如
 \cref{fig:future:The STM Reality: Conflicts,%
 fig:future:The STM Reality: Irrevocable Operations,%
-fig:future:The STM Reality: Realtime Response}.\footnote{
-	Recent academic work-in-progress has investigated lock-based STM
-	systems for real-time use~\cite{JimAnderson2019STMRT,CatherineNemitz2018LockSTMrealtime},
-	albeit without any performance results, and with some indications
-	that real-time hybrid STM/HTM systems must choose between fast
-	common-case performance and worst-case forward-progress
-	guarantees~\cite{DBLP:journals/corr/AlistarhKKRS14,MartinSchoeberl2010realtimeTM}.}
-Less fanciful STM retrospectives are also
-available~\cite{JoeDuffy2010RetroTM,JoeDuffy2010RetroTM2}.
+fig:future:The STM Reality: Realtime Response}
+所异想天开地描绘的那样。\footnote{
+	最近的学术研究工作正在调查用于实时用途的基于锁的STM
+	系统~\cite{JimAnderson2019STMRT,CatherineNemitz2018LockSTMrealtime}，
+	尽管没有任何性能结果，并且有一些迹象表明
+	实时混合STM/HTM系统必须在快速的常见情况性能和
+	最坏情况前进保证之间做出
+	选择~\cite{DBLP:journals/corr/AlistarhKKRS14,MartinSchoeberl2010realtimeTM}。}
+不那么异想天开的STM回顾也是
+可用的~\cite{JoeDuffy2010RetroTM,JoeDuffy2010RetroTM2}。
 
-Alternatively, one might argue that sequence locking constitutes a
-restricted form of STM that is heavily used in practice, as discussed in
-\cref{sec:future:Case Study: Sequence Locking}.
+或者，有人可能会认为sequence locking构成了STM的一种
+在实践中被大量使用的受限形式，如
+\cref{sec:future:Case Study: Sequence Locking}中所讨论的。
 
-Whether or not sequence locking is considered to be the standard bearer
-for STM in actual practice, some commercially available hardware supports
-restricted variants of HTM, which are addressed in the following section.
+无论sequence locking是否被认为是STM在实际实践中的旗手，
+一些商用硬件支持HTM的受限变体，
+这将在下一节中讨论。

@@ -2,131 +2,111 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{State-Space Search}
+\section{状态空间搜索}
 \label{sec:formal:State-Space Search}
 %
-\epigraph{Follow every byway / Every path you know.}
+\epigraph{探索每条小径 / 走遍你知晓的每条路。}
 	 {\emph{Climb Every Mountain}, Rodgers \& Hammerstein}
 
-This section features the general-purpose Promela and Spin tools,
-which may be used to carry out a full
-state-space search of many types of multi-threaded code.
-They are used to verifying data communication protocols.
+本节介绍通用的 Promela 和 Spin 工具，
+它们可用于对多种多线程代码进行完整的状态空间搜索。
+这些工具被用于验证数据通信协议。
 \Cref{sec:formal:Promela and Spin}
-introduces Promela and Spin, including a couple of warm-up exercises
-verifying both non-atomic and atomic increment.
+介绍了 Promela 和 Spin，包括两个热身练习——
+分别验证非原子递增和原子递增。
 \Cref{sec:formal:How to Use Promela}
-describes use of Promela, including example command lines and a
-comparison of Promela syntax to that of C\@.
+描述了 Promela 的使用方法，包括示例命令行以及
+Promela 语法与 C 语法的比较。
 \Cref{sec:formal:Promela Example: Locking}
-shows how Promela may be used to verify locking,
+展示了如何使用 Promela 验证锁机制，
 \cref{sec:formal:Promela Example: QRCU}
-uses Promela to verify an unusual implementation of RCU named ``QRCU'',
-and finally
+使用 Promela 验证一种名为``QRCU''的特殊 RCU 实现，
+最后
 \cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
-applies Promela to early versions of RCU's dyntick-idle implementation.
+将 Promela 应用于 RCU dyntick-idle 实现的早期版本。
 
-\subsection{Promela and Spin}
+\subsection{Promela 和 Spin}
 \label{sec:formal:Promela and Spin}
 
-\IX{Promela} is a language designed to help verify protocols, but which
-can also be used to verify small parallel algorithms.
-You recode your algorithm and correctness constraints in the C-like
-language Promela, and then use \IX{Spin} to translate it into a C program
-that you can compile and run.
-The resulting program carries out a full state-space search of your
-algorithm, either verifying or finding counter-examples for
-assertions that you can associate with in your Promela program.
+\IX{Promela} 是一种旨在帮助验证协议的语言，但也可以用于验证小型并行算法。
+你需要将你的算法和正确性约束用类 C 语言 Promela 重新编写，
+然后使用 \IX{Spin} 将其翻译为可以编译和运行的 C 程序。
+生成的程序会对你的算法执行完整的状态空间搜索，
+要么验证你在 Promela 程序中关联的断言，要么找到反例。
 
-This full-state search can be extremely powerful, but can also be a two-edged
-sword.
-If your algorithm is too complex or your Promela implementation is
-careless, there might be more states than fit in memory.
-Furthermore, even given sufficient memory, the state-space search might
-well run for longer than the expected lifetime of the universe.
-Therefore, use this tool for compact but complex parallel algorithms.
-Attempts to naively apply it to even moderate-scale algorithms (let alone
-the full Linux kernel) will end badly.
+这种完整状态搜索功能极其强大，但也是一把双刃剑。
+如果你的算法过于复杂或者 Promela 实现不够仔细，
+状态数量可能会超出内存容量。
+此外，即使有足够的内存，状态空间搜索的运行时间
+也可能超过宇宙的预期寿命。
+因此，请将此工具用于紧凑但复杂的并行算法。
+试图将其天真地应用于中等规模的算法（更不用说整个 Linux 内核）
+将会以失败告终。
 
-Promela and Spin may be downloaded from
-\url{https://spinroot.com/spin/whatispin.html}.
+Promela 和 Spin 可以从
+\url{https://spinroot.com/spin/whatispin.html} 下载。
 
-The above site also gives links to Gerard Holzmann's excellent
-book~\cite{Holzmann03a} on Promela and Spin,
-as well as searchable online references starting at:
-\url{https://www.spinroot.com/spin/Man/index.html}.
+上述网站还提供了 Gerard Holzmann 关于 Promela 和 Spin 的优秀
+著作~\cite{Holzmann03a}的链接，
+以及从以下地址开始的可搜索在线参考：
+\url{https://www.spinroot.com/spin/Man/index.html}。
 
-The remainder of this section describes how to use Promela to debug
-parallel algorithms, starting with simple examples and progressing to
-more complex uses.
+本节其余部分描述如何使用 Promela 调试并行算法，
+从简单示例开始，逐步过渡到更复杂的使用场景。
 
-\subsubsection{Warm-Up:
-			Non-Atomic Increment}
+\subsubsection{热身：
+			非原子递增}
 \label{sec:formal:Warm-Up: Non-Atomic Increment}
 
 \begin{fcvref}[ln:formal:promela:increment:whole]
 \Cref{lst:formal:Promela Code for Non-Atomic Increment}
-demonstrates the textbook \IX{race condition}
-resulting from non-atomic increment.
-\Clnref{nprocs} defines the number of processes to run (we will vary this
-to see the effect on state space), \clnref{count} defines the counter,
-and \clnref{prog} is used to implement the assertion that appears on
-\clnrefrange{assert:b}{assert:e}.
+演示了非原子递增导致的典型\IX{竞态条件}。
+\Clnref{nprocs} 定义了要运行的进程数量（我们将改变此值
+以观察对状态空间的影响），\clnref{count} 定义了计数器，
+\clnref{prog} 用于实现出现在
+\clnrefrange{assert:b}{assert:e} 上的断言。
 
 \begin{listing}
 \input{CodeSamples/formal/promela/increment@whole.fcv}
-\caption{Promela Code for Non-Atomic Increment}
+\caption{非原子递增的 Promela 代码}
 \label{lst:formal:Promela Code for Non-Atomic Increment}
 \end{listing}
 
-\Clnrefrange{proc:b}{proc:e} define a process that increments
-the counter non-atomically.
-The argument \co{me} is the process number, set by the initialization
-block later in the code.
-Because simple Promela statements are each assumed atomic, we must
-break the increment into the two statements on
-\clnrefrange{incr:b}{incr:e}.
-The assignment on \clnref{setprog} marks the process's completion.
-Because the Spin system will fully search the state space, including
-all possible sequences of states, there is no need for the loop
-that would be used for conventional stress testing.
+\Clnrefrange{proc:b}{proc:e} 定义了一个非原子地递增计数器的进程。
+参数 \co{me} 是进程编号，由代码后面的初始化块设置。
+由于简单的 Promela 语句各自被假定为原子的，
+我们必须将递增操作拆分为
+\clnrefrange{incr:b}{incr:e} 上的两条语句。
+\clnref{setprog} 上的赋值标记该进程的完成。
+由于 Spin 系统会完整搜索状态空间，包括所有可能的状态序列，
+因此不需要常规压力测试中使用的循环。
 
-\Clnrefrange{init:b}{init:e} are the initialization block,
-which is executed first.
-\Clnrefrange{doinit:b}{doinit:e} actually do the initialization,
-while \clnrefrange{assert:b}{assert:e}
-perform the assertion.
-Both are atomic blocks in order to avoid unnecessarily increasing
-the state space:
-Because they are not part of the algorithm proper,
-we lose no verification coverage by making them atomic.
+\Clnrefrange{init:b}{init:e} 是初始化块，最先执行。
+\Clnrefrange{doinit:b}{doinit:e} 执行实际的初始化操作，
+而 \clnrefrange{assert:b}{assert:e} 执行断言。
+两者都是原子块，以避免不必要地增加状态空间：
+因为它们不是算法本身的一部分，
+将它们设为原子的不会损失任何验证覆盖率。
 
-The \co{do-od} construct on \clnrefrange{dood1:b}{dood1:e}
-implements a Promela loop,
-which can be thought of as a C \co{for (;;)} loop containing a
-\co{switch} statement that allows expressions in case labels.
-The condition blocks (prefixed by \co{::})
-are scanned non-deterministically,
-though in this case only one of the conditions can possibly hold at a given
-time.
-The first block of the \co{do-od} from
-\clnrefrange{block1:b}{block1:e}
-initializes the i-th
-incrementer's progress cell, runs the i-th incrementer's process, and
-then increments the variable \co{i}.
-The second block of the \co{do-od} on
-\clnref{block2} exits the loop once
-these processes have been started.
+\clnrefrange{dood1:b}{dood1:e} 上的 \co{do-od} 构造实现了一个 Promela 循环，
+可以将其理解为一个 C 语言的 \co{for (;;)} 循环，
+其中包含一个允许表达式作为 case 标签的 \co{switch} 语句。
+条件块（以 \co{::} 为前缀）以非确定性方式扫描，
+不过在本例中，在任何给定时刻只有一个条件可能成立。
+\co{do-od} 的第一个块从
+\clnrefrange{block1:b}{block1:e}，
+初始化第 i 个递增器的进度单元，运行第 i 个递增器的进程，
+然后递增变量 \co{i}。
+\co{do-od} 的第二个块在 \clnref{block2} 上，
+在这些进程启动后退出循环。
 
-The atomic block on \clnrefrange{assert:b}{assert:e} also contains
-a similar \co{do-od}
-loop that sums up the progress counters.
-The \co{assert()} statement on \clnref{assert} verifies that
-if all processes
-have been completed, then all counts have been correctly recorded.
+\clnrefrange{assert:b}{assert:e} 上的原子块也包含
+一个类似的 \co{do-od} 循环，用于累加进度计数器。
+\clnref{assert} 上的 \co{assert()} 语句验证：
+如果所有进程都已完成，则所有计数都已正确记录。
 \end{fcvref}
 
-You can build and run this program as follows:
+你可以按如下方式构建并运行此程序：
 
 \begin{VerbatimU}
 spin -a increment.spin      # Translate the model to C
@@ -137,24 +117,23 @@ cc -DSAFETY -o pan pan.c    # Compile the model
 \begin{listing}
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/increment.spin.lst}
 \vspace*{-9pt}
-\caption{Non-Atomic Increment Spin Output}
+\caption{非原子递增的 Spin 输出}
 \label{lst:formal:Non-Atomic Increment Spin Output}
 \end{listing}
 
-This will produce output as shown in
-\cref{lst:formal:Non-Atomic Increment Spin Output}.
-The first line tells us that our assertion was violated (as expected
-given the non-atomic increment!).
-The second line that a \co{trail} file was written describing how the
-assertion was violated.
-The ``Warning'' line reiterates that all was not well with our model.
-The second paragraph describes the type of state-search being carried out,
-in this case for assertion violations and invalid end states.
-The third paragraph gives state-size statistics:
-This small model had only 45 states.
-The final line shows memory usage.
+这将产生如
+\cref{lst:formal:Non-Atomic Increment Spin Output}
+所示的输出。
+第一行告诉我们断言被违反了（考虑到非原子递增，这在预期之中！）。
+第二行表明已写入一个 \co{trail} 文件，描述了断言是如何被违反的。
+``Warning''行重申我们的模型存在问题。
+第二段描述了正在进行的状态搜索类型，
+本例中是检查断言违反和无效终止状态。
+第三段给出了状态大小统计信息：
+这个小模型只有 45 个状态。
+最后一行显示了内存使用情况。
 
-The \co{trail} file may be rendered human-readable as follows:
+可以按如下方式将 \co{trail} 文件转换为人类可读的形式：
 
 \begin{VerbatimU}
 spin -t -p increment.spin
@@ -164,48 +143,45 @@ spin -t -p increment.spin
 \ebresizeverb{.9}{
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/increment.spin.trail.lst}}
 \IfEbookSize{\vspace*{7pt}}{\vspace*{-9pt}}
-\caption{Non-Atomic Increment Error Trail}
+\caption{非原子递增错误轨迹}
 \label{lst:formal:Non-Atomic Increment Error Trail}
 \end{listing*}
 
-This gives the output shown in
-\cref{lst:formal:Non-Atomic Increment Error Trail}.
-As can be seen, the first portion of the init block created both
-incrementer processes, both of which first fetched the counter,
-then both incremented and stored it, losing a count.
-The assertion then triggered, after which the global state is displayed.
+这给出了如
+\cref{lst:formal:Non-Atomic Increment Error Trail}
+所示的输出。
+可以看出，init 块的第一部分创建了两个递增器进程，
+两者都先获取了计数器的值，然后都递增并存储了它，
+导致丢失了一次计数。
+随后断言被触发，之后显示了全局状态。
 
-\subsubsection{Warm-Up:
-			Atomic Increment}
+\subsubsection{热身：
+			原子递增}
 \label{sec:formal:Warm-Up: Atomic Increment}
 
-It is easy to fix this example by placing the body of the incrementer
-processes in an atomic block as shown in
-\cref{lst:formal:Promela Code for Atomic Increment}.
-One could also have simply replaced the pair of statements with
-\co{counter = counter + 1}, because Promela statements are
-atomic.
-Either way, running this modified model gives us an error-free traversal
-of the state space, as shown in
-\cref{lst:formal:Atomic Increment Spin Output}.
+通过将递增器进程的主体放入原子块中，可以轻松修复此示例，
+如\cref{lst:formal:Promela Code for Atomic Increment}所示。
+也可以简单地将这对语句替换为
+\co{counter = counter + 1}，因为 Promela 语句是原子的。
+无论哪种方式，运行修改后的模型都会给出无错误的状态空间遍历，
+如\cref{lst:formal:Atomic Increment Spin Output}所示。
 
 \begin{listing}
 \input{CodeSamples/formal/promela/atomicincrement@incrementer.fcv}
-\caption{Promela Code for Atomic Increment}
+\caption{原子递增的 Promela 代码}
 \label{lst:formal:Promela Code for Atomic Increment}
 \end{listing}
 
 \begin{listing}
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/atomicincrement.spin.lst}
 \vspace*{-9pt}
-\caption{Atomic Increment Spin Output}
+\caption{原子递增的 Spin 输出}
 \label{lst:formal:Atomic Increment Spin Output}
 \end{listing}
 
 \Cref{tab:advsync:Memory Usage of Increment Model}
-shows the number of states and memory consumed
-as a function of number of incrementers modeled
-(by redefining \co{NUMPROCS}):
+显示了作为所建模的递增器数量（通过重新定义 \co{NUMPROCS}）
+的函数的状态数和内存消耗：
 
 \begin{table}
 \rowcolors{1}{}{lightgray}
@@ -227,180 +203,155 @@ as a function of number of incrementers modeled
 	7 &		 8 521 446 &        881.9 \\
 	\bottomrule
 \end{tabular}
-\caption{Memory Usage of Increment Model}
+\caption{递增模型的内存使用量}
 \label{tab:advsync:Memory Usage of Increment Model}
 \end{table}
 
-Running unnecessarily large models is thus subtly discouraged, although
-882\,MB is well within the limits of modern desktop and laptop machines.
+因此，运行不必要的大型模型会受到微妙的阻碍，尽管
+882\,MB 完全在现代台式机和笔记本电脑的限制范围内。
 
-With this example under our belt, let's take a closer look at the
-commands used to analyze Promela models and then look at more
-elaborate examples.
+有了这个示例的经验，让我们更仔细地看看
+用于分析 Promela 模型的命令，然后看看更精细的示例。
 
-\subsection{How to Use Promela}
+\subsection{如何使用 Promela}
 \label{sec:formal:How to Use Promela}
 
-Given a source file \path{qrcu.spin}, one can use the following commands:
+给定一个源文件 \path{qrcu.spin}，可以使用以下命令：
 
 \begin{description}[style=nextline]
 \item	[\tco{spin -a qrcu.spin}]
-	Create a file \path{pan.c} that fully searches the state machine.
+	创建一个完整搜索状态机的文件 \path{pan.c}。
 \item	[\tco{cc -DSAFETY [-DCOLLAPSE] [-DMA=N] -o pan pan.c}]
-	Compile the generated state-machine search.
-	The \co{-DSAFETY} generates optimizations that are appropriate
-	if you have only assertions (and perhaps \co{never} statements).
-	If you have liveness, fairness, or forward-progress checks,
-	you may need to compile without \co{-DSAFETY}.
-	If you leave off \co{-DSAFETY} when you could have used it,
-	the program will let you know.
+	编译生成的状态机搜索程序。
+	\co{-DSAFETY} 生成适用于仅包含断言（以及可能的 \co{never} 语句）
+	情况下的优化。
+	如果你有活性、公平性或前向进展检查，
+	可能需要在不使用 \co{-DSAFETY} 的情况下编译。
+	如果你在可以使用 \co{-DSAFETY} 时没有使用它，
+	程序会提示你。
 
-	The optimizations produced by \co{-DSAFETY} greatly speed things
-	up, so you should use it when you can.
-	An example situation where you cannot use \co{-DSAFETY} is
-	when checking for \IXpl{livelock} (AKA ``non-progress cycles'')
-	via \co{-DNP}.
+	\co{-DSAFETY} 产生的优化大大加快了速度，
+	所以应尽可能使用它。
+	不能使用 \co{-DSAFETY} 的一个示例场景是
+	通过 \co{-DNP} 检查\IXpl{livelock}（又称``非进展循环''）时。
 
-	The optional \co{-DCOLLAPSE} generates code for a state vector
-	compression mode.
+	可选的 \co{-DCOLLAPSE} 标志生成状态向量压缩模式的代码。
 
-	Another optional flag \co{-DMA=N} generates code for a slow
-	but aggressive state-space memory compression mode.
+	另一个可选标志 \co{-DMA=N} 生成一种较慢但更激进的
+	状态空间内存压缩模式的代码。
 \item	[\tco{./pan [-mN] [-wN]}]
-	This actually searches the state space.
-	The number of states can reach into the tens of millions with
-	very small state machines, so you will need a machine with
-	large memory.
-	For example, \path{qrcu.spin} with 3~updaters and 2~readers required
-	10.5\,GB of memory even with the \co{-DCOLLAPSE} flag.
+	这将实际搜索状态空间。
+	即使对于非常小的状态机，状态数也可以达到数千万，
+	因此你需要一台具有大内存的机器。
+	例如，具有 3 个更新者和 2 个读者的 \path{qrcu.spin}
+	即使使用 \co{-DCOLLAPSE} 标志也需要 10.5\,GB 内存。
 
-	If you see a message from \co{./pan} saying:
-	``\co{error: max search depth too small}'', you need to increase
-	the maximum depth by a \co{-mN} option for a complete search.
-	The default is \co{-m10000}.
+	如果你看到 \co{./pan} 显示的消息：
+	``\co{error: max search depth too small}''，你需要通过
+	\co{-mN} 选项增加最大深度以进行完整搜索。
+	默认值为 \co{-m10000}。
 
-	The \co{-wN} option specifies the hashtable size.
-	The default for full state-space search is \co{-w24}.\footnote{
-		As of Spin Version 6.4.6 and 6.4.8.
-		In the online manual of Spin dated 10 July 2011, the
-		default for exhaustive search mode is said to be \co{-w19},
-		which does not meet the actual behavior.}
+	\co{-wN} 选项指定哈希表大小。
+	完整状态空间搜索的默认值为 \co{-w24}。\footnote{
+		截至 Spin 版本 6.4.6 和 6.4.8。
+		在 2011 年 7 月 10 日的 Spin 在线手册中，
+		穷举搜索模式的默认值据说是 \co{-w19}，
+		这与实际行为不符。}
 
-	If you aren't sure whether your machine has enough memory,
-	run \co{top} in one window and \co{./pan} in another.
-	Keep the focus on the \co{./pan} window so that you can quickly
-	kill execution if need be.
-	As soon as CPU time drops much below 100\pct, kill \co{./pan}.
-	If you have removed focus from the window running \co{./pan},
-	you may wait a long time for the windowing system to grab
-	enough memory to do anything for you.
+	如果你不确定你的机器是否有足够的内存，
+	在一个窗口中运行 \co{top}，在另一个窗口中运行 \co{./pan}。
+	将焦点保持在 \co{./pan} 窗口上，以便在需要时快速终止执行。
+	一旦 CPU 时间明显低于 100\pct，就终止 \co{./pan}。
+	如果你已将焦点从运行 \co{./pan} 的窗口移开，
+	可能需要等待很长时间，窗口系统才能获得足够的内存来为你做任何事情。
 
-	Another option to avoid memory exhaustion is the
-	\co{-DMEMLIM=N} compiler flag.
-	\co{-DMEMLIM=2000} would set the maximum of 2\,GB.
+	另一种避免内存耗尽的选择是
+	\co{-DMEMLIM=N} 编译器标志。
+	\co{-DMEMLIM=2000} 将设置 2\,GB 的最大值。
 
-	Don't forget to capture the output, especially
-	if you are working on a remote machine.
+	不要忘记捕获输出，特别是在远程机器上工作时。
 
-	If your model includes forward-progress checks, you will likely
-	need to enable ``weak fairness'' via the \co{-f} command-line
-	argument to \co{./pan}.
-	If your forward-progress checks involve \co{accept} labels,
-	you will also need the \co{-a} argument.
+	如果你的模型包含前向进展检查，你可能需要
+	通过 \co{./pan} 的 \co{-f} 命令行参数启用``弱公平性''。
+	如果你的前向进展检查涉及 \co{accept} 标签，
+	你还需要 \co{-a} 参数。
 	% forward reference to model: formal.2009.02.19a in
 	% /home/linux/git/userspace-rcu/formal-model.
 \item	[\tco{spin -t -p qrcu.spin}]
-	Given \co{trail} file output by a run that encountered an
-	error, output the sequence of steps leading to that error.
-	The \co{-g} flag will also include the values of changed
-	global variables, and the  \co{-l} flag will also include
-	the values of changed local variables.
+	给定遇到错误的运行所输出的 \co{trail} 文件，
+	输出导致该错误的步骤序列。
+	\co{-g} 标志还会包含已更改的全局变量的值，
+	\co{-l} 标志还会包含已更改的局部变量的值。
 \end{description}
 
-\subsubsection{Promela Peculiarities}
+\subsubsection{Promela 的特殊之处}
 \label{sec:formal:Promela Peculiarities}
 
-Although all computer languages have underlying similarities,
-Promela will provide some surprises to people used to coding in C,
-C++, or Java.
+尽管所有计算机语言都有潜在的相似性，
+但 Promela 会给习惯于用 C、C++ 或 Java 编程的人带来一些意外。
 
 \begin{enumerate}
-\item	In C, \qco{;} terminates statements.
-	In Promela it separates them.
-	Fortunately, more recent versions of Spin have become
-	much more forgiving of ``extra'' semicolons.
-\item	Promela's looping construct, the \co{do} statement, takes
-	conditions.
-	This \co{do} statement closely resembles a looping if-then-else
-	statement.
-\item	In C's \co{switch} statement, if there is no matching case, the whole
-	statement is skipped.
-	In Promela's equivalent, confusingly called \co{if}, if there is
-	no matching guard expression, you get an error without a
-	recognizable corresponding error message.
-	So, if the error output indicates an innocent line of code,
-	check to see if you left out a condition from an \co{if} or \co{do}
-	statement.
-\item	When creating stress tests in C, one usually races suspect operations
-	against each other repeatedly.
-	In Promela, one instead sets up a single race, because Promela
-	will search out all the possible outcomes from that single race.
-	Sometimes you do need to loop in Promela, for example,
-	if multiple operations overlap, but
-	doing so greatly increases the size of your state space.
-\item	In C, the easiest thing to do is to maintain a loop counter to track
-	progress and terminate the loop.
-	In Promela, loop counters must be avoided like the plague
-	because they cause the state space to explode.
-	On the other hand, there is no penalty for infinite loops in
-	Promela as long as none of the variables monotonically increase
-	or decrease---Promela will figure out how many passes through
-	the loop really matter, and automatically prune execution beyond
-	that point.
-\item	In C torture-test code, it is often wise to keep per-task control
-	variables.
-	They are cheap to read, and greatly aid in debugging the test code.
-	In Promela, per-task control variables should be used only when
-	there is no other alternative.
-	To see this, consider a 5-task verification with one bit each
-	to indicate completion.
-	This gives 32 states.
-	In contrast, a simple counter would have only six states,
-	more than a five-fold reduction.
-	That factor of five might not seem like a problem, at least
-	not until you are struggling with a verification program
-	possessing more than 150 million states consuming more
-	than 10\,GB of memory!
-\item	One of the most challenging things both in C torture-test code and
-	in Promela is formulating good assertions.
-	Promela also allows \co{never} claims that act like an assertion
-	replicated between every line of code.
-\item	Dividing and conquering is extremely helpful in Promela in keeping
-	the state space under control.
-	Splitting a large model into two roughly equal halves will result
-	in the state space of each half being roughly the square root of
-	the whole.
-	For example, a million-state combined model might reduce to a
-	pair of thousand-state models.
-	Not only will Promela handle the two smaller models much more
-	quickly with much less memory, but the two smaller algorithms
-	are easier for people to understand.
+\item	在 C 中，\qco{;} 终止语句。
+	在 Promela 中它分隔语句。
+	幸运的是，较新版本的 Spin 对``多余的''分号更加宽容了。
+\item	Promela 的循环构造 \co{do} 语句接受条件。
+	这个 \co{do} 语句非常类似于循环的 if-then-else 语句。
+\item	在 C 的 \co{switch} 语句中，如果没有匹配的 case，
+	整个语句会被跳过。
+	在 Promela 的等价物中（令人困惑地被称为 \co{if}），
+	如果没有匹配的守卫表达式，你会得到一个错误，
+	且没有可识别的对应错误消息。
+	所以，如果错误输出指向一行无辜的代码，
+	请检查你是否遗漏了 \co{if} 或 \co{do} 语句中的某个条件。
+\item	在 C 中创建压力测试时，通常会反复让可疑操作相互竞争。
+	在 Promela 中，你只需设置一次竞争，因为 Promela
+	会搜索出该单次竞争的所有可能结果。
+	有时你确实需要在 Promela 中循环，例如，
+	当多个操作重叠时，但这样做会大大增加状态空间的大小。
+\item	在 C 中，最简单的做法是维护一个循环计数器来跟踪进度和终止循环。
+	在 Promela 中，循环计数器必须像瘟疫一样避免，
+	因为它们会导致状态空间爆炸。
+	另一方面，在 Promela 中无限循环没有惩罚，
+	只要没有变量单调递增或递减——Promela 会找出
+	循环的多少次遍历真正有意义，
+	并自动修剪超出该点的执行。
+\item	在 C 压力测试代码中，保持每任务控制变量通常是明智的。
+	它们读取开销低，并且极大地帮助调试测试代码。
+	在 Promela 中，每任务控制变量只应在没有其他替代方案时使用。
+	为了理解这一点，考虑一个 5 任务验证，
+	每个任务使用一个比特来表示完成。
+	这给出 32 个状态。
+	相比之下，一个简单的计数器只有六个状态，
+	减少了五倍多。
+	五倍的因子看起来可能不是什么问题，至少在你
+	挣扎于一个拥有超过 1.5 亿个状态、
+	消耗超过 10\,GB 内存的验证程序之前是这样的！
+\item	在 C 压力测试代码和 Promela 中最具挑战性的事情之一
+	是制定好的断言。
+	Promela 还允许 \co{never} 声明，它的作用类似于
+	在每一行代码之间复制的断言。
+\item	分而治之在 Promela 中对控制状态空间极为有用。
+	将一个大型模型分成大致相等的两半，
+	每一半的状态空间大致是整体的平方根。
+	例如，一个百万状态的组合模型可能缩减为
+	一对千状态的模型。
+	Promela 不仅能以更少的内存更快地处理两个较小的模型，
+	而且两个较小的算法也更容易让人理解。
 \end{enumerate}
 
 
-\subsubsection{Promela Coding Tricks}
+\subsubsection{Promela 编码技巧}
 \label{sec:formal:Promela Coding Tricks}
 
-Promela was designed to analyze protocols, so using it on parallel programs
-is a bit abusive.
-The following tricks can help you to abuse Promela safely:
+Promela 设计用于分析协议，因此将其用于并行程序有点滥用。
+以下技巧可以帮助你安全地滥用 Promela：
 
 \begin{enumerate}
-\item	Memory reordering.
-	Suppose you have a pair of statements copying globals \co{x} and \co{y}
-	to locals \co{r1} and \co{r2}, where ordering matters (e.g., unprotected
-	by locks), but where you have no \IXpl{memory barrier}.
-	This can be modeled in Promela as follows:
+\item	内存重排序。
+	假设你有一对语句将全局变量 \co{x} 和 \co{y}
+	复制到局部变量 \co{r1} 和 \co{r2}，其中顺序很重要（例如，未受锁保护），
+	但你没有\IXpl{memory barrier}。
+	这可以在 Promela 中如下建模：
 
 \begin{VerbatimN}[samepage=true]
 if
@@ -411,33 +362,28 @@ if
 fi
 \end{VerbatimN}
 
-	The two branches of the \co{if} statement will be selected
-	nondeterministically, since they both are available.
-	Because the full state space is searched, \emph{both} choices
-	will eventually be made in all cases.
+	\co{if} 语句的两个分支将被非确定性地选择，因为它们都是可用的。
+	由于进行了完整的状态空间搜索，在所有情况下
+	\emph{两种}选择最终都会被做出。
 
-	Of course, this trick will cause your state space to explode
-	if used too heavily.
-	In addition, it requires you to anticipate possible reorderings.
+	当然，如果过度使用，这个技巧会导致你的状态空间爆炸。
+	此外，它要求你预测可能的重排序。
 
-\item	State reduction.
-	If you have complex assertions, evaluate them under \co{atomic}.
-	After all, they are not part of the algorithm.
-	One example of a complex assertion (to be discussed in more
-	detail later) is as shown in
-	\cref{lst:formal:Complex Promela Assertion}.
+\item	状态缩减。
+	如果你有复杂的断言，请在 \co{atomic} 下求值。
+	毕竟，它们不是算法的一部分。
+	一个复杂断言的例子（将在后面更详细地讨论）
+	如\cref{lst:formal:Complex Promela Assertion}所示。
 
-	There is no reason to evaluate this assertion
-	non-atomically, since it is not actually part of the algorithm.
-	Because each statement contributes to state, we can reduce
-	the number of useless states by enclosing it in an \co{atomic}
-	block as shown in
-	\cref{lst:formal:Atomic Block for Complex Promela Assertion}.
+	没有理由非原子地求值这个断言，
+	因为它实际上不是算法的一部分。
+	因为每条语句都会贡献状态，我们可以通过将其
+	包含在 \co{atomic} 块中来减少无用状态的数量，
+	如\cref{lst:formal:Atomic Block for Complex Promela Assertion}所示。
 
-\item	Promela does not provide functions.
-	You must instead use C preprocessor macros.
-	However, you must use them carefully in order to avoid
-	combinatorial explosion.
+\item	Promela 不提供函数。
+	你必须改用 C 预处理器宏。
+	但是，你必须谨慎使用它们以避免组合爆炸。
 \end{enumerate}
 
 \begin{listing}
@@ -454,7 +400,7 @@ do
 	break
 od
 \end{VerbatimL}
-\caption{Complex Promela Assertion}
+\caption{复杂的 Promela 断言}
 \label{lst:formal:Complex Promela Assertion}
 \end{listing}
 
@@ -474,100 +420,90 @@ atomic {
 	od
 }
 \end{VerbatimL}
-\caption{Atomic Block for Complex Promela Assertion}
+\caption{复杂 Promela 断言的原子块}
 \label{lst:formal:Atomic Block for Complex Promela Assertion}
 \end{listing}
 
-Now we are ready for further examples.
+现在我们准备好看更多示例了。
 
-\subsection{Promela Example:
-			     Locking}
+\subsection{Promela 示例：
+			     锁}
 \label{sec:formal:Promela Example: Locking}
 
 \begin{fcvref}[ln:formal:promela:lock:whole]
-Since locks are generally useful, \co{spin_lock()} and
-\co{spin_unlock()}
-macros are provided in \path{lock.h}, which may be included from
-multiple Promela models, as shown in
-\cref{lst:formal:Promela Code for Spinlock}.
-The \co{spin_lock()} macro contains an infinite \co{do-od} loop
-spanning \clnrefrange{dood:b}{dood:e},
-courtesy of the single guard expression of ``1'' on \clnref{one}.
-The body of this loop is a single atomic block that contains
-an \co{if-fi} statement.
-The \co{if-fi} construct is similar to the \co{do-od} construct, except
-that it takes a single pass rather than looping.
-If the lock is not held on \clnref{notheld}, then
-\clnref{acq} acquires it and
-\clnref{break} breaks out of the enclosing \co{do-od} loop (and also exits
-the atomic block).
-On the other hand, if the lock is already held on \clnref{held},
-we do nothing (\co{skip}), and fall out of the \co{if-fi} and the
-atomic block so as to take another pass through the outer
-loop, repeating until the lock is available.
+由于锁通常是有用的，\path{lock.h} 中提供了 \co{spin_lock()} 和
+\co{spin_unlock()} 宏，可以从多个 Promela 模型中包含，
+如\cref{lst:formal:Promela Code for Spinlock}所示。
+\co{spin_lock()} 宏包含一个无限 \co{do-od} 循环，
+跨越 \clnrefrange{dood:b}{dood:e}，
+由 \clnref{one} 上的单一守卫表达式``1''驱动。
+该循环的主体是一个包含 \co{if-fi} 语句的原子块。
+\co{if-fi} 构造与 \co{do-od} 构造类似，
+只是它只执行一次而不是循环。
+如果锁在 \clnref{notheld} 上未被持有，则
+\clnref{acq} 获取它，
+\clnref{break} 跳出外层 \co{do-od} 循环（同时也退出原子块）。
+另一方面，如果锁在 \clnref{held} 上已被持有，
+我们什么都不做（\co{skip}），并跳出 \co{if-fi} 和原子块，
+以便再次通过外层循环，重复直到锁可用。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/formal/promela/lock@whole.fcv}
-\caption{Promela Code for Spinlock}
+\caption{自旋锁的 Promela 代码}
 \label{lst:formal:Promela Code for Spinlock}
 \end{listing}
 
-The \co{spin_unlock()} macro simply marks the lock as no
-longer held.
+\co{spin_unlock()} 宏简单地将锁标记为不再被持有。
 
-Note that memory barriers are not needed because Promela assumes
-full ordering.
-In any given Promela state, all processes agree on both the current
-state and the order of state changes that caused us to arrive at
-the current state.
-This is analogous to the
-``\IXalth{sequentially consistent}{sequential}{memory consistency}''
-\IX{memory model}
-used by a few computer systems (such as 1990s MIPS and PA-RISC\@).
-As noted earlier, and as will be seen in a later example,
-weak memory ordering must be explicitly coded.
+请注意，不需要内存屏障，因为 Promela 假设完全排序。
+在任何给定的 Promela 状态中，所有进程对当前状态以及
+导致我们到达当前状态的状态变化顺序都达成一致。
+这类似于少数计算机系统（如 1990 年代的 MIPS 和 PA-RISC）
+所使用的``\IXalth{sequentially consistent}{sequential}{memory consistency}''
+\IX{memory model}。
+如前所述，并且将在后面的示例中看到，
+弱内存排序必须被显式编码。
 
 \begin{listing}
 \input{CodeSamples/formal/promela/lock@spin.fcv}
-\caption{Promela Code to Test Spinlocks}
+\caption{测试自旋锁的 Promela 代码}
 \label{lst:formal:Promela Code to Test Spinlocks}
 \end{listing}
 
 \begin{fcvref}[ln:formal:promela:lock:spin]
-These macros are tested by the Promela code shown in
-\cref{lst:formal:Promela Code to Test Spinlocks}.
-This code is similar to that used to test the increments,
-with the number of locking processes defined by the \co{N_LOCKERS}
-macro definition on \clnref{nlockers}.
-The mutex itself is defined on \clnref{mutex},
-an array to track the lock owner
-on \clnref{array}, and \clnref{sum} is used by assertion
-code to verify that only one process holds the lock.
+这些宏通过\cref{lst:formal:Promela Code to Test Spinlocks}
+中所示的 Promela 代码进行测试。
+此代码与用于测试递增的代码类似，
+锁定进程的数量由 \clnref{nlockers} 上的
+\co{N_LOCKERS} 宏定义来定义。
+互斥锁本身在 \clnref{mutex} 上定义，
+用于跟踪锁持有者的数组在 \clnref{array} 上，
+\clnref{sum} 由断言代码使用以验证只有一个进程持有锁。
 \end{fcvref}
 
 \begin{fcvref}[ln:formal:promela:lock:spin:locker]
-The locker process is on \clnrefrange{b}{e}, and simply loops forever
-acquiring the lock on \clnref{lock}, claiming it on \clnref{claim},
-unclaiming it on \clnref{unclaim}, and releasing it on \clnref{unlock}.
+锁定器进程在 \clnrefrange{b}{e} 上，简单地无限循环：
+在 \clnref{lock} 上获取锁，在 \clnref{claim} 上声明持有，
+在 \clnref{unclaim} 上取消声明，在 \clnref{unlock} 上释放锁。
 \end{fcvref}
 
 \begin{fcvref}[ln:formal:promela:lock:spin:init]
-The init block on \clnrefrange{b}{e} initializes the current locker's
-\co{havelock} array entry on \clnref{array}, starts the current locker on
-\clnref{start}, and advances to the next locker on \clnref{next}.
-Once all locker processes are spawned, the \co{do-od} loop
-moves to \clnref{chkassert}, which checks the assertion.
-\Clnref{sum,j} initialize the control variables,
-\clnrefrange{atm:b}{atm:e} atomically sum the \co{havelock} array entries,
-\clnref{assert} is the assertion, and \clnref{break} exits the loop.
+\clnrefrange{b}{e} 上的 init 块在 \clnref{array} 上初始化当前锁定器的
+\co{havelock} 数组项，在 \clnref{start} 上启动当前锁定器，
+并在 \clnref{next} 上前进到下一个锁定器。
+一旦所有锁定器进程被创建，\co{do-od} 循环
+移动到 \clnref{chkassert}，用于检查断言。
+\Clnref{sum,j} 初始化控制变量，
+\clnrefrange{atm:b}{atm:e} 原子地对 \co{havelock} 数组项求和，
+\clnref{assert} 是断言，\clnref{break} 退出循环。
 \end{fcvref}
 
-We can run this model by placing the two code fragments of
+我们可以通过将
 \cref{lst:formal:Promela Code for Spinlock,%
-lst:formal:Promela Code to Test Spinlocks} into
-files named \path{lock.h} and \path{lock.spin}, respectively, and then running
-the following commands:
+lst:formal:Promela Code to Test Spinlocks} 中的两个代码片段
+分别放入名为 \path{lock.h} 和 \path{lock.spin} 的文件中，
+然后运行以下命令来运行此模型：
 
 \begin{VerbatimU}
 spin -a lock.spin
@@ -578,79 +514,71 @@ cc -DSAFETY -o pan pan.c
 \begin{listing}
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/lock.spin.lst}
 \vspace*{-9pt}
-\caption{Output for Spinlock Test}
+\caption{自旋锁测试的输出}
 \label{lst:formal:Output for Spinlock Test}
 \end{listing}
 
-The output will look something like that shown in
-\cref{lst:formal:Output for Spinlock Test}.
-As expected, this run has no assertion failures (\qco{errors: 0}).
+输出将看起来类似于
+\cref{lst:formal:Output for Spinlock Test}所示。
+如预期的那样，此运行没有断言失败（\qco{errors: 0}）。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why is there an unreached statement in locker?
-	After all, isn't this a \emph{full} state-space
-	search?
+	为什么 locker 中有一条未到达的语句？
+	毕竟，这不是\emph{完整的}状态空间搜索吗？
 }\QuickQuizAnswerB{
-	The locker process is an infinite loop, so control
-	never reaches the end of this process.
-	However, since there are no monotonically increasing variables,
-	Promela is able to model this infinite loop with a small
-	number of states.
+	locker 进程是一个无限循环，因此控制永远不会
+	到达该进程的末尾。
+	但是，由于没有单调递增的变量，
+	Promela 能够用少量状态来建模这个无限循环。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	What are some Promela code-style issues with this example?
+	这个示例有哪些 Promela 代码风格问题？
 }\QuickQuizAnswerE{
-	There are several:
+	有几个：
 	\begin{enumerate}
-	\item	The declaration of \co{sum} should be moved to within
-		the init block, since it is not used anywhere else.
-	\item	The assertion code should be moved outside of the
-		initialization loop.
-		The initialization loop can then be placed in an atomic
-		block, greatly reducing the state space (by how much?).
-	\item	The atomic block covering the assertion code should
-		be extended to include the initialization of \co{sum}
-		and \co{j}, and also to cover the assertion.
-		This also reduces the state space (again, by how
-		much?).
+	\item	\co{sum} 的声明应该移到 init 块内部，
+		因为它在其他地方没有被使用。
+	\item	断言代码应该移到初始化循环之外。
+		然后可以将初始化循环放在原子块中，
+		大大减少状态空间（减少多少？）。
+	\item	覆盖断言代码的原子块应该扩展到包含
+		\co{sum} 和 \co{j} 的初始化，
+		并且也覆盖断言。
+		这也减少了状态空间（又减少了多少？）。
 	\end{enumerate}
 }\QuickQuizEndE
 }
 
-\subsection{Promela Example:
+\subsection{Promela 示例：
 			     QRCU}
 \label{sec:formal:Promela Example: QRCU}
 
-This final example demonstrates a real-world use of Promela on Oleg
-Nesterov's
-QRCU~\cite{OlegNesterov2006QRCU,OlegNesterov2006aQRCU},
-but modified to speed up the \co{synchronize_qrcu()}
-fastpath.
+这个最终示例演示了在 Oleg Nesterov 的
+QRCU~\cite{OlegNesterov2006QRCU,OlegNesterov2006aQRCU}
+上实际使用 Promela 的情况，
+但进行了修改以加速 \co{synchronize_qrcu()} 的快速路径。
 
-But first, what is QRCU?
+但首先，QRCU 是什么？
 
-QRCU is a variant of SRCU~\cite{PaulEMcKenney2006c}
-that trades somewhat higher read overhead
-(atomic increment and decrement on a global variable) for extremely
-low grace-period latencies.
-If there are no readers, the grace period will be detected in less
-than a microsecond, compared to the multi-millisecond grace-period
-latencies of most other RCU implementations.
+QRCU 是 SRCU~\cite{PaulEMcKenney2006c} 的一个变体，
+它以较高的读开销（对全局变量的原子递增和递减）换取
+极低的宽限期延迟。
+如果没有读者，宽限期将在不到一微秒内被检测到，
+而大多数其他 RCU 实现的宽限期延迟为数毫秒。
 
 \begin{enumerate}
-\item	There is a \co{qrcu_struct} that defines a QRCU domain.
-	Like SRCU (and unlike other variants of RCU) QRCU's action
-	is not global, but instead focused on the specified
-	\co{qrcu_struct}.
-\item	There are \co{qrcu_read_lock()} and \co{qrcu_read_unlock()}
-	primitives that delimit QRCU read-side critical sections.
-	The corresponding \co{qrcu_struct} must be passed into
-	these primitives, and the return value from \co{qrcu_read_lock()}
-	must be passed to \co{qrcu_read_unlock()}.
+\item	有一个 \co{qrcu_struct} 定义了一个 QRCU 域。
+	与 SRCU 类似（不同于其他 RCU 变体），QRCU 的作用
+	不是全局的，而是集中在指定的 \co{qrcu_struct} 上。
+\item	有 \co{qrcu_read_lock()} 和 \co{qrcu_read_unlock()}
+	原语用于界定 QRCU 读端临界区。
+	必须将相应的 \co{qrcu_struct} 传递给这些原语，
+	并且 \co{qrcu_read_lock()} 的返回值
+	必须传递给 \co{qrcu_read_unlock()}。
 
-	For example:
+	例如：
 
 \begin{VerbatimU}
 idx = qrcu_read_lock(&my_qrcu_struct);
@@ -658,221 +586,198 @@ idx = qrcu_read_lock(&my_qrcu_struct);
 qrcu_read_unlock(&my_qrcu_struct, idx);
 \end{VerbatimU}
 
-\item	There is a \co{synchronize_qrcu()} primitive that blocks until
-	all pre-existing QRCU read-side critical sections complete,
-	but, like SRCU's \co{synchronize_srcu()}, QRCU's
-	\co{synchronize_qrcu()} need wait only for those read-side
-	critical sections that are using the same \co{qrcu_struct}.
+\item	有一个 \co{synchronize_qrcu()} 原语，它会阻塞直到
+	所有先前存在的 QRCU 读端临界区完成，
+	但与 SRCU 的 \co{synchronize_srcu()} 类似，QRCU 的
+	\co{synchronize_qrcu()} 只需等待使用相同 \co{qrcu_struct}
+	的那些读端临界区。
 
-	For example, \co{synchronize_qrcu(&your_qrcu_struct)}
-	would \emph{not} need to wait on the earlier QRCU read-side
-	critical section.
-	In contrast, \co{synchronize_qrcu(&my_qrcu_struct)}
-	\emph{would} need to wait, since it shares the same
-	\co{qrcu_struct}.
+	例如，\co{synchronize_qrcu(&your_qrcu_struct)}
+	\emph{不}需要等待前面的 QRCU 读端临界区。
+	相反，\co{synchronize_qrcu(&my_qrcu_struct)}
+	\emph{需要}等待，因为它共享相同的 \co{qrcu_struct}。
 \end{enumerate}
 
-A Linux-kernel patch for QRCU has been
-produced~\cite{PaulMcKenney2007QRCUpatch},
-but is unlikely to ever be included in the Linux kernel.
+已经产生了一个 QRCU 的 Linux 内核补丁~\cite{PaulMcKenney2007QRCUpatch}，
+但它不太可能被包含在 Linux 内核中。
 
 \begin{listing}
 \input{CodeSamples/formal/promela/qrcu@gvar.fcv}
-\caption{QRCU Global Variables}
+\caption{QRCU 全局变量}
 \label{lst:formal:QRCU Global Variables}
 \end{listing}
 
-Returning to the Promela code for QRCU, the global variables are as shown in
-\cref{lst:formal:QRCU Global Variables}.
-This example uses locking and includes \path{lock.h}.
-Both the number of readers and writers can be varied using the
-two \co{#define} statements, giving us not one but two ways to create
-combinatorial explosion.
-The \co{idx} variable controls which of the two elements of the \co{ctr}
-array will be used by readers, and the \co{readerprogress} variable
-allows an assertion to determine when all the readers are finished
-(since a QRCU update cannot be permitted to complete until all
-pre-existing readers have completed their QRCU read-side critical
-sections).
-The \co{readerprogress} array elements have values as follows,
-indicating the state of the corresponding reader:
+回到 QRCU 的 Promela 代码，全局变量如
+\cref{lst:formal:QRCU Global Variables}所示。
+这个示例使用了锁并包含了 \path{lock.h}。
+读者和写者的数量都可以通过两个 \co{#define} 语句来改变，
+这给了我们不止一种而是两种造成组合爆炸的方式。
+\co{idx} 变量控制 \co{ctr} 数组的两个元素中哪一个将被读者使用，
+\co{readerprogress} 变量允许断言判断所有读者何时完成
+（因为 QRCU 更新在所有先前存在的读者完成其 QRCU 读端临界区之前
+不允许完成）。
+\co{readerprogress} 数组元素的值如下，
+表示相应读者的状态：
 
 \begin{enumerate}[label={\arabic*}:,start=0,itemsep=0pt]
-\item	Not yet started.
-\item	Within QRCU read-side critical section.
-\item	Finished with QRCU read-side critical section.
+\item	尚未开始。
+\item	在 QRCU 读端临界区内。
+\item	已完成 QRCU 读端临界区。
 \end{enumerate}
 
-Finally, the \co{mutex} variable is used to serialize updaters' slowpaths.
+最后，\co{mutex} 变量用于序列化更新者的慢速路径。
 
 \begin{listing}
 \input{CodeSamples/formal/promela/qrcu@reader.fcv}
-\caption{QRCU Reader Process}
+\caption{QRCU 读者进程}
 \label{lst:formal:QRCU Reader Process}
 \end{listing}
 
 \begin{fcvref}[ln:formal:promela:qrcu:reader]
-QRCU readers are modeled by the \co{qrcu_reader()} process shown in
-\cref{lst:formal:QRCU Reader Process}.
-A \co{do-od} loop spans \clnrefrange{do}{od},
-with a single guard of ``1''
-on \clnref{one} that makes it an infinite loop.
-\Clnref{curidx} captures the current value of the global index,
-and \clnrefrange{atm:b}{atm:e}
-atomically increment it (and break from the infinite loop)
-if its value was non-zero (\co{atomic_inc_not_zero()}).
-\Clnref{cs:entry} marks entry into the RCU read-side critical section, and
-\clnref{cs:exit} marks exit from this critical section,
-both lines for the benefit of
-the \co{assert()} statement that we shall encounter later.
-\Clnref{atm:dec} atomically decrements the same counter that we incremented,
-thereby exiting the RCU read-side critical section.
+QRCU 读者由\cref{lst:formal:QRCU Reader Process}中所示的
+\co{qrcu_reader()} 进程建模。
+一个 \co{do-od} 循环跨越 \clnrefrange{do}{od}，
+在 \clnref{one} 上有一个值为``1''的单一守卫，
+使其成为无限循环。
+\Clnref{curidx} 捕获全局索引的当前值，
+\clnrefrange{atm:b}{atm:e} 在其值非零时原子地递增它
+（并跳出无限循环）（\co{atomic_inc_not_zero()}）。
+\Clnref{cs:entry} 标记进入 RCU 读端临界区，
+\clnref{cs:exit} 标记退出该临界区，
+这两行都是为了后面将遇到的 \co{assert()} 语句服务的。
+\Clnref{atm:dec} 原子地递减我们之前递增的同一计数器，
+从而退出 RCU 读端临界区。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/formal/promela/qrcu@sum_unordered.fcv}
-\caption{QRCU Unordered Summation}
+\caption{QRCU 无序求和}
 \label{lst:formal:QRCU Unordered Summation}
 \end{listing}
 
 \begin{fcvref}[ln:formal:promela:qrcu:sum_unordered]
-The C-preprocessor macro shown in
 \cref{lst:formal:QRCU Unordered Summation}
-sums the pair of counters so as to emulate weak memory ordering.
-\Clnrefrange{fetch:b}{fetch:e} fetch one of the counters,
-and \clnref{sum_other} fetches the other
-of the pair and sums them.
-The atomic block consists of a single \co{do-od} statement.
-This \co{do-od} statement (spanning \clnrefrange{do}{od}) is unusual in that
-it contains two unconditional
-branches with guards on \clnref{g1,g2}, which causes Promela to
-non-deterministically choose one of the two (but again, the full
-state-space search causes Promela to eventually make all possible
-choices in each applicable situation).
-The first branch fetches the zero-th counter and sets \co{i} to 1 (so
-that \clnref{sum_other} will fetch the first counter), while the second
-branch does the opposite, fetching the first counter and setting \co{i}
-to 0 (so that \clnref{sum_other} will fetch the second counter).
+中所示的 C 预处理器宏对一对计数器求和，
+以模拟弱内存排序。
+\Clnrefrange{fetch:b}{fetch:e} 获取其中一个计数器，
+\clnref{sum_other} 获取另一个并求和。
+原子块由单个 \co{do-od} 语句组成。
+这个 \co{do-od} 语句（跨越 \clnrefrange{do}{od}）不寻常之处在于
+它包含两个在 \clnref{g1,g2} 上带有守卫的无条件分支，
+这导致 Promela 非确定性地选择其中一个（但同样，
+完整的状态空间搜索使 Promela 最终在每个适用情况下做出所有可能的选择）。
+第一个分支获取第零个计数器并将 \co{i} 设置为 1（以便
+\clnref{sum_other} 获取第一个计数器），而第二个分支相反，
+获取第一个计数器并将 \co{i} 设置为 0（以便
+\clnref{sum_other} 获取第二个计数器）。
 \end{fcvref}
 
 \QuickQuiz{
-	Is there a more straightforward way to code the \co{do-od} statement?
+	有没有更直接的方式来编写 \co{do-od} 语句？
 }\QuickQuizAnswer{
-	Yes.
-	Replace it with \co{if-fi} and remove the two \co{break} statements.
+	有。
+	将其替换为 \co{if-fi} 并删除两个 \co{break} 语句。
 }\QuickQuizEnd
 
 \begin{listing}
 \ebresizeverb{.88}{\input{CodeSamples/formal/promela/qrcu@updater.fcv}}
-\caption{QRCU Updater Process}
+\caption{QRCU 更新者进程}
 \label{lst:formal:QRCU Updater Process}
 \end{listing}
 
 \begin{fcvref}[ln:formal:promela:qrcu:updater]
-With the \co{sum_unordered} macro in place, we can now proceed
-to the update-side process shown in
-\cref{lst:formal:QRCU Updater Process}.
-The update-side process repeats indefinitely, with the corresponding
-\co{do-od} loop ranging over \clnrefrange{do}{od}.
-Each pass through the loop first snapshots the global \co{readerprogress}
-array into the local \co{readerstart} array on
-\clnrefrange{atm1:b}{atm1:e}.
-This snapshot will be used for the assertion on \clnref{assert}.
-\Clnref{sum_unord} invokes \co{sum_unordered}, and then
+有了 \co{sum_unordered} 宏，我们现在可以继续看
+\cref{lst:formal:QRCU Updater Process}中所示的更新端进程。
+更新端进程无限重复，相应的 \co{do-od} 循环
+跨越 \clnrefrange{do}{od}。
+每次循环首先在 \clnrefrange{atm1:b}{atm1:e} 上
+将全局 \co{readerprogress} 数组快照到局部 \co{readerstart} 数组中。
+此快照将用于 \clnref{assert} 上的断言。
+\Clnref{sum_unord} 调用 \co{sum_unordered}，然后
 \clnrefrange{reinvoke:b}{reinvoke:e}
-re-invoke \co{sum_unordered} if the fastpath is potentially
-usable.
+在快速路径可能可用时重新调用 \co{sum_unordered}。
 
-\Clnrefrange{slow:b}{slow:e} execute the slowpath code if need be, with
-\clnref{acq,rel} acquiring and releasing the update-side lock,
-\clnrefrange{flip_idx:b}{flip_idx:e} flipping the index, and
-\clnrefrange{wait:b}{wait:e} waiting for
-all pre-existing readers to complete.
+\Clnrefrange{slow:b}{slow:e} 在需要时执行慢速路径代码，
+\clnref{acq,rel} 获取和释放更新端锁，
+\clnrefrange{flip_idx:b}{flip_idx:e} 翻转索引，
+\clnrefrange{wait:b}{wait:e} 等待所有先前存在的读者完成。
 
-\Clnrefrange{atm2:b}{atm2:e} then compare the current values
-in the \co{readerprogress}
-array to those collected in the \co{readerstart} array,
-forcing an assertion failure should any readers that started before
-this update still be in progress.
+\Clnrefrange{atm2:b}{atm2:e} 然后将 \co{readerprogress}
+数组中的当前值与 \co{readerstart} 数组中收集的值进行比较，
+如果在此更新之前开始的任何读者仍在进行中，
+则强制断言失败。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:formal:promela:qrcu:updater]
-	Why are there atomic blocks at \clnrefrange{atm1:b}{atm1:e}
-	and \clnrefrange{atm2:b}{atm2:e}, when the operations
-	within those atomic
-	blocks have no atomic implementation on any current
-	production microprocessor?
+	为什么在 \clnrefrange{atm1:b}{atm1:e}
+	和 \clnrefrange{atm2:b}{atm2:e} 上有原子块，
+	而这些原子块中的操作在当前任何生产级微处理器上
+	都没有原子实现？
 	\end{fcvref}
 }\QuickQuizAnswerB{
-	Because those operations are for the benefit of the
-	assertion only.
-	They are not part of the algorithm itself.
-	There is therefore no harm in marking them atomic, and
-	so marking them greatly reduces the state space that must
-	be searched by the Promela model.
+	因为这些操作仅用于断言。
+	它们不是算法本身的一部分。
+	因此将它们标记为原子的没有害处，
+	这样标记大大减少了 Promela 模型必须搜索的状态空间。
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:formal:promela:qrcu:updater]
-	Is the re-summing of the counters on
 	\clnrefrange{reinvoke:b}{reinvoke:e}
-	\emph{really} necessary?
+	上的计数器重新求和\emph{真的}必要吗？
 	\end{fcvref}
 }\QuickQuizAnswerE{
-	Yes.
-	To see this, delete these lines and run the model.
+	是的。
+	要理解这一点，请删除这些行并运行模型。
 
-	Alternatively, consider the following sequence of steps:
+	或者，考虑以下步骤序列：
 
 	\begin{enumerate}
-	\item	One process is within its RCU read-side critical
-		section, so that the value of \co{ctr[0]} is zero and
-		the value of \co{ctr[1]} is two.
-	\item	An updater starts executing, and sees that the sum of
-		the counters is two so that the fastpath cannot be
-		executed.
-		It therefore acquires the lock.
-	\item	A second updater starts executing, and fetches the value
-		of \co{ctr[0]}, which is zero.
-	\item	The first updater adds one to \co{ctr[0]}, flips
-		the index (which now becomes zero), then subtracts
-		one from \co{ctr[1]} (which now becomes one).
-	\item	The second updater fetches the value of \co{ctr[1]},
-		which is now one.
-	\item	The second updater now incorrectly concludes that it
-		is safe to proceed on the fastpath, despite the fact
-		that the original reader has not yet completed.
+	\item	一个进程在其 RCU 读端临界区内，
+		因此 \co{ctr[0]} 的值为零，
+		\co{ctr[1]} 的值为二。
+	\item	一个更新者开始执行，看到计数器之和为二，
+		因此快速路径不能执行。
+		它因此获取了锁。
+	\item	第二个更新者开始执行，获取了 \co{ctr[0]} 的值，
+		为零。
+	\item	第一个更新者将 \co{ctr[0]} 加一，翻转索引
+		（现在变为零），然后从 \co{ctr[1]} 减一
+		（现在变为一）。
+	\item	第二个更新者获取 \co{ctr[1]} 的值，
+		现在为一。
+	\item	第二个更新者现在错误地得出结论认为
+		可以安全地走快速路径，尽管
+		原始读者尚未完成。
 	\end{enumerate}
 }\QuickQuizEndE
 }
 
 \begin{listing}
 \input{CodeSamples/formal/promela/qrcu@init.fcv}
-\caption{QRCU Initialization Process}
+\caption{QRCU 初始化进程}
 \label{lst:formal:QRCU Initialization Process}
 \end{listing}
 
 \begin{fcvref}[ln:formal:promela:qrcu:init]
-All that remains is the initialization block shown in
-\cref{lst:formal:QRCU Initialization Process}.
-This block simply initializes the counter pair on
-\clnrefrange{i_ctr:b}{i_ctr:e},
-spawns the reader processes on
-\clnrefrange{spn_r:b}{spn_r:e}, and spawns the updater
-processes on \clnrefrange{spn_u:b}{spn_u:e}.
-This is all done within an atomic block to reduce state space.
+剩下的就是\cref{lst:formal:QRCU Initialization Process}中所示的
+初始化块。
+这个块只是在 \clnrefrange{i_ctr:b}{i_ctr:e} 上初始化计数器对，
+在 \clnrefrange{spn_r:b}{spn_r:e} 上生成读者进程，
+在 \clnrefrange{spn_u:b}{spn_u:e} 上生成更新者进程。
+这些都在一个原子块内完成以减少状态空间。
 \end{fcvref}
 
-\subsubsection{Running the QRCU Example}
+\subsubsection{运行 QRCU 示例}
 \label{sec:formal:Running the QRCU Example}
 
-To run the QRCU example, combine the code fragments in the previous
-section into a single file named \path{qrcu.spin}, and place the definitions
-for \co{spin_lock()} and \co{spin_unlock()} into a file named
-\path{lock.h}.
-Then use the following commands to build and run the QRCU model:
+要运行 QRCU 示例，请将上一节中的代码片段合并到
+一个名为 \path{qrcu.spin} 的文件中，并将
+\co{spin_lock()} 和 \co{spin_unlock()} 的定义放入
+名为 \path{lock.h} 的文件中。
+然后使用以下命令构建并运行 QRCU 模型：
 
 \begin{VerbatimU}
 spin -a qrcu.spin
@@ -910,19 +815,18 @@ cc -DSAFETY [-DCOLLAPSE] -o pan pan.c
 		specified.
 \end{tablenotes}
 \end{threeparttable}
-\caption{Memory Usage of QRCU Model}
+\caption{QRCU 模型的内存使用量}
 \label{tab:advsync:Memory Usage of QRCU Model}
 \end{table}
 
-The output shows that this model passes all of the cases shown in
-\cref{tab:advsync:Memory Usage of QRCU Model}.
-It would be nice to run three readers and three
-updaters, however, simple extrapolation indicates that this will
-require about half a terabyte of memory.
-What to do?
+输出显示此模型通过了
+\cref{tab:advsync:Memory Usage of QRCU Model}中所示的所有案例。
+如果能运行三个读者和三个更新者就好了，
+然而，简单外推表明这将需要大约半太字节的内存。
+怎么办？
 
-It turns out that \co{./pan} gives advice when it runs out of memory,
-for example, when attempting to run three readers and three updaters:
+事实证明，当 \co{./pan} 耗尽内存时会给出建议，
+例如，当试图运行三个读者和三个更新者时：
 
 \begin{VerbatimU}
 hint: to reduce memory, recompile with
@@ -932,10 +836,9 @@ hint: to reduce memory, recompile with
   -DBITSTATE # supertrace, approximation
 \end{VerbatimU}
 
-Let's try the suggested compiler flag \co{-DMA=N},
-which generates code for aggressive compression of the
-state space at the cost of greatly increased search overhead.
-The required commands are as follows:
+让我们尝试建议的编译器标志 \co{-DMA=N}，
+它生成以大大增加搜索开销为代价来激进压缩状态空间的代码。
+所需命令如下：
 
 \begin{VerbatimU}
 spin -a qrcu.spin
@@ -943,46 +846,43 @@ cc -DSAFETY -DMA=96 -O2 -o pan pan.c
 ./pan -m20000000
 \end{VerbatimU}
 
-Here, the depth limit of 20,000,000 is an order of magnitude
-larger than the expected depth deduced from simple extrapolation.
-Although this increases up-front memory usage, it avoids wasting
-a long run due to incomplete search resulting from a too-tight
-depth limit.
-This run took a little more than 3~days on a \Power{9} server.
-The result is shown in
-\cref{lst:formal:spinhint:3 Readers 3 Updaters QRCU Spin Output with -DMA=96}.
-This Spin run completed successfully with a total memory
-usage of only 6.5\,GB, which is almost two orders of magnitude
-lower than the \co{-DCOLLAPSE} usage of about half a terabyte.
+这里，深度限制 20,000,000 比从简单外推推导出的预期深度
+大一个数量级。
+虽然这增加了前期内存使用，但避免了由于过紧的
+深度限制导致的不完整搜索而浪费漫长的运行。
+此运行在一台 \Power{9} 服务器上花费了略多于 3 天。
+结果如
+\cref{lst:formal:spinhint:3 Readers 3 Updaters QRCU Spin Output with -DMA=96}所示。
+此 Spin 运行成功完成，总内存使用量仅为 6.5\,GB，
+比 \co{-DCOLLAPSE} 使用的约半太字节低了近两个数量级。
 
 \begin{listing}
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/qrcu.spin.33ma.lst}
 \vspace*{-9pt}
-\caption{3 Readers 3 Updaters QRCU Spin Output with \co{-DMA=96}}
+\caption{使用 \co{-DMA=96} 的 3 读者 3 更新者 QRCU Spin 输出}
 \label{lst:formal:spinhint:3 Readers 3 Updaters QRCU Spin Output with -DMA=96}
 \end{listing}
 
 \QuickQuiz{
-	A compression rate of 0.48\pct\ corresponds to a 200-to-1 decrease
-	in memory occupied by the states!
-	Is the state-space search \emph{really} exhaustive???
+	0.48\pct\ 的压缩率对应于状态占用内存
+	200 比 1 的减少！
+	状态空间搜索\emph{真的}是穷举的吗？？？
 }\QuickQuizAnswer{
-	According to Spin's documentation, yes, it is.
+	根据 Spin 的文档，是的，它是穷举的。
 
 \begin{listing}
 \VerbatimInput[numbers=none,fontsize=\scriptsize]{CodeSamples/formal/promela/qrcu.spin.col-ma.diff.lst}
 \vspace*{-9pt}
-\caption{Spin Output Diff of \co{-DCOLLAPSE} and \co{-DMA=88}}
+\caption{\co{-DCOLLAPSE} 和 \co{-DMA=88} 的 Spin 输出差异}
 \label{lst:formal:promela:Spin Output Diff of -DCOLLAPSE and -DMA=88}
 \end{listing}
 
-	As an indirect evidence, let's compare the results of
-	runs with \co{-DCOLLAPSE} and with \co{-DMA=88}
-	(two readers and three updaters).
-	The diff of outputs from those runs is shown in
-	\cref{lst:formal:promela:Spin Output Diff of -DCOLLAPSE and -DMA=88}.
-	As you can see, they agree on the numbers of states
-	(stored and matched).
+	作为间接证据，让我们比较
+	使用 \co{-DCOLLAPSE} 和 \co{-DMA=88}
+	（两个读者和三个更新者）运行的结果。
+	这些运行的输出差异如
+	\cref{lst:formal:promela:Spin Output Diff of -DCOLLAPSE and -DMA=88}所示。
+	如你所见，它们在状态数（已存储和已匹配）上一致。
 }\QuickQuizEnd
 
 \begin{table*}
@@ -1032,226 +932,199 @@ lower than the \co{-DCOLLAPSE} usage of about half a terabyte.
 	\bottomrule
 \end{tabular}
 }
-\caption{QRCU Spin Result Summary}
+\caption{QRCU Spin 结果汇总}
 \label{tab:formal:promela:QRCU Spin Result Summary}
 \end{table*}
 
-For reference, \cref{tab:formal:promela:QRCU Spin Result Summary}
-summarizes the Spin results with \co{-DCOLLAPSE} and \co{-DMA=N}
-compiler flags.
-The memory usage is obtained with minimal sufficient
-search depths and \co{-DMA=N} parameters shown in the table.
-Hashtable sizes for \co{-DCOLLAPSE} runs are tweaked by
-the \co{-wN} option of \co{./pan} to avoid using too much
-memory hashing small state spaces.
-Hence the memory usage is smaller than what is shown in
-\cref{tab:advsync:Memory Usage of QRCU Model}, where the
-hashtable size starts from the default of \co{-w24}.
-The runtime is from a \Power{9} server, which shows that \co{-DMA=N}
-suffers up to about an order of magnitude higher CPU overhead
-than does \co{-DCOLLAPSE}, but on the other hand reduces memory overhead
-by well over an order of magnitude.
+作为参考，\cref{tab:formal:promela:QRCU Spin Result Summary}
+汇总了使用 \co{-DCOLLAPSE} 和 \co{-DMA=N}
+编译器标志的 Spin 结果。
+内存使用量是使用表中所示的最小足够搜索深度和
+\co{-DMA=N} 参数获得的。
+\co{-DCOLLAPSE} 运行的哈希表大小通过 \co{./pan} 的 \co{-wN}
+选项进行调整，以避免在小状态空间上使用过多内存进行哈希。
+因此内存使用量小于
+\cref{tab:advsync:Memory Usage of QRCU Model}中所示的值，
+后者的哈希表大小从默认的 \co{-w24} 开始。
+运行时间来自一台 \Power{9} 服务器，这表明 \co{-DMA=N}
+遭受的 CPU 开销比 \co{-DCOLLAPSE} 高约一个数量级，
+但另一方面将内存开销减少了远超一个数量级。
 
-So far so good.
-But adding a few more updaters or readers would exhaust memory, even
-with \co{-DMA=N}.\footnote{
-	Alternatively, the CPU consumption would become excessive.}
-So what to do?
-Here are some possible approaches:
+目前为止一切顺利。
+但再增加几个更新者或读者就会耗尽内存，
+即使使用 \co{-DMA=N}。\footnote{
+	或者，CPU 消耗会变得过大。}
+那怎么办？
+以下是一些可能的方法：
 
 \begin{enumerate}
-\item	See whether a smaller number of readers and updaters suffice
-	to prove the general case.
-\item	Manually construct a proof of correctness.
-\item	Use a more capable tool.
-\item	Divide and conquer.
+\item	看看较少数量的读者和更新者是否足以证明一般情况。
+\item	手动构建正确性证明。
+\item	使用更强大的工具。
+\item	分而治之。
 \end{enumerate}
 
-The following sections discuss each of these approaches.
+以下各节讨论这些方法。
 
-\subsubsection{How Many Readers and Updaters Are Really Needed?}
+\subsubsection{到底需要多少读者和更新者？}
 \label{sec:formal:How Many Readers and Updaters Are Really Needed?}
 
-One approach is to look carefully at the Promela code for
-\co{qrcu_updater()} and notice that the only global state
-change is happening under the lock.
-Therefore, only one updater at a time can possibly be modifying
-state visible to either readers or other updaters.
-This means that any sequences of state changes can be carried
-out serially by a single updater due to the fact that Promela does a full
-state-space search.
-Therefore, at most two updaters are required:
-One to change state and a second to become confused.
+一种方法是仔细查看 \co{qrcu_updater()} 的 Promela 代码，
+注意到唯一的全局状态变化发生在锁保护之下。
+因此，任何时候只有一个更新者可能在修改
+对读者或其他更新者可见的状态。
+这意味着由于 Promela 进行完整的状态空间搜索，
+任何状态变化序列都可以由单个更新者串行执行。
+因此，最多需要两个更新者：
+一个用于更改状态，另一个用于变得混乱。
 
-The situation with the readers is less clear-cut, as each reader
-does only a single read-side critical section then terminates.
-It is possible to argue that the useful number of readers is limited,
-due to the fact that the fastpath must see at most a zero and a one
-in the counters.
-This is a fruitful avenue of investigation, in fact, it leads to
-the full proof of correctness described in the next section.
+读者的情况不太明确，因为每个读者
+只执行一个读端临界区然后终止。
+可以论证有用的读者数量是有限的，
+因为快速路径在计数器中最多只能看到一个零和一个一。
+这是一个富有成效的研究方向，事实上，它导向了
+下一节中描述的完整正确性证明。
 
-\subsubsection{Alternative Approach:
-				     Proof of Correctness}
+\subsubsection{替代方法：
+				     正确性证明}
 \label{sec:formal:Alternative Approach: Proof of Correctness}
 
-An informal proof~\cite{PaulMcKenney2007QRCUpatch}
-follows:
+一个非正式证明~\cite{PaulMcKenney2007QRCUpatch}如下：
 
 \begin{enumerate}
-\item	For \co{synchronize_qrcu()} to exit too early, then
-	by definition there must have been at least one reader
-	present during \co{synchronize_qrcu()}'s full
-	execution.
-\item	The counter corresponding to this reader will have been
-	at least 1 during this time interval.
-\item	The \co{synchronize_qrcu()} code forces at least one
-	of the counters to be at least 1 at all times.
-\item	The above two items imply that if the counter corresponding
-	to this reader is exactly one, then the other counter must be
-	greater than or equal to one.
-	Similarly, if the other counter is equal to zero, then the counter
-	corresponding to the reader must be greater than or equal to two.
-\item	Therefore, at any given point in time, either one of the
-	counters will be at least 2, or both of the counters will
-	be at least one.
-\item	However, the \co{synchronize_qrcu()} fastpath code
-	can read only one of the counters at a given time.
-	It is therefore possible for the fastpath code to fetch
-	the first counter while zero, but to race with a counter
-	flip so that the second counter is seen as one.
-\item	There can be at most one reader persisting through such
-	a race condition, as otherwise the sum would be two or
-	greater, which would cause the updater to take the slowpath.
-\item	But if the race occurs on the fastpath's first read of the
-	counters, and then again on its second read, there have
-	to have been two counter flips.
-\item	Because a given updater flips the counter only once, and
-	because the update-side lock prevents a pair of updaters
-	from concurrently flipping the counters, the only way that
-	the fastpath code can race with a flip twice is if the
-	first updater completes.
-\item	But the first updater will not complete until after all
-	pre-existing readers have completed.
-\item	Therefore, if the fastpath races with a counter flip
-	twice in succession, all pre-existing readers must have
-	completed, so that it is safe to take the fastpath.
+\item	如果 \co{synchronize_qrcu()} 过早退出，
+	则根据定义，在 \co{synchronize_qrcu()} 的整个执行过程中
+	必须至少有一个读者存在。
+\item	对应该读者的计数器在此时间间隔内至少为 1。
+\item	\co{synchronize_qrcu()} 代码强制
+	至少一个计数器在任何时候至少为 1。
+\item	以上两项意味着，如果对应该读者的计数器恰好为一，
+	则另一个计数器必须大于或等于一。
+	类似地，如果另一个计数器等于零，
+	则对应读者的计数器必须大于或等于二。
+\item	因此，在任何给定时间点，要么其中一个计数器至少为 2，
+	要么两个计数器都至少为一。
+\item	然而，\co{synchronize_qrcu()} 的快速路径代码
+	在给定时间只能读取一个计数器。
+	因此快速路径代码可能在获取第一个计数器时为零，
+	但与计数器翻转竞争，使得第二个计数器被看到为一。
+\item	在这样的竞态条件下，最多只能有一个读者持续存在，
+	否则总和将为二或更大，
+	这将导致更新者走慢速路径。
+\item	但如果竞争发生在快速路径的第一次读取计数器时，
+	然后在第二次读取时再次发生，
+	则必须发生了两次计数器翻转。
+\item	因为给定的更新者只翻转计数器一次，
+	而且更新端锁阻止一对更新者并发翻转计数器，
+	快速路径代码能够与翻转竞争两次的唯一方式是
+	第一个更新者已经完成。
+\item	但第一个更新者要等到所有先前存在的读者完成之后
+	才会完成。
+\item	因此，如果快速路径连续两次与计数器翻转竞争，
+	所有先前存在的读者必定已经完成，
+	所以走快速路径是安全的。
 \end{enumerate}
 
-Of course, not all parallel algorithms have such simple proofs.
-In such cases, it may be necessary to enlist more capable tools.
+当然，并非所有并行算法都有如此简单的证明。
+在这种情况下，可能需要借助更强大的工具。
 
-\subsubsection{Alternative Approach:
-				     More Capable Tools}
+\subsubsection{替代方法：
+				     更强大的工具}
 \label{sec:formal:Alternative Approach: More Capable Tools}
 
-Although Promela and Spin are quite useful,
-much more capable tools are available, particularly for verifying
-hardware.
-This means that if it is possible to translate your algorithm
-to the hardware-design VHDL language, as it often will be for
-low-level parallel algorithms, then it is possible to apply these
-tools to your code (for example, this was done for the first
-realtime RCU algorithm).
-However, such tools can be quite expensive.
+尽管 Promela 和 Spin 非常有用，
+但有更强大的工具可用，特别是用于验证硬件的工具。
+这意味着如果可以将你的算法翻译为硬件设计的 VHDL 语言，
+对于低层并行算法通常如此，
+则可以将这些工具应用于你的代码
+（例如，这曾被用于第一个实时 RCU 算法）。
+然而，这些工具可能相当昂贵。
 
-Although the advent of commodity multiprocessing
-might eventually result in powerful free-software model-checkers
-featuring fancy state-space-reduction capabilities,
-this does not help much in the here and now.
+尽管商品化多处理的出现可能最终会产生
+具有高级状态空间缩减能力的强大自由软件模型检查器，
+但这对当下帮助不大。
 
-As an aside, there are Spin features that support approximate searches
-that require fixed amounts of memory, however, I have never been able
-to bring myself to trust approximations when verifying parallel
-algorithms.
+顺便说一下，Spin 有一些特性支持需要固定内存量的近似搜索，
+然而，在验证并行算法时，我始终无法让自己信任近似方法。
 
-Another approach might be to divide and conquer.
+另一种方法可能是分而治之。
 
-\subsubsection{Alternative Approach:
-				     Divide and Conquer}
+\subsubsection{替代方法：
+				     分而治之}
 \label{sec:formal:Alternative Approach: Divide and Conquer}
 
-It is often possible to break down a larger parallel algorithm into
-smaller pieces, which can then be proven separately.
-For example, a 10-billion-state model might be broken into a pair
-of 100,000-state models.
-Taking this approach not only makes it easier for tools such as
-Promela to verify your algorithms, it can also make your algorithms
-easier to understand.
+通常可以将较大的并行算法分解为较小的部分，
+然后分别证明。
+例如，一个 100 亿状态的模型可能被分解为
+一对 100,000 状态的模型。
+采用这种方法不仅使 Promela 等工具更容易验证你的算法，
+还可以使你的算法更容易理解。
 
-\subsubsection{Is QRCU Really Correct?}
+\subsubsection{QRCU 真的正确吗？}
 \label{sec:formal:Is QRCU Really Correct?}
 
-Is QRCU really correct?
-We have a Promela-based mechanical proof and a by-hand proof that both
-say that it is.
-However, a paper by \pplsur{Jade}{Alglave} et al.~\cite{JadeAlglave2013-cav}
-says otherwise (see Section~5.1 of the paper at the bottom of page~12).
-Which is it?
+QRCU 真的正确吗？
+我们有一个基于 Promela 的机械证明和一个手工证明，
+两者都说它是正确的。
+然而，\pplsur{Jade}{Alglave} 等人的一篇论文~\cite{JadeAlglave2013-cav}
+持相反意见（见论文第 12 页底部的 Section~5.1）。
+到底哪个对？
 
-It turns out that both are correct!
-When QRCU was added to a suite of formal-verification benchmarks,
-its memory barriers were omitted, thus resulting in a buggy version
-of QRCU\@.
-So the real news here is that a number of formal-verification tools
-incorrectly proved this buggy QRCU correct.
-And this is why formal-verification tools themselves should be tested
-using bug-injected versions of the code being verified.
-If a given tool cannot find the injected bugs, then that tool is
-clearly untrustworthy.
+事实证明两者都是正确的！
+当 QRCU 被添加到形式验证基准测试套件中时，
+它的内存屏障被遗漏了，从而导致了一个有缺陷的 QRCU 版本。
+所以这里真正的新闻是许多形式验证工具
+错误地证明了这个有缺陷的 QRCU 是正确的。
+这就是为什么形式验证工具本身应该使用
+被验证代码的注入缺陷版本来进行测试。
+如果给定的工具无法找到注入的缺陷，那么该工具显然是不可信的。
 
 \QuickQuiz{
-	But different formal-verification tools are often designed to
-	locate particular classes of bugs.
-	For example, very few formal-verification tools will find
-	an error in the specification.
-	So isn't this ``clearly untrustworthy'' judgment a bit harsh?
+	但不同的形式验证工具通常被设计为定位特定类别的缺陷。
+	例如，很少有形式验证工具能发现规范中的错误。
+	所以这个``显然不可信''的判断是不是有点苛刻？
 }\QuickQuizAnswer{
-	It is certainly true that many formal-verification tools are
-	specialized in some way.
-	For example, Promela does not handle realistic memory models
-	(though they can be programmed into
-	\IX{Promela}~\cite{Desnoyers:2013:MSM:2506164.2506174}),
-	\IXacr{cbmc}~\cite{EdmundClarke2004CBMC} does not detect probabilistic
-	hangs and deadlocks, and
-	\IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg} does not detect
-	bugs involving data nondeterminism.
-	But this means that these tools cannot be trusted to find
-	bugs that they are not designed to locate.
+	许多形式验证工具确实在某些方面是专门化的。
+	例如，Promela 不处理现实的内存模型
+	（尽管可以将它们编程到
+	\IX{Promela}~\cite{Desnoyers:2013:MSM:2506164.2506174} 中），
+	\IXacr{cbmc}~\cite{EdmundClarke2004CBMC} 不检测概率性
+	挂起和死锁，
+	\IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg} 不检测
+	涉及数据非确定性的缺陷。
+	但这意味着这些工具不能被信任来发现
+	它们不是为定位而设计的缺陷。
 
-	And therefore people creating formal-verification tools should
-	``tell the truth on the label'', clearly calling out what
-	classes of bugs their tools can and cannot detect.
-	Otherwise, the first time a practitioner finds a tool
-	failing to detect a bug, that practitioner is likely to
-	make extremely harsh and extremely public denunciations
-	of that tool.
-	Yes, yes, there is something to be said for putting your
-	best foot forward, but putting it too far forward without
-	appropriate disclaimers can easily trigger a land mine of
-	negative reaction that your tool might or might not be able
-	to recover from.
+	因此，创建形式验证工具的人应该
+	``在标签上说实话''，明确指出他们的工具
+	能够和不能检测到哪些类别的缺陷。
+	否则，当一个从业者第一次发现某个工具
+	未能检测到一个缺陷时，该从业者很可能会
+	对该工具进行极其严厉和极其公开的谴责。
+	是的，是的，展示最好的一面确实有道理，
+	但在没有适当免责声明的情况下走得太远，
+	很容易触发负面反应的地雷，
+	你的工具可能能也可能不能从中恢复。
 
-	You have been warned!
+	你已经被警告了！
 }\QuickQuizEnd
 
-Therefore, if you do intend to use QRCU, please take care.
-Its proofs of correctness might or might not themselves be correct.
-Which is one reason why formal verification is unlikely to
-completely replace testing, as Donald Knuth pointed out so long ago.
+因此，如果你确实打算使用 QRCU，请务必小心。
+它的正确性证明本身可能正确也可能不正确。
+这是形式验证不太可能完全取代测试的原因之一，
+正如 Donald Knuth 很早以前就指出的那样。
 
 \QuickQuiz{
-	Given that we have two independent proofs of correctness for
-	the QRCU algorithm described herein, and given that the
-	proof of incorrectness covers what is known to be a different
-	algorithm, why is there any room for doubt?
+	鉴于我们对此处描述的 QRCU 算法有两个独立的正确性证明，
+	而且不正确性证明涵盖的是已知为不同的算法，
+	为什么还有怀疑的余地？
 }\QuickQuizAnswer{
-	There is always room for doubt.
-	In this case, it is important to keep in mind that the two proofs
-	of correctness preceded the formalization of real-world memory
-	models, raising the possibility that these two proofs are based
-	on incorrect memory-ordering assumptions.
-	Furthermore, since both proofs were constructed by the same person,
-	it is quite possible that they contain a common error.
-	Again, there is always room for doubt.
+	总是有怀疑的余地。
+	在这种情况下，重要的是要记住这两个正确性证明
+	先于现实世界内存模型的形式化，
+	这就提出了这两个证明可能基于
+	不正确的内存排序假设的可能性。
+	此外，由于两个证明都是由同一个人构建的，
+	它们很可能包含一个共同的错误。
+	再说一次，总是有怀疑的余地。
 }\QuickQuizEnd

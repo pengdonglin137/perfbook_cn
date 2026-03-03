@@ -2,190 +2,170 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Tools of the Trade}{Tools of the Trade}{qqztoolsoftrade}
+\QuickQuizChapter{chp:Tools of the Trade}{常用工具}{qqztoolsoftrade}
 %
-\Epigraph{You are only as good as your tools, and your tools are only
-	  as good as you are.}{Unknown}
+\Epigraph{你的水平取决于你的工具，而你的工具的水平也取决于你。}{佚名}
 
-This chapter provides a brief introduction to some basic tools of the
-parallel-programming trade, focusing mainly on those available to
-user applications running on operating systems similar to Linux.
-\Cref{sec:toolsoftrade:Scripting Languages} begins with
-scripting languages,
+本章简要介绍并行编程的一些基本工具，主要关注在类 Linux 操作系统上运行的
+用户态应用程序所能使用的工具。
+\Cref{sec:toolsoftrade:Scripting Languages}从脚本语言开始，
 \cref{sec:toolsoftrade:POSIX Multiprocessing}
-describes the multi-process parallelism supported by the POSIX API and
-touches on POSIX threads,
+描述 POSIX API 支持的多进程并行机制并简要介绍 POSIX thread，
 \cref{sec:toolsoftrade:Alternatives to POSIX Operations}
-presents analogous operations in other environments, and finally,
+介绍其他环境中的类似操作，最后，
 \cref{sec:toolsoftrade:The Right Tool for the Job: How to Choose?}
-helps to choose the tool that will get the job done.
+帮助选择合适的工具来完成任务。
 
 \QuickQuiz{
-	You call these tools???
-	They look more like low-level synchronization primitives to me!
+	你管这些叫工具？？？
+	在我看来它们更像是底层同步原语！
 }\QuickQuizAnswer{
-	They look that way because they are in fact low-level synchronization
-	primitives.
-	And they are in fact the fundamental tools for building low-level
-	concurrent software.
+	它们看起来像底层同步原语，是因为它们实际上就是底层同步原语。
+	而且它们确实是构建底层并发软件的基本工具。
 }\QuickQuizEnd
 
-Please note that this chapter provides but a brief introduction.
-More detail is available from the references (and from the Internet),
-and more information will be provided in later chapters.
+请注意，本章仅提供简要介绍。
+更多细节可以从参考文献（以及互联网）中获取，
+后续章节也将提供更多信息。
 
-\section{Scripting Languages}
+\section{脚本语言}
 \label{sec:toolsoftrade:Scripting Languages}
 %
-\epigraph{The supreme excellence is simplicity.}
-	 {Henry Wadsworth Longfellow, simplified}
+\epigraph{至高的卓越在于简洁。}
+	 {Henry Wadsworth Longfellow，简化版}
 % The original:
 % "In character, in manner, in style, in all things, the supreme
 % excellence is simplicity."
 
-The Linux shell scripting languages provide simple but effective ways
-of managing parallelism.
-For example, suppose that you had a program \co{compute_it}
-that you needed to run twice with two different sets of arguments.
-This can be accomplished using UNIX shell scripting as follows:
+Linux shell 脚本语言提供了简单而有效的并行管理方式。
+例如，假设你有一个程序 \co{compute_it}，
+需要使用两组不同的参数运行两次。
+可以使用 UNIX shell 脚本如下完成：
 
 \input{CodeSamples/toolsoftrade/parallel@compute_it.fcv}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{toolsoftrade/shellparallel}}
-\caption{Execution Diagram for Parallel Shell Execution}
+\caption{并行 Shell 执行的执行图}
 \label{fig:toolsoftrade:Execution Diagram for Parallel Shell Execution}
 \end{figure}
 
 \begin{fcvref}[ln:toolsoftrade:parallel:compute_it]
-\Clnref{comp1,comp2} launch two instances of this
-program, redirecting their
-output to two separate files, with the \co{&} character directing the
-shell to run the two instances of the program in the background.
-\Clnref{wait} waits for both instances to complete, and
-\clnref{cat1,cat2} display their output.
+\Clnref{comp1,comp2}启动该程序的两个实例，
+将它们的输出分别重定向到两个不同的文件，
+其中 \co{&} 字符指示 shell 在后台运行这两个程序实例。
+\Clnref{wait}等待两个实例都完成，
+\clnref{cat1,cat2}显示它们的输出。
 \end{fcvref}
-The resulting execution is as shown in
-\cref{fig:toolsoftrade:Execution Diagram for Parallel Shell Execution}:
-The two instances of \co{compute_it} execute in parallel,
-\co{wait} completes after both of them do, and then the two instances
-of \co{cat} execute sequentially.
+由此产生的执行过程如
+\cref{fig:toolsoftrade:Execution Diagram for Parallel Shell Execution}
+所示：
+\co{compute_it} 的两个实例并行执行，
+\co{wait} 在两者都完成后结束，然后两个
+\co{cat} 实例顺序执行。
 % @@@ Maui scheduler, load balancing, BOINC, and so on.
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	But this silly shell script isn't a \emph{real} parallel program!
-	Why bother with such trivia???
+	但这个愚蠢的 shell 脚本根本不是一个\emph{真正的}并行程序！
+	为什么要为这种琐事费心呢？？？
 }\QuickQuizAnswerB{
-	Because you should \emph{never} forget the simple stuff!
+	因为你\emph{永远}不应该忘记简单的东西！
 
-	Please keep in mind that the title of this book is
-	``Is Parallel Programming Hard, And, If So, What Can You Do About It?''.
-	One of the most effective things you can do about it is to
-	avoid forgetting the simple stuff!
-	After all, if you choose to do parallel programming the hard
-	way, you have no one but yourself to blame.
+	请记住，本书的标题是
+	"并行编程难吗？如果是，你能怎么办？"。
+	你能做的最有效的事情之一就是
+	不要忘记简单的东西！
+	毕竟，如果你选择了困难的方式来做并行编程，
+	你只能怪自己。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Is there a simpler way to create a parallel shell script?
-	If so, how?
-	If not, why not?
+	有没有更简单的方法来创建并行 shell 脚本？
+	如果有，怎么做？
+	如果没有，为什么？
 }\QuickQuizAnswerE{
-	One straightforward approach is the shell pipeline:
+	一个直接的方法是 shell 管道：
 
 \begin{VerbatimU}
 grep $pattern1 | sed -e 's/a/b/' | sort
 \end{VerbatimU}
 
-	For a sufficiently large input file,
-	\co{grep} will pattern-match in parallel with \co{sed}
-	editing and with the input processing of \co{sort}.
-	See the file \path{parallel.sh} for a demonstration of
-	shell-script parallelism and pipelining.
+	对于足够大的输入文件，
+	\co{grep} 将与 \co{sed} 编辑操作以及 \co{sort}
+	的输入处理并行地进行模式匹配。
+	请参阅文件 \path{parallel.sh}，了解
+	shell 脚本并行和管道的演示。
 }\QuickQuizEndE
 }
 
-For another example, the \co{make} software-build scripting language
-provides a \co{-j} option that specifies how much parallelism should be
-introduced into the build process.
-Thus, typing \co{make -j4} when building a Linux kernel specifies that
-up to four build steps be executed concurrently.
+再举一个例子，\co{make} 软件构建脚本语言提供了一个 \co{-j} 选项，
+用于指定在构建过程中引入多少并行度。
+因此，在构建 Linux 内核时输入 \co{make -j4}，
+可以指定最多同时执行四个构建步骤。
 
-It is hoped that these simple examples convince you that parallel
-programming need not always be complex or difficult.
+希望这些简单的例子能让你相信，并行编程不一定总是复杂或困难的。
 
 \QuickQuiz{
-	But if script-based parallel programming is so easy, why
-	bother with anything else?
+	但如果基于脚本的并行编程这么简单，为什么还要费心用其他方法？
 }\QuickQuizAnswer{
-	In fact, it is quite likely that a very large fraction of
-	parallel programs in use today are script-based.
-	However, script-based parallelism does have its limitations:
+	事实上，目前使用中的并行程序很可能有很大一部分是基于脚本的。
+	然而，基于脚本的并行确实有其局限性：
 	\begin{enumerate}
-	\item	Creation of new processes is usually quite heavyweight,
-		involving the expensive \co{fork()} and \co{exec()}
-		system calls.
-	\item	Sharing of data, including pipelining, typically involves
-		expensive file I/O.
-	\item	The reliable synchronization primitives available to
-		scripts also typically involve expensive file I/O.
-	\item	Scripting languages are often too slow, but are often
-		quite useful when coordinating execution of long-running
-		programs written in lower-level programming languages.
+	\item	创建新进程通常相当重量级，
+		涉及开销很大的 \co{fork()} 和 \co{exec()} 系统调用。
+	\item	数据共享（包括管道）通常涉及
+		开销很大的文件 I/O。
+	\item	脚本可用的可靠同步原语
+		通常也涉及开销很大的文件 I/O。
+	\item	脚本语言通常太慢，但在协调用较低级编程语言
+		编写的长时间运行程序的执行时，
+		往往非常有用。
 	\end{enumerate}
-	These limitations require that script-based parallelism use
-	coarse-grained parallelism, with each unit of work having
-	execution time of at least tens of milliseconds, and preferably
-	much longer.
+	这些限制要求基于脚本的并行使用粗粒度并行，
+	每个工作单元的执行时间至少为数十毫秒，
+	最好更长。
 
-	Those requiring finer-grained parallelism are well advised to
-	think hard about their problem to see if it can be expressed
-	in a coarse-grained form.
-	If not, they should consider using other parallel-programming
-	environments, such as those discussed in
-	\cref{sec:toolsoftrade:POSIX Multiprocessing}.
+	需要更细粒度并行的人应该认真思考他们的问题，
+	看看是否可以用粗粒度的形式来表达。
+	如果不行，他们应该考虑使用其他并行编程环境，
+	例如
+	\cref{sec:toolsoftrade:POSIX Multiprocessing}中讨论的那些。
 }\QuickQuizEnd
 
-\section{POSIX Multiprocessing}
+\section{POSIX 多处理}
 \label{sec:toolsoftrade:POSIX Multiprocessing}
 %
-\epigraph{A camel is a horse designed by committee.}{Unknown}
+\epigraph{骆驼是委员会设计出来的马。}{佚名}
 
-This section scratches the surface of the
-POSIX environment, including pthreads~\cite{OpenGroup1997pthreads},
-as this environment is readily available and widely implemented.
+本节粗略介绍 POSIX 环境，包括
+pthreads~\cite{OpenGroup1997pthreads}，
+因为该环境容易获取且被广泛实现。
 \Cref{sec:toolsoftrade:POSIX Process Creation and Destruction}
-provides a glimpse of the POSIX \co{fork()} and related primitives,
+简要展示 POSIX \co{fork()} 及相关原语，
 \cref{sec:toolsoftrade:POSIX Thread Creation and Destruction}
-touches on thread creation and destruction,
-\cref{sec:toolsoftrade:POSIX Locking} gives a brief overview
-of POSIX locking, and, finally,
-\cref{sec:toolsoftrade:POSIX Reader-Writer Locking} describes a
-specific lock which can be used for data that is read by many threads and only
-occasionally updated.
+简述 thread 的创建和销毁，
+\cref{sec:toolsoftrade:POSIX Locking}简要概述
+POSIX locking，最后，
+\cref{sec:toolsoftrade:POSIX Reader-Writer Locking}描述一种
+特定的 lock，可用于被许多 thread 读取但仅偶尔更新的数据。
 
 \subsection{POSIX Process Creation and Destruction}
 \label{sec:toolsoftrade:POSIX Process Creation and Destruction}
 
-Processes are created using the \apipx{fork()} primitive, they may
-be destroyed using the \apipx{kill()} primitive, they may destroy
-themselves using the \apipx{exit()} primitive.
-A~process executing a \co{fork()} primitive is said to be the ``parent''
-of the newly created process.
-A~parent may wait on its children using the \apipx{wait()} primitive.
+进程使用 \apipx{fork()} 原语创建，可以使用 \apipx{kill()} 原语销毁，
+也可以使用 \apipx{exit()} 原语自行销毁。
+执行 \co{fork()} 原语的进程被称为新创建进程的"父"进程。
+父进程可以使用 \apipx{wait()} 原语等待其子进程。
 
-Please note that the examples in this section are quite simple.
-Real-world applications using these primitives might need to manipulate
-signals, file descriptors, shared memory segments, and any number of
-other resources.
-In addition, some applications need to take specific actions if a given
-child terminates, and might also need to be concerned with the reason
-that the child terminated.
-These issues can of course add substantial complexity to the code.
-For more information, see any of a number of textbooks on the
-subject~\cite{WRichardStevens1992,StewartWeiss2013UNIX}.
+请注意，本节中的示例相当简单。
+使用这些原语的实际应用程序可能需要操作信号、文件描述符、
+共享内存段以及许多其他资源。
+此外，某些应用程序需要在特定子进程终止时采取特定操作，
+并且可能还需要关注子进程终止的原因。
+这些问题当然会给代码增加相当大的复杂性。
+更多信息请参阅有关该主题的众多教科书~\cite{WRichardStevens1992,StewartWeiss2013UNIX}。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:forkjoin:main]
@@ -202,94 +182,80 @@ if (pid == 0) {%lnlbl[if]
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Using the \tco{fork()} Primitive}
+\caption{使用 \tco{fork()} 原语}
 \label{lst:toolsoftrade:Using the fork() Primitive}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:forkjoin:main]
-If \co{fork()} succeeds, it returns twice, once for the parent
-and again for the child.
-The value returned from \co{fork()} allows the caller to tell
-the difference, as shown in
+如果 \co{fork()} 成功，它会返回两次，一次在父进程中，
+一次在子进程中。
+\co{fork()} 的返回值允许调用者区分二者，如
 \cref{lst:toolsoftrade:Using the fork() Primitive}
-(\path{forkjoin.c}).
-\Clnref{fork} executes the \co{fork()} primitive, and saves
-its return value in local variable \co{pid}.
-\Clnref{if} checks to see if \co{pid} is zero, in which case,
-this is the child, which continues on to execute \clnref{child}.
-As noted earlier, the child may terminate via the \co{exit()} primitive.
-Otherwise, this is the parent, which checks for an error return from
-the \co{fork()} primitive on \clnref{else}, and prints an error
-and exits on \clnrefrange{errora}{errorb} if so.
-Otherwise, the \co{fork()} has executed successfully, and the parent
-therefore executes \clnref{parent} with the variable \co{pid}
-containing the process ID of the child.
+(\path{forkjoin.c})所示。
+\Clnref{fork}执行 \co{fork()} 原语，并将其返回值
+保存在局部变量 \co{pid} 中。
+\Clnref{if}检查 \co{pid} 是否为零，如果是，
+则这是子进程，继续执行\clnref{child}。
+如前所述，子进程可以通过 \co{exit()} 原语终止。
+否则，这是父进程，在\clnref{else}检查 \co{fork()} 原语
+是否返回了错误，如果是，则在\clnrefrange{errora}{errorb}
+打印错误信息并退出。
+否则，\co{fork()} 已成功执行，父进程因此执行\clnref{parent}，
+此时变量 \co{pid} 包含子进程的进程 ID。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/api-pthreads/api-pthreads@waitall.fcv}
-\caption{Using the \tco{wait()} Primitive}
+\caption{使用 \tco{wait()} 原语}
 \label{lst:toolsoftrade:Using the wait() Primitive}
 \end{listing}
 
 \begin{fcvref}[ln:api-pthreads:api-pthreads:waitall]
-The parent process may use the \apipx{wait()} primitive to wait for its children
-to complete.
-However, use of this primitive is a bit more complicated than its shell-script
-counterpart, as each invocation of \co{wait()} waits for but one child
-process.
-It is therefore customary to wrap \co{wait()} into a function similar
-to the \apipx{waitall()} function shown in
+父进程可以使用 \apipx{wait()} 原语来等待其子进程完成。
+然而，使用该原语比其 shell 脚本对应物稍微复杂一些，
+因为每次调用 \co{wait()} 只等待一个子进程。
+因此，通常将 \co{wait()} 封装到一个类似于
 \cref{lst:toolsoftrade:Using the wait() Primitive}
-(\path{api-pthreads.h}),
-with this \co{waitall()} function having semantics similar to the
-shell-script \co{wait} command.
-Each pass through the loop spanning \clnrefrange{loopa}{loopb}
-waits on one child process.
-\Clnref{wait} invokes the \co{wait()} primitive, which blocks
-until a child process exits, and returns that child's process ID\@.
-If the process ID is instead $-1$, this indicates that the \co{wait()}
-primitive was unable to wait on a child.
-If so, \clnref{ECHILD} checks for the \co{ECHILD} errno, which
-indicates that there are no more child processes, so that
-\clnref{break} exits the loop.
-Otherwise, \clnref{perror,exit} print an error and exit.
+(\path{api-pthreads.h})所示的 \apipx{waitall()} 函数中，
+该 \co{waitall()} 函数的语义类似于 shell 脚本的 \co{wait} 命令。
+\clnrefrange{loopa}{loopb}的循环每执行一次就等待一个子进程。
+\Clnref{wait}调用 \co{wait()} 原语，它会阻塞直到一个子进程退出，
+并返回该子进程的进程 ID。
+如果进程 ID 为 $-1$，则表示 \co{wait()} 原语无法等待子进程。
+如果是这样，\clnref{ECHILD}检查 \co{ECHILD} errno，
+它表示没有更多的子进程，因此\clnref{break}退出循环。
+否则，\clnref{perror,exit}打印错误信息并退出。
 \end{fcvref}
 
 \QuickQuiz{
-	Why does this \co{wait()} primitive need to be so complicated?
-	Why not just make it work like the shell-script \co{wait} does?
+	为什么这个 \co{wait()} 原语需要这么复杂？
+	为什么不让它像 shell 脚本的 \co{wait} 那样工作呢？
 }\QuickQuizAnswer{
-	Some parallel applications need to take special action when
-	specific children exit, and therefore need to wait for each
-	child individually.
-	In addition, some parallel applications need to detect the
-	reason that the child died.
-	As we saw in \cref{lst:toolsoftrade:Using the wait() Primitive},
-	it is not hard to build a \co{waitall()} function out of
-	the \co{wait()} function, but it would be impossible to
-	do the reverse.
-	Once the information about a specific child is lost, it is lost.
+	一些并行应用程序需要在特定子进程退出时采取特殊操作，
+	因此需要逐个等待每个子进程。
+	此外，一些并行应用程序需要检测子进程死亡的原因。
+	正如我们在\cref{lst:toolsoftrade:Using the wait() Primitive}中
+	看到的，从 \co{wait()} 函数构建 \co{waitall()} 函数并不难，
+	但反过来是不可能的。
+	一旦关于特定子进程的信息丢失了，就再也找不回来了。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/toolsoftrade/forkjoinvar@main.fcv}
-\caption{Processes Created Via \tco{fork()} Do Not Share Memory}
+\caption{通过 \tco{fork()} 创建的进程不共享内存}
 \label{lst:toolsoftrade:Processes Created Via fork() Do Not Share Memory}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:forkjoinvar:main]
-It is critically important to note that the parent and child do \emph{not}
-share memory.
-This is illustrated by the program shown in
+至关重要的是要注意，父进程和子进程\emph{不}共享内存。
+这可以通过
 \cref{lst:toolsoftrade:Processes Created Via fork() Do Not Share Memory}
-(\path{forkjoinvar.c}),
-in which the child sets a global variable \co{x} to 1 on \clnref{setx},
-prints a message on \clnref{print:c}, and exits on \clnref{exit:s}.
-The parent continues at \clnref{waitall}, where it waits on the child,
-and on \clnref{print:p} finds that its copy of the variable \co{x} is
-still zero.
-The output is thus as follows:
+(\path{forkjoinvar.c})所示的程序来说明，
+其中子进程在\clnref{setx}将全局变量 \co{x} 设置为 1，
+在\clnref{print:c}打印一条消息，并在\clnref{exit:s}退出。
+父进程继续执行到\clnref{waitall}，在那里等待子进程，
+然后在\clnref{print:p}发现它自己的变量 \co{x} 副本仍然为零。
+因此输出如下：
 \end{fcvref}
 
 \begin{VerbatimU}
@@ -298,318 +264,280 @@ Parent process sees x=0
 \end{VerbatimU}
 
 \QuickQuiz{
-	Isn't there a lot more to \co{fork()} and \co{wait()}
-	than discussed here?
+	\co{fork()} 和 \co{wait()} 的内容不是比这里讨论的多得多吗？
 }\QuickQuizAnswer{
-	Indeed there is, and
-	it is quite possible that this section will be expanded in
-	future versions to include messaging features (such as UNIX
-	pipes, TCP/IP, and shared file I/O) and memory mapping
-	(such as \co{mmap()} and \co{shmget()}).
-	In the meantime, there are any number of textbooks that cover
-	these primitives in great detail,
-	and the truly motivated can read man pages, existing parallel
-	applications using these primitives, as well as the
-	source code of the Linux-kernel implementations themselves.
+	确实如此，而且本节很可能在未来的版本中扩展，
+	以包括消息传递功能（如 UNIX 管道、TCP/IP 和
+	共享文件 I/O）以及内存映射（如 \co{mmap()} 和 \co{shmget()}）。
+	在此期间，有许多教科书详细介绍了这些原语，
+	真正有动力的人可以阅读 man 手册页、使用这些原语的现有并行应用程序，
+	以及 Linux 内核实现本身的源代码。
 
-	It is important to note that the parent process in
+	需要注意的是，
 	\cref{lst:toolsoftrade:Processes Created Via fork() Do Not Share Memory}
-	waits until after the child terminates to do its \co{printf()}.
-	Using \co{printf()}'s buffered I/O concurrently to the same file
-	from multiple processes is non-trivial, and is best avoided.
-	If you really need to do concurrent buffered I/O,
-	consult the documentation for your OS\@.
-	For UNIX/Linux systems, Stewart Weiss's lecture notes provide
-	a good introduction with informative
-	examples~\cite{StewartWeiss2013UNIX}.
+	中的父进程会等到子进程终止后才执行 \co{printf()}。
+	从多个进程并发地使用 \co{printf()} 的缓冲 I/O 写入同一文件
+	是非常复杂的，最好避免这样做。
+	如果你确实需要并发缓冲 I/O，请查阅你的操作系统文档。
+	对于 UNIX/Linux 系统，Stewart Weiss 的讲义提供了
+	很好的介绍和有启发性的
+	示例~\cite{StewartWeiss2013UNIX}。
 }\QuickQuizEnd
 
-The finest-grained parallelism requires shared memory, and
-this is covered in
-\cref{sec:toolsoftrade:POSIX Thread Creation and Destruction}.
-That said, shared-memory parallelism can be significantly more complex
-than fork-join parallelism.
+最细粒度的并行需要共享内存，这在
+\cref{sec:toolsoftrade:POSIX Thread Creation and Destruction}中介绍。
+也就是说，共享内存并行可能比 fork-join 并行复杂得多。
 
 \subsection{POSIX Thread Creation and Destruction}
 \label{sec:toolsoftrade:POSIX Thread Creation and Destruction}
 
 \begin{fcvref}[ln:toolsoftrade:pcreate:mythread]
-To create a thread within an existing process, invoke the
-\apipx{pthread_create()} primitive, for example, as shown on
-\clnref{create:a,create:b} of
+要在现有进程内创建一个 thread，可以调用
+\apipx{pthread_create()} 原语，例如，如
 \cref{lst:toolsoftrade:Threads Created Via pthread-create() Share Memory}
-(\path{pcreate.c}).
-The first argument is a pointer to a \co{pthread_t} in which to store the
-ID of the thread to be created, the second \co{NULL} argument is a pointer
-to an optional \co{pthread_attr_t}, the third argument is the function
-(in this case, \co{mythread()})
-that is to be invoked by the new thread, and the last \co{NULL} argument
-is the argument that will be passed to \co{mythread()}.
+(\path{pcreate.c})的\clnref{create:a,create:b}所示。
+第一个参数是指向 \co{pthread_t} 的指针，用于存储待创建 thread 的 ID，
+第二个 \co{NULL} 参数是指向可选 \co{pthread_attr_t} 的指针，
+第三个参数是新 thread 将要调用的函数（在本例中为 \co{mythread()}），
+最后一个 \co{NULL} 参数是将传递给 \co{mythread()} 的参数。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/toolsoftrade/pcreate@mythread.fcv}
-\caption{Threads Created Via \tco{pthread_create()} Share Memory}
+\caption{通过 \tco{pthread_create()} 创建的 Thread 共享内存}
 \label{lst:toolsoftrade:Threads Created Via pthread-create() Share Memory}
 \end{listing}
 
-In this example, \co{mythread()} simply returns, but it could instead
-call \apipx{pthread_exit()}.
+在本例中，\co{mythread()} 只是简单地返回，但它也可以调用
+\apipx{pthread_exit()}。
 
 \QuickQuiz{
-	If the \co{mythread()} function in
+	如果
 	\cref{lst:toolsoftrade:Threads Created Via pthread-create() Share Memory}
-	can simply return, why bother with \co{pthread_exit()}?
+	中的 \co{mythread()} 函数可以简单地返回，为什么还要用
+	\co{pthread_exit()}？
 }\QuickQuizAnswer{
-	In this simple example, there is no reason whatsoever.
-	However, imagine a more complex example, where \co{mythread()}
-	invokes other functions, possibly separately compiled.
-	In such a case, \co{pthread_exit()} allows these other functions
-	to end the thread's execution without having to pass some sort
-	of error return all the way back up to \co{mythread()}.
+	在这个简单的例子中，完全没有理由。
+	然而，想象一个更复杂的例子，其中 \co{mythread()} 调用了
+	其他函数，可能是单独编译的。
+	在这种情况下，\co{pthread_exit()} 允许这些其他函数
+	结束 thread 的执行，而不必将某种错误返回值
+	一路传回到 \co{mythread()}。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:toolsoftrade:pcreate:mythread]
-The \apipx{pthread_join()} primitive, shown on \clnref{join},
-is analogous to
-the fork-join \apipx{wait()} primitive.
-It blocks until the thread specified by the \co{tid} variable completes
-execution, either by invoking \apipx{pthread_exit()} or by returning from
-the thread's top-level function.
-The thread's exit value will be stored through the pointer passed as the
-second argument to \co{pthread_join()}.
-The thread's exit value is either the value passed to \co{pthread_exit()}
-or the value returned by the thread's top-level function, depending on
-how the thread in question exits.
+\apipx{pthread_join()} 原语（如\clnref{join}所示）类似于
+fork-join 的 \apipx{wait()} 原语。
+它会阻塞，直到 \co{tid} 变量指定的 thread 完成执行，
+无论是通过调用 \apipx{pthread_exit()} 还是从
+thread 的顶层函数返回。
+thread 的退出值将通过传给 \co{pthread_join()} 的第二个参数
+所指向的位置来存储。
+thread 的退出值是传给 \co{pthread_exit()} 的值
+或 thread 顶层函数的返回值，取决于该 thread 如何退出。
 \end{fcvref}
 
-The program shown in
 \cref{lst:toolsoftrade:Threads Created Via pthread-create() Share Memory}
-produces output as follows, demonstrating that memory is in fact
-shared between the two threads:
+所示程序的输出如下，证明了两个 thread 之间确实共享内存：
 
 \begin{VerbatimU}
 Child process set x=1
 Parent process sees x=1
 \end{VerbatimU}
 
-Note that this program carefully makes sure that only one of the threads
-stores a value to variable \co{x} at a time.
-Any situation in which one thread might be storing a value to a given
-variable while some other thread either loads from or stores to that
-same variable is termed a \emph{\IX{data race}}.
-Because the C language makes no guarantee that the results of a data race
-will be in any way reasonable, we need some way of safely accessing
-and modifying data concurrently, such as the locking primitives discussed
-in the following section.
+注意，该程序精心确保在任何时刻只有一个 thread 向变量 \co{x} 存储值。
+如果一个 thread 可能在向某个变量存储值的同时，
+另一个 thread 正在从该变量加载或向其存储，
+这种情况被称为\emph{\IX{data race}}。
+由于 C 语言不保证 data race 的结果会有任何合理性，
+我们需要某种方式来安全地并发访问和修改数据，
+例如下一节讨论的 locking 原语。
 
-But your data races are benign, you say?
-Well, maybe they are.
-But please do everyone (yourself included) a big favor and read
-\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-very carefully.
-As compilers optimize more and more aggressively, there are fewer and
-fewer truly benign data races.
+你说你的 data race 是良性的？
+好吧，也许是。
+但请帮所有人（包括你自己）一个大忙，
+认真阅读\cref{sec:toolsoftrade:Shared-Variable Shenanigans}。
+随着编译器的优化越来越激进，
+真正良性的 data race 越来越少了。
 
 \QuickQuiz{
-	If the C language makes no guarantees in presence of a data
-	race, then why does the Linux kernel have so many data races?
-	Are you trying to tell me that the Linux kernel is completely
-	broken???
+	如果 C 语言在存在 data race 时不做任何保证，
+	那为什么 Linux 内核有这么多 data race？
+	你是想告诉我 Linux 内核完全是坏的吗？？？
 }\QuickQuizAnswer{
-	Ah, but the Linux kernel is written in a carefully selected
-	superset of the C language that includes special GNU
-	extensions, such as asms, that permit safe execution even
-	in presence of data races.
-	In addition, the Linux kernel does not run on a number of
-	platforms where data races would be especially problematic.
-	For an example, consider embedded systems with 32-bit pointers
-	and 16-bit busses.
-	On such a system, a data race involving a store to and a load
-	from a given pointer might well result in the load returning the
-	low-order 16 bits of the old value of the pointer concatenated
-	with the high-order 16 bits of the new value of the pointer.
+	啊，但 Linux 内核是用 C 语言的一个精心选择的超集编写的，
+	其中包含特殊的 GNU 扩展（如 asm），
+	这些扩展即使在存在 data race 的情况下也允许安全执行。
+	此外，Linux 内核不在一些 data race 特别成问题的
+	平台上运行。
+	例如，考虑具有 32 位指针和 16 位总线的嵌入式系统。
+	在这样的系统上，涉及对给定指针的存储和加载的 data race
+	很可能导致加载返回指针旧值的低 16 位
+	与指针新值的高 16 位的拼接。
 
-	Nevertheless, even in the Linux kernel, data races can be
-	quite dangerous and should be avoided where
-	feasible~\cite{JonCorbet2012ACCESS:ONCE}.
+	尽管如此，即使在 Linux 内核中，data race 也可能相当危险，
+	应在可行的情况下
+	避免~\cite{JonCorbet2012ACCESS:ONCE}。
 }\QuickQuizEnd
 
 \subsection{POSIX Locking}
 \label{sec:toolsoftrade:POSIX Locking}
 
-The POSIX standard allows the programmer to avoid data races via
-``POSIX locking''.
-POSIX locking features a number of primitives, the most fundamental
-of which are \apipx{pthread_mutex_lock()} and \apipx{pthread_mutex_unlock()}.
-These primitives operate on locks, which are of type \apipx{pthread_mutex_t}.
-These locks may be declared statically and initialized with
-\apipx{PTHREAD_MUTEX_INITIALIZER}, or they may be allocated dynamically
-and initialized using the \apipx{pthread_mutex_init()} primitive.
-The demonstration code in this section will take the former course.
+POSIX 标准允许程序员通过"POSIX locking"来避免 data race。
+POSIX locking 具有多种原语，其中最基本的是
+\apipx{pthread_mutex_lock()} 和 \apipx{pthread_mutex_unlock()}。
+这些原语操作的 lock 类型为 \apipx{pthread_mutex_t}。
+这些 lock 可以静态声明并使用
+\apipx{PTHREAD_MUTEX_INITIALIZER} 初始化，
+也可以动态分配并使用 \apipx{pthread_mutex_init()} 原语初始化。
+本节的演示代码将采用前一种方式。
 
-The \co{pthread_mutex_lock()} primitive ``acquires'' the specified lock,
-and the \co{pthread_mutex_unlock()} ``releases'' the specified lock.
-Because these are ``exclusive'' locking primitives,
-only one thread at a time may ``hold'' a given lock at a given time.
-For example, if a pair of threads attempt to acquire the same lock
-concurrently, one of the pair will be ``granted'' the lock first, and
-the other will wait until the first thread releases the lock.
-A simple and reasonably useful programming model permits a given data item
-to be accessed only while holding the corresponding
-lock~\cite{Hoare74}.
+\co{pthread_mutex_lock()} 原语"获取"指定的 lock，
+\co{pthread_mutex_unlock()} "释放"指定的 lock。
+因为这些是"互斥" locking 原语，
+在任何给定时刻，只有一个 thread 可以"持有"给定的 lock。
+例如，如果一对 thread 同时尝试获取同一个 lock，
+其中一个将首先被"授予" lock，
+另一个将等待，直到第一个 thread 释放该 lock。
+一个简单且相当有用的编程模型允许仅在持有相应 lock 时才能访问
+给定的数据项~\cite{Hoare74}。
 
 \QuickQuiz{
-	What if I want several threads to hold the same lock at the
-	same time?
+	如果我想让多个 thread 同时持有同一个 lock 怎么办？
 }\QuickQuizAnswer{
-	The first thing you should do is to ask yourself why you would
-	want to do such a thing.
-	If the answer is ``because I have a lot of data that is read
-	by many threads, and only occasionally updated'', then
-	POSIX reader-writer locks might be what you are looking for.
-	These are introduced in
-	\cref{sec:toolsoftrade:POSIX Reader-Writer Locking}.
+	你首先应该问自己为什么要这样做。
+	如果答案是"因为我有很多数据被许多 thread 读取，
+	但只是偶尔更新"，那么 POSIX reader-writer lock
+	可能是你要找的。
+	这些在
+	\cref{sec:toolsoftrade:POSIX Reader-Writer Locking}中介绍。
 
-	Another way to get the effect of multiple threads holding
-	the same lock is for one thread to acquire the lock, and
-	then use \co{pthread_create()} to create the other threads.
-	The question of why this would ever be a good idea is left
-	to the reader.
+	获得多个 thread 持有同一个 lock 效果的另一种方法是，
+	让一个 thread 获取 lock，
+	然后使用 \co{pthread_create()} 创建其他 thread。
+	至于为什么这会是一个好主意，留给读者思考。
 }\QuickQuizEnd
 
 \begin{listing}
 \ebresizeverb{.91}{
 \input{CodeSamples/toolsoftrade/lock@reader_writer.fcv}
 }
-\caption{Demonstration of Exclusive Locks}
+\caption{互斥 Lock 的演示}
 \label{lst:toolsoftrade:Demonstration of Exclusive Locks}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:lock:reader_writer]
-This exclusive-locking property is demonstrated using the code shown in
+这种互斥 locking 特性通过
 \cref{lst:toolsoftrade:Demonstration of Exclusive Locks}
-(\path{lock.c}).
-\Clnref{lock_a} defines and initializes a POSIX lock named \co{lock_a}, while
-\clnref{lock_b} similarly defines and initializes a lock named \co{lock_b}.
-\Clnref{x} defines and initializes a shared variable~\co{x}.
+(\path{lock.c})所示的代码来演示。
+\Clnref{lock_a}定义并初始化了一个名为 \co{lock_a} 的 POSIX lock，
+\clnref{lock_b}类似地定义并初始化了一个名为 \co{lock_b} 的 lock。
+\Clnref{x}定义并初始化了一个共享变量~\co{x}。
 \end{fcvref}
 
 \begin{fcvref}[ln:toolsoftrade:lock:reader_writer:reader]
-\Clnrefrange{b}{e} define a function \co{lock_reader()} which repeatedly
-reads the shared variable \co{x} while holding
-the lock specified by \co{arg}.
-\Clnref{cast} casts \co{arg} to a pointer to a \co{pthread_mutex_t}, as
-required by the \co{pthread_mutex_lock()} and \co{pthread_mutex_unlock()}
-primitives.
+\Clnrefrange{b}{e}定义了一个函数 \co{lock_reader()}，
+它在持有 \co{arg} 指定的 lock 时反复读取共享变量 \co{x}。
+\Clnref{cast}将 \co{arg} 转换为指向 \co{pthread_mutex_t} 的指针，
+这是 \co{pthread_mutex_lock()} 和 \co{pthread_mutex_unlock()}
+原语所要求的。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why not simply make the argument to \co{lock_reader()}
-	on \clnrefr{ln:toolsoftrade:lock:reader_writer:reader:b} of
+	为什么不直接让
 	\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}
-	be a pointer to a \co{pthread_mutex_t}?
+	\clnrefr{ln:toolsoftrade:lock:reader_writer:reader:b}上
+	\co{lock_reader()} 的参数是指向 \co{pthread_mutex_t} 的指针？
 }\QuickQuizAnswerB{
-	Because we will need to pass \co{lock_reader()} to
-	\co{pthread_create()}.
-	Although we could cast the function when passing it to
-	\co{pthread_create()}, function casts are quite a bit
-	uglier and harder to get right than are simple pointer casts.
+	因为我们需要将 \co{lock_reader()} 传递给
+	\co{pthread_create()}。
+	虽然我们可以在传递给 \co{pthread_create()} 时对函数进行类型转换，
+	但函数类型转换比简单的指针类型转换丑陋得多，
+	也更难正确完成。
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:toolsoftrade:lock:reader_writer]
-	What is the \apik{READ_ONCE()} on
-	\clnref{reader:read_x,writer:inc} and the
-	\apik{WRITE_ONCE()} on \clnref{writer:inc} of
-	\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}?
+	\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}的
+	\clnref{reader:read_x,writer:inc}上的 \apik{READ_ONCE()}
+	和\clnref{writer:inc}上的 \apik{WRITE_ONCE()} 是什么？
 	\end{fcvref}
 }\QuickQuizAnswerE{
-	These macros constrain the compiler so as to prevent it from
-	carrying out optimizations that would be problematic for concurrently
-	accessed shared variables.
-	They don't constrain the CPU at all, other than by preventing
-	reordering of accesses to a given single variable.
-	Note that this single-variable constraint does apply to the
-	code shown in
+	这些宏约束编译器，以防止它执行对并发访问的
+	共享变量有问题的优化。
+	它们完全不约束 CPU，除了防止对给定单一变量的
+	访问重排序之外。
+	注意，这种单一变量约束确实适用于
 	\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}
-	because only the variable \co{x} is accessed.
+	中所示的代码，因为只访问了变量 \co{x}。
 
-	For more information on \co{READ_ONCE()} and \co{WRITE_ONCE()},
-	please see
-	\cref{sec:toolsoftrade:Atomic Operations (gcc Classic)}.
-	For more information on ordering accesses to multiple variables
-	by multiple threads, please see
-	\cref{chp:Advanced Synchronization: Memory Ordering}.
-	In the meantime, \co{READ_ONCE(x)} has much in common with
-	the \GCC\  intrinsic \co{__atomic_load_n(&x, __ATOMIC_RELAXED)}
-	and \co{WRITE_ONCE(x, v)} has much in common with the \GCC\
-	intrinsic \co{__atomic_store_n(&x, v, __ATOMIC_RELAXED)}.
+	有关 \co{READ_ONCE()} 和 \co{WRITE_ONCE()} 的更多信息，
+	请参阅
+	\cref{sec:toolsoftrade:Atomic Operations (gcc Classic)}。
+	有关多个 thread 对多个变量的访问排序的更多信息，
+	请参阅
+	\cref{chp:Advanced Synchronization: Memory Ordering}。
+	同时，\co{READ_ONCE(x)} 与 \GCC\ 内置函数
+	\co{__atomic_load_n(&x, __ATOMIC_RELAXED)} 非常相似，
+	\co{WRITE_ONCE(x, v)} 与 \GCC\ 内置函数
+	\co{__atomic_store_n(&x, v, __ATOMIC_RELAXED)} 非常相似。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:toolsoftrade:lock:reader_writer:reader]
-\Clnrefrange{acq:b}{acq:e} acquire the specified
-\co{pthread_mutex_t}, checking
-for errors and exiting the program if any occur.
-\Clnrefrange{loop:b}{loop:e} repeatedly check the value of \co{x},
-printing the new value
-each time that it changes.
-\Clnref{sleep} sleeps for one millisecond, which allows this demonstration
-to run nicely on a uniprocessor machine.
-\Clnrefrange{rel:b}{rel:e} release the \co{pthread_mutex_t},
-again checking for
-errors and exiting the program if any occur.
-Finally, \clnref{return} returns \co{NULL}, again to match the function type
-required by \co{pthread_create()}.
+\Clnrefrange{acq:b}{acq:e}获取指定的
+\co{pthread_mutex_t}，检查错误并在出错时退出程序。
+\Clnrefrange{loop:b}{loop:e}反复检查 \co{x} 的值，
+每次值改变时打印新值。
+\Clnref{sleep}休眠一毫秒，使该演示在单处理器机器上也能正常运行。
+\Clnrefrange{rel:b}{rel:e}释放 \co{pthread_mutex_t}，
+同样检查错误并在出错时退出程序。
+最后，\clnref{return}返回 \co{NULL}，同样是为了匹配
+\co{pthread_create()} 所要求的函数类型。
 \end{fcvref}
 
 \QuickQuiz{
-	Writing four lines of code for each acquisition and release
-	of a \co{pthread_mutex_t} sure seems painful!
-	Isn't there a better way?
+	每次获取和释放 \co{pthread_mutex_t} 都要写四行代码，
+	这看起来很痛苦！
+	有没有更好的方法？
 }\QuickQuizAnswer{
-	Indeed!
-	And for that reason, the \co{pthread_mutex_lock()} and
-	\co{pthread_mutex_unlock()} primitives are normally wrapped
-	in functions that do this error checking.
-	Later on, we will wrap them with the Linux kernel
-	\co{spin_lock()} and \co{spin_unlock()} APIs.
+	确实有！
+	因此，\co{pthread_mutex_lock()} 和
+	\co{pthread_mutex_unlock()} 原语通常被封装在执行错误检查的函数中。
+	后面我们将用 Linux 内核的
+	\co{spin_lock()} 和 \co{spin_unlock()} API 来封装它们。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:toolsoftrade:lock:reader_writer:writer]
-\Clnrefrange{b}{e} of
-\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}
-show \co{lock_writer()}, which
-periodically updates the shared variable \co{x} while holding the
-specified \co{pthread_mutex_t}.
-As with \co{lock_reader()}, \clnref{cast} casts \co{arg} to a pointer
-to \co{pthread_mutex_t},
-\clnrefrange{acq:b}{acq:e} acquire the specified lock,
-and \clnrefrange{rel:b}{rel:e} release it.
-While holding the lock, \clnrefrange{loop:b}{loop:e}
-increment the shared variable \co{x},
-sleeping for five milliseconds between each increment.
-Finally, \clnrefrange{rel:b}{rel:e} release the lock.
+\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}的
+\Clnrefrange{b}{e}展示了 \co{lock_writer()}，
+它在持有指定 \co{pthread_mutex_t} 时定期更新共享变量 \co{x}。
+与 \co{lock_reader()} 类似，\clnref{cast}将 \co{arg}
+转换为指向 \co{pthread_mutex_t} 的指针，
+\clnrefrange{acq:b}{acq:e}获取指定的 lock，
+\clnrefrange{rel:b}{rel:e}释放它。
+持有 lock 期间，\clnrefrange{loop:b}{loop:e}递增共享变量 \co{x}，
+每次递增之间休眠五毫秒。
+最后，\clnrefrange{rel:b}{rel:e}释放 lock。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/toolsoftrade/lock@same_lock.fcv}
-\caption{Demonstration of Same Exclusive Lock}
+\caption{使用相同互斥 Lock 的演示}
 \label{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:lock:same_lock]
 \Cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
-shows a code fragment that runs \co{lock_reader()} and
-\co{lock_writer()} as threads using the same lock, namely, \co{lock_a}.
-\Clnrefrange{cr:reader:b}{cr:reader:e} create a thread
-running \co{lock_reader()}, and then
-\clnrefrange{cr:writer:b}{cr:writer:e} create a thread
-running \co{lock_writer()}.
-\Clnrefrange{wait:b}{wait:e} wait for both threads to complete.
-The output of this code fragment is as follows:
+展示了一个代码片段，它将 \co{lock_reader()} 和
+\co{lock_writer()} 作为 thread 运行，使用相同的 lock，即 \co{lock_a}。
+\Clnrefrange{cr:reader:b}{cr:reader:e}创建一个运行
+\co{lock_reader()} 的 thread，然后
+\clnrefrange{cr:writer:b}{cr:writer:e}创建一个运行
+\co{lock_writer()} 的 thread。
+\Clnrefrange{wait:b}{wait:e}等待两个 thread 都完成。
+该代码片段的输出如下：
 \end{fcvref}
 
 \begin{VerbatimU}
@@ -617,40 +545,38 @@ Creating two threads using same lock:
 lock_reader(): x = 0
 \end{VerbatimU}
 
-Because both threads are using the same lock, the \co{lock_reader()}
-thread cannot see any of the intermediate values of \co{x} produced
-by \co{lock_writer()} while holding the lock.
+因为两个 thread 使用相同的 lock，\co{lock_reader()} thread
+无法看到 \co{lock_writer()} 持有 lock 时产生的 \co{x} 的
+任何中间值。
 
 \QuickQuiz{
-	Is ``x = 0'' the only possible output from the code fragment
-	shown in
-	\cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}?
-	If so, why?
-	If not, what other output could appear, and why?
+	"x = 0"是
+	\cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
+	所示代码片段唯一可能的输出吗？
+	如果是，为什么？
+	如果不是，还可能出现什么输出，为什么？
 }\QuickQuizAnswer{
-	No.
-	The reason that ``x = 0'' was output was that \co{lock_reader()}
-	acquired the lock first.
-	Had \co{lock_writer()} instead acquired the lock first, then
-	the output would have been \mbox{``x = 3''}.
-	However, because the code fragment started \co{lock_reader()} first
-	and because this run was performed on a multiprocessor,
-	one would normally expect \co{lock_reader()} to acquire the
-	lock first.
-	Nevertheless, there are no guarantees, especially on a busy system.
+	不是。
+	输出"x = 0"的原因是 \co{lock_reader()} 先获取了 lock。
+	如果 \co{lock_writer()} 先获取了 lock，
+	那么输出将是 \mbox{``x = 3''}。
+	然而，因为代码片段先启动了 \co{lock_reader()}，
+	并且此次运行是在多处理器上执行的，
+	通常预期 \co{lock_reader()} 会先获取 lock。
+	然而，并没有保证，特别是在繁忙的系统上。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/toolsoftrade/lock@diff_lock.fcv}
-\caption{Demonstration of Different Exclusive Locks}
+\caption{使用不同互斥 Lock 的演示}
 \label{lst:toolsoftrade:Demonstration of Different Exclusive Locks}
 \end{listing}
 
 \Cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks}
-shows a similar code fragment, but this time using different locks:
-\co{lock_a} for \co{lock_reader()} and \co{lock_b} for
-\co{lock_writer()}.
-The output of this code fragment is as follows:
+展示了一个类似的代码片段，但这次使用不同的 lock：
+\co{lock_reader()} 使用 \co{lock_a}，
+\co{lock_writer()} 使用 \co{lock_b}。
+该代码片段的输出如下：
 
 \begin{VerbatimU}
 Creating two threads w/different locks:
@@ -660,356 +586,322 @@ lock_reader(): x = 2
 lock_reader(): x = 3
 \end{VerbatimU}
 
-Because the two threads are using different locks, they do not exclude
-each other, and can run concurrently.
-The \co{lock_reader()} function can therefore see the intermediate
-values of \co{x} stored by \co{lock_writer()}.
+因为两个 thread 使用不同的 lock，它们不会互相排斥，
+可以并发运行。
+因此 \co{lock_reader()} 函数可以看到
+\co{lock_writer()} 存储的 \co{x} 的中间值。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Using different locks could cause quite a bit of confusion,
-	what with threads seeing each others' intermediate states.
-	So should well-written parallel programs restrict themselves
-	to using a single lock in order to avoid this kind of confusion?
+	使用不同的 lock 可能会导致相当大的混乱，
+	thread 会看到彼此的中间状态。
+	那么良好编写的并行程序是否应该限制自己只使用
+	一个 lock 来避免这种混乱？
 }\QuickQuizAnswerB{
-	Although it is sometimes possible to write a program using a
-	single global lock that both performs and scales well, such
-	programs are exceptions to the rule.
-	You will normally need to use multiple locks to attain good
-	performance and scalability.
+	虽然有时可以使用单个全局 lock 编写既高性能又可扩展的程序，
+	但这样的程序是例外而非常规。
+	通常需要使用多个 lock 来获得良好的性能和可扩展性。
 
-	One possible exception to this rule is ``transactional memory'',
-	which is currently a research topic.
-	Transactional\-/memory semantics can be loosely thought of as those
-	of a single global lock with optimizations permitted and
-	with the addition of rollback~\cite{HansJBoehm2009HOTPAR}.
+	此规则的一个可能例外是"事务内存"，
+	这目前是一个研究课题。
+	事务内存的语义可以粗略地理解为单个全局 lock 的语义，
+	同时允许优化并增加了回滚功能~\cite{HansJBoehm2009HOTPAR}。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	In the code shown in
-	\cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks},
-	is \co{lock_reader()} guaranteed to see all the values produced
-	by \co{lock_writer()}?
-	Why or why not?
+	在
+	\cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks}
+	所示的代码中，\co{lock_reader()} 是否保证能看到
+	\co{lock_writer()} 产生的所有值？
+	为什么？
 }\QuickQuizAnswerM{
-	No.
-	On a busy system, \co{lock_reader()} might be preempted
-	for the entire duration of \co{lock_writer()}'s execution,
-	in which case it would not see \emph{any} of \co{lock_writer()}'s
-	intermediate states for \co{x}.
+	不能。
+	在繁忙的系统上，\co{lock_reader()} 可能在
+	\co{lock_writer()} 的整个执行期间被抢占，
+	在这种情况下，它将\emph{看不到} \co{lock_writer()}
+	对 \co{x} 的任何中间状态。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	Wait a minute here!!!
+	等一下！！！
 	\Cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
-	didn't initialize shared variable~\co{x},
-	so why does it need to be initialized in
-	\cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks}?
-}\QuickQuizAnswerE{
-	See \clnrefr{ln:toolsoftrade:lock:reader_writer:x} of
-	\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}.
-	Because the code in
-	\cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
-	ran first, it could rely on the compile-time initialization of~\co{x}.
-	The code in
+	没有初始化共享变量~\co{x}，
+	那为什么在
 	\cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks}
-	ran next, so it had to re-initialize~\co{x}.
+	中需要初始化它？
+}\QuickQuizAnswerE{
+	请参阅\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}的
+	\clnrefr{ln:toolsoftrade:lock:reader_writer:x}。
+	因为
+	\cref{lst:toolsoftrade:Demonstration of Same Exclusive Lock}
+	中的代码先运行，它可以依赖于~\co{x} 的编译时初始化。
+	\cref{lst:toolsoftrade:Demonstration of Different Exclusive Locks}
+	中的代码后运行，所以它必须重新初始化~\co{x}。
 }\QuickQuizEndE
 }
 
-Although there is quite a bit more to POSIX exclusive locking, these
-primitives provide a good start and are in fact sufficient in a great
-many situations.
-The next section takes a brief look at POSIX reader-writer locking.
+虽然 POSIX 互斥 locking 还有很多内容，但这些原语提供了
+一个良好的起点，而且在许多情况下实际上是足够的。
+下一节简要介绍 POSIX reader-writer locking。
 
 \subsection{POSIX Reader-Writer Locking}
 \label{sec:toolsoftrade:POSIX Reader-Writer Locking}
 
-The POSIX API provides a reader-writer lock, which is represented by
-a \apipx{pthread_rwlock_t}.
-As with \apipx{pthread_mutex_t}, \co{pthread_rwlock_t} may be statically
-initialized via \apipx{PTHREAD_RWLOCK_INITIALIZER} or dynamically
-initialized via the \apipx{pthread_rwlock_init()} primitive.
-The \apipx{pthread_rwlock_rdlock()} primitive read-acquires the
-specified \apipx{pthread_rwlock_t}, the \apipx{pthread_rwlock_wrlock()}
-primitive write-acquires it, and the \apipx{pthread_rwlock_unlock()}
-primitive releases it.
-Only a single thread may write-hold a given \apipx{pthread_rwlock_t}
-at any given time, but multiple threads may read-hold a given
-\apipx{pthread_rwlock_t}, at least while there is no thread
-currently write-holding it.
+POSIX API 提供了一种 reader-writer lock，
+由 \apipx{pthread_rwlock_t} 表示。
+与 \apipx{pthread_mutex_t} 一样，\co{pthread_rwlock_t} 可以通过
+\apipx{PTHREAD_RWLOCK_INITIALIZER} 静态初始化，
+也可以通过 \apipx{pthread_rwlock_init()} 原语动态初始化。
+\apipx{pthread_rwlock_rdlock()} 原语以读模式获取
+指定的 \apipx{pthread_rwlock_t}，
+\apipx{pthread_rwlock_wrlock()} 原语以写模式获取它，
+\apipx{pthread_rwlock_unlock()} 原语释放它。
+在任何给定时刻，只有一个 thread 可以以写模式持有给定的
+\apipx{pthread_rwlock_t}，
+但多个 thread 可以以读模式持有给定的 \apipx{pthread_rwlock_t}，
+至少在当前没有 thread 以写模式持有它时是这样。
 
-As you might expect, \IXhpl{reader-writer}{lock} are designed for read-mostly
-situations.
-In these situations, a reader-writer lock can provide greater scalability
-than can an \IXh{exclusive}{lock} because the exclusive lock is by definition
-limited to a single thread holding the lock at any given time, while
-the reader-writer lock permits
-an arbitrarily large number of readers to concurrently hold the lock.
-However, in practice, we need to know how much additional scalability is
-provided by reader-writer locks.
+正如你可能预期的，\IXhpl{reader-writer}{lock}是为读多写少的场景设计的。
+在这些场景中，reader-writer lock 可以提供比\IXh{exclusive}{lock}
+更好的可扩展性，因为 exclusive lock 根据定义在任何给定时刻只允许
+一个 thread 持有 lock，
+而 reader-writer lock 允许任意数量的 reader 并发持有 lock。
+然而，在实践中，我们需要知道 reader-writer lock 能提供多少
+额外的可扩展性。
 
 \begin{listing}
 \input{CodeSamples/toolsoftrade/rwlockscale@reader.fcv}
-\caption{Measuring Reader-Writer Lock Scalability}
+\caption{测量 Reader-Writer Lock 的可扩展性}
 \label{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:rwlockscale:reader]
 \Cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}
 (\path{rwlockscale.c})
-shows one way of measuring reader-writer lock scalability.
-\Clnref{rwlock} shows the definition and initialization of the reader-writer
-lock, \clnref{holdtm} shows the \co{holdtime} argument controlling the
-time each thread holds the reader-writer lock,
-\clnref{thinktm} shows the \co{thinktime} argument controlling the time between
-the release of the reader-writer lock and the next acquisition,
-\clnref{rdcnts} defines the \co{readcounts} array into which each reader thread
-places the number of times it acquired the lock, and
-\clnref{nrdrun} defines the \co{nreadersrunning} variable, which
-determines when all reader threads have started running.
+展示了一种测量 reader-writer lock 可扩展性的方法。
+\Clnref{rwlock}展示了 reader-writer lock 的定义和初始化，
+\clnref{holdtm}展示了控制每个 thread 持有 reader-writer lock
+时间的 \co{holdtime} 参数，
+\clnref{thinktm}展示了控制释放 reader-writer lock 到下一次获取之间
+时间的 \co{thinktime} 参数，
+\clnref{rdcnts}定义了 \co{readcounts} 数组，
+每个 reader thread 将其获取 lock 的次数存入其中，
+\clnref{nrdrun}定义了 \co{nreadersrunning} 变量，
+用于确定所有 reader thread 是否已开始运行。
 
-\Clnrefrange{goflag:b}{goflag:e} define \co{goflag},
-which synchronizes the start and the
-end of the test.
-This variable is initially set to \co{GOFLAG_INIT}, then set to
-\co{GOFLAG_RUN} after all the reader threads have started, and finally
-set to \co{GOFLAG_STOP} to terminate the test run.
+\Clnrefrange{goflag:b}{goflag:e}定义了 \co{goflag}，
+用于同步测试的开始和结束。
+该变量初始设置为 \co{GOFLAG_INIT}，在所有 reader thread 启动后
+设置为 \co{GOFLAG_RUN}，最后设置为 \co{GOFLAG_STOP} 以终止测试运行。
 \end{fcvref}
 
 \begin{fcvref}[ln:toolsoftrade:rwlockscale:reader:reader]
-\Clnrefrange{b}{e} define \co{reader()}, which is the reader thread.
-\Clnref{atmc_inc} atomically increments the \co{nreadersrunning} variable
-to indicate that this thread is now running, and
-\clnrefrange{wait:b}{wait:e} wait for the test to start.
-The \apik{READ_ONCE()} primitive forces the compiler to fetch \co{goflag}
-on each pass through the loop---the compiler would otherwise be within its
-rights to assume that the value of \co{goflag} would never change.
+\Clnrefrange{b}{e}定义了 \co{reader()}，即 reader thread。
+\Clnref{atmc_inc}原子地递增 \co{nreadersrunning} 变量，
+表示该 thread 现在正在运行，
+\clnrefrange{wait:b}{wait:e}等待测试开始。
+\apik{READ_ONCE()} 原语强制编译器在循环的每次迭代中都获取 \co{goflag}
+——否则编译器有权假设 \co{goflag} 的值永远不会改变。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Instead of using \apik{READ_ONCE()} everywhere, why not just
-	declare \co{goflag} as \co{volatile} on
-	\clnrefr{ln:toolsoftrade:rwlockscale:reader:goflag:e} of
-	\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}?
+	与其到处使用 \apik{READ_ONCE()}，为什么不直接在
+	\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}
+	的\clnrefr{ln:toolsoftrade:rwlockscale:reader:goflag:e}
+	上将 \co{goflag} 声明为 \co{volatile}？
 }\QuickQuizAnswerB{
-	A \co{volatile} declaration is in fact a reasonable alternative in
-	this particular case.
-	However, use of \apik{READ_ONCE()} has the benefit of clearly
-	flagging to the reader that \co{goflag} is subject to concurrent
-	reads and updates.
-	Note that \apik{READ_ONCE()} is especially useful in cases where
-	most of the accesses are protected by a lock (and thus \emph{not}
-	subject to change), but where a few of the accesses are made outside
-	of the lock.
-	Using a \co{volatile} declaration in this case would make it harder
-	for the reader to note the special accesses outside of the lock,
-	and would also make it harder for the compiler to generate good
-	code under the lock.
+	在这个特定情况下，\co{volatile} 声明确实是一个合理的替代方案。
+	然而，使用 \apik{READ_ONCE()} 的好处是向读者清楚地标明
+	\co{goflag} 受到并发读写的影响。
+	注意，\apik{READ_ONCE()} 在大多数访问受 lock 保护
+	（因此\emph{不会}发生变化）但少数访问在 lock 之外进行的
+	情况下特别有用。
+	在这种情况下使用 \co{volatile} 声明会使读者更难注意到
+	lock 之外的特殊访问，
+	也会使编译器更难在 lock 下生成好的代码。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	\apik{READ_ONCE()} only affects the compiler, not the CPU\@.
-	Don't we also need memory barriers to make sure
-	that the change in \co{goflag}'s value propagates to the
-	CPU in a timely fashion in
-	\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}?
+	\apik{READ_ONCE()} 只影响编译器，不影响 CPU。
+	难道我们不需要 memory barrier 来确保
+	\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}
+	中 \co{goflag} 值的变化及时传播到 CPU 吗？
 }\QuickQuizAnswerM{
-	No, memory barriers are not needed and won't help here.
-	Memory barriers only enforce ordering among multiple memory
-	references:
-	They absolutely do not guarantee to expedite the propagation
-	of data from one part of the system to another.\footnote{
-		There have been persistent rumors of hardware in which
-		memory barriers actually do expedite propagation of data,
-		but no confirmed sightings.}
-	This leads to a quick rule of thumb:
-	You do not need memory barriers unless you are using more
-	than one variable to communicate between multiple threads.
+	不需要，memory barrier 在这里既不需要也没有帮助。
+	Memory barrier 只在多个内存引用之间强制排序：
+	它们绝对不保证加速数据从系统的一个部分传播到另一个部分。\footnote{
+		一直有关于某些硬件中 memory barrier 确实能加速数据传播的
+		传闻，但没有确认的目击报告。}
+	这引出一条快速经验法则：
+	除非你使用多个变量在多个 thread 之间通信，
+	否则不需要 memory barrier。
 
-	But what about \co{nreadersrunning}?
-	Isn't that a second variable used for communication?
-	Indeed it is, and there really are the needed memory-barrier
-	instructions buried in \apig{__sync_fetch_and_add()},
-	which make sure that the thread proclaims its presence
-	before checking to see if it should start.
+	但是 \co{nreadersrunning} 呢？
+	它不是用于通信的第二个变量吗？
+	确实是，而且 \apig{__sync_fetch_and_add()} 中确实隐含了
+	所需的 memory barrier 指令，
+	确保 thread 在检查是否应该开始之前先宣告自己的存在。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	Would it ever be necessary to use \apik{READ_ONCE()} when accessing
-	a per-thread variable, for example, a variable declared using
-	\GCC's \apig{__thread} storage class?
+	是否有必要在访问 per-thread 变量时使用 \apik{READ_ONCE()}，
+	例如，使用 \GCC 的 \apig{__thread} 存储类声明的变量？
 }\QuickQuizAnswerE{
-	It depends.
-	If the per-thread variable was accessed only from its thread,
-	and never from a signal handler, then no.
-	Otherwise, it is quite possible that \apik{READ_ONCE()} is needed.
-	We will see examples of both situations in
-	\cref{sec:count:Signal-Theft Limit Counter Implementation}.
+	这取决于情况。
+	如果 per-thread 变量仅从其所属 thread 访问，
+	且从不从信号处理程序访问，那么不需要。
+	否则，很可能需要 \apik{READ_ONCE()}。
+	我们将在
+	\cref{sec:count:Signal-Theft Limit Counter Implementation}
+	中看到这两种情况的例子。
 
-	This leads to the question of how one thread can gain access to
-	another thread's \apig{__thread} variable, and the answer is that
-	the second thread must store a pointer to its \apig{__thread}
-	variable somewhere that the first thread has access to.
-	One common approach is to maintain a linked list with one
-	element per thread, and to store the address of each thread's
-	\apig{__thread} variable in the corresponding element.
+	这引出了一个问题：一个 thread 如何能访问另一个 thread 的
+	\apig{__thread} 变量？答案是第二个 thread 必须将指向其
+	\apig{__thread} 变量的指针存储在第一个 thread 可以访问的
+	某个位置。
+	一种常见的方法是维护一个链表，每个 thread 一个元素，
+	并将每个 thread 的 \apig{__thread} 变量的地址
+	存储在相应的元素中。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:toolsoftrade:rwlockscale:reader:reader]
-The loop spanning \clnrefrange{loop:b}{loop:e} carries out the performance test.
-\Clnrefrange{acq:b}{acq:e} acquire the lock,
-\clnrefrange{hold:b}{hold:e} hold the lock for the specified
-number of microseconds,
-\clnrefrange{rel:b}{rel:e} release the lock,
-and \clnrefrange{think:b}{think:e} wait for the specified
-number of microseconds before re-acquiring the lock.
-\Clnref{count} counts this lock acquisition.
+\clnrefrange{loop:b}{loop:e}的循环执行性能测试。
+\Clnrefrange{acq:b}{acq:e}获取 lock，
+\clnrefrange{hold:b}{hold:e}持有 lock 指定的微秒数，
+\clnrefrange{rel:b}{rel:e}释放 lock，
+\clnrefrange{think:b}{think:e}在重新获取 lock 之前等待
+指定的微秒数。
+\Clnref{count}计算此次 lock 获取。
 
-\Clnref{mov_cnt} moves the lock-acquisition count to this thread's element of the
-\co{readcounts[]} array, and \clnref{return} returns, terminating this thread.
+\Clnref{mov_cnt}将 lock 获取计数移到该 thread 在
+\co{readcounts[]} 数组中的元素，\clnref{return}返回，终止该 thread。
 \end{fcvref}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{CodeSamples/toolsoftrade/rwlockscale}}
-\caption{Reader-Writer Lock Scalability vs.\@ Microseconds in Critical Section on 8-Socket System With Intel Xeon Platinum 8176 CPUs @ 2.10GHz}
+\caption{在配备 Intel Xeon Platinum 8176 CPUs @ 2.10GHz 的 8 路系统上，Reader-Writer Lock 可扩展性与临界区微秒数的关系}
 \label{fig:toolsoftrade:Reader-Writer Lock Scalability vs. Microseconds in Critical Section}
 \end{figure}
 
 \Cref{fig:toolsoftrade:Reader-Writer Lock Scalability vs. Microseconds in Critical Section}
-shows the results of running this test on a 224-core Xeon system
-with two hardware threads per core for a total of 448 software-visible
-CPUs.
-The \co{thinktime} parameter was zero for all these tests, and the
-\co{holdtime} parameter set to values ranging from one microsecond (``1us''
-on the graph) to 10,000\,microseconds (``10000us'' on the graph).
-The actual value plotted is:
+展示了在一个拥有 224 核的 Xeon 系统上运行此测试的结果，
+该系统每个核有两个硬件 thread，共 448 个软件可见的 CPU。
+所有这些测试中 \co{thinktime} 参数为零，
+\co{holdtime} 参数设置为从一微秒（图中的"1us"）到
+10,000\,微秒（图中的"10000us"）的不同值。
+实际绘制的值为：
 \begin{equation}
 	\frac{L_N}{N L_1}
 \end{equation}
-where $N$ is the number of threads in the current run,
-$L_N$ is the total number of lock acquisitions by all $N$ threads in the
-current run, and
-$L_1$ is the number of lock acquisitions in a single-threaded run.
-Given ideal hardware and software scalability, this value will always
-be 1.0.
+其中 $N$ 是当前运行中的 thread 数，
+$L_N$ 是当前运行中所有 $N$ 个 thread 的 lock 获取总数，
+$L_1$ 是单 thread 运行中的 lock 获取数。
+在理想的硬件和软件可扩展性下，该值将始终为 1.0。
 
-As can be seen in the figure, reader-writer locking scalability is
-decidedly non-ideal, especially for smaller sizes of \IXpl{critical
-section}.
-To see why read-acquisition can be so slow, consider
-that all the acquiring threads must update the \co{pthread_rwlock_t}
-data structure.
-Therefore, if all 448 executing threads attempt to
-read-acquire the reader-writer lock concurrently, they must update
-this underlying \co{pthread_rwlock_t} one at a time.
-One lucky thread might do so almost immediately, but the least-lucky
-thread must wait for all the other 447 threads to do their updates.
-This situation will only get worse as you add CPUs.
-Note also the logscale y-axis.
-Even though the 10,000\,microsecond trace appears quite ideal, it has
-in fact degraded by about 10\pct\ from ideal.
+如图所示，reader-writer locking 的可扩展性明显不理想，
+特别是对于较小的\IXpl{critical section}。
+要理解为什么读获取可能如此缓慢，请考虑
+所有获取 lock 的 thread 都必须更新 \co{pthread_rwlock_t} 数据结构。
+因此，如果所有 448 个执行中的 thread 同时尝试以读模式
+获取 reader-writer lock，它们必须逐个更新底层的
+\co{pthread_rwlock_t}。
+一个幸运的 thread 可能几乎立即完成更新，但最不幸运的
+thread 必须等待其他所有 447 个 thread 完成更新。
+随着 CPU 数量的增加，这种情况只会变得更糟。
+还要注意 y 轴是对数刻度。
+虽然 10,000\,微秒的曲线看起来相当理想，
+但实际上已经比理想情况退化了约 10\pct。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Isn't comparing against single-CPU throughput a bit harsh?
+	与单 CPU 吞吐量比较是不是太苛刻了？
 }\QuickQuizAnswerB{
-	Not at all.
-	In fact, this comparison was, if anything, overly lenient.
-	A more balanced comparison would be against single-CPU
-	throughput with the locking primitives commented out.
+	完全不是。
+	事实上，如果有什么区别的话，这个比较其实过于宽松了。
+	更公平的比较应该是与注释掉 locking 原语后的
+	单 CPU 吞吐量进行比较。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	But one microsecond is not a particularly small size for
-	a critical section.
-	What do I do if I need a much smaller critical section, for
-	example, one containing only a few instructions?
+	一微秒对于 critical section 来说并不是特别小。
+	如果我需要更小的 critical section，
+	例如只包含几条指令的 critical section，该怎么办？
 }\QuickQuizAnswerM{
-	If the data being read \emph{never} changes, then you do not
-	need to hold any locks while accessing it.
-	If the data changes sufficiently infrequently, you might be
-	able to checkpoint execution, terminate all threads, change
-	the data, then restart at the checkpoint.
+	如果被读取的数据\emph{永远}不会改变，那么你在访问它时
+	不需要持有任何 lock。
+	如果数据变化的频率足够低，你可以检查点执行状态，
+	终止所有 thread，更改数据，然后从检查点重新启动。
 
-	Another approach is to keep a single exclusive lock per
-	thread, so that a thread read-acquires the larger aggregate
-	reader-writer lock by acquiring its own lock, and write-acquires
-	by acquiring all the per-thread locks~\cite{WilsonCHsieh92a}.
-	This can work quite well for readers, but causes writers
-	to incur increasingly large overheads as the number of threads
-	increases.
+	另一种方法是每个 thread 保持一个 exclusive lock，
+	这样 thread 通过获取自己的 lock 来以读模式获取
+	更大的聚合 reader-writer lock，通过获取所有 per-thread lock
+	来以写模式获取~\cite{WilsonCHsieh92a}。
+	这对 reader 来说效果很好，但会导致 writer 随着 thread 数量
+	的增加承受越来越大的开销。
 
-	Some other ways of efficiently handling very small critical
-	sections are described in \cref{chp:Deferred Processing}.
+	\cref{chp:Deferred Processing}中描述了一些其他
+	高效处理非常小的 critical section 的方法。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	The system used is a few years old, and new hardware should
-	be faster.
-	So why should anyone worry about reader-writer locks being slow?
+	所使用的系统已经有几年了，新硬件应该更快。
+	那为什么还要担心 reader-writer lock 的速度呢？
 }\QuickQuizAnswerE{
-	In general, newer hardware is improving.
-	However, it will need to improve several orders of magnitude
-	to permit reader-writer lock to achieve ideal performance on
-	448 CPUs.
-	Worse yet, the greater the number of CPUs, the larger the
-	required performance improvement.
-	The performance problems of reader-writer locking are therefore
-	very likely to be with us for quite some time to come.
+	总的来说，较新的硬件确实在改进。
+	然而，它需要改进几个数量级才能让 reader-writer lock
+	在 448 个 CPU 上达到理想性能。
+	更糟糕的是，CPU 数量越多，所需的性能改进就越大。
+	因此，reader-writer locking 的性能问题很可能
+	在相当长的时间内伴随着我们。
 }\QuickQuizEndE
 }
 
-Despite these limitations, reader-writer locking is quite useful in many
-cases, for example when the readers must do high-latency file or network I/O\@.
-There are alternatives, some of which will be presented in
-\cref{chp:Counting,chp:Deferred Processing}.
+尽管有这些限制，reader-writer locking 在许多情况下仍然非常有用，
+例如当 reader 必须执行高延迟的文件或网络 I/O 时。
+还有一些替代方案，其中一些将在
+\cref{chp:Counting,chp:Deferred Processing}中介绍。
 
 \subsection{Atomic Operations (\GCC\ Classic)}
 \label{sec:toolsoftrade:Atomic Operations (gcc Classic)}
 
 \Cref{fig:toolsoftrade:Reader-Writer Lock Scalability vs. Microseconds in Critical Section}
-shows that the overhead of reader-writer locking is most severe for the
-smallest critical sections, so it would be nice to have some other way
-of protecting tiny critical sections.
-One such way uses \IX{atomic} operations.
+表明 reader-writer locking 的开销对于最小的 critical section 最为严重，
+因此如果有其他方式来保护微小的 critical section 就好了。
+一种这样的方式使用 \IX{atomic} 操作。
 \begin{fcvref}[ln:toolsoftrade:rwlockscale:reader:reader]
-We have seen an atomic operation already, namely the
-\apig{__sync_fetch_and_add()} primitive on \clnref{atmc_inc} of
-\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}.
-This primitive atomically adds the value of its second argument to
-the value referenced by its first argument, returning the old value
-(which was ignored in this case).
-If a pair of threads concurrently execute \co{__sync_fetch_and_add()} on
-the same variable, the resulting value of the variable will include
-the result of both additions.
+我们已经见过一个 atomic 操作了，即
+\cref{lst:toolsoftrade:Measuring Reader-Writer Lock Scalability}
+\clnref{atmc_inc}上的 \apig{__sync_fetch_and_add()} 原语。
+该原语将其第二个参数的值原子地加到其第一个参数所引用的值上，
+并返回旧值（在本例中被忽略了）。
+如果一对 thread 同时对同一个变量执行 \co{__sync_fetch_and_add()}，
+该变量的结果值将包含两次加法的结果。
 \end{fcvref}
 
-The \GNUC\ compiler offers a number of additional atomic operations,
-including \apig{__sync_fetch_and_sub()},
-\apig{__sync_fetch_and_or()},
-\apig{__sync_fetch_and_and()},
-\apig{__sync_fetch_and_xor()}, and
-\apig{__sync_fetch_and_nand()}, all of which return the old value.
-If you instead need the new value, you can instead use the
-\apig{__sync_add_and_fetch()},
-\apig{__sync_sub_and_fetch()},
-\apig{__sync_or_and_fetch()},
-\apig{__sync_and_and_fetch()},
-\apig{__sync_xor_and_fetch()}, and
-\apig{__sync_nand_and_fetch()} primitives.
+\GNUC\ 编译器还提供了许多其他 atomic 操作，
+包括 \apig{__sync_fetch_and_sub()}、
+\apig{__sync_fetch_and_or()}、
+\apig{__sync_fetch_and_and()}、
+\apig{__sync_fetch_and_xor()} 和
+\apig{__sync_fetch_and_nand()}，这些都返回旧值。
+如果你需要新值，可以改用
+\apig{__sync_add_and_fetch()}、
+\apig{__sync_sub_and_fetch()}、
+\apig{__sync_or_and_fetch()}、
+\apig{__sync_and_and_fetch()}、
+\apig{__sync_xor_and_fetch()} 和
+\apig{__sync_nand_and_fetch()} 原语。
 
 \QuickQuiz{
-	Is it really necessary to have both sets of primitives?
+	真的有必要同时拥有两组原语吗？
 }\QuickQuizAnswer{
-	Strictly speaking, no.
-	One could implement any member of the second set using the
-	corresponding member of the first set.
-	For example, one could implement \apig{__sync_nand_and_fetch()}
-	in terms of \apig{__sync_fetch_and_nand()} as follows:
+	严格来说，不需要。
+	可以用第一组的对应成员来实现第二组的任何成员。
+	例如，可以用 \apig{__sync_fetch_and_nand()} 来实现
+	\apig{__sync_nand_and_fetch()}，如下所示：
 
 \begin{VerbatimU}
 tmp = v;
@@ -1017,252 +909,228 @@ ret = __sync_fetch_and_nand(p, tmp);
 ret = ~ret & tmp;
 \end{VerbatimU}
 
-	It is similarly possible to implement \apig{__sync_fetch_and_add()},
-	\apig{__sync_fetch_and_sub()}, and \apig{__sync_fetch_and_xor()}
-	in terms of their post-value counterparts.
+	类似地，也可以用其后值对应物来实现 \apig{__sync_fetch_and_add()}、
+	\apig{__sync_fetch_and_sub()} 和 \apig{__sync_fetch_and_xor()}。
 
-	However, the alternative forms can be quite convenient, both
-	for the programmer and for the compiler/library implementor.
+	然而，替代形式对于程序员和编译器/库实现者来说都相当方便。
 }\QuickQuizEnd
 
-The classic \IXacrml{cas} operation is provided by a pair of
-primitives, \apig{__sync_bool_compare_and_swap()} and
-\apig{__sync_val_compare_and_swap()}.
-Both of these primitives atomically update a location to a new value,
-but only if its prior value was equal to the specified old value.
-The first variant returns 1 if the operation succeeded and 0 if it
-failed, for example, if the prior value was not equal to the specified
-old value.
-The second variant returns the prior value of the location, which, if
-equal to the specified old value, indicates that the operation succeeded.
-Either of the \acrml{cas} operation is ``universal'' in the sense
-that any atomic operation on a single location can be implemented in
-terms of \acrml{cas}, though the earlier operations are often
-more efficient where they apply.
-The \acrml{cas} operation is also capable of serving as the basis
-for a wider set of atomic operations, though the more elaborate of
-these often suffer from complexity, scalability, and performance
-problems~\cite{MauriceHerlihy90a}.
+经典的\IXacrml{cas}操作由一对原语提供，
+即 \apig{__sync_bool_compare_and_swap()} 和
+\apig{__sync_val_compare_and_swap()}。
+这两个原语都原子地将一个位置更新为新值，
+但仅当其先前的值等于指定的旧值时才会更新。
+第一个变体在操作成功时返回 1，失败时返回 0，
+例如，当先前的值不等于指定的旧值时。
+第二个变体返回该位置的先前值，如果等于指定的旧值，
+则表示操作成功。
+\acrml{cas}操作中的任何一种都是"通用的"，
+即任何对单个位置的 atomic 操作都可以用 \acrml{cas} 来实现，
+尽管前面的操作在适用的地方通常更高效。
+\acrml{cas}操作也能作为更广泛的 atomic 操作集的基础，
+尽管其中较复杂的操作通常存在复杂性、可扩展性和性能
+问题~\cite{MauriceHerlihy90a}。
 
 \QuickQuiz{
-	Given that these atomic operations will often be able to
-	generate single atomic instructions that are directly
-	supported by the underlying instruction set, shouldn't
-	they be the fastest possible way to get things done?
+	鉴于这些 atomic 操作通常能够生成底层指令集直接支持的
+	单条 atomic 指令，它们不应该是完成任务的最快方式吗？
 }\QuickQuizAnswer{
-	Unfortunately, no.
-	See \cref{chp:Counting} for some stark counterexamples.
+	很遗憾，不是。
+	\cref{chp:Counting}中有一些鲜明的反例。
 }\QuickQuizEnd
 
-The \apig{__sync_synchronize()} primitive issues a ``\IX{memory barrier}'',
-which constrains both the compiler's and the CPU's ability to reorder
-operations, as discussed in
-\cref{chp:Advanced Synchronization: Memory Ordering}.
-In some cases, it is sufficient to constrain the compiler's ability
-to reorder operations, while allowing the CPU free rein, in which
-case the \apik{barrier()} primitive may be used.
+\apig{__sync_synchronize()} 原语发出一个"\IX{memory barrier}"，
+它约束编译器和 CPU 重排序操作的能力，如
+\cref{chp:Advanced Synchronization: Memory Ordering}中所讨论的。
+在某些情况下，只需约束编译器的重排序能力而允许 CPU 自由重排序，
+此时可以使用 \apik{barrier()} 原语。
 \begin{fcvref}[ln:toolsoftrade:lock:reader_writer:reader]
-In some cases, it is only necessary to ensure that the compiler
-avoids optimizing away a given memory read, in which case the
-\apik{READ_ONCE()} primitive may be used, as it was on \clnref{read_x} of
-\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}.
+在某些情况下，只需确保编译器不会优化掉给定的内存读取，
+此时可以使用 \apik{READ_ONCE()} 原语，
+如\cref{lst:toolsoftrade:Demonstration of Exclusive Locks}的
+\clnref{read_x}所示。
 \end{fcvref}
-Similarly, the \apik{WRITE_ONCE()} primitive may be used to prevent the
-compiler from optimizing away a given memory write.
-These last three primitives are not provided directly by \GCC,
-but may be implemented straightforwardly as shown in
-\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)},
-and all three are discussed at length in
-\cref{sec:toolsoftrade:Accessing Shared Variables}.
-Alternatively, \apialtk{READ_ONCE(x)}{READ_ONCE()} has much in common with
-the \GCC\  intrinsic
+类似地，\apik{WRITE_ONCE()} 原语可用于防止编译器优化掉
+给定的内存写入。
+这最后三个原语不是由 \GCC 直接提供的，
+但可以如\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}
+所示直接实现，
+并且所有三个都在
+\cref{sec:toolsoftrade:Accessing Shared Variables}中详细讨论。
+另外，\apialtk{READ_ONCE(x)}{READ_ONCE()} 与 \GCC\ 内置函数
 \apialtg{__atomic_load_n(&x, __ATOMIC_RELAXED)}{__atomic_load_n()}
-and \apik{WRITE_ONCE()} has much in common with the \GCC\ 
-intrinsic \apialtg{__atomic_store_n(&x, v, __ATOMIC_RELAXED)}{__atomic_store_n()}.
+非常相似，\apik{WRITE_ONCE()} 与 \GCC\ 内置函数
+\apialtg{__atomic_store_n(&x, v, __ATOMIC_RELAXED)}{__atomic_store_n()}
+非常相似。
 
 \begin{listing}
 \input{CodeSamples/api-pthreads/api-pthreads@compiler_barrier.fcv}
-\caption{Compiler Barrier Primitive (for \GCC)}
+\caption{编译器屏障原语（适用于 \GCC）}
 \label{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}
 \end{listing}
 
 \QuickQuiz{
-	What happened to \apikh{ACCESS_ONCE()}?
+	\apikh{ACCESS_ONCE()} 怎么了？
 }\QuickQuizAnswer{
-	In the 2018 v4.15 release, the Linux kernel's \apikh{ACCESS_ONCE()} was
-	replaced by \apik{READ_ONCE()} and \apik{WRITE_ONCE()} for reads and
-	writes, respectively~\cite{JonCorbet2012ACCESS:ONCE,
+	在 2018 年的 v4.15 版本中，Linux 内核的 \apikh{ACCESS_ONCE()}
+	被 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 分别取代，
+	用于读和写操作~\cite{JonCorbet2012ACCESS:ONCE,
 	JonathanCorbet2014ACCESS:ONCEcompilerBugs,
-	MarkRutland2017ACCESS:ONCE:remove}.
-	\apikh{ACCESS_ONCE()} was introduced as a helper in RCU code, but was
-	promoted to core API soon afterward~\cite{
+	MarkRutland2017ACCESS:ONCE:remove}。
+	\apikh{ACCESS_ONCE()} 最初是作为 RCU 代码中的辅助函数引入的，
+	但很快被提升为核心 API~\cite{
 	PaulEMcKenney2007ACCESS:ONCE:rcu,
-	LinusTorvalds2008ACCESS:ONCE:move}.
-	Linux kernel's \apik{READ_ONCE()} and \apik{WRITE_ONCE()} have
-	evolved into complex forms that look quite different than
-	the original \apikh{ACCESS_ONCE()} implementation due to the
-	need to support access-once semantics for large structures,
-	but with the possibility of load/store tearing if the structure
-	cannot be loaded and stored with a single machine instruction.
+	LinusTorvalds2008ACCESS:ONCE:move}。
+	Linux 内核的 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 已经
+	演变为与原始 \apikh{ACCESS_ONCE()} 实现外观截然不同的复杂形式，
+	这是因为需要支持大型结构的 access-once 语义，
+	同时如果结构无法用单条机器指令加载和存储，
+	则可能出现 load/store tearing。
 }\QuickQuizEnd
 
-\subsection{Atomic Operations (C11)}
+\subsection{原子操作（C11）}
 \label{sec:toolsoftrade:Atomic Operations (C11)}
 
-The C11 standard added \IX{atomic} operations,
-including loads (\apic{atomic_load()}),
-stores (\apic{atomic_store()}),
-memory barriers (\apic{atomic_thread_fence()} and
-\apic{atomic_signal_fence()}), and read-modify-write atomics.
-The read-modify-write atomics include
-\apic{atomic_fetch_add()},
-\apic{atomic_fetch_sub()},
-\apic{atomic_fetch_and()},
-\apic{atomic_fetch_xor()},
-\apic{atomic_exchange()},
-\apic{atomic_compare_exchange_strong()},
-and
-\apic{atomic_compare_exchange_weak()}.
-These operate in a manner similar to those described in
-\cref{sec:toolsoftrade:Atomic Operations (gcc Classic)},
-but with the addition of memory-order arguments to \co{_explicit}
-variants of all of the operations.
-Without memory-order arguments, all the atomic operations are
-fully ordered, and the arguments permit weaker orderings.
-For example, ``\apialtc{atomic_load_explicit(&a, memory_order_relaxed)}
+C11 标准增加了 \IX{atomic} 操作，
+包括加载（\apic{atomic_load()}）、
+存储（\apic{atomic_store()}）、
+memory barrier（\apic{atomic_thread_fence()} 和
+\apic{atomic_signal_fence()}）以及读-修改-写 atomic 操作。
+读-修改-写 atomic 操作包括
+\apic{atomic_fetch_add()}、
+\apic{atomic_fetch_sub()}、
+\apic{atomic_fetch_and()}、
+\apic{atomic_fetch_xor()}、
+\apic{atomic_exchange()}、
+\apic{atomic_compare_exchange_strong()}
+和
+\apic{atomic_compare_exchange_weak()}。
+它们的操作方式类似于
+\cref{sec:toolsoftrade:Atomic Operations (gcc Classic)}中描述的那些，
+但为所有操作的 \co{_explicit} 变体增加了内存顺序参数。
+在没有内存顺序参数的情况下，所有 atomic 操作都是全序的，
+而参数允许更弱的顺序。
+例如，``\apialtc{atomic_load_explicit(&a, memory_order_relaxed)}
 {atomic_load_explicit()}''
-is vaguely similar to the Linux kernel's ``\apik{READ_ONCE()}''.\footnote{
-	Memory ordering is described in more detail in
-	\cref{chp:Advanced Synchronization: Memory Ordering} and
-	\cref{chp:app:whymb:Why Memory Barriers?}.}
+大致类似于 Linux 内核的 ``\apik{READ_ONCE()}''。\footnote{
+	内存顺序在
+	\cref{chp:Advanced Synchronization: Memory Ordering}和
+	\cref{chp:app:whymb:Why Memory Barriers?}中有更详细的描述。}
 
 \subsection{Atomic Operations (Modern \GCC)}
 \label{sec:toolsoftrade:Atomic Operations (Modern gcc)}
 
-One restriction of the C11 atomics is that they apply only to special
-atomic types, which can be problematic.
-The \GNUC\ compiler therefore provides \IX{atomic} intrinsics, including
-\apig{__atomic_load()},
-\apig{__atomic_load_n()},
-\apig{__atomic_store()},
-\apig{__atomic_store_n()},
-\apig{__atomic_thread_fence()}, etc.
-These intrinsics offer the same semantics as their C11 counterparts,
-but may be used on plain non-atomic objects.
-Some of these intrinsics may be passed a memory-order argument from
-this list:
-\apig{__ATOMIC_RELAXED},
-\apig{__ATOMIC_CONSUME},
-\apig{__ATOMIC_ACQUIRE},
-\apig{__ATOMIC_RELEASE},
-\apig{__ATOMIC_ACQ_REL}, and
-\apig{__ATOMIC_SEQ_CST}.
+C11 atomic 的一个限制是它们只适用于特殊的 atomic 类型，
+这可能会带来问题。
+因此 \GNUC\ 编译器提供了 \IX{atomic} 内置函数，包括
+\apig{__atomic_load()}、
+\apig{__atomic_load_n()}、
+\apig{__atomic_store()}、
+\apig{__atomic_store_n()}、
+\apig{__atomic_thread_fence()} 等。
+这些内置函数提供与其 C11 对应物相同的语义，
+但可以用于普通的非 atomic 对象。
+其中一些内置函数可以传递如下列表中的内存顺序参数：
+\apig{__ATOMIC_RELAXED}、
+\apig{__ATOMIC_CONSUME}、
+\apig{__ATOMIC_ACQUIRE}、
+\apig{__ATOMIC_RELEASE}、
+\apig{__ATOMIC_ACQ_REL} 和
+\apig{__ATOMIC_SEQ_CST}。
 
-\subsection{Per-Thread Variables}
+\subsection{Per-Thread 变量}
 \label{sec:toolsoftrade:Per-Thread Variables}
 
-Per-thread variables, also called thread-specific data, thread-local
-storage, and other less-polite names, are used extremely
-heavily in concurrent code, as will be explored in
-\cref{chp:Counting,chp:Data Ownership}.
-POSIX supplies the \apipx{pthread_key_create()} function to create a
-per-thread variable (and return the corresponding key),
-\apipx{pthread_key_delete()} to delete the per-thread variable corresponding
-to key,
-\apipx{pthread_setspecific()} to set the value of the current thread's
-variable corresponding to the specified key,
-and \apipx{pthread_getspecific()} to return that value.
+Per-thread 变量，也称为线程特定数据（thread-specific data）、
+线程本地存储（thread-local storage）以及其他不太礼貌的名称，
+在并发代码中被大量使用，这将在
+\cref{chp:Counting,chp:Data Ownership}中探讨。
+POSIX 提供 \apipx{pthread_key_create()} 函数来创建
+per-thread 变量（并返回相应的键），
+\apipx{pthread_key_delete()} 来删除与键对应的 per-thread 变量，
+\apipx{pthread_setspecific()} 来设置当前 thread 中
+与指定键对应的变量值，
+\apipx{pthread_getspecific()} 来返回该值。
 
-A number of compilers (including \GCC) provide a \apig{__thread} specifier
-that may be used in a variable definition to designate that variable
-as being per-thread.
-The name of the variable may then be used normally to access the
-value of the current thread's instance of that variable.
-Of course, \apig{__thread} is much easier to use than the POSIX
-thread-specific data, and so \co{__thread} is usually preferred for
-code that is to be built only with \GCC\ or other compilers supporting
-\co{__thread}.
+许多编译器（包括 \GCC）提供了一个 \apig{__thread} 修饰符，
+可以在变量定义中使用，将该变量指定为 per-thread 的。
+然后可以正常使用变量名来访问当前 thread 的该变量实例的值。
+当然，\apig{__thread} 比 POSIX 线程特定数据更容易使用，
+因此对于仅使用 \GCC 或其他支持 \co{__thread} 的编译器
+构建的代码，通常优先使用 \co{__thread}。
 
-Fortunately, the C11 standard introduced a \apic{_Thread_local} keyword
-that can be used in place of \apig{__thread}.
-In the fullness of time, this new keyword should combine the ease of use
-of \co{__thread} with the portability of POSIX thread-specific data.
+幸运的是，C11 标准引入了 \apic{_Thread_local} 关键字，
+可以代替 \apig{__thread} 使用。
+假以时日，这个新关键字应该能将 \co{__thread} 的易用性
+与 POSIX 线程特定数据的可移植性结合起来。
 
-\section{Alternatives to POSIX Operations}
+\section{POSIX 操作的替代方案}
 \label{sec:toolsoftrade:Alternatives to POSIX Operations}
 %
-\epigraph{The strategic marketing paradigm of Open Source is a massively
-	  parallel drunkard's walk filtered by a Darwinistic process.}
+\epigraph{开源的战略营销范式是一种经过达尔文主义过程过滤的
+	  大规模并行的醉汉漫步。}
 	 {Bruce Perens}
 
-Unfortunately, threading operations, locking primitives, and atomic
-operations were in reasonably wide use long before the various standards
-committees got around to them.
-As a result, there is considerable variation in how these operations
-are supported.
-It is still quite common to find these operations implemented in
-assembly language, either for historical reasons or to obtain better
-performance in specialized circumstances.
-For example, \GCC's \co{__sync_} family of primitives all provide full
-memory-ordering semantics, which in the past motivated many developers
-to create their own implementations for situations where the full memory
-ordering semantics are not required.
-The following sections show some alternatives from the Linux kernel
-and some historical primitives used by this book's sample code.
+不幸的是，在各标准委员会着手处理 thread 操作、locking 原语和
+atomic 操作之前，这些操作早已被广泛使用。
+因此，这些操作的支持方式存在相当大的差异。
+用汇编语言实现这些操作仍然很常见，
+要么出于历史原因，要么是为了在特殊情况下获得更好的性能。
+例如，\GCC 的 \co{__sync_} 系列原语都提供完整的内存顺序语义，
+这在过去促使许多开发者为不需要完整内存顺序语义的情况
+创建自己的实现。
+以下各节展示了 Linux 内核的一些替代方案，
+以及本书示例代码使用的一些历史原语。
 
-\subsection{Organization and Initialization}
+\subsection{组织与初始化}
 \label{sec:toolsoftrade:Organization and Initialization}
 
-Although many environments do not require any special initialization
-code, the code samples in this book start with a call to \apipf{smp_init()},
-which initializes a mapping from \apipx{pthread_t} to consecutive integers.
-The userspace RCU library\footnote{
-	See \cref{sec:defer:Read-Copy Update (RCU)} for more information
-	on RCU\@.}
-similarly requires a call to \apiur{rcu_init()}.
-Although these calls can be hidden in environments (such as that of
-\GCC) that support constructors,
-most of the RCU flavors supported by the userspace RCU library
-also require each thread invoke \apiur{rcu_register_thread()} upon thread
-creation and \apiur{rcu_unregister_thread()} before thread exit.
+虽然许多环境不需要任何特殊的初始化代码，
+但本书中的代码示例以调用 \apipf{smp_init()} 开始，
+它初始化了从 \apipx{pthread_t} 到连续整数的映射。
+用户空间 RCU 库\footnote{
+	有关 RCU 的更多信息，请参阅
+	\cref{sec:defer:Read-Copy Update (RCU)}。}
+同样需要调用 \apiur{rcu_init()}。
+虽然这些调用可以在支持构造函数的环境（如 \GCC）中隐藏，
+但用户空间 RCU 库支持的大多数 RCU 风格还要求每个 thread
+在创建时调用 \apiur{rcu_register_thread()}，
+在退出前调用 \apiur{rcu_unregister_thread()}。
 
-In the case of the Linux kernel, it is a philosophical question as to
-whether the kernel does not require calls to special initialization
-code or whether the kernel's boot-time code is in fact the required
-initialization code.
+对于 Linux 内核，关于内核是否不需要调用特殊初始化代码，
+还是内核的启动时代码实际上就是所需的初始化代码，
+这是一个哲学问题。
 
-\subsection{Thread Creation, Destruction, and Control}
+\subsection{线程创建、销毁与控制}
 \label{sec:toolsoftrade:Thread Creation; Destruction; and Control}
 
-The Linux kernel uses
-\apik{struct task_struct} pointers to track kthreads,
-\apik{kthread_create()} to create them,
-\apik{kthread_should_stop()} to externally suggest that they stop
-(which has no POSIX equivalent),\footnote{
-	POSIX environments can work around the lack of
-	\apik{kthread_should_stop()} by using a properly synchronized
-	boolean flag in conjunction with \co{pthread_join()}.}
-\apik{kthread_stop()} to wait for them to stop, and
-\apik{schedule_timeout_interruptible()} for a timed wait.
-There are quite a few additional kthread-management APIs, but this
-provides a good start, as well as good search terms.
+Linux 内核使用
+\apik{struct task_struct} 指针来跟踪 kthread，
+\apik{kthread_create()} 来创建它们，
+\apik{kthread_should_stop()} 来从外部建议它们停止
+（POSIX 没有对应物），\footnote{
+	POSIX 环境可以通过使用适当同步的布尔标志
+	配合 \co{pthread_join()} 来解决缺少
+	\apik{kthread_should_stop()} 的问题。}
+\apik{kthread_stop()} 来等待它们停止，
+\apik{schedule_timeout_interruptible()} 用于定时等待。
+还有更多的 kthread 管理 API，但这提供了一个良好的起点，
+以及好的搜索关键词。
 
-The CodeSamples API focuses on ``threads'', which are a locus of
-control.\footnote{
-	There are many other names for similar software constructs, including
-	``process'', ``task'', ``fiber'', ``event'', ``execution agent'',
-	and so on.
-	Similar design principles apply to all of them.}
-Each such thread has an identifier of type \apipf{thread_id_t},
-and no two threads running at a given time will have the same
-identifier.
-Threads share everything except for per-thread local state,\footnote{
-	How is that for a circular definition?}
-which includes program counter and stack.
+CodeSamples API 关注的是"thread"，即控制流的载体。\footnote{
+	类似的软件构造还有许多其他名称，包括
+	"进程"、"任务"、"纤程"、"事件"、"执行代理"
+	等等。
+	类似的设计原则适用于所有这些构造。}
+每个这样的 thread 有一个类型为 \apipf{thread_id_t} 的标识符，
+在任何给定时刻运行的两个 thread 不会有相同的标识符。
+Thread 共享除 per-thread 本地状态之外的一切，\footnote{
+	这算不算循环定义？}
+包括程序计数器和栈。
 
-The thread API is shown in
-\cref{lst:toolsoftrade:Thread API}, and members are described in the
-following section.
+thread API 如
+\cref{lst:toolsoftrade:Thread API}所示，
+各成员在以下部分描述。
 
 \begin{listing}
 \begin{VerbatimL}[numbers=none,xleftmargin=2pt]
@@ -1277,122 +1145,105 @@ void wait_all_threads(void)
 \label{lst:toolsoftrade:Thread API}
 \end{listing}
 
-\subsubsection{API Members}
+\subsubsection{API 成员}
 
 \begin{description}[style=nextline]
 \item[\tco{create_thread()}]
-The \apipf{create_thread()} primitive creates a new thread,
-starting the new thread's execution
-at the function \co{func} specified by \apipf{create_thread()}'s
-first argument, and passing it the argument specified by
-\apipf{create_thread()}'s second argument.
-This newly created thread will terminate when it returns from the
-starting function specified by \co{func}.
-The \apipf{create_thread()} primitive returns the \apipf{thread_id_t}
-corresponding to the newly created child thread.
+\apipf{create_thread()} 原语创建一个新 thread，
+新 thread 从 \apipf{create_thread()} 第一个参数指定的
+函数 \co{func} 开始执行，并将 \apipf{create_thread()}
+第二个参数指定的参数传递给它。
+这个新创建的 thread 将在从 \co{func} 指定的起始函数返回时终止。
+\apipf{create_thread()} 原语返回与新创建的子 thread
+对应的 \apipf{thread_id_t}。
 
-This primitive will abort the program if more than \apipf{NR_THREADS}
-threads are created, counting the one implicitly created by running
-the program.
-\apipf{NR_THREADS} is a compile-time constant that may be modified,
-though some systems may have an upper bound for the allowable number
-of threads.
+如果创建的 thread 数超过 \apipf{NR_THREADS}（包括运行程序时
+隐式创建的那个），该原语将中止程序。
+\apipf{NR_THREADS} 是一个编译时常量，可以修改，
+不过某些系统可能对允许的 thread 数量有上限。
 
 \item[\tco{smp_thread_id()}]
-Because the \apipf{thread_id_t} returned from \apipf{create_thread()} is
-system-dependent, the \apipf{smp_thread_id()} primitive returns a thread
-index corresponding to the thread making the request.
-This index is guaranteed to be less than the maximum number of threads
-that have been in existence since the program started,
-and is therefore useful for bitmasks, array indices, and
-the like.
+由于 \apipf{create_thread()} 返回的 \apipf{thread_id_t}
+是系统相关的，\apipf{smp_thread_id()} 原语返回与发出请求的
+thread 对应的 thread 索引。
+该索引保证小于自程序启动以来曾经存在的最大 thread 数，
+因此适用于位掩码、数组索引等用途。
 
 \item[\tco{for_each_thread()}]
-The \apipf{for_each_thread()} macro loops through all threads that exist,
-including all threads that \emph{would} exist if created.
-This macro is useful for handling the per-thread variables
-introduced in \cref{sec:toolsoftrade:Per-Thread Variables}.
+\apipf{for_each_thread()} 宏遍历所有存在的 thread，
+包括如果创建\emph{将会}存在的所有 thread。
+此宏对于处理
+\cref{sec:toolsoftrade:Per-Thread Variables}中引入的
+per-thread 变量很有用。
 
 \item[\tco{for_each_running_thread()}]
-The \apipf{for_each_running_thread()}
-macro loops through only those threads that currently exist.
-It is the caller's responsibility to synchronize with thread
-creation and deletion if required.
+\apipf{for_each_running_thread()} 宏仅遍历当前存在的 thread。
+如果需要，与 thread 创建和删除的同步是调用者的责任。
 
 \item[\tco{wait_thread()}]
-The \apipf{wait_thread()} primitive waits for completion of the thread
-specified by the \co{thread_id_t} passed to it.
-This in no way interferes with the execution of the specified thread;
-instead, it merely waits for it.
-Note that \apipf{wait_thread()} returns the value that was returned by
-the corresponding thread.
+\apipf{wait_thread()} 原语等待传入的 \co{thread_id_t}
+所指定的 thread 完成。
+这绝不会干扰指定 thread 的执行；
+它只是等待该 thread。
+注意 \apipf{wait_thread()} 返回相应 thread 的返回值。
 
 \item[\tco{wait_all_threads()}]
-The \apipf{wait_all_threads()}
-primitive waits for completion of all currently running threads.
-It is the caller's responsibility to synchronize with thread creation
-and deletion if required.
-However, this primitive is normally used to clean up at the end of
-a run, so such synchronization is normally not needed.
+\apipf{wait_all_threads()} 原语等待所有当前正在运行的 thread 完成。
+如果需要，与 thread 创建和删除的同步是调用者的责任。
+然而，该原语通常用于运行结束时的清理，
+所以通常不需要这样的同步。
 
 \end{description}
 
-\subsubsection{Example Usage}
+\subsubsection{使用示例}
 
 \Cref{lst:toolsoftrade:Example Child Thread} (\path{threadcreate.c})
-shows an example hello-world-like child thread.
-As noted earlier, each thread is allocated its own stack, so
-each thread has its own private \co{arg} argument and \co{myarg} variable.
-Each child simply prints its argument and its \apipf{smp_thread_id()}
-before exiting.
-Note that the \co{return} statement on
-\clnrefr{ln:intro:threadcreate:thread_test:return} terminates the thread,
-returning a \co{NULL} to whoever invokes \apipf{wait_thread()} on this
-thread.
+展示了一个类似 hello-world 的子 thread 示例。
+如前所述，每个 thread 被分配了自己的栈，因此每个 thread
+有自己的私有 \co{arg} 参数和 \co{myarg} 变量。
+每个子 thread 在退出前简单地打印其参数和 \apipf{smp_thread_id()}。
+注意\clnrefr{ln:intro:threadcreate:thread_test:return}上的
+\co{return} 语句终止该 thread，
+将 \co{NULL} 返回给对此 thread 调用 \apipf{wait_thread()} 的任何人。
 
 \begin{listing}
 \input{CodeSamples/intro/threadcreate@thread_test.fcv}
-\caption{Example Child Thread}
+\caption{子 Thread 示例}
 \label{lst:toolsoftrade:Example Child Thread}
 \end{listing}
 
 \begin{fcvref}[ln:intro:threadcreate:main]
-The parent program is shown in
-\cref{lst:toolsoftrade:Example Parent Thread}.
-It invokes \co{smp_init()} to initialize the threading system on
-\clnref{smp_init},
-parses arguments on \clnrefrange{parse:b}{parse:e},
-and announces its presence on \clnref{announce}.
-It creates the specified number of child threads on
-\clnrefrange{create:b}{create:e},
-and waits for them to complete on \clnref{wait}.
-Note that \apipf{wait_all_threads()} discards the threads return values,
-as in this case they are all \co{NULL}, which is not very interesting.
+父程序如\cref{lst:toolsoftrade:Example Parent Thread}所示。
+它在\clnref{smp_init}调用 \co{smp_init()} 初始化 thread 系统，
+在\clnrefrange{parse:b}{parse:e}解析参数，
+在\clnref{announce}宣告其存在。
+它在\clnrefrange{create:b}{create:e}创建指定数量的子 thread，
+并在\clnref{wait}等待它们完成。
+注意 \apipf{wait_all_threads()} 丢弃了 thread 的返回值，
+因为在本例中它们都是 \co{NULL}，没什么意义。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/intro/threadcreate@main.fcv}
-\caption{Example Parent Thread}
+\caption{父 Thread 示例}
 \label{lst:toolsoftrade:Example Parent Thread}
 \end{listing}
 
 \QuickQuiz{
-	What happened to the Linux-kernel equivalents to \apipx{fork()}
-	and \apipx{wait()}?
+	Linux 内核中与 \apipx{fork()} 和 \apipx{wait()} 等价的东西呢？
 }\QuickQuizAnswer{
-	They don't really exist.
-	All tasks executing within the Linux kernel share memory,
-	at least unless you want to do a huge amount of memory-mapping
-	work by hand.
+	它们实际上并不存在。
+	在 Linux 内核中执行的所有任务都共享内存，
+	除非你愿意手动做大量的内存映射工作。
 }\QuickQuizEnd
 
-\subsection{Locking}
+\subsection{加锁}
 \label{sec:toolsoftrade:Locking}
 
-A good starting subset of the Linux kernel's locking API is shown in
-\cref{lst:toolsoftrade:Locking API},
-each API element being described in the following section.
-This book's CodeSamples locking API closely follows that of the Linux kernel.
+Linux 内核 locking API 的一个良好起始子集如
+\cref{lst:toolsoftrade:Locking API}所示，
+每个 API 元素在以下部分描述。
+本书的 CodeSamples locking API 密切遵循 Linux 内核的实现。
 
 \begin{listing}
 \begin{VerbatimL}[numbers=none]
@@ -1405,43 +1256,40 @@ void spin_unlock(spinlock_t *sp);
 \label{lst:toolsoftrade:Locking API}
 \end{listing}
 
-\subsubsection{API Members}
+\subsubsection{API 成员}
 
 \begin{description}[style=nextline]
 
 \item[\tco{spin_lock_init()}]
-The \apik{spin_lock_init()} primitive initializes the specified
-\apik{spinlock_t} variable, and must be invoked before
-this variable is passed to any other spinlock primitive.
+\apik{spin_lock_init()} 原语初始化指定的
+\apik{spinlock_t} 变量，必须在将该变量传递给任何其他
+spinlock 原语之前调用。
 
 \item[\tco{spin_lock()}]
-The \apik{spin_lock()} primitive acquires the specified spinlock,
-if necessary, waiting until the spinlock becomes available.
-In some environments, such as pthreads, this waiting will involve
-blocking, while in others, such as the Linux kernel, it might involve
-a CPU-bound spin loop.
+\apik{spin_lock()} 原语获取指定的 spinlock，
+如有必要，会等待直到 spinlock 可用。
+在某些环境中（如 pthreads），这种等待会涉及阻塞，
+而在其他环境中（如 Linux 内核），可能涉及 CPU 忙等待的自旋循环。
 
-The key point is that only one thread may hold a spinlock at any
-given time.
+关键点是在任何给定时刻只有一个 thread 可以持有一个 spinlock。
 
 \item[\tco{spin_trylock()}]
-The \apik{spin_trylock()} primitive acquires the specified spinlock,
-but only if it is immediately available.
-It returns \co{true} if it was able to acquire the spinlock and
-\co{false} otherwise.
+\apik{spin_trylock()} 原语获取指定的 spinlock，
+但仅在它立即可用时才获取。
+如果能够获取 spinlock 则返回 \co{true}，否则返回 \co{false}。
 
 \item[\tco{spin_unlock()}]
-The \apik{spin_unlock()} primitive releases the specified spinlock,
-allowing other threads to acquire it.
+\apik{spin_unlock()} 原语释放指定的 spinlock，
+允许其他 thread 获取它。
 
 \end{description}
 
 % \emph{@@@ likely need to add reader-writer locking.}
 
-\subsubsection{Example Usage}
+\subsubsection{使用示例}
 
-A spinlock named \co{mutex} may be used to protect a variable
-\co{counter} as follows:
+可以使用名为 \co{mutex} 的 spinlock 来保护变量
+\co{counter}，如下所示：
 
 \begin{VerbatimU}
 spin_lock(&mutex);
@@ -1450,11 +1298,11 @@ spin_unlock(&mutex);
 \end{VerbatimU}
 
 \QuickQuiz{
-	What problems could occur if the variable \co{counter} were
-	incremented without the protection of \co{mutex}?
+	如果变量 \co{counter} 在没有 \co{mutex} 保护的情况下
+	被递增，会出现什么问题？
 }\QuickQuizAnswer{
-	On CPUs with load-store architectures, incrementing \co{counter}
-	might compile into something like the following:
+	在具有 load-store 架构的 CPU 上，递增 \co{counter}
+	可能编译成如下形式：
 
 \begin{VerbatimU}
 LOAD counter,r0
@@ -1462,27 +1310,22 @@ INC r0
 STORE r0,counter
 \end{VerbatimU}
 
-	On such machines, two threads might simultaneously load the
-	value of \co{counter}, each increment it, and each store the
-	result.
-	The new value of \co{counter} will then only be one greater
-	than before, despite two threads each incrementing it.
+	在这样的机器上，两个 thread 可能同时加载 \co{counter} 的值，
+	各自递增它，然后各自存储结果。
+	那么 \co{counter} 的新值将只比之前大一，
+	尽管两个 thread 各自都递增了它。
 }\QuickQuizEnd
 
-However, the \apik{spin_lock()} and \apik{spin_unlock()} primitives
-do have performance consequences, as will be seen in
-\cref{chp:Data Structures}.
+然而，\apik{spin_lock()} 和 \apik{spin_unlock()} 原语确实有
+性能影响，这将在\cref{chp:Data Structures}中看到。
 
-\subsection{Accessing Shared Variables}
+\subsection{访问共享变量}
 \label{sec:toolsoftrade:Accessing Shared Variables}
 
-It was not until 2011 that the C standard defined semantics for concurrent
-read/write access to shared variables.
-However, concurrent C code was being written at least a quarter century
-earlier~\cite{Beck85,Inman85}.
-This raises the question as to what today's greybeards did back
-in long-past pre-C11 days.
-A short answer to this question is ``they lived dangerously''.
+直到 2011 年，C 标准才为共享变量的并发读/写访问定义了语义。
+然而，并发 C 代码至少在二十五年前就已经在编写了~\cite{Beck85,Inman85}。
+这引出了一个问题：今天的老前辈们在遥远的 C11 之前时代是怎么做的。
+对这个问题的简短回答是"他们冒着危险生活"。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Living Dangerously Early 1990s Style]
@@ -1492,7 +1335,7 @@ if (ptr != NULL && ptr < high_address)
 	do_low(ptr);
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Living Dangerously Early 1990s Style}
+\caption{1990 年代早期的冒险风格}
 \label{lst:toolsoftrade:Living Dangerously Early 1990s Style}
 \end{listing}
 
@@ -1504,134 +1347,121 @@ if (global_ptr != NULL &&\lnlbl{if:a}
 	do_low(global_ptr);\lnlbl{do_low}
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{C Compilers Can Invent Loads}
+\caption{C 编译器可以发明加载}
 \label{lst:toolsoftrade:C Compilers Can Invent Loads}
 \end{listing}
 
-At least they would have been living dangerously had they been using
-2021 compilers.
-In (say) the early 1990s, compilers did fewer optimizations, in part
-because there were fewer compiler writers and in part due to the
-relatively small memories of that era.
-Nevertheless, problems did arise, as shown in
-\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style},
-which the compiler is within its rights to transform into
-\cref{lst:toolsoftrade:C Compilers Can Invent Loads}.
-As you can see, the temporary on
-\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp} of
+至少如果他们使用的是 2021 年的编译器的话，他们确实会很危险。
+在（比方说）1990 年代早期，编译器做的优化较少，
+部分原因是编译器开发者较少，部分原因是那个时代内存相对较小。
+尽管如此，问题确实出现了，如
+\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}所示，
+编译器有权将其转换为
+\cref{lst:toolsoftrade:C Compilers Can Invent Loads}。
+如你所见，
 \cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}
-has been optimized away, so that \co{global_ptr} will be loaded
-up to three times.
+\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp}
+上的临时变量已被优化掉，因此 \co{global_ptr} 最多会被加载三次。
 
 \QuickQuiz{
-	What is wrong with loading
-	\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}'s
-	\co{global_ptr} up to three times?
+	将\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}的
+	\co{global_ptr} 加载最多三次有什么问题？
 }\QuickQuizAnswer{
-	Suppose that \co{global_ptr} is initially non-\co{NULL},
-	but that some other thread sets \co{global_ptr} to \co{NULL}.
+	假设 \co{global_ptr} 初始为非 \co{NULL}，
+	但另一个 thread 将 \co{global_ptr} 设置为 \co{NULL}。
 	\begin{fcvref}[ln:toolsoftrade:C Compilers Can Invent Loads]
-	Suppose further that \clnref{if:a} of the transformed code
+	进一步假设转换后的代码
 	(\cref{lst:toolsoftrade:C Compilers Can Invent Loads})
-	executes just before \co{global_ptr} is set to \co{NULL} and
-	\clnref{if:b} just after.
-	Then \clnref{if:a} will conclude that
-	\co{global_ptr} is non-\co{NULL},
-	\clnref{if:b} will conclude that it is less than
-	\co{high_address},
-	so that \clnref{do_low} passes \co{do_low()} a \co{NULL} pointer,
-	which \co{do_low()} just might not be prepared to deal with.
+	的\clnref{if:a}恰好在 \co{global_ptr} 被设为 \co{NULL} 之前执行，
+	\clnref{if:b}恰好在之后执行。
+	那么\clnref{if:a}会认为 \co{global_ptr} 非 \co{NULL}，
+	\clnref{if:b}会认为它小于 \co{high_address}，
+	于是\clnref{do_low}将 \co{NULL} 指针传给 \co{do_low()}，
+	而 \co{do_low()} 可能并未准备好处理这种情况。
 	\end{fcvref}
 
-	Your editor made exactly this mistake in the DYNIX/ptx
-	kernel's memory allocator in the early 1990s.
-	Tracking down the bug consumed a holiday weekend not just
-	for your editor, but also for several of his colleagues.
-	In short, this is not a new problem, nor is it likely to
-	go away on its own.
+	本书作者在 1990 年代早期的 DYNIX/ptx 内核内存分配器中
+	正好犯了这个错误。
+	追踪该 bug 不仅耗费了作者一个假期周末，
+	还牵扯了他的几位同事。
+	简而言之，这不是一个新问题，也不太可能自行消失。
 }\QuickQuizEnd
 
 \Cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-describes additional problems caused by plain accesses,
+描述了普通访问导致的其他问题，
 \cref{sec:toolsoftrade:A Volatile Solution,%
 sec:toolsoftrade:Assembling the Rest of a Solution}
-describe some pre-C11 solutions.
-Of course, where practical, direct C-language memory references
-should be replaced by the primitives described in
+描述了一些 C11 之前的解决方案。
+当然，在实际可行的情况下，应该用
 \cref{sec:toolsoftrade:Atomic Operations (gcc Classic)}
-or (especially)
-\cref{sec:toolsoftrade:Atomic Operations (C11)}.
-Use these primitives to avoid \IXpl{data race}, that is, ensure that if
-there are multiple concurrent C-language accesses to a given variable,
-all of those accesses are loads.
+或（特别是）
+\cref{sec:toolsoftrade:Atomic Operations (C11)}
+中描述的原语来替换直接的 C 语言内存引用。
+使用这些原语来避免\IXpl{data race}，即确保如果对给定变量
+有多个并发 C 语言访问，则所有这些访问都是加载操作。
 
-\subsubsection{Shared-Variable Shenanigans}
+\subsubsection{共享变量的诡计}
 \label{sec:toolsoftrade:Shared-Variable Shenanigans}
 \OriginallyPublished{sec:toolsoftrade:Shared-Variable Shenanigans}{Shared-Variable Shenanigans}{Linux Weekly News}{JadeAlglave2019WhoAfraidCompiler}
 %
-Given code that does \IXalt{plain loads and stores}{plain access},\footnote{
-	That is, normal loads and stores instead of C11 atomics, inline
-	assembly, or volatile accesses.}
-the compiler is within
-its rights to assume that the affected variables are neither accessed
-nor modified by any other thread.
-This assumption allows the compiler to carry out a large number of
-transformations, including load tearing, store tearing,
-load fusing, store fusing, code reordering, invented loads,
-invented stores, store-to-load transformations, and dead-code elimination,
-all of which work just fine in single-threaded code.
-But concurrent code can be broken by each of these transformations,
-or shared-variable shenanigans, as described below.
+给定执行\IXalt{plain loads and stores}{plain access}的代码，\footnote{
+	即普通的加载和存储，而不是 C11 atomic、内联汇编
+	或 volatile 访问。}
+编译器有权假设受影响的变量既不会被任何其他 thread 访问
+也不会被修改。
+这一假设允许编译器执行大量变换，
+包括 load tearing、store tearing、
+load fusing、store fusing、代码重排序、invented load、
+invented store、store-to-load 变换和死代码消除，
+所有这些在单 thread 代码中都工作得很好。
+但并发代码可能被这些变换中的每一种破坏，
+即下面描述的共享变量恶作剧。
 
 \begin{description}[labelsep=.4em]
-\item[Load tearing] occurs when the compiler uses multiple load
-instructions for a single access.
-For example, the compiler could in theory compile the load from
-\co{global_ptr} (see
-\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp} of
-\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style})
-as a series of one-byte loads.
-If some other thread was concurrently setting \co{global_ptr} to
-\co{NULL}, the result might have all but one byte of the pointer
-set to zero, thus forming a ``wild pointer''.
-Stores using such a wild pointer could corrupt arbitrary
-regions of memory, resulting in rare and difficult-to-debug crashes.
+\item[Load tearing] 发生在编译器为单次访问使用多条加载指令时。
+例如，编译器理论上可以将从 \co{global_ptr} 的加载（参见
+\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}的
+\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp}）
+编译为一系列单字节加载。
+如果另一个 thread 同时将 \co{global_ptr} 设为 \co{NULL}，
+结果可能是指针除一个字节外全部为零，
+从而形成一个"野指针"。
+使用这样的野指针进行存储可能破坏任意内存区域，
+导致罕见且难以调试的崩溃。
 
-Worse yet, on (say) an 8-bit system with 16-bit pointers, the compiler
-might have no choice but to use a pair of 8-bit instructions to access
-a given pointer.
-Because the C standard must support all manner of systems, the standard
-cannot rule out load tearing in the general case.
+更糟糕的是，在（比如说）一个具有 16 位指针的 8 位系统上，
+编译器可能别无选择，只能使用一对 8 位指令来访问
+给定的指针。
+因为 C 标准必须支持各种系统，
+标准不能在一般情况下排除 load tearing。
 
-\item[Store tearing] occurs when the compiler uses multiple store
-instructions for a single access.
-For example, one thread might store \co{0x12345678} to a four-byte integer
-variable at the same time another thread stored \co{0xabcdef00}.
-If the compiler used 16-bit stores for either access, the result
-might well be \co{0x1234ef00}, which could come as quite a surprise to
-code loading from this integer.
-Nor is this a strictly theoretical issue.
-For example, there are CPUs that feature small immediate instruction
-fields, and on such CPUs, the compiler might split a 64-bit store into
-two 32-bit stores in order to reduce the overhead of explicitly forming
-the 64-bit constant in a register, even on a 64-bit CPU\@.
-There are historical reports of this actually happening in
-the wild (e.g.~\cite{KonstantinKhlebnikov2013gccstoretearing}),
-but there is also a recent
-report~\cite{WillDeacon2019StoreTearingReport}.\footnote{
-	Note that this tearing can happen even on properly aligned
-	and machine-word-sized accesses, and in this particular case,
-	even for volatile stores.
-	Some might argue that this behavior constitutes a bug in the
-	compiler, but either way it illustrates the perceived value of
-	store tearing from a compiler-writer viewpoint.
+\item[Store tearing] 发生在编译器为单次访问使用多条存储指令时。
+例如，一个 thread 可能在同一时间将 \co{0x12345678}
+存储到一个四字节整数变量中，而另一个 thread 存储了 \co{0xabcdef00}。
+如果编译器对任一访问使用了 16 位存储，
+结果很可能是 \co{0x1234ef00}，
+这对于从该整数加载的代码来说可能是相当意外的。
+这也不是纯理论问题。
+例如，有些 CPU 具有较小的立即数指令字段，
+在这样的 CPU 上，编译器可能将 64 位存储拆分为
+两个 32 位存储，以减少在寄存器中显式构造
+64 位常量的开销，即使是在 64 位 CPU 上也是如此。
+有关于这种情况确实在实际中发生的历史报告
+（例如~\cite{KonstantinKhlebnikov2013gccstoretearing}），
+还有一份近期
+报告~\cite{WillDeacon2019StoreTearingReport}。\footnote{
+	请注意，即使对于正确对齐且机器字大小的访问，
+	这种 tearing 也可能发生，而在这种特定情况下，
+	即使对于 volatile 存储也是如此。
+	有些人可能会认为这种行为构成编译器 bug，
+	但无论如何，它说明了从编译器编写者角度来看
+	store tearing 的感知价值。
 }
 
-Of course, the compiler simply has no choice but to tear some stores
-in the general case, given
-the possibility of code using 64-bit integers running on a 32-bit system.
-But for properly aligned machine-sized stores, \apik{WRITE_ONCE()} will
-prevent store tearing.
+当然，考虑到在 32 位系统上运行使用 64 位整数的代码的可能性，
+编译器在一般情况下简直别无选择只能拆分某些存储。
+但对于正确对齐的机器大小存储，\apik{WRITE_ONCE()} 将
+防止 store tearing。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing Load Fusing]
@@ -1640,7 +1470,7 @@ while (!need_to_stop)
 	do_something_quickly();
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{Inviting Load Fusing}
+\caption{招致 Load Fusing}
 \label{lst:toolsoftrade:Inviting Load Fusing}
 \end{listing}
 
@@ -1668,36 +1498,33 @@ if (!need_to_stop)
 	}\lnlbl[loop:e]
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{C Compilers Can Fuse Loads}
+\caption{C 编译器可以融合加载}
 \label{lst:toolsoftrade:C Compilers Can Fuse Loads}
 \end{listing}
 
-\item[Load fusing] occurs when the compiler uses the result of a
-prior load from a given variable instead of repeating the load.
-Not only is this sort of optimization just fine in single-threaded
-code, it is often just fine in multithreaded code.
-Unfortunately, the word ``often'' hides some truly annoying exceptions.
+\item[Load fusing] 发生在编译器使用之前从给定变量加载的结果
+而不重复加载时。
+这种优化不仅在单 thread 代码中完全没问题，
+在多 thread 代码中通常也没问题。
+不幸的是，"通常"这个词隐藏了一些真正恼人的例外。
 
-For example, suppose that a real-time system needs to invoke a
-function named \co{do_something_quickly()} repeatedly until the
-variable \co{need_to_stop} was set, and that the compiler can see
-that \co{do_something_quickly()} does not store to \co{need_to_stop}.
-One (unsafe) way to code this is shown in
-\cref{lst:toolsoftrade:Inviting Load Fusing}.
-The compiler might reasonably unroll this loop sixteen times in order
-to reduce the per-invocation of the backwards branch at the end of the
-loop.
-Worse yet, because the compiler knows that \co{do_something_quickly()}
-does not store to \co{need_to_stop}, the compiler could quite reasonably
-decide to check this variable only once, resulting in the code shown in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}.
+例如，假设一个实时系统需要反复调用名为
+\co{do_something_quickly()} 的函数，直到变量
+\co{need_to_stop} 被设置，并且编译器可以看到
+\co{do_something_quickly()} 不会存储到 \co{need_to_stop}。
+一种（不安全的）编码方式如
+\cref{lst:toolsoftrade:Inviting Load Fusing}所示。
+编译器可能合理地将该循环展开十六次，
+以减少循环末尾向后分支的每次调用开销。
+更糟糕的是，因为编译器知道 \co{do_something_quickly()}
+不会存储到 \co{need_to_stop}，编译器完全可以
+决定只检查该变量一次，产生如
+\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}所示的代码。
 \begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Loads]
-Once entered, the loop on
-\clnrefrange{loop:b}{loop:e} will never exit, regardless of how
-many times some other thread stores a non-zero value to \co{need_to_stop}.
+一旦进入，\clnrefrange{loop:b}{loop:e}上的循环将永远不会退出，
+无论其他 thread 向 \co{need_to_stop} 存储非零值多少次。
 \end{fcvref}
-The result will at best be consternation, and might well also
-include severe physical damage.
+其结果最好是令人惊慌，很可能还包括严重的物理损害。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads]
@@ -1721,59 +1548,53 @@ void t1(void)
 }
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{C Compilers Can Fuse Non-Adjacent Loads}
+\caption{C 编译器可以融合非相邻加载}
 \label{lst:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads]
-The compiler can fuse loads across surprisingly large spans of code.
-For example, in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads},
-\co{t0()} and \co{t1()} run concurrently, and \co{do_something()} and
-\co{do_something_else()} are inline functions.
-\Clnref{gp} declares pointer \co{gp}, which C initializes to \co{NULL}
-by default.
-At some point, \clnref{wgp} of \co{t0()} stores a non-\co{NULL}
-pointer to \co{gp}.
-Meanwhile, \co{t1()} loads from \co{gp} three times on
-\clnref{p1,p2,p3}.
-Given that \clnref{if} finds that \co{gp} is non-\co{NULL}, one might
-hope that the dereference on \clnref{p3} would be guaranteed never
-to fault.
-Unfortunately, the compiler is within its rights to fuse the read on
-\clnref{p1,p3}, which means that if \clnref{p1}
-loads \co{NULL} and \clnref{p2} loads \co{&myvar}, \clnref{p3}
-could load \co{NULL}, resulting in a fault.\footnote{
-	\ppl{Will}{Deacon} reports that this happened in the Linux kernel.}
-Note that the intervening \apik{READ_ONCE()} does not prevent the other
-two loads from being fused, despite the fact that all three are loading
-from the same variable.
+编译器可以跨越惊人大范围的代码来融合加载。
+例如，在
+\cref{lst:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads}中，
+\co{t0()} 和 \co{t1()} 并发运行，\co{do_something()} 和
+\co{do_something_else()} 是内联函数。
+\Clnref{gp}声明了指针 \co{gp}，C 默认将其初始化为 \co{NULL}。
+在某个时刻，\co{t0()} 的\clnref{wgp}将一个非 \co{NULL}
+指针存储到 \co{gp}。
+同时，\co{t1()} 在\clnref{p1,p2,p3}三次从 \co{gp} 加载。
+考虑到\clnref{if}发现 \co{gp} 非 \co{NULL}，人们可能
+希望\clnref{p3}上的解引用永远不会引发错误。
+不幸的是，编译器有权融合\clnref{p1,p3}上的读取，
+这意味着如果\clnref{p1}加载了 \co{NULL} 而\clnref{p2}
+加载了 \co{&myvar}，\clnref{p3}可能加载 \co{NULL}，
+导致错误。\footnote{
+	\ppl{Will}{Deacon}报告说这在 Linux 内核中发生过。}
+注意，中间的 \apik{READ_ONCE()} 并不能阻止其他两次加载被融合，
+尽管三者都是从同一个变量加载。
 \end{fcvref}
 
 \QuickQuiz{
-	Why does it matter whether \co{do_something()} and
-	\co{do_something_else()} in
-	\cref{lst:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads}
-	are inline functions?
+	为什么\cref{lst:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads}
+	中的 \co{do_something()} 和 \co{do_something_else()}
+	是否为内联函数很重要？
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Non-Adjacent Loads]
-	Because \co{gp} is not a static variable, if either
-	\co{do_something()} or \co{do_something_else()} were separately
-	compiled, the compiler would have to assume that either or both
-	of these two functions might change the value of \co{gp}.
-	This possibility would force the compiler to reload \co{gp}
-	on \clnref{p3}, thus avoiding the \co{NULL}-pointer dereference.
+	因为 \co{gp} 不是静态变量，如果 \co{do_something()}
+	或 \co{do_something_else()} 是单独编译的，
+	编译器必须假设这两个函数中的一个或两个可能改变
+	\co{gp} 的值。
+	这种可能性将迫使编译器在\clnref{p3}重新加载 \co{gp}，
+	从而避免 \co{NULL} 指针解引用。
 	\end{fcvref}
 }\QuickQuizEnd
 
-\item[Store fusing] can occur when the compiler notices a pair of successive
-stores to a given variable with no intervening loads from that variable.
-In this case, the compiler is within its rights to omit the first store.
-This is never a problem in single-threaded code, and in fact it is
-usually not a problem in correctly written concurrent code.
-After all, if the two stores are executed in quick succession, there is
-very little chance that some other thread could load the value from the
-first store.
+\item[Store fusing] 当编译器注意到对给定变量的连续两次存储
+之间没有对该变量的加载时，就可能发生。
+在这种情况下，编译器有权省略第一次存储。
+这在单 thread 代码中永远不是问题，
+实际上在正确编写的并发代码中通常也不是问题。
+毕竟，如果两次存储快速连续执行，
+其他 thread 几乎没有机会加载到第一次存储的值。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:C Compilers Can Fuse Stores]
@@ -1797,96 +1618,87 @@ void work_until_shut_down(void)
 }
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{C Compilers Can Fuse Stores}
+\caption{C 编译器可以融合存储}
 \label{lst:toolsoftrade:C Compilers Can Fuse Stores}
 \end{listing}
 
-However, there are exceptions, for example as shown in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}.
+然而，也有例外，例如
+\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}所示。
 \begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Stores]
-The function \co{shut_it_down()} stores to the shared
-variable \co{status} on \clnref{store:a,store:b},
-and so assuming that neither
-\co{start_shutdown()} nor \co{finish_shutdown()} access \co{status},
-the compiler could reasonably remove the store to \co{status} on
-\clnref{store:a}.
-Unfortunately, this would mean that \co{work_until_shut_down()} would
-never exit its loop spanning
-\clnref{until:loop:b,until:loop:e}, and thus would never set
-\co{other_task_ready}, which would in turn mean that \co{shut_it_down()}
-would never exit its loop spanning
-\clnref{loop:b,loop:e}, even if
-the compiler chooses not to fuse the successive loads from
-\co{other_task_ready} on \clnref{loop:b}.
+函数 \co{shut_it_down()} 在\clnref{store:a,store:b}
+对共享变量 \co{status} 进行存储，
+因此假设 \co{start_shutdown()} 和 \co{finish_shutdown()}
+都不访问 \co{status}，编译器可以合理地移除\clnref{store:a}上
+对 \co{status} 的存储。
+不幸的是，这将意味着 \co{work_until_shut_down()} 永远不会退出
+其\clnref{until:loop:b,until:loop:e}的循环，
+因此永远不会设置 \co{other_task_ready}，
+这反过来意味着 \co{shut_it_down()} 永远不会退出
+其\clnref{loop:b,loop:e}的循环，
+即使编译器选择不融合\clnref{loop:b}上对
+\co{other_task_ready} 的连续加载。
 
-And there are more problems with the code in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores},
-including code reordering.
+\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}中的代码
+还有更多问题，包括代码重排序。
 
-\item[Code reordering] is a common compilation technique used to
-combine common subexpressions, reduce register pressure, and
-improve utilization of the many functional units available on
-modern superscalar microprocessors.
-It is also another reason why the code in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}
-is buggy.
-For example, suppose that the \co{do_more_work()} function on
-\clnref{until:loop:e}
-does not access \co{other_task_ready}.
-Then the compiler would be within its rights to move the assignment
-to \co{other_task_ready} on
-\clnref{other:store} to precede \clnref{until:loop:b}, which might
-be a great disappointment for anyone hoping that the last call to
-\co{do_more_work()} on \clnref{until:loop:e} happens before the call to
-\co{finish_shutdown()} on \clnref{finish}.
+\item[Code reordering] 是一种常见的编译技术，用于
+合并公共子表达式、减少寄存器压力，以及
+提高现代超标量微处理器上众多功能单元的利用率。
+它也是\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}
+中的代码有 bug 的另一个原因。
+例如，假设\clnref{until:loop:e}上的 \co{do_more_work()} 函数
+不访问 \co{other_task_ready}。
+那么编译器有权将\clnref{other:store}上对 \co{other_task_ready}
+的赋值移到\clnref{until:loop:b}之前，
+这对于希望\clnref{until:loop:e}上最后一次调用
+\co{do_more_work()} 发生在\clnref{finish}的
+\co{finish_shutdown()} 调用之前的人来说，将是一个巨大的失望。
 \end{fcvref}
 
-It might seem futile to prevent the compiler from changing the order of
-accesses in cases where the underlying hardware is free to reorder them.
-However, modern machines have \emph{exact exceptions} and
-\emph{exact interrupts}, meaning that any interrupt or exception will
-appear to have happened at a specific place in the instruction
-stream.
-This means that the handler will see the effect of all prior
-instructions, but won't see the effect of any subsequent instructions.
-\apik{READ_ONCE()} and \apik{WRITE_ONCE()} can therefore be used to
-control communication between interrupted code and interrupt handlers,
-independent of the ordering provided by the underlying hardware.\footnote{
-	That said, the various standards committees would prefer that
-	you use atomics or variables of type \apic{sig_atomic_t}, instead
-	of \apik{READ_ONCE()} and \apik{WRITE_ONCE()}.}
+在底层硬件可以自由重排序的情况下，
+阻止编译器改变访问顺序似乎毫无意义。
+然而，现代机器具有\emph{精确异常}和\emph{精确中断}，
+意味着任何中断或异常都会表现为发生在指令流中的特定位置。
+这意味着处理程序将看到所有先前指令的效果，
+但不会看到任何后续指令的效果。
+因此 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 可用于
+控制被中断代码和中断处理程序之间的通信，
+独立于底层硬件提供的顺序。\footnote{
+	话虽如此，各标准委员会更希望你使用 atomic 操作
+	或 \apic{sig_atomic_t} 类型的变量，
+	而不是 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()}。}
 
-\item[Invented loads] were illustrated by the code in
+\item[Invented load] 已在
 \cref{lst:toolsoftrade:Living Dangerously Early 1990s Style,%
-lst:toolsoftrade:C Compilers Can Invent Loads},
-in which the compiler optimized away a temporary variable,
-thus loading from a shared variable more often than intended.
+lst:toolsoftrade:C Compilers Can Invent Loads}
+的代码中说明过了，
+编译器优化掉了一个临时变量，
+从而比预期更频繁地从共享变量加载。
 
-Invented loads can be a performance hazard.
-These hazards can occur when a load of variable in a ``hot''
-cacheline is hoisted out of an \co{if} statement.
-These hoisting optimizations are not uncommon, and can cause significant
-increases in cache misses, and thus significant degradation of
-both performance and scalability.
+Invented load 可能是性能隐患。
+当"热" cacheline 中的变量加载被提升到
+\co{if} 语句之外时，就可能出现这些隐患。
+这些提升优化并不罕见，可能导致 cache miss 显著增加，
+从而严重降低性能和可扩展性。
 
-\item[Invented stores] can occur in a number of situations.
+\item[Invented store] 可能在多种情况下发生。
 \begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Stores]
-For example, a compiler emitting code for \co{work_until_shut_down()} in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}
-might notice that \co{other_task_ready} is not accessed by
-\co{do_more_work()}, and stored to on \clnref{other:store}.
-If \co{do_more_work()} was a complex inline function, it might be
-necessary to do a register spill, in which case one attractive
-place to use for temporary storage is \co{other_task_ready}.
-After all, there are no accesses to it, so what is the harm?
+例如，编译器在为
+\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}中的
+\co{work_until_shut_down()} 生成代码时可能注意到
+\co{other_task_ready} 没有被 \co{do_more_work()} 访问，
+且在\clnref{other:store}被存储。
+如果 \co{do_more_work()} 是一个复杂的内联函数，
+可能需要进行寄存器溢出，此时一个有吸引力的
+临时存储位置就是 \co{other_task_ready}。
+毕竟，没有对它的访问，有什么害处呢？
 
-Of course, a non-zero store to this variable at just the wrong time
-would result in the \co{while} loop on
-\clnref{loop:b} terminating
-prematurely, again allowing \co{finish_shutdown()} to run
-concurrently with \co{do_more_work()}.
-Given that the entire point of this \co{while} appears to be to
-prevent such concurrency, this is not a good thing.
+当然，在错误的时刻对该变量进行非零存储
+将导致\clnref{loop:b}上的 \co{while} 循环过早终止，
+再次允许 \co{finish_shutdown()} 与 \co{do_more_work()}
+并发运行。
+鉴于这个 \co{while} 的全部目的似乎是防止这种并发，
+这不是一件好事。
 \end{fcvref}
 
 \begin{listing}
@@ -1898,7 +1710,7 @@ else
 	do_a_bunch_of_stuff(&a);
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{Inviting an Invented Store}
+\caption{招致 Invented Store}
 \label{lst:toolsoftrade:Inviting an Invented Store}
 \end{listing}
 
@@ -1912,74 +1724,66 @@ if (!condition) {
 }
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{Compiler Invents an Invited Store}
+\caption{编译器发明了一个被招致的存储}
 \label{lst:toolsoftrade:Compiler Invents an Invited Store}
 \end{listing}
 
-Using a stored-to variable as a temporary might seem outlandish,
-but it is permitted by the standard.
-Nevertheless, readers might be justified in wanting a less
-outlandish example, which is provided by
+将被存储的变量用作临时变量似乎很离谱，
+但标准允许这样做。
+然而，读者可能有理由想要一个不那么离谱的例子，
 \cref{lst:toolsoftrade:Inviting an Invented Store,%
-lst:toolsoftrade:Compiler Invents an Invited Store}.
+lst:toolsoftrade:Compiler Invents an Invited Store}
+提供了这样的例子。
 
-A compiler emitting code for
-\cref{lst:toolsoftrade:Inviting an Invented Store}
-might know that the value of \co{a} is initially zero,
-which might be a strong temptation to optimize away one branch
-by transforming this code to that in
-\cref{lst:toolsoftrade:Compiler Invents an Invited Store}.
+编译器为\cref{lst:toolsoftrade:Inviting an Invented Store}
+生成代码时可能知道 \co{a} 的初始值为零，
+这可能强烈诱使编译器通过将该代码转换为
+\cref{lst:toolsoftrade:Compiler Invents an Invited Store}
+来优化掉一个分支。
 \begin{fcvref}[ln:toolsoftrade:Compiler Invents an Invited Store]
-Here, \clnref{store:uncond} unconditionally stores \co{1} to \co{a}, then
-resets the value back to zero on
-\clnref{store:cond} if \co{condition} was not set.
-This transforms the if-then-else into an if-then, saving one branch.
+这里，\clnref{store:uncond}无条件地将 \co{1} 存储到 \co{a}，
+然后如果 \co{condition} 未设置，
+就在\clnref{store:cond}将值重置回零。
+这将 if-then-else 转换为 if-then，节省了一个分支。
 \end{fcvref}
 
 \QuickQuiz{
-	Ouch!
-	So can't the compiler invent a store to a normal variable pretty
-	much any time it likes?
+	哎哟！
+	那编译器不是几乎可以在任何时候对普通变量发明存储吗？
 }\QuickQuizAnswer{
-	Thankfully, the answer is no.
-	This is because the compiler is forbidden from introducing data races.
-	The case of inventing a store just before a normal store is
-	quite special:
-	It is not possible for some other entity, be it CPU, thread,
-	signal handler, or interrupt handler, to be able to see the
-	invented store unless the code already has a data race, even
-	without the invented store.
-	And if the code already has a data race, it already invokes
-	the dreaded spectre of undefined behavior, which allows the
-	compiler to generate pretty much whatever code it wants,
-	regardless of the wishes of the developer.
+	谢天谢地，答案是不能。
+	这是因为编译器被禁止引入 data race。
+	在普通存储之前发明存储的情况非常特殊：
+	除非代码已经存在 data race（即使没有 invented store），
+	否则任何其他实体——无论是 CPU、thread、
+	信号处理程序还是中断处理程序——都不可能看到
+	被发明的存储。
+	而如果代码已经存在 data race，它已经引发了
+	可怕的未定义行为幽灵，允许编译器生成几乎任何它想要的代码，
+	不管开发者的意愿如何。
 
-	But if the original store is volatile, as in \apik{WRITE_ONCE()},
-	for all the compiler knows, there might be a side effect
-	associated with the store that could signal some other thread,
-	allowing data-race-free access to the variable.
-	By inventing the store, the compiler might be introducing a
-	data race, which it is not permitted to do.
+	但如果原始存储是 volatile 的，如 \apik{WRITE_ONCE()} 中那样，
+	就编译器所知，可能有与该存储相关的副作用
+	可以向其他 thread 发出信号，
+	允许对变量进行无 data race 的访问。
+	通过发明存储，编译器可能引入 data race，
+	而这是不允许的。
 
-	Furthermore, in
-	\cref{lst:toolsoftrade:Compiler Invents an Invited Store},
-	the address of that variable is passed to
-	\co{do_a_bunch_of_stuff()}.
-	If the compiler can see this function's definition, and
-	notes that \co{a} is unconditionally stored to without
-	any synchronization operations, then the compiler can be
-	quite sure that it is not introducing a data race in this
-	case.
+	此外，在
+	\cref{lst:toolsoftrade:Compiler Invents an Invited Store}中，
+	该变量的地址被传递给了 \co{do_a_bunch_of_stuff()}。
+	如果编译器可以看到该函数的定义，
+	并注意到 \co{a} 在没有任何同步操作的情况下被无条件存储，
+	那么编译器可以相当确定它在这种情况下没有引入 data race。
 
-	In the case of \co{volatile} and atomic variables, the compiler
-	is specifically forbidden from inventing writes.
+	对于 \co{volatile} 和 atomic 变量，
+	编译器被明确禁止发明写入。
 }\QuickQuizEnd
 
-Finally, pre-C11 compilers could invent writes to unrelated
-variables that happened to be adjacent to written-to
-variables~\cite[Section 4.2]{Boehm:2005:TCI:1064978.1065042}.
-This variant of invented stores has been outlawed by the prohibition
-against compiler optimizations that invent data races.
+最后，C11 之前的编译器可能对恰好与被写入变量相邻的
+不相关变量发明写入~\cite[Section 4.2]{Boehm:2005:TCI:1064978.1065042}。
+这种 invented store 的变体已被禁止编译器优化引入 data race 的
+规定所取缔。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Inviting a Store-to-Load Conversion]
@@ -1991,27 +1795,24 @@ barrier();\lnlbl[barrier]
 p = NULL;\lnlbl[null]
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{Inviting a Store-to-Load Conversion}
+\caption{招致 Store-to-Load 转换}
 \label{lst:toolsoftrade:Inviting a Store-to-Load Conversion}
 \end{listing}
 
-\item[Store-to-load transformations] can occur when the compiler notices
-that a plain store might not actually change the value in memory.
+\item[Store-to-load 转换] 当编译器注意到普通存储可能实际上
+不会改变内存中的值时就可能发生。
 \begin{fcvref}[ln:toolsoftrade:Inviting a Store-to-Load Conversion]
-For example, consider
-\cref{lst:toolsoftrade:Inviting a Store-to-Load Conversion}.
-\Clnref{load:p} fetches \co{p}, but the \qco{if} statement on
-\clnref{if} also tells the compiler that the developer thinks that
-\co{p} is usually zero.\footnote{
-	The \apik{unlikely()} function provides this hint to the compiler,
-	and different compilers provide different ways of implementing
-	\co{unlikely()}.}
-The \apik{barrier()} statement on \clnref{barrier} forces the compiler
-to forget the value of \co{p}, but one could imagine a compiler
-choosing to remember the hint---or getting an additional hint via
-feedback-directed optimization.
-Doing so would cause the compiler to realize that \clnref{null}
-is often an expensive no-op.
+例如，考虑
+\cref{lst:toolsoftrade:Inviting a Store-to-Load Conversion}。
+\Clnref{load:p}获取 \co{p}，但\clnref{if}上的 \qco{if} 语句
+也告诉编译器开发者认为 \co{p} 通常为零。\footnote{
+	\apik{unlikely()} 函数向编译器提供此提示，
+	不同的编译器提供不同的 \co{unlikely()} 实现方式。}
+\clnref{barrier}上的 \apik{barrier()} 语句强制编译器忘记
+\co{p} 的值，但可以想象编译器选择记住该提示——或通过
+反馈驱动优化获得额外的提示。
+这样做会使编译器意识到\clnref{null}通常是一个
+开销很大的空操作。
 \end{fcvref}
 
 \begin{listing}
@@ -2025,123 +1826,110 @@ if (p != NULL)\lnlbl[if1]
 	p = NULL;\lnlbl[null]
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{Compiler Converts a Store to a Load}
+\caption{编译器将存储转换为加载}
 \label{lst:toolsoftrade:Compiler Converts a Store to a Load}
 \end{listing}
 
 \begin{fcvref}[ln:toolsoftrade:Compiler Converts a Store to a Load]
-Such a compiler might therefore guard the store of \co{NULL}
-with a check, as shown on \clnref{if1,null} of
-\cref{lst:toolsoftrade:Compiler Converts a Store to a Load}.
-Although this transformation is often desirable, it could be problematic
-if the actual store was required for ordering.
-For example, a write memory barrier (Linux kernel \apik{smp_wmb()}) would
-order the store, but not the load.
-This situation might suggest use of \apik{smp_store_release()} over
-\apik{smp_wmb()}.
+这样的编译器可能因此用一个检查来保护 \co{NULL} 的存储，
+如\cref{lst:toolsoftrade:Compiler Converts a Store to a Load}的
+\clnref{if1,null}所示。
+虽然这种转换通常是可取的，但如果实际存储对于排序是必需的，
+就可能出现问题。
+例如，写 memory barrier（Linux 内核的 \apik{smp_wmb()}）
+会对存储排序，但不会对加载排序。
+这种情况可能建议使用 \apik{smp_store_release()}
+而非 \apik{smp_wmb()}。
 \end{fcvref}
 
-\item[Dead-code elimination] can occur when the compiler notices that
-the value from a load is never used, or when a variable is stored to,
-but never loaded from.
-This can of course eliminate an access to a shared variable, which
-can in turn defeat a memory-ordering primitive, which could cause your
-concurrent code to act in surprising ways.
-Experience thus far indicates that relatively few such surprises will
-be at all pleasant.
-Elimination of store-only variables is especially dangerous in cases
-where external code locates the variable via symbol tables:
-The compiler is necessarily ignorant of such external-code accesses,
-and might thus eliminate a variable that the external code relies upon.
+\item[Dead-code elimination] 当编译器注意到来自加载的值
+从未被使用，或一个变量被存储但从未被加载时，就可能发生。
+这当然可能消除对共享变量的访问，
+进而破坏 memory ordering 原语，
+这可能导致你的并发代码以令人惊讶的方式运行。
+迄今为止的经验表明，这些意外中令人愉快的情况相对较少。
+消除只存储的变量在外部代码通过符号表定位变量的情况下
+特别危险：
+编译器必然不知道此类外部代码的访问，
+因此可能消除外部代码依赖的变量。
 
 \end{description}
 
-Reliable concurrent code clearly needs a way to cause the compiler to
-preserve the number, order, and type of important accesses to shared
-memory, a topic taken up by
+可靠的并发代码显然需要一种方法来使编译器
+保留对共享内存的重要访问的数量、顺序和类型，
+这是
 \cref{sec:toolsoftrade:A Volatile Solution,%
-sec:toolsoftrade:Assembling the Rest of a Solution},
-which are up next.
+sec:toolsoftrade:Assembling the Rest of a Solution}
+接下来要讨论的主题。
 
-\subsubsection{A Volatile Solution}
+\subsubsection{一个 Volatile 解决方案}
 \label{sec:toolsoftrade:A Volatile Solution}
 
-Although it is now much maligned, before the advent of C11 and
-C++11~\cite{PeteBecker2011N3242}, the \apic{volatile} keyword was an
-indispensable tool in the parallel programmer's toolbox.
-This raises the question of exactly what \co{volatile} means,
-a question that is not answered with excessive precision even
-by more recent versions of this standard~\cite{RichardSmith2019N4800}.\footnote{
-	JF Bastien thoroughly documented the history and use cases
-	for the \co{volatile} keyword in
-	C++~\cite{JFBastien2018DeprecatingVolatile}.}
-This version guarantees that ``Accesses through \co{volatile}
-\co{glvalues} are evaluated strictly according to the rules of the
-abstract machine'',
-that \co{volatile} accesses are side effects,
-that they are one of the four forward-progress indicators,
-and that their exact semantics are implementation-defined.
-Perhaps the clearest guidance is provided by this non-normative note:
+虽然现在 \apic{volatile} 关键字名声不好，但在 C11 和
+C++11~\cite{PeteBecker2011N3242}出现之前，
+它是并行程序员工具箱中不可或缺的工具。
+这引出了 \co{volatile} 到底意味着什么的问题，
+即使是更新版本的标准~\cite{RichardSmith2019N4800}也没有
+过于精确地回答这个问题。\footnote{
+	JF Bastien 在
+	C++~\cite{JFBastien2018DeprecatingVolatile}中
+	详尽地记录了 \co{volatile} 关键字的历史和用例。}
+该版本保证"通过 \co{volatile} \co{glvalues} 的访问
+严格按照抽象机器的规则求值"，
+\co{volatile} 访问是副作用，
+它们是四个前进保证指标之一，
+而它们的确切语义是实现定义的。
+也许最清晰的指导来自这个非规范性注释：
 
 \begin{quote}
-	\apic{volatile} is a hint to the implementation to avoid
-	aggressive optimization involving the object because the value
-	of the object might be changed by means undetectable by an
-	implementation.
-	Furthermore, for some implementations, \apic{volatile} might indicate
-	that special hardware instructions are required to access
-	the object.
-	See 6.8.1 for detailed semantics.
-	In general, the semantics of \apic{volatile} are intended to be the
-	same in C++ as they are in C.
+	\apic{volatile} 是对实现的一个提示，
+	要求避免对该对象进行激进的优化，
+	因为该对象的值可能通过实现无法检测的方式被改变。
+	此外，对于某些实现，\apic{volatile} 可能表示
+	需要特殊的硬件指令来访问该对象。
+	有关详细语义，请参阅 6.8.1。
+	一般来说，\apic{volatile} 的语义在 C++ 中
+	与在 C 中的含义相同。
 \end{quote}
 
-This wording might be reassuring to those writing low-level code, except
-for the fact that compiler writers are free to completely ignore
-non-normative notes.
-Parallel programmers might instead reassure themselves that compiler
-writers would like to avoid breaking device drivers (though perhaps
-only after a few ``frank and open'' discussions with device-driver
-developers), and device drivers impose at least the following
-constraints~\cite{PaulEMcKenney2016P0124R6-LKMM}:
+对于编写底层代码的人来说，这段措辞可能令人放心，
+但问题是编译器编写者完全可以忽略非规范性注释。
+并行程序员可以改为安慰自己：编译器编写者
+不想破坏设备驱动（虽然可能要经过与设备驱动开发者的
+几次"坦诚而开放的"讨论之后），
+而设备驱动至少施加了以下
+约束~\cite{PaulEMcKenney2016P0124R6-LKMM}：
 
 \begin{enumerate}
-\item	Implementations are forbidden from tearing an aligned volatile
-	access when machine instructions of that access's size and type
-	are available.\footnote{
-		Note that this leaves unspecified what to do with 128-bit
-		loads and stores on CPUs having 128-bit CAS but not
-		128-bit loads and stores.}
-	Concurrent code relies on this constraint to avoid unnecessary
-	load and store tearing.
-\item	Implementations must not assume anything about the semantics of
-	a volatile access, nor, for any volatile access that returns a
-	value, about the possible set of values that might be
-	returned.\footnote{
-		This is strongly implied by the implementation-defined
-		semantics called out above.}
-	Concurrent code relies on this constraint to avoid optimizations
-	that are inapplicable given that other processors might be
-	concurrently accessing the location in question.
-\item	Aligned machine-sized non-mixed-size volatile accesses interact
-	naturally with volatile assembly-code sequences before and after.
-	This is necessary because some devices must be accessed using
-	a combination of volatile MMIO accesses and special-purpose
-	assembly-language instructions.
-	Concurrent code relies on this constraint in order to achieve
-	the desired ordering properties from combinations of volatile
-	accesses and other means discussed in
-	\cref{sec:toolsoftrade:Assembling the Rest of a Solution}.
+\item	当该访问大小和类型的机器指令可用时，
+	实现被禁止对对齐的 volatile 访问进行 tearing。\footnote{
+		注意，这没有规定对于具有 128 位 CAS 但没有
+		128 位加载和存储的 CPU 上的 128 位加载和存储
+		应该怎么做。}
+	并发代码依赖此约束来避免不必要的 load 和 store tearing。
+\item	实现不得对 volatile 访问的语义做任何假设，
+	对于返回值的 volatile 访问，也不得对可能返回的
+	值集做任何假设。\footnote{
+		这由上面提到的实现定义语义强烈暗示。}
+	并发代码依赖此约束来避免在其他处理器可能正在
+	并发访问相关位置时不适用的优化。
+\item	对齐的机器大小的非混合大小 volatile 访问
+	与前后的 volatile 汇编代码序列自然交互。
+	这是必要的，因为某些设备必须使用
+	volatile MMIO 访问和特殊用途汇编语言指令的
+	组合来访问。
+	并发代码依赖此约束，以便从 volatile 访问和
+	\cref{sec:toolsoftrade:Assembling the Rest of a Solution}
+	中讨论的其他手段的组合中获得所需的排序属性。
 \end{enumerate}
 
-Concurrent code also relies on the first two constraints to avoid
-undefined behavior that could result due to data races if any of the
-accesses to a given object was either non-atomic or non-volatile,
-assuming that all accesses are aligned and machine-sized.
-The semantics of mixed-size accesses to the same locations are more
-complex, and are left aside for the time being.
+并发代码还依赖前两个约束来避免由于 data race 引起的
+未定义行为，如果对给定对象的任何访问是非 atomic 或
+非 volatile 的话，假设所有访问都是对齐的且为机器大小。
+混合大小访问到相同位置的语义更加复杂，
+暂且搁置不谈。
 
-So how does \apic{volatile} stack up against the earlier examples?
+那么 \apic{volatile} 相对于前面的例子表现如何？
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Avoiding Danger, 2018 Style]
@@ -2151,16 +1939,14 @@ if (ptr != NULL && ptr < high_address)
 	do_low(ptr);
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Avoiding Danger, 2018 Style}
+\caption{避免危险，2018 风格}
 \label{lst:toolsoftrade:Avoiding Danger; 2018 Style}
 \end{listing}
 
-Using \apik{READ_ONCE()} on
-\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp} of
-\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}
-avoids invented loads,
-resulting in the code shown in
-\cref{lst:toolsoftrade:Avoiding Danger; 2018 Style}.
+在\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}的
+\clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp}
+上使用 \apik{READ_ONCE()} 可以避免 invented load，
+结果如\cref{lst:toolsoftrade:Avoiding Danger; 2018 Style}所示。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing Load Fusing]
@@ -2169,14 +1955,13 @@ while (!READ_ONCE(need_to_stop))
 	do_something_quickly();
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Preventing Load Fusing}
+\caption{防止 Load Fusing}
 \label{lst:toolsoftrade:Preventing Load Fusing}
 \end{listing}
 
-As shown in
-\cref{lst:toolsoftrade:Preventing Load Fusing},
-\apik{READ_ONCE()} can also prevent the loop unrolling in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}.
+如\cref{lst:toolsoftrade:Preventing Load Fusing}所示，
+\apik{READ_ONCE()} 也可以防止
+\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}中的循环展开。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing Store Fusing and Invented Stores]
@@ -2200,18 +1985,18 @@ void work_until_shut_down(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Preventing Store Fusing and Invented Stores}
+\caption{防止 Store Fusing 和 Invented Store}
 \label{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
 \end{listing}
 
-\apik{READ_ONCE()} and \apik{WRITE_ONCE()} can also be used to prevent the
-store fusing and invented stores that were shown in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores},
-with the result shown in
-\cref{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}.
-However, this does nothing to prevent code reordering, which requires
-some additional tricks taught in
-\cref{sec:toolsoftrade:Assembling the Rest of a Solution}.
+\apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 也可以用于防止
+\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}中所示的
+store fusing 和 invented store，
+结果如\cref{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
+所示。
+然而，这并不能防止代码重排序，这需要
+\cref{sec:toolsoftrade:Assembling the Rest of a Solution}
+中教授的一些额外技巧。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Disinviting an Invented Store]
@@ -2222,38 +2007,34 @@ else
 	do_a_bunch_of_stuff();
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Disinviting an Invented Store}
+\caption{取消招致 Invented Store}
 \label{lst:toolsoftrade:Disinviting an Invented Store}
 \end{listing}
 
-Finally, \apik{WRITE_ONCE()} can be used to prevent the store invention
-shown in
-\cref{lst:toolsoftrade:Inviting an Invented Store},
-with the resulting code shown in
-\cref{lst:toolsoftrade:Disinviting an Invented Store}.
+最后，\apik{WRITE_ONCE()} 可以用于防止
+\cref{lst:toolsoftrade:Inviting an Invented Store}中所示的
+store invention，
+结果代码如\cref{lst:toolsoftrade:Disinviting an Invented Store}所示。
 
-To summarize, the \apic{volatile} keyword can prevent load
-tearing and store tearing in cases where the loads and stores are
-machine-sized and properly aligned.
-It can also prevent load fusing, store fusing, invented loads, and
-invented stores.
-However, although it does prevent the compiler from reordering \apic{volatile}
-accesses with each other, it does nothing to prevent the
-CPU from reordering these accesses.
-Furthermore, it does nothing to prevent either compiler or CPU from
-reordering non-\co{volatile} accesses with each other or with
-\co{volatile} accesses.
-Preventing these types of reordering requires the techniques described
-in the next section.
+总结一下，\apic{volatile} 关键字可以在加载和存储是
+机器大小且正确对齐的情况下防止 load tearing 和 store tearing。
+它还可以防止 load fusing、store fusing、invented load
+和 invented store。
+然而，虽然它确实阻止编译器相互重排序 \apic{volatile} 访问，
+但它无法阻止 CPU 重排序这些访问。
+此外，它无法阻止编译器或 CPU 相互重排序
+非 \co{volatile} 访问，或将非 \co{volatile} 访问与
+\co{volatile} 访问重排序。
+防止这些类型的重排序需要下一节描述的技术。
 
-\subsubsection{Assembling the Rest of a Solution}
+\subsubsection{组装解决方案的其余部分}
 \label{sec:toolsoftrade:Assembling the Rest of a Solution}
 
-Additional ordering has traditionally been provided by recourse to
-assembly language, for example, \GCC\ asm directives.
-Oddly enough, these directives need not actually contain assembly language,
-as exemplified by the \apik{barrier()} macro shown in
-\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}.
+额外的排序传统上通过使用汇编语言来提供，
+例如 \GCC\ asm 指令。
+奇怪的是，这些指令实际上不需要包含汇编语言，
+正如\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}
+所示的 \apik{barrier()} 宏所例证的。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing C Compilers From Fusing Loads]
@@ -2265,27 +2046,24 @@ while (!need_to_stop) {
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Preventing C Compilers From Fusing Loads}
+\caption{防止 C 编译器融合加载}
 \label{lst:toolsoftrade:Preventing C Compilers From Fusing Loads}
 \end{listing}
 
-In the \apik{barrier()} macro, the \co{__asm__} introduces the asm
-directive, the \co{__volatile__} prevents the compiler from optimizing
-the asm away, the empty string specifies that no actual instructions
-are to be emitted, and the final \co{"memory"} tells the compiler that
-this do-nothing asm can arbitrarily change memory.
-In response, the compiler will avoid moving any memory references across
-the \apik{barrier()} macro.
-This means that the real-time-destroying loop unrolling shown in
-\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}
-can be prevented by adding \apik{barrier()} calls as shown on
+在 \apik{barrier()} 宏中，\co{__asm__} 引入了 asm 指令，
+\co{__volatile__} 防止编译器将该 asm 优化掉，
+空字符串指定不生成实际指令，
+最后的 \co{"memory"} 告诉编译器这个什么都不做的 asm
+可以任意改变内存。
+作为回应，编译器将避免将任何内存引用移过 \apik{barrier()} 宏。
+这意味着\cref{lst:toolsoftrade:C Compilers Can Fuse Loads}
+中所示的破坏实时性的循环展开可以通过添加 \apik{barrier()} 调用来防止，
+如\cref{lst:toolsoftrade:Preventing C Compilers From Fusing Loads}的
 \clnrefr{ln:toolsoftrade:Preventing C Compilers From Fusing Loads:b1,%
 ln:toolsoftrade:Preventing C Compilers From Fusing Loads:b2}
-of
-\cref{lst:toolsoftrade:Preventing C Compilers From Fusing Loads}.
-These two lines of code prevent the compiler from pushing the load from
-\co{need_to_stop} into or past \co{do_something_quickly()} from either
-direction.
+所示。
+这两行代码防止编译器从任一方向将 \co{need_to_stop} 的加载
+推入或推过 \co{do_something_quickly()}。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing Reordering]
@@ -2315,196 +2093,178 @@ void work_until_shut_down(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Preventing Reordering}
+\caption{防止重排序}
 \label{lst:toolsoftrade:Preventing Reordering}
 \end{listing}
 
-However, this does nothing to prevent the CPU from reordering the
-references.
-In many cases, this is not a problem because the hardware can only do
-a certain amount of reordering.
-However, there are cases such as
-\cref{lst:toolsoftrade:C Compilers Can Fuse Stores} where the
-hardware must be constrained.
+然而，这并不能阻止 CPU 对引用进行重排序。
+在许多情况下，这不是问题，因为硬件只能进行一定程度的重排序。
+然而，在某些情况下（如
+\cref{lst:toolsoftrade:C Compilers Can Fuse Stores}）
+必须约束硬件。
 \Cref{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
-prevented store fusing and invention, and
+防止了 store fusing 和 invention，
 \cref{lst:toolsoftrade:Preventing Reordering}
-further prevents the remaining reordering by addition of
-\apik{smp_mb()} on
+通过添加 \apik{smp_mb()} 进一步防止了剩余的重排序，位于
 \begin{fcvref}[ln:toolsoftrade:Preventing Reordering]
-\clnref{mb1,mb2,mb3,mb4,mb5}.
+\clnref{mb1,mb2,mb3,mb4,mb5}。
 \end{fcvref}
-The \apik{smp_mb()} macro is similar to \apik{barrier()} shown in
-\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)},
-but with the empty string replaced by a string containing the
-instruction for a full memory barrier, for example, \co{"mfence"}
-on x86 or \co{"sync"} on PowerPC.
+\apik{smp_mb()} 宏类似于
+\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}中所示的
+\apik{barrier()}，但将空字符串替换为包含完整 memory barrier
+指令的字符串，例如 x86 上的 \co{"mfence"} 或 PowerPC 上的 \co{"sync"}。
 
 \QuickQuiz{
-	But aren't full memory barriers very heavyweight?
-	Isn't there a cheaper way to enforce the ordering needed in
-	\cref{lst:toolsoftrade:Preventing Reordering}?
+	但完整的 memory barrier 不是非常重量级吗？
+	有没有更便宜的方法来强制
+	\cref{lst:toolsoftrade:Preventing Reordering}中
+	所需的排序？
 }\QuickQuizAnswer{
-	As is often the case, the answer is ``it depends''.
-	However, if only two threads are accessing the \co{status}
-	and \co{other_task_ready} variables, then the
-	\apik{smp_store_release()} and \apik{smp_load_acquire()}
-	functions discussed in
-	\cref{sec:toolsoftrade:Atomic Operations}
-	will suffice.
+	正如通常的情况，答案是"视情况而定"。
+	然而，如果只有两个 thread 访问 \co{status}
+	和 \co{other_task_ready} 变量，那么
+	\cref{sec:toolsoftrade:Atomic Operations}中讨论的
+	\apik{smp_store_release()} 和 \apik{smp_load_acquire()}
+	函数就足够了。
 }\QuickQuizEnd
 
-Ordering is also provided by some read-modify-write atomic
-operations, some of which are presented in
-\cref{sec:toolsoftrade:Atomic Operations}.
-In the general case, memory ordering can be quite subtle, as
-discussed in
-\cref{chp:Advanced Synchronization: Memory Ordering}.
-The next section covers an alternative to memory ordering, namely
-limiting or even entirely avoiding data races.
+排序也由一些读-修改-写 atomic 操作提供，
+其中一些在\cref{sec:toolsoftrade:Atomic Operations}中介绍。
+在一般情况下，内存排序可能非常微妙，如
+\cref{chp:Advanced Synchronization: Memory Ordering}中所讨论的。
+下一节介绍内存排序的一种替代方案，即
+限制甚至完全避免 data race。
 
-\subsubsection{Avoiding Data Races}
+\subsubsection{避免数据竞争}
 \label{sec:toolsoftrade:Avoiding Data Races}
 
 \begin{quote}
-``Doctor, it hurts my head when I think about concurrently accessing
-shared variables!''
+"医生，我一想到并发访问共享变量就头疼！"
 
-``Then stop concurrently accessing shared variables!!!''
+"那就别并发访问共享变量！！！"
 \end{quote}
 
-The doctor's advice might seem unhelpful, but
-one time-tested way to avoid concurrently accessing shared variables
-is access those variables only when holding a particular lock, as will
-be discussed in \cref{chp:Locking}.
-Another way is to access a given ``shared'' variable only from a given
-CPU or thread, as will be discussed in
-\cref{chp:Data Ownership}.
-It is possible to combine these two approaches, for example, a given
-variable might be modified only by a given CPU or thread while holding a
-particular lock, and might be read either from that same CPU or thread
-on the one hand, or from some other CPU or thread while holding that
-same lock on the other.
-In all of these situations, all accesses to the shared variables may
-be plain C-language accesses.
+医生的建议似乎没什么用，但避免并发访问共享变量的
+一个经过时间考验的方法是仅在持有特定 lock 时
+访问这些变量，这将在\cref{chp:Locking}中讨论。
+另一种方法是仅从给定 CPU 或 thread 访问给定的"共享"变量，
+这将在\cref{chp:Data Ownership}中讨论。
+可以将这两种方法结合起来，例如，给定变量可能仅由
+给定 CPU 或 thread 在持有特定 lock 时修改，
+并且可能从该同一 CPU 或 thread 读取，
+或者从其他 CPU 或 thread 在持有该同一 lock 时读取。
+在所有这些情况下，对共享变量的所有访问
+都可以是普通的 C 语言访问。
 
-Here is a list of situations
-allowing plain loads and stores for some accesses to a given variable,
-while requiring markings (such as \apik{READ_ONCE()} and \apik{WRITE_ONCE()})
-for other accesses to that same variable:
+以下是允许对给定变量的某些访问使用普通加载和存储，
+同时要求对该同一变量的其他访问使用标记
+（如 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()}）的情况列表：
 
 \begin{enumerate}
-\item	A shared variable is only modified by a given owning CPU or
-	thread, but is read by other CPUs or threads.
-	All stores must use \apik{WRITE_ONCE()}.
-	The owning CPU or thread may use plain loads.
-	Everything else must use \apik{READ_ONCE()} for loads.
-\item	A shared variable is only modified while holding a given
-	lock, but is read by code not holding that lock.
-	All stores must use \apik{WRITE_ONCE()}.
-	CPUs or threads holding the lock may use plain loads.
-	Everything else must use \apik{READ_ONCE()} for loads.
-\item	A shared variable is only modified while holding a given
-	lock by a given owning CPU or thread, but is read by other
-	CPUs or threads or by code not holding that lock.
-	All stores must use \apik{WRITE_ONCE()}.
-	The owning CPU or thread may use plain loads, as may any
-	CPU or thread holding the lock.
-	Everything else must use \apik{READ_ONCE()} for loads.
-\item	A shared variable is only accessed by a given CPU or thread
-	and by a signal or interrupt handler running in that CPU's
-	or thread's context.
-	The handler can use plain loads and stores, as can any code
-	that has prevented the handler from being invoked, that is,
-	code that has blocked signals and/or interrupts.
-	All other code must use \apik{READ_ONCE()} and \apik{WRITE_ONCE()}.
-\item	A shared variable is only accessed by a given CPU or thread
-	and by a signal or interrupt handler running in that CPU's
-	or thread's context, and the handler always restores the values of any
-	variables that it has written before return.
-	The handler can use plain loads and stores, as can any code
-	that has prevented the handler from being invoked, that is,
-	code that has blocked signals and/or interrupts.
-	All other code can use plain loads, but must use \apik{WRITE_ONCE()}
-	to prevent store tearing, store fusing, and invented stores.
+\item	一个共享变量仅由给定的拥有者 CPU 或 thread 修改，
+	但被其他 CPU 或 thread 读取。
+	所有存储必须使用 \apik{WRITE_ONCE()}。
+	拥有者 CPU 或 thread 可以使用普通加载。
+	其他所有加载必须使用 \apik{READ_ONCE()}。
+\item	一个共享变量仅在持有给定 lock 时被修改，
+	但被未持有该 lock 的代码读取。
+	所有存储必须使用 \apik{WRITE_ONCE()}。
+	持有 lock 的 CPU 或 thread 可以使用普通加载。
+	其他所有加载必须使用 \apik{READ_ONCE()}。
+\item	一个共享变量仅在给定拥有者 CPU 或 thread
+	持有给定 lock 时被修改，
+	但被其他 CPU 或 thread 或未持有该 lock 的代码读取。
+	所有存储必须使用 \apik{WRITE_ONCE()}。
+	拥有者 CPU 或 thread 可以使用普通加载，
+	任何持有该 lock 的 CPU 或 thread 也可以。
+	其他所有加载必须使用 \apik{READ_ONCE()}。
+\item	一个共享变量仅由给定 CPU 或 thread
+	以及在该 CPU 或 thread 上下文中运行的
+	信号或中断处理程序访问。
+	处理程序可以使用普通加载和存储，
+	阻止处理程序被调用的代码也可以，
+	即已阻塞信号和/或中断的代码。
+	所有其他代码必须使用 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()}。
+\item	一个共享变量仅由给定 CPU 或 thread
+	以及在该 CPU 或 thread 上下文中运行的
+	信号或中断处理程序访问，
+	且处理程序在返回前总是恢复其写入的所有变量的值。
+	处理程序可以使用普通加载和存储，
+	阻止处理程序被调用的代码也可以，
+	即已阻塞信号和/或中断的代码。
+	所有其他代码可以使用普通加载，但必须使用 \apik{WRITE_ONCE()}
+	来防止 store tearing、store fusing 和 invented store。
 \end{enumerate}
 
 \QuickQuiz{
-	What needs to happen if an interrupt or signal handler
-	might itself be interrupted?
+	如果中断或信号处理程序本身可能被中断，会怎样？
 }\QuickQuizAnswer{
-	Then that interrupt handler must follow the same rules that
-	are followed by other interrupted code.
-	Only those handlers that cannot be themselves interrupted
-	or that access no variables shared with an interrupting handler
-	may safely use plain accesses, and even then only if those
-	variables cannot be concurrently accessed by some other CPU or
-	thread.
+	那么该中断处理程序必须遵循其他被中断代码所遵循的相同规则。
+	只有那些不会被自身中断的处理程序，
+	或不访问与中断处理程序共享的变量的处理程序，
+	才可以安全地使用普通访问，
+	而且即便如此，也只有当这些变量不会被其他 CPU 或 thread
+	并发访问时才行。
 }\QuickQuizEnd
 
-In most other cases, loads from and stores to a shared variable must
-use \apik{READ_ONCE()} and \apik{WRITE_ONCE()} or stronger, respectively.
-But it bears repeating that neither \apik{READ_ONCE()} nor \apik{WRITE_ONCE()}
-provide any ordering guarantees other than within the compiler.
-See the above
-\cref{sec:toolsoftrade:Assembling the Rest of a Solution} or
-\cref{chp:Advanced Synchronization: Memory Ordering}
-for information on such guarantees.
+在大多数其他情况下，对共享变量的加载和存储必须
+分别使用 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 或更强的操作。
+但值得重申的是，\apik{READ_ONCE()} 和 \apik{WRITE_ONCE()}
+除了在编译器内部之外不提供任何排序保证。
+有关此类保证的信息，请参阅上面的
+\cref{sec:toolsoftrade:Assembling the Rest of a Solution}或
+\cref{chp:Advanced Synchronization: Memory Ordering}。
 
-Examples of many of these data-race-avoidance patterns are presented in
-\cref{chp:Counting}.
+这些 data race 避免模式的许多例子在
+\cref{chp:Counting}中展示。
 
-\subsection{Atomic Operations}
+\subsection{原子操作}
 \label{sec:toolsoftrade:Atomic Operations}
 
-The Linux kernel provides a wide variety of \IX{atomic} operations, but
-those defined on type \apik{atomic_t} provide a good start.
-Normal non-tearing reads and stores are provided by
-\apik{atomic_read()} and \apik{atomic_set()}, respectively.
-\IX{Acquire load} is provided by \apik{smp_load_acquire()} and
-\IX{release store} by \apik{smp_store_release()}.
+Linux 内核提供了多种 \IX{atomic} 操作，
+但定义在 \apik{atomic_t} 类型上的操作提供了一个良好的起点。
+普通的无 tearing 读取和存储分别由
+\apik{atomic_read()} 和 \apik{atomic_set()} 提供。
+\IX{Acquire load} 由 \apik{smp_load_acquire()} 提供，
+\IX{release store} 由 \apik{smp_store_release()} 提供。
 
-Non-value-returning fetch-and-add operations are provided by
-\apik{atomic_add()}, \apik{atomic_sub()}, \apik{atomic_inc()}, and
-\apik{atomic_dec()}, among others.
-An atomic decrement that returns a reached-zero indication is provided
-by both \apik{atomic_dec_and_test()} and \apik{atomic_sub_and_test()}.
-An atomic add that returns the new value is provided by
-\apik{atomic_add_return()}.
-Both \apik{atomic_add_unless()} and \apik{atomic_inc_not_zero()} provide
-conditional atomic operations, where nothing happens unless the
-original value of the atomic variable is different than the value
-specified (these are very handy for managing
-\IXalt{reference counters}{reference count}, for example).
+不返回值的 fetch-and-add 操作由
+\apik{atomic_add()}、\apik{atomic_sub()}、\apik{atomic_inc()} 和
+\apik{atomic_dec()} 等提供。
+返回是否到达零的指示的 atomic 递减由
+\apik{atomic_dec_and_test()} 和 \apik{atomic_sub_and_test()} 提供。
+返回新值的 atomic 加法由 \apik{atomic_add_return()} 提供。
+\apik{atomic_add_unless()} 和 \apik{atomic_inc_not_zero()} 提供
+条件 atomic 操作，只有当 atomic 变量的原始值与指定值不同时
+才会执行（例如，这些对于管理\IXalt{reference counters}{reference count}
+非常方便）。
 
-An atomic exchange operation is provided by \apik{atomic_xchg()}, and
-the celebrated \acrmf{cas} operation is provided by
-\apik{atomic_cmpxchg()}.
-Both of these return the old value.
-Many additional atomic RMW primitives are available in the Linux kernel,
-see the \path{Documentation/atomic_t.txt} file in the Linux-kernel
-source tree.\footnote{
-	As of Linux kernel v5.11.
+atomic 交换操作由 \apik{atomic_xchg()} 提供，
+著名的\acrmf{cas}操作由 \apik{atomic_cmpxchg()} 提供。
+两者都返回旧值。
+Linux 内核中有许多其他 atomic RMW 原语可用，
+请参阅 Linux 内核源码树中的
+\path{Documentation/atomic_t.txt} 文件。\footnote{
+	截至 Linux 内核 v5.11。
 }
 
-This book's CodeSamples API closely follows that of the Linux kernel.
+本书的 CodeSamples API 密切遵循 Linux 内核的实现。
 
-\subsection{Per-CPU Variables}
+\subsection{Per-CPU 变量}
 \label{sec:toolsoftrade:Per-CPU Variables}
 
-The Linux kernel uses \apik{DEFINE_PER_CPU()} to define a per-CPU variable,
-\apik{this_cpu_ptr()} to form a reference to this CPU's instance of a
-given per-CPU variable, \apik{per_cpu()} to access a specified CPU's
-instance of a given per-CPU variable, along with many other special-purpose
-per-CPU operations.
+Linux 内核使用 \apik{DEFINE_PER_CPU()} 来定义 per-CPU 变量，
+\apik{this_cpu_ptr()} 来形成对当前 CPU 的给定 per-CPU 变量实例的引用，
+\apik{per_cpu()} 来访问指定 CPU 的给定 per-CPU 变量实例，
+还有许多其他专用的 per-CPU 操作。
 
 \Cref{lst:toolsoftrade:Per-Thread-Variable API}
-shows this book's per-thread-variable API, which is patterned
-after the Linux kernel's per-CPU-variable API\@.
-This API provides the per-thread equivalent of global variables.
-Although this API is, strictly speaking, not necessary,\footnote{
-	You could instead use \apig{__thread} or \apic{_Thread_local}.}
-it can provide a good userspace analogy to Linux kernel code.
+展示了本书的 per-thread 变量 API，
+它是仿照 Linux 内核的 per-CPU 变量 API 设计的。
+该 API 提供了全局变量的 per-thread 等价物。
+虽然严格来说该 API 不是必需的，\footnote{
+	你可以改用 \apig{__thread} 或 \apic{_Thread_local}。}
+但它可以为 Linux 内核代码提供良好的用户空间类比。
 
 \begin{listing}
 \begin{VerbatimL}[numbers=none]
@@ -2514,225 +2274,200 @@ per_thread(name, thread)
 __get_thread_var(name)
 init_per_thread(name, v)
 \end{VerbatimL}
-\caption{Per-Thread-Variable API}
+\caption{Per-Thread 变量 API}
 \label{lst:toolsoftrade:Per-Thread-Variable API}
 \end{listing}
 
 \QuickQuiz{
-	How could you work around the lack of a per-thread-variable
-	API on systems that do not provide it?
+	在不提供 per-thread 变量 API 的系统上，
+	如何解决这个问题？
 }\QuickQuizAnswer{
-	One approach would be to create an array indexed by
-	\apipf{smp_thread_id()}, and another would be to use a hash
-	table to map from \apipf{smp_thread_id()} to an array
-	index---which is in fact what this
-	set of APIs does in pthread environments.
+	一种方法是创建一个以 \apipf{smp_thread_id()} 为索引的数组，
+	另一种方法是使用哈希表将 \apipf{smp_thread_id()}
+	映射到数组索引——这实际上就是这组 API 在
+	pthread 环境中所做的。
 
-	Another approach would be for the parent to allocate a structure
-	containing fields for each desired per-thread variable, then
-	pass this to the child during thread creation.
-	However, this approach can impose large software-engineering
-	costs in large systems.
-	To see this, imagine if all global variables in a large system
-	had to be declared in a single file, regardless of whether or
-	not they were C static variables!
+	另一种方法是父 thread 分配一个包含每个所需
+	per-thread 变量字段的结构，然后在创建 thread 时
+	将其传递给子 thread。
+	然而，这种方法在大型系统中可能带来巨大的软件工程成本。
+	要理解这一点，想象一下如果大型系统中的所有全局变量
+	都必须在单个文件中声明，
+	不管它们是否是 C 静态变量！
 }\QuickQuizEnd
 
-\subsubsection{API Members}
+\subsubsection{API 成员}
 
 \begin{description}[style=nextline]
 \item[\tco{DEFINE_PER_THREAD()}]
 
-The \apipf{DEFINE_PER_THREAD()} primitive defines a per-thread variable.
-Unfortunately, it is not possible to provide an initializer in the way
-permitted by the Linux kernel's \apik{DEFINE_PER_CPU()} primitive,
-but there is an \apipf{init_per_thread()} primitive that permits easy
-runtime initialization.
+\apipf{DEFINE_PER_THREAD()} 原语定义一个 per-thread 变量。
+不幸的是，无法像 Linux 内核的 \apik{DEFINE_PER_CPU()} 原语
+那样提供初始化器，
+但有一个 \apipf{init_per_thread()} 原语允许方便的运行时初始化。
 
 \item[\tco{DECLARE_PER_THREAD()}]
-The \apipf{DECLARE_PER_THREAD()} primitive is a declaration in the C sense,
-as opposed to a definition.
-Thus, a \apipf{DECLARE_PER_THREAD()} primitive may be used to access
-a per-thread variable defined in some other file.
+\apipf{DECLARE_PER_THREAD()} 原语是 C 意义上的声明，而非定义。
+因此，\apipf{DECLARE_PER_THREAD()} 原语可以用于访问
+在其他文件中定义的 per-thread 变量。
 
 \item[\tco{per_thread()}]
-The \apipf{per_thread()} primitive accesses the specified thread's variable.
+\apipf{per_thread()} 原语访问指定 thread 的变量。
 
 \item[\tco{__get_thread_var()}]
-The \apipf{__get_thread_var()} primitive accesses the current thread's variable.
+\apipf{__get_thread_var()} 原语访问当前 thread 的变量。
 
 \item[\tco{init_per_thread()}]
-The \apipf{init_per_thread()} primitive sets all threads' instances of
-the specified variable to the specified value.
-The Linux kernel accomplishes this via normal C initialization,
-relying in clever use of linker scripts and code executed during
-the CPU-online process.
+\apipf{init_per_thread()} 原语将所有 thread 的指定变量实例
+设置为指定值。
+Linux 内核通过普通的 C 初始化来完成此操作，
+依赖于巧妙使用链接器脚本和在 CPU 上线过程中执行的代码。
 
 \end{description}
 
-\subsubsection{Usage Example}
+\subsubsection{使用示例}
 
-Suppose that we have a counter that is incremented very frequently
-but read out quite rarely.
-As will become clear in
-\cref{sec:count:Statistical Counters},
-it is helpful to implement such a counter using a per-thread variable.
-Such a variable can be defined as follows:
+假设我们有一个计数器，它被非常频繁地递增，
+但很少被读取。
+正如\cref{sec:count:Statistical Counters}中将阐明的，
+使用 per-thread 变量来实现这样的计数器是有帮助的。
+这样的变量可以如下定义：
 
 \begin{VerbatimU}
 DEFINE_PER_THREAD(int, counter);
 \end{VerbatimU}
 
-The counter must be initialized as follows:
+计数器必须如下初始化：
 
 \begin{VerbatimU}
 init_per_thread(counter, 0);
 \end{VerbatimU}
 
-A thread can increment its instance of this counter as follows:
+一个 thread 可以如下递增其计数器实例：
 
 \begin{VerbatimU}
 p_counter = &__get_thread_var(counter);
 WRITE_ONCE(*p_counter, *p_counter + 1);
 \end{VerbatimU}
 
-The value of the counter is then the sum of its instances.
-A snapshot of the value of the counter can thus be collected
-as follows:
+计数器的值就是其所有实例的总和。
+因此可以如下收集计数器值的快照：
 
 \begin{VerbatimU}
 for_each_thread(t)
   sum += READ_ONCE(per_thread(counter, t));
 \end{VerbatimU}
 
-Again, it is possible to gain a similar effect using other mechanisms,
-but per-thread variables combine convenience and high performance,
-as will be shown in more detail in
-\cref{sec:count:Statistical Counters}.
+同样，使用其他机制也可以获得类似的效果，
+但 per-thread 变量兼具便利性和高性能，
+这将在\cref{sec:count:Statistical Counters}中更详细地展示。
 
 \QuickQuiz{
-	What do you do if you need a per-thread (not per-CPU!) variable
-	in the Linux kernel?
+	如果你需要在 Linux 内核中使用 per-thread（不是 per-CPU！）
+	变量，该怎么办？
 }\QuickQuizAnswer{
-	First, needing a per-thread variable is less likely than
-	you might think.
-	Per-CPU variables can often do a per-thread variable's job.
-	For example, if you only need to do addition, bitwise AND,
-	bitwise OR, exchange, or compare-and-exchange, then the
-	\co{this_cpu_add()},
-	\co{this_cpu_add_return()},
-	\co{this_cpu_and()},
-	\co{this_cpu_or()},
-	\co{this_cpu_xchg()},
-	\co{this_cpu_cmpxchg()}, and
+	首先，需要 per-thread 变量的可能性比你想象的要小。
+	Per-CPU 变量通常可以完成 per-thread 变量的工作。
+	例如，如果你只需要做加法、按位 AND、按位 OR、交换
+	或比较并交换，那么
+	\co{this_cpu_add()}、
+	\co{this_cpu_add_return()}、
+	\co{this_cpu_and()}、
+	\co{this_cpu_or()}、
+	\co{this_cpu_xchg()}、
+	\co{this_cpu_cmpxchg()} 和
 	\co{this_cpu_cmpxchg_double()}
-	operations, respectively, will do the job cheaply and atomically
-	with respect to context switches, interrupt handlers, and softirq
-	handlers, but \emph{not} non-maskable interrupts.
+	操作将以低开销的方式完成任务，并且相对于上下文切换、
+	中断处理程序和 softirq 处理程序是 atomic 的，
+	但相对于不可屏蔽中断\emph{不是}。
 
-	Second, within a preemption-disabled region of code, for
-	example, one surrounded by the \co{preempt_disable()} and
-	\co{preempt_enable()} macros, the current task is guaranteed to
-	remain executing on the current CPU\@.
-	Therefore, while within one such region, any series of accesses
-	to per-CPU variables is atomic with respect to context switches,
-	though not with respect to interrupt handlers, softirq handlers,
-	and non-maskable interrupts.
-	But please be aware that a preemption-disabled region of code
-	that runs for more than a few microseconds will not be looked upon
-	with favor by people attempting to construct real-time systems.
+	其次，在禁止抢占的代码区域内（例如，由
+	\co{preempt_disable()} 和 \co{preempt_enable()} 宏包围的区域），
+	当前任务保证继续在当前 CPU 上执行。
+	因此，在这样的区域内，对 per-CPU 变量的任何系列访问
+	相对于上下文切换是 atomic 的，
+	但相对于中断处理程序、softirq 处理程序和不可屏蔽中断不是。
+	但请注意，运行超过几微秒的禁止抢占代码区域
+	不会受到试图构建实时系统的人的欢迎。
 
-	Third, a field added to the \co{task_struct} structure acts
-	as set of per-task variables.
-	However, there are those who keep a close eye on the size of
-	this structure, and these people are likely to ask hard
-	questions about the need for any added fields.
-	Therefore, if your field is being added for some facility
-	that is only built into some kernels, you should definitely
-	place your new \co{task_struct} fields under an appropriate
-	\co{#ifdef}.
+	第三，添加到 \co{task_struct} 结构中的字段
+	充当一组 per-task 变量。
+	然而，有人密切关注该结构的大小，
+	这些人可能会对添加任何字段的必要性提出尖锐的问题。
+	因此，如果你的字段是为仅在某些内核中构建的功能添加的，
+	你绝对应该将新的 \co{task_struct} 字段
+	放在适当的 \co{#ifdef} 下。
 
-	Fourth and finally, your per-task variable might instead
-	be located in some other structure and protected by some
-	synchronization mechanism that is already in use.
-	For example, if your code must hold a given lock, can accesses
-	to this storage instead be protected by that lock?
-	The fact that this is at the end of the list notwithstanding,
-	you should look into this possibility first, not last!
+	第四，也是最后，你的 per-task 变量可能
+	位于其他结构中，并由已在使用的某种同步机制保护。
+	例如，如果你的代码必须持有给定 lock，
+	那么对该存储的访问是否可以由该 lock 保护？
+	尽管这在列表的末尾，你应该首先而不是最后考虑这种可能性！
 }\QuickQuizEnd
 
-\section{The Right Tool for the Job:
-					How to Choose?}
+\section{选择合适的工具}
 \label{sec:toolsoftrade:The Right Tool for the Job: How to Choose?}
 %
-\epigraph{If you get stuck, change your tools; it may free your thinking.}
-	 {Paul Arden, abbreviated}
+\epigraph{如果你陷入困境，换换工具；这可能解放你的思维。}
+	 {Paul Arden，缩略版}
 
-As a rough rule of thumb, use the simplest tool that will get the job done.
-If you can, simply program sequentially.
-If that is insufficient, try using a shell script to mediate parallelism.
-If the resulting shell-script \co{fork()}/\co{exec()} overhead
-(about 480 microseconds for a minimal C program on an Intel Core Duo
-laptop) is too
-large, try using the C-language \apipx{fork()} and \apipx{wait()} primitives.
-If the overhead of these primitives (about 80 microseconds for a minimal
-child process) is still too large, then you
-might need to use the POSIX threading primitives, choosing the appropriate
-locking and/or atomic-operation primitives.
-If the overhead of the POSIX threading primitives (typically sub-microsecond)
-is too great, then the primitives introduced in
-\cref{chp:Deferred Processing} may be required.
-Of course, the actual overheads will depend not only on your hardware,
-but most critically on the manner in which you use the primitives.
-Furthermore, always remember that inter-process communication and
-message-passing can be good alternatives to shared-memory multithreaded
-execution, especially when your code makes good use of the design
-principles called out in
-\cref{chp:Partitioning and Synchronization Design}.
+作为粗略的经验法则，使用能完成任务的最简单工具。
+如果可以，就简单地顺序编程。
+如果那不够，尝试使用 shell 脚本来协调并行。
+如果 shell 脚本的 \co{fork()}/\co{exec()} 开销
+（在 Intel Core Duo 笔记本上，一个最小 C 程序大约 480 微秒）
+太大，尝试使用 C 语言的 \apipx{fork()} 和 \apipx{wait()} 原语。
+如果这些原语的开销（最小子进程大约 80 微秒）仍然太大，
+那么你可能需要使用 POSIX threading 原语，
+选择适当的 locking 和/或 atomic 操作原语。
+如果 POSIX threading 原语的开销（通常低于一微秒）
+仍然太大，那么可能需要
+\cref{chp:Deferred Processing}中引入的原语。
+当然，实际开销不仅取决于你的硬件，
+更关键的是取决于你使用原语的方式。
+此外，始终记住进程间通信和消息传递可以是
+共享内存多 thread 执行的良好替代方案，
+特别是当你的代码充分利用了
+\cref{chp:Partitioning and Synchronization Design}中
+提出的设计原则时。
 
 \QuickQuiz{
-	Wouldn't the shell normally use \apipx{vfork()} rather than
-	\apipx{fork()}?
+	shell 通常不是使用 \apipx{vfork()} 而不是 \apipx{fork()} 吗？
 }\QuickQuizAnswer{
-	It might well do that, however, checking is left as an exercise
-	for the reader.
-	But in the meantime, I hope that we can agree that \apipx{vfork()}
-	is a variant of \apipx{fork()}, so that we can use \apipx{fork()}
-	as a generic term covering both.
+	很可能是这样，不过，验证留给读者作为练习。
+	但同时，我希望我们可以同意 \apipx{vfork()}
+	是 \apipx{fork()} 的一个变体，
+	这样我们可以使用 \apipx{fork()} 作为涵盖两者的通用术语。
 }\QuickQuizEnd
 
-Because concurrency was added to the C standard several decades after
-the C language was first used to build concurrent systems, there are
-a number of ways of concurrently accessing shared variables.
-All else being equal, the C11 standard operations described in
-\cref{sec:toolsoftrade:Atomic Operations (C11)}
-should be your first stop.
-If you need to access a given shared variable both with \IXplx{plain access}{es}
-and atomically, then the modern \GCC\ atomics described in
-\cref{sec:toolsoftrade:Atomic Operations (Modern gcc)}
-might work well for you.
-If you are working on an old codebase that uses the classic \GCC\ \co{__sync}
-API, then you should review
+由于并发支持是在 C 语言首次用于构建并发系统几十年之后
+才被添加到 C 标准中的，因此有多种方式并发访问共享变量。
+在其他条件相同的情况下，
+\cref{sec:toolsoftrade:Atomic Operations (C11)}中描述的
+C11 标准操作应该是你的首选。
+如果你需要对给定共享变量同时使用\IXplx{plain access}{es}和
+atomic 方式访问，那么
+\cref{sec:toolsoftrade:Atomic Operations (Modern gcc)}中描述的
+现代 \GCC\ atomic 可能很适合你。
+如果你在使用经典 \GCC\ \co{__sync} API 的旧代码库上工作，
+那么你应该查看
 \cref{sec:toolsoftrade:Atomic Operations (gcc Classic)}
-as well as the relevant \GCC\ documentation.
-If you are working on the Linux kernel or similar codebase that
-combines use of the \apic{volatile} keyword with inline assembly,
-or if you need dependencies to provide ordering, look at the material
-presented in \cref{sec:toolsoftrade:Accessing Shared Variables}
-as well as that in
-\cref{chp:Advanced Synchronization: Memory Ordering}.
+以及相关的 \GCC\ 文档。
+如果你在 Linux 内核或类似的代码库上工作，
+该代码库将 \apic{volatile} 关键字与内联汇编结合使用，
+或者如果你需要依赖关系来提供排序，请查看
+\cref{sec:toolsoftrade:Accessing Shared Variables}
+以及\cref{chp:Advanced Synchronization: Memory Ordering}
+中的材料。
 
-Whatever approach you take, please keep in mind that randomly hacking
-multi-threaded code is a spectacularly bad idea, especially given that
-shared-memory parallel systems use your own arrogance and perceived
-intelligence against you:
-The more arrogant you are and the smarter you think you are, the deeper
-a hole you will dig for yourself before you realize that you are in
-trouble~\cite{DeadlockEmpire2016}.
-Therefore, the wise developer will approach low-level concurrency with
-an attitude of deep humility.
-It is also necessary to make the right design choices as well as the
-correct choice of individual primitives, as will be discussed at length
-in subsequent chapters.
+无论你采用哪种方法，请记住随意修改多 thread 代码
+是一个极其糟糕的主意，特别是考虑到共享内存并行系统
+会利用你自己的傲慢和自以为是的聪明来对付你：
+你越傲慢、越觉得自己聪明，
+你就会在意识到自己陷入麻烦之前给自己挖一个越深的
+坑~\cite{DeadlockEmpire2016}。
+因此，明智的开发者会以深深的谦虚态度来对待底层并发。
+同样有必要做出正确的设计选择以及正确的个别原语选择，
+这将在后续章节中详细讨论。
 
 \QuickQuizAnswersChp{qqztoolsoftrade}

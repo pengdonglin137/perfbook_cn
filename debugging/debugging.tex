@@ -2,232 +2,158 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Validation}{Validation}{qqzdebugging}
+\QuickQuizChapter{chp:Validation}{验证}{qqzdebugging}
 %
-\Epigraph{If it is not tested, it doesn't work.}{Unknown}
+\Epigraph{未经测试的代码就是不能工作的代码。}{佚名}
 
-I have had a few parallel programs work the first time, but that is only
-because I have written an extremely large number parallel programs over
-the past few decades.
-And I have had far more parallel programs that fooled me into thinking
-that they were working correctly the first time than actually were working
-the first time.
+我确实有过几个并行程序第一次就能正确运行的经历，但那只是因为在过去几十年里我编写了大量的并行程序。
+而且，让我误以为第一次就正确运行的并行程序数量，远远多于真正第一次就正确运行的。
 
-I thus need to validate my parallel programs.
-The basic trick behind validation, is to realize that the computer knows
-what is wrong.
-It is therefore your job to force it to tell you.
-This chapter can therefore be thought of as a short course in
-machine interrogation.
-But you can leave the good-cop/bad-cop routine at home.
-This chapter covers much more sophisticated and effective methods,
-especially given that most computers couldn't tell a good cop from a
-bad cop, at least as far as we know.
+因此，我需要对我的并行程序进行验证。
+验证背后的基本技巧在于认识到：计算机知道哪里出了问题。
+所以你的工作就是迫使它告诉你。
+因此，本章可以被看作一门关于"审讯机器"的简短课程。
+不过你可以把好警察/坏警察的那套留在家里。
+本章涵盖了更加精妙和有效的方法，特别是考虑到大多数计算机分不清好警察和坏警察——至少据我们所知是这样。
 
-A longer course may be found in many recent books on validation, as
-well as at least one older but valuable
-one~\cite{GlenfordJMyers1979}.
-Validation is an extremely important topic that cuts across all forms
-of software, and is worth intensive study in its own right.
-However, this book is primarily about concurrency, so this chapter will do
-little more than scratch the surface of this critically important topic.
+更深入的内容可以在许多近年出版的验证书籍中找到，以及至少一本较早但很有价值的著作~\cite{GlenfordJMyers1979}。
+验证是一个极为重要的主题，它贯穿所有形式的软件开发，值得作为一个独立主题进行深入研究。
+然而，本书主要关注并发，因此本章只能浅尝辄止地涉及这一至关重要的主题。
 
 \Cref{sec:debugging:Introduction}
-introduces the philosophy of debugging.
+介绍了调试的理念。
 \Cref{sec:debugging:Tracing}
-discusses tracing,
+讨论了追踪，
 \cref{sec:debugging:Assertions}
-discusses assertions, and
+讨论了断言（assertion），
 \cref{sec:debugging:Static Analysis}
-discusses static analysis.
+讨论了静态分析。
 \Cref{sec:debugging:Code Review}
-describes some unconventional approaches to code review that can
-be helpful when the fabled 10,000 eyes happen not to be looking at your code.
+描述了一些非常规的代码审查方法，当传说中的一万双眼睛碰巧没有在看你的代码时，这些方法可能会有所帮助。
 \Cref{sec:debugging:Probability and Heisenbugs}
-overviews the use of probability for validating parallel software.
-Because performance and scalability are first-class requirements
-for parallel programming,
-\cref{sec:debugging:Performance Estimation} covers these
-topics.
-Finally,
+概述了概率方法在并行软件验证中的应用。
+由于性能和可扩展性是并行编程的一等要求，
+\cref{sec:debugging:Performance Estimation}涵盖了这些主题。
+最后，
 \cref{sec:debugging:Summary}
-gives a fanciful summary and a short list of statistical traps to avoid.
+给出了一个富有想象力的总结以及一个需要避免的统计陷阱简表。
 
-But never forget that the three best debugging tools are a thorough
-understanding of the requirements, a solid design, and a good night's
-sleep!
+但永远不要忘记，三个最好的调试工具是：对需求的透彻理解、扎实的设计，以及充足的睡眠！
 
-\section{Introduction}
+\section{引言}
 \label{sec:debugging:Introduction}
 %
-% \epigraph{If debugging is the process of removing software bugs, then
-% 	  programming must be the process of putting them in.}
+% \epigraph{如果调试是移除软件bug的过程，那么
+% 	  编程就一定是放入bug的过程。}
 % 	 {Edsger W.~Dijkstra}
-\epigraph{Debugging is like being the detective in a crime movie where
-	  you are also the murderer.}
+\epigraph{调试就像是在一部犯罪电影中当侦探，而你自己就是凶手。}
 	 {Filipe Fortes}
 % https://twitter.com/fortes/status/399339918213652480?lang=en Nov 9, 2013
 
 \Cref{sec:debugging:Where Do Bugs Come From?}
-discusses the sources of bugs, and
+讨论了bug的来源，
 \cref{sec:debugging:Required Mindset}
-overviews the mindset required when validating software.
+概述了验证软件时所需的心态。
 \Cref{sec:debugging:When Should Validation Start?}
-discusses when you should start validation, and
-\cref{sec:debugging:The Open Source Way} describes the
-surprisingly effective open-source regimen of code review and
-community testing.
+讨论了何时应该开始验证，
+\cref{sec:debugging:The Open Source Way}描述了
+开源社区中令人惊讶地有效的代码审查和社区测试机制。
 
-\subsection{Where Do Bugs Come From?}
+\subsection{缺陷从何而来？}
 \label{sec:debugging:Where Do Bugs Come From?}
 
-Bugs come from developers.
-The basic problem is that the human brain did not evolve with computer
-software in mind.
-Instead, the human brain evolved in concert with other human brains and
-with animal brains.
-Because of this history, the following three characteristics of computers
-often come as a shock to human intuition:
+Bug来自开发者。
+根本问题在于，人类大脑的进化并没有将计算机软件考虑在内。
+相反，人类大脑是与其他人类大脑以及动物大脑协同进化的。
+由于这段历史，计算机的以下三个特征常常令人类的直觉感到震惊：
 
 \begin{enumerate}
-\item	Computers lack common sense, despite huge sacrifices at the
-	altar of artificial intelligence.
-\item	Computers fail to understand user intent, or more formally,
-	computers generally lack a theory of mind.
-\item	Computers cannot do anything useful with a fragmentary plan,
-	instead requiring that every detail of all possible scenarios
-	be spelled out in full.
+\item	尽管在人工智能的祭坛上做出了巨大牺牲，计算机仍然缺乏常识。
+\item	计算机无法理解用户意图，或者更正式地说，
+	计算机通常缺乏心智理论（theory of mind）。
+\item	计算机无法利用不完整的计划做任何有用的事情，
+	而是要求将所有可能场景的每一个细节都完整地说明。
 \end{enumerate}
 
-The first two points should be uncontroversial, as they are illustrated
-by any number of failed products, perhaps most famously Clippy and
-Microsoft Bob.
-By attempting to relate to users as people, these two products raised
-common-sense and theory-of-mind expectations that they proved incapable
-of meeting.
-Perhaps the set of software assistants are now available on smartphones
-will fare better, but as of 2021 reviews are mixed.
-That said, the developers working on them by all accounts still develop
-the old way:
-The assistants might well benefit end users, but not so much their own
-developers.
+前两点应该是没有争议的，因为有无数失败的产品可以说明这一点，其中最著名的也许是Clippy和Microsoft Bob。
+这两个产品试图像对待人一样与用户交流，由此提升了用户对常识和心智理论的期望，而它们证明自己无法满足这些期望。
+也许现在智能手机上的各种软件助手会表现得更好，但截至2021年，评价褒贬不一。
+话虽如此，据说开发这些助手的开发者们仍然以老方式开发：
+这些助手可能确实有益于最终用户，但对其自身的开发者帮助不大。
 
-This human love of fragmentary plans deserves more explanation,
-especially given that it is a classic two-edged sword.
-This love of fragmentary plans is apparently due to the assumption that
-the person carrying out the plan will have (1)~common sense and (2)~a good
-understanding of the intent and requirements driving the plan.
-This latter assumption is especially likely to hold in the common case
-where the person doing the planning and the person carrying out the plan
-are one and the same:
-In this case, the plan will be revised almost
-subconsciously as obstacles arise, especially when that person has the
-a good understanding of the problem at hand.
-In fact, the love of fragmentary plans has served human beings well,
-in part because it is better to take random actions that have a some
-chance of locating food than to starve to death while attempting to plan
-the unplannable.
-However, the usefulness of fragmentary plans in the
-everyday life of which we are all experts is no guarantee of their future
-usefulness in stored-program computers.
+人类对不完整计划的偏爱值得更多解释，特别是考虑到这是一把经典的双刃剑。
+这种对不完整计划的偏爱显然源于一个假设：执行计划的人将具有(1)~常识和(2)~对驱动计划的意图和需求的良好理解。
+后一个假设在一种常见情况下尤其可能成立，即制定计划的人和执行计划的人是同一个人：
+在这种情况下，当障碍出现时，计划几乎会下意识地被修正，特别是当此人对手头问题有良好的理解时。
+事实上，对不完整计划的偏爱一直很好地服务于人类，部分原因是采取有一定机会找到食物的随机行动，总比在试图规划不可规划之事时饿死要好。
+然而，不完整计划在我们每个人都是专家的日常生活中的有用性，并不能保证它们在存储程序计算机中同样有用。
 
-Furthermore, the need to follow fragmentary plans has had important effects
-on the human psyche, due to the fact
-that throughout much of human history, life was often difficult and dangerous.
-It should come as no surprise that executing a fragmentary plan that has
-a high probability of a violent encounter with sharp teeth and claws
-requires almost insane levels of optimism---a level of optimism that actually
-is present in most human beings.
-These insane levels of optimism extend to self-assessments of programming
-ability, as evidenced by the effectiveness of (and the controversy over)
-code-interviewing techniques~\cite{RegBraithwaite2007FizzBuzz}.
-In fact, the clinical term for a human being with less-than-insane
-levels of optimism is ``clinically depressed''.
-Such people usually have extreme difficulty functioning in their daily
-lives, underscoring the perhaps counter-intuitive importance of insane
-levels of optimism to a normal, healthy life.
-Furtheremore, if you are not insanely optimistic, you are less likely
-to start a difficult but worthwhile project.\footnote{
-	There are some famous exceptions to this rule of thumb.
-	Some people take on difficult or risky projects in order to at
-	least a temporarily escape from their depression.
-	Others have nothing to lose:
-	The project is literally a matter of life or death.}
+此外，遵循不完整计划的需要对人类心理产生了重要影响，
+因为在人类历史的大部分时间里，生活往往是艰难而危险的。
+执行一个很可能与利齿尖爪发生暴力遭遇的不完整计划，
+需要近乎疯狂的乐观水平——而这种乐观水平实际上存在于大多数人类身上，这一点不足为奇。
+这种疯狂的乐观水平延伸到对编程能力的自我评估，
+代码面试技术的有效性（以及围绕它的争议）就是证据~\cite{RegBraithwaite2007FizzBuzz}。
+事实上，对于乐观水平低于"疯狂"的人，临床术语叫做"临床抑郁"。
+这样的人通常在日常生活中极难正常运作，
+这恰恰凸显了疯狂乐观水平对正常健康生活的重要性——尽管这可能有违直觉。
+此外，如果你不是疯狂乐观的，你就不太可能启动一个困难但有价值的项目。\footnote{
+	这条经验法则有一些著名的例外。
+	有些人承担困难或高风险的项目，是为了
+	至少暂时逃离他们的抑郁。
+	另一些人则无所失去：
+	这个项目对他们来说确实是生死攸关。}
 
 \QuickQuiz{
-	When in computing is it necessary to follow a
-	fragmentary plan?
+	在计算领域中，什么时候必须遵循不完整的计划？
 }\QuickQuizAnswer{
-	There are any number of situations, but perhaps the most important
-	situation is when no one has ever created anything resembling
-	the program to be developed.
-	In this case, the only way to create a credible plan is to
-	implement the program, create the plan, and implement it a
-	second time.
-	But whoever implements the program for the first time has no
-	choice but to follow a fragmentary plan because any detailed
-	plan created in ignorance cannot survive first contact with
-	the real world.
+	有很多种情况，但也许最重要的情况是：
+	从未有人创建过与待开发程序类似的东西。
+	在这种情况下，创建可靠计划的唯一方法是
+	先实现程序，然后制定计划，再第二次实现它。
+	但第一次实现程序的人别无选择，只能遵循不完整的计划，
+	因为在无知中制定的任何详细计划都无法经受
+	与现实世界的第一次接触。
 
-	And perhaps this is one reason why evolution has favored insanely
-	optimistic human beings who are happy to follow fragmentary plans!
+	也许这正是进化偏爱那些乐于遵循不完整计划的、
+	疯狂乐观的人类的原因之一！
 }\QuickQuizEnd
 
-An important special case is the project that, while valuable, is not
-valuable enough to justify the time required to implement it.
-This special case is quite common, and one early symptom is the
-unwillingness of the decision-makers to invest enough to actually
-implement the project.
-A natural reaction is for the developers to produce an unrealistically
-optimistic estimate in order to be permitted to start the project.
-If the organization is strong enough and its decision-makers ineffective
-enough, the project might succeed despite the resulting schedule slips
-and budget overruns.
-However, if the organization is not strong enough and if the decision-makers
-fail to cancel the project as soon as it becomes clear that the estimates
-are garbage, then the project might well kill the organization.
-This might result in another organization picking up the project and
-either completing it, canceling it, or being killed by it.
-A given project might well succeed only after killing several
-organizations.
-One can only hope that the organization that eventually makes a success
-of a serial-organization-killer project maintains a suitable
-level of humility, lest it be killed by its next such project.
+一个重要的特殊情况是：虽然项目有价值，但其价值不足以证明实现它所需的时间投入是合理的。
+这种特殊情况相当常见，一个早期症状是决策者不愿投入足够的资源来真正实现这个项目。
+一种自然的反应是开发者给出不切实际的乐观估计，以便获准启动项目。
+如果组织足够强大且其决策者足够无能，项目可能会在进度延误和预算超支的情况下仍然成功。
+然而，如果组织不够强大，且决策者未能在估计明显是垃圾时及时取消项目，那么这个项目很可能会杀死这个组织。
+这可能导致另一个组织接手该项目，要么完成它，要么取消它，要么被它杀死。
+一个给定的项目可能需要杀死好几个组织后才能成功。
+人们只能希望最终使一个"连环组织杀手"项目成功的组织能保持适当的谦逊，以免被它的下一个此类项目所杀死。
 
 \QuickQuiz{
-	Who cares about the organization?
-	After all, it is the project that is important!
+	谁在乎组织？
+	毕竟，重要的是项目！
 }\QuickQuizAnswer{
-	Yes, projects are important, but if you like being paid for your
-	work, you need organizations as well as projects.
+	是的，项目很重要，但如果你喜欢为自己的工作获得报酬，
+	那么你既需要项目，也需要组织。
 }\QuickQuizEnd
 
-Important though insane levels of optimism might be, they are a key source
-of bugs (and perhaps failure of organizations).
-The question is therefore ``How to maintain the optimism required to start
-a large project while at the same time injecting enough reality to keep
-the bugs down to a dull roar?''
-The next section examines this conundrum.
+尽管疯狂的乐观水平很重要，但它们是bug（以及也许是组织失败）的一个关键来源。
+因此问题是："如何在保持启动大型项目所需的乐观的同时，注入足够的现实感以将bug控制在可接受的水平？"
+下一节将探讨这一难题。
 
-\subsection{Required Mindset}
+\subsection{所需的心态}
 \label{sec:debugging:Required Mindset}
 
-When carrying out any validation effort, keep the following
-definitions firmly in mind:
+在进行任何验证工作时，请牢记以下定义：
 
 \begin{enumerate}
-\item	The only bug-free programs are trivial programs.
-\item	A reliable program has no known bugs.
+\item	唯一没有bug的程序是平凡的程序。
+\item	一个可靠的程序是没有已知bug的程序。
 \end{enumerate}
 
-From these definitions, it logically follows that any reliable
-non-trivial program contains at least one bug that you do not
-know about.
-Therefore, any validation effort undertaken on a non-trivial program
-that fails to find any bugs is itself a failure.
-Validation is therefore an exercise in destruction.
-This means that if you are the type of person who enjoys breaking things,
-validation is just job for you.
+从这些定义可以逻辑地推出，任何可靠的非平凡程序至少包含一个你不知道的bug。
+因此，对非平凡程序进行的任何验证工作，如果未能发现任何bug，则验证工作本身就是失败的。
+验证因此是一种破坏性的工作。
+这意味着如果你是那种喜欢破坏东西的人，验证正好适合你。
 
 \begin{SaveVerbatim}{VerbDebuggingQQZ}
         real    0m0.132s
@@ -236,1080 +162,922 @@ validation is just job for you.
 \end{SaveVerbatim}
 
 \QuickQuiz{
-	Suppose that you are writing a script that processes the
-	output of the \co{time} command, which looks as follows:
+	假设你正在编写一个脚本来处理\co{time}命令的输出，
+	其输出如下所示：
 
 	\begin{center}
 	\fbox{\BUseVerbatim[boxwidth=2in,baseline=c]{VerbDebuggingQQZ}}
 	\end{center}
 
-	The script is required to check its input for errors, and to
-	give appropriate diagnostics if fed erroneous \co{time} output.
-	What test inputs should you provide to this program to test it
-	for use with \co{time} output generated by single-threaded programs?
+	该脚本需要检查其输入是否有错误，并在接收到错误的\co{time}输出时
+	给出适当的诊断信息。
+	为了测试该程序处理单线程程序生成的\co{time}输出的能力，
+	你应该提供什么测试输入？
 }\QuickQuizAnswer{
-	Can you say ``Yes'' to all the following questions?
+	你能对以下所有问题都回答"是"吗？
 
 	\begin{enumerate}
-	\item	Do you have a test case in which all the time is
-		consumed in user mode by a CPU-bound program?
-	\item	Do you have a test case in which all the time is
-		consumed in system mode by a CPU-bound program?
-	\item	Do you have a test case in which all three times
-		are zero?
-	\item	Do you have a test case in which the \qco{user} and \qco{sys}
-		times sum to more than the \qco{real} time?
-		(This would of course be completely legitimate in
-		a multithreaded program.)
-	\item	Do you have a set of tests cases in which one of the
-		times uses more than one second?
-	\item	Do you have a set of tests cases in which one of the
-		times uses more than ten seconds?
-	\item	Do you have a set of test cases in which one of the
-		times has non-zero minutes?
-		(For example, \qco{15m36.342s}.)
-	\item	Do you have a set of test cases in which one of the
-		times has a seconds value of greater than 60?
-	\item	Do you have a set of test cases in which one of the
-		times overflows 32 bits of milliseconds?
-		64 bits of milliseconds?
-	\item	Do you have a set of test cases in which one of the
-		times is negative?
-	\item	Do you have a set of test cases in which one of the
-		times has a positive minutes value but a negative
-		seconds value?
-	\item	Do you have a set of test cases in which one of the
-		times omits the \qco{m} or the \qco{s}?
-	\item	Do you have a set of test cases in which one of the
-		times is non-numeric?
-		(For example, \qco{Go Fish}.)
-	\item	Do you have a set of test cases in which one of the
-		lines is omitted?
-		(For example, where there is a \qco{real} value and
-		a \qco{sys} value, but no \qco{user} value.)
-	\item	Do you have a set of test cases where one of the
-		lines is duplicated?
-		Or duplicated, but with a different time value for
-		the duplicate?
-	\item	Do you have a set of test cases where a given line
-		has more than one time value?
-		(For example, \qco{real 0m0.132s 0m0.008s}.)
-	\item	Do you have a set of test cases containing random
-		characters?
-	\item	In all test cases involving invalid input, did you
-		generate all permutations?
-	\item	For each test case, do you have an expected outcome
-		for that test?
+	\item	你是否有一个测试用例，其中所有时间
+		都被一个CPU密集型程序消耗在用户态？
+	\item	你是否有一个测试用例，其中所有时间
+		都被一个CPU密集型程序消耗在内核态？
+	\item	你是否有一个测试用例，其中所有三个时间
+		都为零？
+	\item	你是否有一个测试用例，其中\qco{user}和\qco{sys}
+		时间之和超过\qco{real}时间？
+		（当然，在多线程程序中这是完全合法的。）
+	\item	你是否有一组测试用例，其中某个时间
+		超过一秒？
+	\item	你是否有一组测试用例，其中某个时间
+		超过十秒？
+	\item	你是否有一组测试用例，其中某个时间
+		包含非零的分钟数？
+		（例如，\qco{15m36.342s}。）
+	\item	你是否有一组测试用例，其中某个时间
+		的秒值大于60？
+	\item	你是否有一组测试用例，其中某个时间
+		溢出32位毫秒？
+		64位毫秒？
+	\item	你是否有一组测试用例，其中某个时间
+		为负数？
+	\item	你是否有一组测试用例，其中某个时间
+		分钟值为正但秒值为负？
+	\item	你是否有一组测试用例，其中某个时间
+		省略了\qco{m}或\qco{s}？
+	\item	你是否有一组测试用例，其中某个时间
+		为非数字值？
+		（例如，\qco{Go Fish}。）
+	\item	你是否有一组测试用例，其中某一行
+		被省略了？
+		（例如，有\qco{real}值和
+		\qco{sys}值，但没有\qco{user}值。）
+	\item	你是否有一组测试用例，其中某一行
+		被重复了？
+		或者被重复了，但重复行有不同的时间值？
+	\item	你是否有一组测试用例，其中某一行
+		包含多于一个的时间值？
+		（例如，\qco{real 0m0.132s 0m0.008s}。）
+	\item	你是否有一组测试用例包含随机字符？
+	\item	在所有涉及无效输入的测试用例中，你是否
+		生成了所有排列？
+	\item	对于每个测试用例，你是否有
+		该测试的预期结果？
 	\end{enumerate}
 
-	If you did not generate test data for a substantial number of
-	the above cases, you will need to cultivate a more destructive
-	attitude in order to have a chance of generating high-quality
-	tests.
+	如果你没有为上述大量情况生成测试数据，
+	你将需要培养一种更具破坏性的态度，
+	才有机会生成高质量的测试。
 
-	Of course, one way to economize on destructiveness is to
-	generate the tests with the to-be-tested source code at hand,
-	which is called white-box testing (as opposed to black-box testing).
-	However, this is no panacea:
-	You will find that it is all too easy to find your thinking
-	limited by what the program can handle, thus failing to generate
-	truly destructive inputs.
+	当然，节省破坏性工作的一种方法是在手边有待测源代码的情况下
+	生成测试，这称为白盒测试（white-box testing，相对于黑盒测试black-box testing）。
+	然而，这并非万能药：
+	你会发现，你的思维很容易被程序能处理的内容所限制，
+	从而无法生成真正具有破坏性的输入。
 }\QuickQuizEnd
 
-But perhaps you are a super-programmer whose code is always perfect
-the first time every time.
-If so, congratulations!
-Feel free to skip this chapter, but
-I do hope that you will forgive my skepticism.
-You see, I have too many people who claimed to be able to write perfect
-code the first time, which is not too surprising given the previous
-discussion of optimism and over-confidence.
-And even if you really are a super-programmer, you just might
-find yourself debugging lesser mortals' work.
+但也许你是一位超级程序员，你的代码每次都是完美的。
+如果是这样，恭喜你！
+请随意跳过本章，但
+我希望你能原谅我的怀疑。
+要知道，我见过太多声称自己能第一次就写出完美代码的人，
+鉴于前面关于乐观和过度自信的讨论，这并不太令人惊讶。
+而且即使你真的是一位超级程序员，你也可能会发现自己
+需要调试普通凡人的代码。
 
-One approach for the rest of us is to alternate between our normal
-state of insane optimism
-(Sure, I can program that!\@) and severe pessimism
-(It seems to work, but I just know that there have to be more bugs hiding
-in there somewhere!).
-It helps if you enjoy breaking things.
-If you don't, or if your joy in breaking things is limited to breaking
-\emph{other} people's things, find someone who does love breaking your
-code and have them help you break it.
+对于我们其余人来说，一种方法是在我们正常的疯狂乐观状态
+（当然，我能编出来！）和严重悲观状态
+（它似乎能工作了，但我就知道肯定还有更多bug潜伏在某处！）之间交替。
+如果你喜欢破坏东西，那会有所帮助。
+如果你不喜欢，或者你破坏东西的乐趣仅限于破坏\emph{别人}的东西，
+那就找一个喜欢破坏你的代码的人，让他们帮你来破坏。
 
-Another helpful frame of mind is to hate it when other people find bugs in
-your code.
-This hatred can help motivate you to torture your code beyond all reason
-in order to increase the probability that you will be the one to find
-the bugs.
-Just make sure to suspend this hatred long enough to sincerely thank
-anyone who does find a bug in your code!
-After all, by so doing, they saved you the trouble of tracking it down,
-and possibly at great personal expense dredging through your code.
+另一个有帮助的心态是：当别人在你的代码中发现bug时感到愤恨。
+这种愤恨可以激励你超乎寻常地折磨你的代码，
+以增加由你自己来发现bug的概率。
+只是要确保暂时放下这种愤恨，以便真诚地感谢
+任何在你代码中发现bug的人！
+毕竟，通过这样做，他们省去了你追踪bug的麻烦，
+而且可能要付出巨大的个人代价来阅读你的代码。
 
-Yet another helpful frame of mind is studied skepticism.
-You see, believing that you understand the code means you can learn
-absolutely nothing about it.
-Ah, but you know that you completely understand the code because you
-wrote or reviewed it?
-Sorry, but the presence of bugs suggests that your understanding is at
-least partially fallacious.
-One cure is to write down what you know to be true and double-check this
-knowledge, as discussed in
-\crefrange{sec:debugging:Tracing}{sec:debugging:Code Review}.
-Objective reality \emph{always} overrides whatever you
-might think you know.
+另一个有帮助的心态是深思熟虑的怀疑主义。
+你看，相信自己理解了代码意味着你对它什么都学不到。
+啊，但你知道你完全理解这段代码，因为是你写的或审查的？
+抱歉，但bug的存在表明你的理解至少部分是错误的。
+一种治疗方法是写下你认为正确的东西，然后反复检查这些认知，
+如\crefrange{sec:debugging:Tracing}{sec:debugging:Code Review}中所讨论的。
+客观现实\emph{总是}优先于你自以为知道的一切。
 
-One final frame of mind is to consider the possibility that someone's
-life depends on your code being correct.
-One way of looking at this is that consistently making good things happen
-requires a lot of focus on a lot of bad things that might happen, with
-an eye towards preventing or otherwise handling those bad things.\footnote{
-	For more on this philosophy, see the chapter entitled
-	``The Power of Negative Thinking''
-	from Chris Hadfield's excellent book entitled
-	``An Astronaut's Guide to Life on Earth.''}
-The prospect of these bad things might also motivate you to torture your
-code into revealing the whereabouts of its bugs.
+最后一种心态是考虑到可能有人的生命取决于你的代码是否正确。
+看待这个问题的一种方式是：要持续地让好事发生，
+需要大量关注可能发生的坏事，
+并着眼于预防或以其他方式处理这些坏事。\footnote{
+	关于这一哲学的更多内容，请参见
+	Chris Hadfield的优秀著作
+	"An Astronaut's Guide to Life on Earth"
+	中题为"The Power of Negative Thinking"的章节。}
+这些坏事的前景也可能激励你折磨你的代码，
+以迫使它暴露bug的藏身之处。
 
-This wide variety of frames of mind opens the door to
-the possibility of multiple people with different frames of
-mind contributing to the project, with varying levels of optimism.
-This can work well, if properly organized.
+这种多样化的心态为不同心态、
+不同乐观水平的多人参与项目打开了大门。
+如果组织得当，这可以运作得很好。
 
 \begin{figure}
 \centering
 \resizebox{2in}{!}{\includegraphics{cartoons/TortureTux}}
-\caption{Validation and the Geneva Convention}
+\caption{验证与日内瓦公约}
 \ContributedBy{fig:debugging:Validation and the Geneva Convention}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2in}{!}{\includegraphics{cartoons/TortureLaptop}}
-\caption{Rationalizing Validation}
+\caption{为验证辩护}
 \ContributedBy{fig:debugging:Rationalizing Validation}{Melissa Broussard}
 \end{figure}
 
-Some people might see vigorous validation as a form of torture, as
-depicted in
-\cref{fig:debugging:Validation and the Geneva Convention}.\footnote{
-	The cynics among us might question whether these people are
-	afraid that validation will find bugs that they will then be
-	required to fix.}
-Such people might do well to remind themselves that, Tux cartoons aside,
-they are really torturing an inanimate object, as shown in
-\cref{fig:debugging:Rationalizing Validation}.
-Rest assured that those who fail to torture their code are doomed to be
-tortured by it!
+有些人可能会把严格的验证看作一种折磨，如
+\cref{fig:debugging:Validation and the Geneva Convention}所示。\footnote{
+	我们中的愤世嫉俗者可能会质疑，这些人是否
+	害怕验证会发现他们随后必须修复的bug。}
+这些人最好提醒自己，撇开Tux卡通不谈，
+他们实际上折磨的是一个无生命的物体，如
+\cref{fig:debugging:Rationalizing Validation}所示。
+请放心，那些不折磨自己代码的人注定要被代码折磨！
 
-However, this leaves open the question of exactly when during the project
-lifetime validation should start, a topic taken up by the next section.
+然而，这留下了一个问题：在项目生命周期中验证究竟应该何时开始，
+下一节将讨论这个话题。
 
-\subsection{When Should Validation Start?}
+\subsection{验证应该何时开始？}
 \label{sec:debugging:When Should Validation Start?}
 
-Validation should start exactly when the project starts.
+验证应该在项目开始时就启动。
 
-To see this, consider that tracking down a bug is much harder in a large
-program than in a small one.
-Therefore, to minimize the time and effort required to track down bugs,
-you should test small units of code.
-Although you won't find all the bugs this way, you will find a substantial
-fraction, and it will be much easier to find and fix the ones you do find.
-Testing at this level can also alert you to larger flaws in your overall
-design, minimizing the time you waste writing code that is broken
-by design.
+要理解这一点，请考虑在大型程序中追踪bug比在小型程序中困难得多。
+因此，为了最大限度地减少追踪bug所需的时间和精力，
+你应该测试小单元的代码。
+虽然你不会通过这种方式找到所有的bug，但你会找到相当大一部分，
+而且你找到的那些bug会更容易定位和修复。
+在这个级别的测试还可以提醒你注意整体设计中的更大缺陷，
+最大限度地减少你浪费在编写设计上就有缺陷的代码上的时间。
 
-But why wait until you have code before validating your design?\footnote{
-	The old saying ``First we must code, then we have incentive to
-	think'' notwithstanding.}
-Hopefully reading \cref{chp:Hardware and its Habits,%
-chp:Tools of the Trade} provided you with the information
-required to avoid some regrettably common design flaws,
-but discussing your design with a colleague or even simply writing it
-down can help flush out additional flaws.
+但是，为什么要等到有了代码才去验证你的设计呢？\footnote{
+	尽管有句老话说"先编码，然后才有动力去思考"。}
+希望阅读\cref{chp:Hardware and its Habits,%
+chp:Tools of the Trade}为你提供了
+避免一些遗憾地常见的设计缺陷所需的信息，
+但与同事讨论你的设计，甚至仅仅是将其写下来，
+都可以帮助揭示额外的缺陷。
 
-However, it is all too often the case that waiting to start validation
-until you have a design is waiting too long.
-Mightn't your natural level of optimism caused you to start the design
-before you fully understood the requirements?
-The answer to this question will almost always be ``yes''.
-One good way to avoid flawed requirements is to get to know your users.
-To really serve them well, you will have to live among them.
+然而，等到有了设计才开始验证，往往已经太迟了。
+你那天生的乐观水平难道没有导致你在完全理解需求之前就开始设计了吗？
+这个问题的答案几乎总是"是的"。
+避免有缺陷需求的一个好方法是了解你的用户。
+要真正为他们提供好的服务，你必须深入到他们中间。
 
 \QuickQuiz{
-	You are asking me to do all this validation BS before
-	I even start coding???
-	That sounds like a great way to never get started!!!
+	你要我在开始编码之前就做所有这些验证的事情？？？
+	这听起来像是永远无法开始的好方法！！！
 }\QuickQuizAnswer{
-	If it is your project, for example, a hobby, do what you like.
-	Any time you waste will be your own, and you have no one else
-	to answer to for it.
-	And there is a good chance that the time will not be completely
-	wasted.
-	For example, if you are embarking on a first-of-a-kind project,
-	the requirements are in some sense unknowable anyway.
-	In this case, the best approach might be to quickly prototype
-	a number of rough solutions, try them out, and see what works
-	best.
+	如果这是你自己的项目，例如一个业余爱好，那就随你喜欢。
+	你浪费的任何时间都是你自己的，你不需要为此向任何人交代。
+	而且很有可能这些时间不会完全浪费。
+	例如，如果你正在开始一个前所未有的项目，
+	需求在某种意义上本来就是不可知的。
+	在这种情况下，最好的方法可能是快速原型化
+	一些粗略的解决方案，试用它们，看看哪个效果最好。
 
-	On the other hand, if you are being paid to produce a system that
-	is broadly similar to existing systems, you owe it to your users,
-	your employer, and your future self to validate early and often.
+	另一方面，如果你被雇来生产一个
+	与现有系统大体相似的系统，那么你有义务对你的用户、
+	你的雇主和未来的自己负责，尽早且频繁地进行验证。
 }\QuickQuizEnd
 
-First-of-a-kind projects often use different methodologies such as
-rapid prototyping or agile.
-Here, the main goal of early prototypes are not to create correct
-implementations, but rather to learn the project's requirements.
-But this does not mean that you omit validation; it instead means that
-you approach it differently.
+前所未有的项目通常使用不同的方法论，如
+快速原型法或敏捷开发。
+在这里，早期原型的主要目标不是创建正确的实现，
+而是学习项目的需求。
+但这并不意味着你省略验证；而是意味着你以不同的方式来处理它。
 
-One such approach takes a Darwinian view, with the validation suite
-eliminating code that is not fit to solve the problem at hand.
-From this viewpoint, a vigorous validation suite is essential to the
-fitness of your software.
-However, taking this approach to its logical conclusion is quite humbling,
-as it requires us developers to admit that our carefully crafted changes
-to the codebase are, from a Darwinian standpoint, random mutations.
-On the other hand, this conclusion is supported by long experience
-indicating that seven percent of fixes introduce at least one
-bug~\cite{RexBlack2012SQA}.
+一种这样的方法采用达尔文主义的观点，验证套件
+淘汰不适合解决当前问题的代码。
+从这个角度来看，一个有力的验证套件对你的软件的适应性至关重要。
+然而，将这种方法推到其逻辑结论是相当令人谦卑的，
+因为它要求我们开发者承认，我们对代码库精心设计的更改，
+从达尔文主义的角度来看，不过是随机变异。
+另一方面，长期经验支持这一结论，
+表明百分之七的修复至少引入一个新bug~\cite{RexBlack2012SQA}。
 
-How vigorous should your validation suite be?
-If the bugs it finds aren't threatening the very foundations of your
-software design, then it is not yet vigorous enough.
-After all, your design is just as prone to bugs as is your code, and
-the earlier you find and fix the bugs in your design, the less time
-you will waste coding those design bugs.
+你的验证套件应该多严格？
+如果它发现的bug没有威胁到你软件设计的根基，那么它还不够严格。
+毕竟，你的设计和你的代码一样容易出bug，
+你越早发现和修复设计中的bug，
+你浪费在编码这些设计bug上的时间就越少。
 
 \QuickQuiz{
-	Are you actually suggesting that it is possible to test
-	correctness into software???
-	Everyone knows that is impossible!!!
+	你真的在暗示可以通过测试将正确性注入软件？？？
+	每个人都知道那是不可能的！！！
 }\QuickQuizAnswer{
-	Please note that the text used the word ``validation'' rather
-	than the word ``testing''.
-	The word ``validation'' includes formal methods as well as
-	testing, for more on which please see
-	\cref{chp:Formal Verification}.
+	请注意，正文使用的是"验证"（validation）一词，
+	而不是"测试"（testing）一词。
+	"验证"一词既包括形式化方法，也包括测试，
+	关于这方面的更多内容请参见\cref{chp:Formal Verification}。
 
-	But as long as we are bringing up things that everyone should
-	know, let's remind ourselves that Darwinian evolution is
-	not about correctness, but rather about survival.
-	As is software.
-	My goal as a developer is not that my software be attractive
-	from a theoretical viewpoint, but rather that it survive
-	whatever its users throw at it.
+	但既然我们在讨论每个人都应该知道的事情，
+	让我们提醒自己，达尔文进化论不是关于正确性，
+	而是关于生存。软件亦然。
+	作为开发者，我的目标不是让我的软件从理论角度看起来漂亮，
+	而是让它能够经受住用户抛给它的任何东西。
 
-	Although the notion of correctness does have its uses, its
-	fundamental limitation is that the specification against which
-	correctness is judged will also have bugs.
-	This means nothing more nor less than that traditional correctness
-	proofs prove that the code in question contains the intended
-	set of bugs!
+	虽然正确性的概念确实有其用处，但其
+	根本局限性在于，用来判断正确性的规范也会有bug。
+	这意味着传统的正确性证明所证明的，不多不少，
+	恰恰是被检验的代码包含了预期的bug集合！
 
-	Alternative definitions of correctness instead focus on the
-	lack of problematic properties, for example, proving that the
-	software has no use-after-free bugs, no \co{NULL} pointer
-	dereferences, no array-out-of-bounds references, and so on.
-	Make no mistake, finding and eliminating such classes of bugs
-	can be highly useful.
-	But the fact remains that the lack of certain classes of bugs
-	does nothing to demonstrate fitness for any specific purpose.
+	正确性的替代定义则聚焦于缺少有问题的属性，
+	例如，证明软件没有use-after-free bug、
+	没有\co{NULL}指针解引用、没有数组越界引用等等。
+	不要误解，发现和消除这些类别的bug可以非常有用。
+	但事实仍然是，缺少某些类别的bug
+	并不能证明软件适合任何特定目的。
 
-	Therefore, usage-driven validation remains critically important.
+	因此，使用驱动的验证仍然至关重要。
 
-	Besides, it is also impossible to verify correctness into your
-	software, especially given the problematic need to verify both
-	the verifier and the specification.
+	此外，将正确性验证到你的软件中也是不可能的，
+	特别是考虑到需要同时验证验证器和规范这一棘手需求。
 }\QuickQuizEnd
 
-It is worth reiterating that this advice applies to first-of-a-kind
-projects.
-If you are instead doing a project in a well-explored area, you would
-be quite foolish to refuse to learn from previous experience.
-But you should still start validating right at the beginning of the
-project, but hopefully guided by others' hard-won knowledge of both
-requirements and pitfalls.
+值得重申的是，这条建议适用于前所未有的项目。
+如果你的项目处于一个已经被充分探索的领域，
+拒绝从以前的经验中学习就太愚蠢了。
+但你仍然应该在项目一开始就开始验证，
+希望在他人对需求和陷阱的来之不易的知识指导下进行。
 
-An equally important question is ``When should validation stop?''
-The best answer is ``Some time after the last change.''
-Every change has the potential to create a bug, and thus every
-change must be validated.
-Furthermore, validation development should continue through the
-full lifetime of the project.
-After all, the Darwinian perspective above implies that bugs are
-adapting to your validation suite.
-Therefore, unless you continually improve your validation suite, your
-project will naturally accumulate hordes of validation-suite-immune bugs.
+一个同样重要的问题是"验证应该何时停止？"
+最好的回答是"在最后一次更改之后的某个时候。"
+每次更改都有可能创造一个bug，因此每次更改都必须被验证。
+此外，验证开发应该在项目的整个生命周期中持续进行。
+毕竟，上面的达尔文视角暗示bug正在适应你的验证套件。
+因此，除非你不断改进你的验证套件，
+否则你的项目将自然地积累大量对验证套件免疫的bug。
 
-But life is a tradeoff, and every bit of time invested in validation
-suites as a bit of time that cannot be invested in directly improving
-the project itself.
-These sorts of choices are never easy, and it can be just as damaging
-to overinvest in validation as it can be to underinvest.
-But this is just one more indication that life is not easy.
+但生活是一种权衡，投资在验证套件上的每一点时间
+都是无法投资于直接改进项目本身的时间。
+这类选择从来都不容易，在验证上过度投入和投入不足一样有害。
+但这只是生活不易的又一个迹象。
 
-Now that we have established that you should start validation when
-you start the project (if not earlier!), and that both validation and
-validation development should continue throughout the lifetime of that
-project, the following sections cover a number of validation techniques
-and methods that have proven their worth.
+既然我们已经确定你应该在项目开始时（如果不是更早！）就开始验证，
+并且验证和验证开发都应该在项目的整个生命周期中持续进行，
+以下各节将介绍一些已经证明了其价值的验证技术和方法。
 
-\subsection{The Open Source Way}
+\subsection{开源之道}
 \label{sec:debugging:The Open Source Way}
 
-The open-source programming methodology has proven quite effective, and
-includes a regimen of intense code review and testing.
+开源编程方法论已经证明了相当高的有效性，
+其中包括严格的代码审查和测试机制。
 
-I can personally attest to the effectiveness of the open-source community's
-intense code review.
-One of my first patches to the Linux kernel involved a distributed
-filesystem where one node might write to a given file that another node
-has mapped into memory.
-In this case, it is necessary to invalidate the affected pages from
-the mapping in order to allow the filesystem to maintain coherence
-during the write operation.
-I coded up a first attempt at a patch, and, in keeping with the open-source
-maxim ``post early, post often'', I posted the patch.
-I then considered how I was going to test it.
+我个人可以证明开源社区严格代码审查的有效性。
+我给Linux内核提交的最早的补丁之一涉及一个分布式文件系统，
+其中一个节点可能写入另一个节点已映射到内存中的文件。
+在这种情况下，需要使受影响的页面在映射中失效，
+以便文件系统在写操作期间维护一致性。
+我编写了补丁的第一个版本，并遵循开源格言"尽早发布，频繁发布"，
+我发布了这个补丁。
+然后我开始考虑如何测试它。
 
-But before I could even decide on an overall test strategy, I got a
-reply to my posting pointing out a few bugs.
-I fixed the bugs and reposted the patch, and returned to thinking
-out my test strategy.
-However, before I had a chance to write any test code, I received
-a reply to my reposted patch, pointing out more bugs.
-This process repeated itself many times, and I am not sure that I
-ever got a chance to actually test the patch.
+但在我还没来得及确定整体测试策略之前，
+我就收到了一封回复，指出了几个bug。
+我修复了bug并重新发布补丁，然后回到测试策略的思考上。
+然而，在我有机会编写任何测试代码之前，
+我收到了针对重新发布的补丁的回复，指出了更多bug。
+这个过程重复了很多次，我不确定我是否真的有机会实际测试那个补丁。
 
-This experience brought home the truth of the open-source saying:
-Given enough eyeballs, all bugs are shallow~\cite{EricSRaymond99b}.
+这次经历让我深刻体会到开源界那句话的真谛：
+只要有足够多的眼睛，所有bug都是浅显的~\cite{EricSRaymond99b}。
 
-However, when you post some code or a given patch, it is worth
-asking a few questions:
+然而，当你发布某些代码或补丁时，
+值得问几个问题：
 
 \begin{enumerate}
-\item	How many of those eyeballs are actually going to look at your code?
-\item	How many will be experienced and clever enough to actually find
-	your bugs?
-\item	Exactly when are they going to look?
+\item	这些眼睛中到底有多少真的会看你的代码？
+\item	其中有多少人有足够的经验和才智来真正发现你的bug？
+\item	他们到底什么时候会看？
 \end{enumerate}
 
-I was lucky:
-There was someone out there who wanted the functionality
-provided by my patch, who had long experience with distributed filesystems,
-and who looked at my patch almost immediately.
-If no one had looked at my patch, there would have been no review, and
-therefore none of those bugs would have been located.
-If the people looking at my patch had lacked experience with distributed
-filesystems, it is unlikely that they would have found all the bugs.
-Had they waited months or even years to look, I likely would have forgotten
-how the patch was supposed to work, making it much more difficult to
-fix them.
+我很幸运：
+有一个人需要我的补丁提供的功能，
+在分布式文件系统方面有丰富的经验，
+并且几乎立即就看了我的补丁。
+如果没有人看我的补丁，就不会有审查，
+因此那些bug都不会被发现。
+如果看我补丁的人缺乏分布式文件系统的经验，
+他们不太可能找到所有的bug。
+如果他们等了几个月甚至几年才看，
+我可能已经忘记了补丁应该如何工作，
+使得修复bug变得更加困难。
 
-However, we must not forget the second tenet of the open-source development,
-namely intensive testing.
-For example, a great many people test the Linux kernel.
-Some test patches as they are submitted, perhaps even yours.
-Others test the -next tree, which is helpful, but there is likely to be
-several weeks or even months delay between the time that you write the
-patch and the time that it appears in the -next tree, by which time the
-patch will not be quite as fresh in your mind.
-Still others test maintainer trees, which often have a similar time delay.
+然而，我们不能忘记开源开发的第二个信条，
+即密集的测试。
+例如，非常多的人测试Linux内核。
+有些人在补丁提交时就测试它们，也许包括你的补丁。
+其他人测试-next树，这很有帮助，但从你编写补丁到它出现在-next树中，
+可能会有几周甚至几个月的延迟，届时补丁在你脑中就不会那么新鲜了。
+还有一些人测试维护者的树，通常也有类似的时间延迟。
 
-Quite a few people don't test code until it is committed to mainline,
-or the master source tree (Linus's tree in the case of the Linux kernel).
-If your maintainer won't accept your patch until it has been tested,
-this presents you with a deadlock situation:
-Your patch won't be accepted until it is tested, but it won't be tested
-until it is accepted.
-Nevertheless, people who test mainline code are still relatively
-aggressive, given that many people and organizations do not test code
-until it has been pulled into a Linux distro.
+相当多的人直到代码被提交到主线即主源码树
+（在Linux内核的情况下是Linus的树）才测试代码。
+如果你的维护者在你的补丁经过测试之前不接受它，
+这就给你带来了一个死锁（deadlock）情况：
+你的补丁在测试之前不会被接受，但在被接受之前不会被测试。
+尽管如此，测试主线代码的人仍然是相对激进的，
+因为许多人和组织直到代码被拉入Linux发行版才测试它。
 
-And even if someone does test your patch, there is no guarantee that they
-will be running the hardware and software configuration and workload
-required to locate your bugs.
+而且即使有人测试了你的补丁，也不能保证他们
+运行的硬件和软件配置以及工作负载能够定位你的bug。
 
-Therefore, even when writing code for an open-source project, you need to
-be prepared to develop and run your own test suite.
-Test development is an underappreciated and very valuable skill, so be
-sure to take full advantage of any existing test suites available to
-you.
-Important as test development is, we must leave further discussion of it
-to books dedicated to that topic.
-The following sections therefore discuss locating bugs in your code given that
-you already have a good test suite.
+因此，即使在为开源项目编写代码时，你也需要
+准备好开发和运行自己的测试套件。
+测试开发是一项被低估但非常有价值的技能，所以一定要
+充分利用你可以获得的任何现有测试套件。
+虽然测试开发很重要，但我们必须将进一步的讨论
+留给专门讨论该主题的书籍。
+因此，以下各节将讨论在你已经有一个好的测试套件的前提下，
+如何定位代码中的bug。
 
-\section{Tracing}
+\section{追踪}
 \label{sec:debugging:Tracing}
 %
-\epigraph{The machine knows what is wrong.
-	  Make it tell you.}{Unknown}
+\epigraph{机器知道哪里出了问题。让它告诉你。}{佚名}
 
-When all else fails, add a \co{printk()}!
-Or a \co{printf()}, if you are working with user-mode C-language applications.
+当其他方法都失败时，加一个\co{printk()}！
+或者加一个\co{printf()}，如果你正在处理用户态的C语言应用程序。
 
-The rationale is simple:
-If you cannot figure out how execution reached a given point in the code,
-sprinkle print statements earlier in the code to work out what happened.
-You can get a similar effect, and with more convenience and flexibility,
-by using a debugger such as gdb (for user applications) or kgdb
-(for debugging Linux kernels).
-Much more sophisticated tools exist, with some of the more recent
-offering the ability to rewind backwards in time from the point
-of failure.
+理由很简单：
+如果你无法弄清楚执行是如何到达代码中某个特定点的，
+就在代码的更早处撒上打印语句来搞清楚发生了什么。
+你可以通过使用调试器获得类似的效果，而且更方便、更灵活，
+例如gdb（用于用户应用程序）或kgdb（用于调试Linux内核）。
+还存在更加精妙的工具，其中一些较新的工具
+提供了从故障点回溯时间的能力。
 
-These brute-force testing tools are all valuable, especially now
-that typical systems have more than 64K of memory and CPUs running
-faster than 4\,MHz.
-Much has been
-written about these tools, so this chapter will add only a little more.
+这些暴力测试工具都很有价值，特别是现在
+典型系统拥有超过64K的内存和运行速度超过4\,MHz的CPU。
+关于这些工具已经有很多著述，因此本章只会稍作补充。
 
-However, these tools all have a serious shortcoming when you need a
-fastpath to tell you what is going wrong, namely, these tools often have
-excessive overheads.
-There are special tracing technologies for this purpose, which typically
-leverage data ownership techniques
-(see \cref{chp:Data Ownership})
-to minimize the overhead of runtime data collection.
-One example within the Linux kernel is
-``trace events''~\cite{StevenRostedt2010perfTraceEventP1,StevenRostedt2010perfTraceEventP2,StevenRostedt2010perfTraceEventP3,StevenRostedt2010perfHP+DeathlyMacros},
-which uses per-CPU buffers to allow data to be collected with
-extremely low overhead.
-Even so, enabling tracing can sometimes change timing enough to
-hide bugs, resulting in \emph{heisenbugs}, which are discussed in
+然而，当你需要快速路径告诉你出了什么问题时，
+这些工具都有一个严重的缺点，即这些工具通常具有过高的开销。
+有专门的追踪技术用于此目的，它们通常
+利用数据所有权技术
+（参见\cref{chp:Data Ownership}）
+来最小化运行时数据收集的开销。
+Linux内核中的一个例子是
+"trace events"~\cite{StevenRostedt2010perfTraceEventP1,StevenRostedt2010perfTraceEventP2,StevenRostedt2010perfTraceEventP3,StevenRostedt2010perfHP+DeathlyMacros}，
+它使用每CPU缓冲区来允许以极低的开销收集数据。
+即便如此，启用追踪有时也会改变时序，
+足以隐藏bug，导致\emph{Heisenbug}，这在
 \cref{sec:debugging:Probability and Heisenbugs}
-and especially \cref{sec:debugging:Hunting Heisenbugs}.
-In the kernel, BPF can do data reduction in the kernel, reducing
-the overhead of transmitting the needed information from the kernel
-to userspace~\cite{BrendanGregg2019BPFperftools}.
-In userspace code, there is a huge number of tools that can help you.
-One good starting point is Brendan Gregg's blog.\footnote{
+特别是\cref{sec:debugging:Hunting Heisenbugs}中讨论。
+在内核中，BPF可以在内核中进行数据缩减，减少
+从内核向用户空间传输所需信息的开销~\cite{BrendanGregg2019BPFperftools}。
+在用户空间代码中，有大量的工具可以帮助你。
+一个好的起点是Brendan Gregg的博客。\footnote{
 	\url{http://www.brendangregg.com/blog/}}
 
-Even if you avoid heisenbugs, other pitfalls await you.
-For example, although the machine really does know all,
-what it knows is almost always way more than your head can hold.
-For this reason, high-quality test suites normally come with sophisticated
-scripts to analyze the voluminous output.
-But beware---scripts will only notice what you tell them to.
-My \co{rcutorture} scripts are a case in point:
-Early versions of those scripts were quite satisfied with a test run
-in which RCU \IXpl{grace period} stalled indefinitely.
-This of course resulted in the scripts being modified to detect RCU
-grace-period stalls, but this does not change the fact that the scripts
-will only detect problems that I make them detect.
-But note well that unless you have a solid design, you won't know what
-your script should check for!
+即使你避免了Heisenbug，其他陷阱仍在等着你。
+例如，虽然机器确实无所不知，
+但它知道的几乎总是远超你脑子所能容纳的。
+因此，高质量的测试套件通常配有精妙的脚本来分析大量的输出。
+但要注意——脚本只会注意到你让它注意的东西。
+我的\co{rcutorture}脚本就是一个典型的例子：
+这些脚本的早期版本对一次RCU \IXpl{grace period}无限期停滞的测试运行
+完全满意。
+这当然导致脚本被修改以检测RCU grace-period停滞，
+但这并不改变这样一个事实：脚本只会检测我让它检测的问题。
+但请注意，除非你有一个扎实的设计，否则你不会知道你的脚本应该检查什么！
 
-Another problem with tracing and especially with \co{printk()} calls
-is that their overhead can rule out production use.
-In such cases, assertions can be helpful.
+追踪的另一个问题，特别是\co{printk()}调用的问题，
+是它们的开销可能使其无法在生产环境中使用。
+在这种情况下，断言（assertion）可能会有帮助。
 
-\section{Assertions}
+\section{断言}
 \label{sec:debugging:Assertions}
 %
-\epigraph{No man really becomes a fool until he stops asking questions.}
+\epigraph{一个人只有停止提问，才会真正变成傻瓜。}
 	 {Charles P. Steinmetz}
 
-Assertions are usually implemented in the following manner:
+断言（assertion）通常以下列方式实现：
 
 \begin{VerbatimN}
 if (something_bad_is_happening())
 	complain();
 \end{VerbatimN}
 
-This pattern is often encapsulated into C-preprocessor macros or
-language intrinsics, for example, in the Linux kernel, this might
-be represented as \co{WARN_ON(something_bad_is_happening())}.
-Of course, if \co{something_bad_is_happening()} quite frequently,
-the resulting output might obscure reports of other problems,
-in which case
-\co{WARN_ON_ONCE(something_bad_is_happening())} might be more appropriate.
+这种模式通常被封装到C预处理器宏或语言内建函数中，
+例如在Linux内核中，这可以表示为\co{WARN_ON(something_bad_is_happening())}。
+当然，如果\co{something_bad_is_happening()}发生得相当频繁，
+产生的输出可能会掩盖其他问题的报告，
+在这种情况下，
+\co{WARN_ON_ONCE(something_bad_is_happening())}可能更合适。
 
 \QuickQuiz{
-	How can you implement \co{WARN_ON_ONCE()}?
+	如何实现\co{WARN_ON_ONCE()}？
 }\QuickQuizAnswer{
-	If you don't mind \co{WARN_ON_ONCE()} sometimes warning more
-	than once, simply maintain a static variable that is initialized
-	to zero.
-	If the condition triggers, check the variable, and
-	if it is non-zero, return.
-	Otherwise, set it to one, print the message, and return.
+	如果你不介意\co{WARN_ON_ONCE()}有时警告多于一次，
+	只需维护一个初始化为零的静态变量。
+	如果条件触发，检查该变量，
+	如果它非零，则返回。
+	否则，将其设为一，打印消息，然后返回。
 
-	If you really need the message to never appear more than once,
-	you can use an atomic exchange operation in place of ``set it
-	to one'' above.
-	Print the message only if the atomic exchange operation returns
-	zero.
+	如果你确实需要消息永远不出现多于一次，
+	你可以使用原子交换操作来替代上面的
+	"将其设为一"。
+	仅当原子交换操作返回零时才打印消息。
 }\QuickQuizEnd
 
-In parallel code, one bad something that might happen is that
-a function expecting to be called under a particular lock might be called
-without that lock being held.
-Such functions sometimes have header comments stating something like
-``The caller must hold \co{foo_lock} when calling this function'', but
-such a comment does no good unless someone actually reads it.
-An executable statement carries far more weight.
-The Linux kernel's lockdep
-facility~\cite{JonathanCorbet2006lockdep,StevenRostedt2011locdepCryptic}
-therefore provides a \co{lockdep_assert_held()} function that checks
-whether the specified lock is held.
-Of course, lockdep incurs significant overhead, and thus might not be
-helpful in production.
+在并行代码中，可能发生的一件坏事是：
+一个期望在持有特定锁的情况下被调用的函数，在未持有该锁时被调用。
+这样的函数有时有头部注释声明类似
+"调用者在调用此函数时必须持有\co{foo_lock}"的内容，
+但除非有人真的去读它，否则这样的注释毫无用处。
+一条可执行语句的分量要大得多。
+因此，Linux内核的lockdep
+工具~\cite{JonathanCorbet2006lockdep,StevenRostedt2011locdepCryptic}
+提供了一个\co{lockdep_assert_held()}函数来检查
+指定的锁是否被持有。
+当然，lockdep会产生显著的开销，因此在生产环境中可能没有帮助。
 
-An especially bad parallel-code something is unexpected concurrent
-access to data.
-The \IXBacrfst{kcsan}~\cite{JonathanCorbet2019KCSAN}
-uses existing markings such as \co{READ_ONCE()} and \co{WRITE_ONCE()}
-to determine which concurrent accesses deserve warning messages.
-KCSAN has a significant false-positive rate, especially from the
-viewpoint of developers thinking in terms of C as assembly language
-with additional syntax.
-KCSAN therefore provides a \co{data_race()} construct to forgive
-known-benign \IXpl{data race}, and also the \co{ASSERT_EXCLUSIVE_ACCESS()}
-and \co{ASSERT_EXCLUSIVE_WRITER()} assertions to explicitly check for data
-races~\cite{MarcoElver2020FearDataRaceDetector1,MarcoElver2020FearDataRaceDetector2}.
+在并行代码中，一件特别糟糕的事情是意外的并发数据访问。
+\IXBacrfst{kcsan}~\cite{JonathanCorbet2019KCSAN}
+使用现有的标记如\co{READ_ONCE()}和\co{WRITE_ONCE()}
+来确定哪些并发访问值得发出警告消息。
+KCSAN有相当高的误报率，特别是从那些将C语言视为
+带有额外语法的汇编语言的开发者的角度来看。
+因此KCSAN提供了一个\co{data_race()}构造来豁免
+已知良性的\IXpl{data race}，以及\co{ASSERT_EXCLUSIVE_ACCESS()}
+和\co{ASSERT_EXCLUSIVE_WRITER()}断言来显式检查数据
+竞争~\cite{MarcoElver2020FearDataRaceDetector1,MarcoElver2020FearDataRaceDetector2}。
 
-So what can be done in cases where checking is necessary, but where the
-overhead of runtime checking cannot be tolerated?
-One approach is static analysis, which is discussed in the next section.
+那么，在需要检查但无法容忍运行时检查开销的情况下，
+该怎么办呢？
+一种方法是静态分析，将在下一节讨论。
 
-\section{Static Analysis}
+\section{静态分析}
 \label{sec:debugging:Static Analysis}
 %
-\epigraph{A lot of automation isn't a replacement of
-	  humans but of mind-numbing behavior.}
-	 {Summarized from Stewart Butterfield}
+\epigraph{很多自动化不是取代人类，而是取代令人麻木的行为。}
+	 {总结自Stewart Butterfield}
 
-Static analysis is a validation technique where one program takes a second
-program as input, reporting errors and vulnerabilities located in this
-second program.
-Interestingly enough, almost all programs are statically analyzed
-by their compilers or interpreters.
-These tools are far from perfect, but their ability to locate
-errors has improved immensely over the past few decades, in part because
-they now have much more than 64K bytes of memory in which to carry out their
-analyses.
+静态分析是一种验证技术，其中一个程序将第二个程序作为输入，
+报告在第二个程序中发现的错误和漏洞。
+有趣的是，几乎所有程序都被其编译器或解释器进行了静态分析。
+这些工具远非完美，但它们定位错误的能力
+在过去几十年中已有巨大提升，部分原因是
+它们现在拥有远超64K字节的内存来执行分析。
 
-The original UNIX \co{lint} tool~\cite{StephenJohnson1977lint} was
-quite useful, though much of its functionality has since been incorporated
-into C compilers.
-There are nevertheless lint-like tools in use to this day.
-The sparse static analyzer~\cite{JonathanCorbet2004sparse}
-finds higher-level issues in the Linux kernel, including:
+最初的UNIX \co{lint}工具~\cite{StephenJohnson1977lint}
+相当有用，尽管它的许多功能后来被整合到了C编译器中。
+尽管如此，类lint工具至今仍在使用。
+sparse静态分析器~\cite{JonathanCorbet2004sparse}
+可以在Linux内核中发现更高层次的问题，包括：
 
 \begin{enumerate}
-\item	Misuse of pointers to user-space structures.
-\item	Assignments from too-long constants.
-\item	Empty \co{switch} statements.
-\item	Mismatched lock acquisition and release primitives.
-\item	Misuse of per-CPU primitives.
-\item	Use of RCU primitives on non-RCU pointers and vice versa.
+\item	对用户空间结构指针的误用。
+\item	来自过长常量的赋值。
+\item	空的\co{switch}语句。
+\item	不匹配的锁获取和释放原语。
+\item	每CPU原语的误用。
+\item	在非RCU指针上使用RCU原语，反之亦然。
 \end{enumerate}
 
-There is a coccinelle tool that can be thought of as a C-syntax-aware
-search-and-replace facility.
-There is also a large body of scripts that use this tool to locate
-and fix some classes of Linux-kernel
-bugs~\cite{NicolasPalix2011CoccinelleTenYears}.
+还有一个coccinelle工具，可以将其看作是一个C语法感知的搜索替换工具。
+还有大量脚本使用该工具来定位和修复
+Linux内核中某些类别的bug~\cite{NicolasPalix2011CoccinelleTenYears}。
 
-Although it is likely that compilers will continue to increase their
-static-analysis capabilities, coccinelle and the sparse static analyzer
-demonstrate the benefits of static analysis outside of the compiler,
-particularly for finding application-specific bugs.
+虽然编译器可能会继续增强其静态分析能力，
+但coccinelle和sparse静态分析器展示了
+编译器之外的静态分析的好处，
+特别是在发现特定于应用的bug方面。
 \Crefrange{sec:formal:SAT Solvers}{sec:formal:Stateless Model Checkers}
-describe more sophisticated forms of static analysis.
+描述了更精妙的静态分析形式。
 
-\section{Code Review}
+\section{代码审查}
 \label{sec:debugging:Code Review}
 %
-\epigraph{If a man speaks of my virtues, he steals from me;
-	  if he speaks of my vices, then he is my teacher.}
-	 {Chinese proverb}
+\epigraph{说我美德的人是在窃取我的东西；说我缺点的人才是我的老师。}
+	 {中国谚语}
 
-Code review is a special case of static analysis with human beings doing
-the analysis.
-Human beings are of course subject to inattention, fatigue, and errors,
-which underscores the importance of static analysis and testing.
-Done properly, these two activities can automate at least some aspects
-of code review.
-However, it does not appear that testing and static analysis will be able
-to completely replace manual review any time soon.
-This section therefore covers inspection, walkthroughs, and self-inspection.
+代码审查是静态分析的一种特殊情况，由人类来进行分析。
+当然，人类会受到注意力不集中、疲劳和错误的影响，
+这凸显了静态分析和测试的重要性。
+如果操作得当，这两项活动可以自动化代码审查的至少某些方面。
+然而，测试和静态分析似乎在短期内还无法完全取代人工审查。
+因此本节涵盖代码审查会议、走查和自我审查。
 
-\subsection{Inspection}
+\subsection{代码审查会议}
 \label{sec:debugging:Inspection}
 
-Traditionally, formal code inspections take place in face-to-face meetings
-with formally defined roles:
-Moderator, developer, and one or two other participants.
-The developer reads through the code, explaining what it is doing and
-why it works.
-The one or two other participants ask questions and raise issues,
-hopefully exposing the author's invalid assumptions, while the moderator's
-job is to resolve any resulting conflicts and take notes.
-This process can be extremely effective at locating bugs, particularly
-if all of the participants are familiar with the code at hand.
+传统上，正式的代码审查会议以面对面会议的形式进行，
+并有正式定义的角色：
+主持人、开发者和一两名其他参与者。
+开发者通读代码，解释它在做什么以及为什么能工作。
+一两名其他参与者提出问题并提出关注点，
+希望能揭露作者的无效假设，而主持人的
+工作是解决由此产生的冲突并做记录。
+如果所有参与者都熟悉手头的代码，
+这个过程可以在定位bug方面极为有效。
 
-However, this face-to-face formal procedure does not necessarily
-work well in the global Linux kernel community.
-Instead, individuals review code separately and provide comments via
-email or IRC\@.
-The note-taking is provided by email archives or IRC logs, and moderators
-volunteer their services as required by the occasional flamewar.
-This process also works reasonably well, particularly if all of the
-participants are familiar with the code at hand.
-In fact, one advantage of the Linux kernel community approach over
-traditional formal inspections is the greater probability of contributions
-from people \emph{not} familiar with the code, who might not be blinded
-by the author's invalid assumptions, and who might also test the code.
+然而，这种面对面的正式程序不一定适合
+全球性的Linux内核社区。
+相反，个人单独审查代码并通过电子邮件或IRC提供评论。
+记录由电子邮件存档或IRC日志提供，
+主持人在偶尔的激烈争论需要时自愿提供服务。
+如果所有参与者都熟悉手头的代码，
+这个过程也运作得相当好。
+事实上，Linux内核社区方法相对于传统正式审查的一个优势是
+来自\emph{不}熟悉代码的人的贡献概率更大，
+这些人可能不会被作者的无效假设所蒙蔽，
+而且他们可能还会测试代码。
 
 \QuickQuiz{
-	Just what invalid assumptions are you accusing Linux kernel
-	hackers of harboring???
+	你到底在指控Linux内核黑客们持有什么无效假设？？？
 }\QuickQuizAnswer{
-	Those wishing a complete answer to this question are encouraged
-	to search the Linux kernel \co{git} repository for commits
-	containing the string \qco{Fixes:}.
-	There were many thousands of them just in the year 2020, including
-	fixes for the following invalid assumptions:
+	想要获得这个问题完整答案的人，可以在Linux内核的
+	\co{git}仓库中搜索包含字符串\qco{Fixes:}的提交。
+	仅在2020年就有数千个这样的提交，包括针对以下无效假设的修复：
 
 	\begin{enumerate}
-	\item	Testing for a non-zero denominator will prevent
-		divide-by-zero errors.
-		(Hint:
-		Suppose that the test uses 64-bit arithmetic
-		but that the division uses 32-bit arithmetic.)
-	\item	Userspace can be trusted to zero out versioned data
-		structures used to communicate with the kernel.
-		(Hint:
-		Sometimes userspace has no idea how large the
-		data structure is.)
-	\item	Outdated TCP duplicate selective acknowledgement (D-SACK)
-		packets can be completely ignored.
-		(Hint:
-		These packets might also contain other information.)
-	\item	All CPUs are little-endian.
-	\item	Once a data structure is no longer needed, all of its
-		memory may be immediately freed.
-	\item	All devices can be initialized while in standby mode.
-	\item	Developers can be trusted to consistently do correct
-		hexidecimal arithmetic.
+	\item	检查非零的除数可以防止除零错误。
+		（提示：
+		假设检查使用64位算术，
+		但除法使用32位算术。）
+	\item	可以信任用户空间将用于与内核通信的版本化数据结构清零。
+		（提示：
+		有时用户空间不知道数据结构有多大。）
+	\item	过时的TCP重复选择性确认（D-SACK）
+		数据包可以被完全忽略。
+		（提示：
+		这些数据包可能还包含其他信息。）
+	\item	所有CPU都是小端序的。
+	\item	一旦不再需要某个数据结构，其所有内存
+		都可以立即释放。
+	\item	所有设备都可以在待机模式下初始化。
+	\item	可以信任开发者始终正确地进行十六进制算术。
 	\end{enumerate}
 
-	Those who look at these commits in greater detail will conclude
-	that invalid assumptions are the rule, not the exception.
+	那些更详细地查看这些提交的人会得出结论：
+	无效假设是常态，而非例外。
 }\QuickQuizEnd
 
-It is quite likely that the Linux kernel community's review process
-is ripe for improvement:
+Linux内核社区的审查过程很可能有改进的空间：
 
 \begin{enumerate}
-\item	There is sometimes a shortage of people with the time and
-	expertise required to carry out an effective review.
-\item	Even though all review discussions are archived, they are
-	often ``lost'' in the sense that insights are forgotten and
-	people fail to look up the discussions.
-	This can result in re-insertion of the same old bugs.
-\item	It is sometimes difficult to resolve flamewars when they do
-	break out, especially when the combatants have disjoint
-	goals, experience, and vocabulary.
+\item	有时缺乏有时间和专业知识来进行有效审查的人。
+\item	虽然所有的审查讨论都被归档了，但它们
+	往往在某种意义上"丢失"了——洞见被遗忘，
+	人们也没有去查阅这些讨论。
+	这可能导致同样的老bug被重新引入。
+\item	当口水战爆发时，有时很难解决，
+	特别是当参战各方有着不同的目标、
+	经验和词汇时。
 \end{enumerate}
 
-Perhaps some of the needed improvements will be provided by
-continuous-integration-style testing, but there are many bugs more
-easily found by review than by testing.
-When reviewing, therefore, it is worthwhile to look at relevant documentation
-in commit logs, bug reports, and LWN articles.
-This documentation can help you quickly build up the required expertise.
+也许持续集成风格的测试可以提供一些需要的改进，
+但许多bug通过审查比通过测试更容易发现。
+因此在审查时，值得查看提交日志、bug报告和LWN文章中的相关文档。
+这些文档可以帮助你快速建立所需的专业知识。
 
-\subsection{Walkthroughs}
+\subsection{走查}
 \label{sec:debugging:Walkthroughs}
 
-A traditional code walkthrough is similar to a formal inspection,
-except that the group
-``plays computer'' with the code, driven by specific test cases.
-A typical walkthrough team has a moderator, a secretary (who records
-bugs found), a testing expert (who generates the test cases) and
-perhaps one to two others.
-These can be extremely effective, albeit also extremely time-consuming.
+传统的代码走查类似于正式的审查会议，
+不同的是小组用特定的测试用例驱动，
+对代码进行"模拟计算机"式的执行。
+典型的走查团队有一个主持人、一个秘书（记录发现的bug）、
+一个测试专家（生成测试用例），
+以及可能一到两个其他人。
+这些可以极为有效，尽管也极为耗时。
 
-It has been some decades since I have participated in a formal
-walkthrough, and I suspect that a present-day walkthrough would
-use single-stepping debuggers.
-One could imagine a particularly sadistic procedure as follows:
+距离我上次参加正式走查已经有几十年了，
+我猜想如今的走查会使用单步调试器。
+可以想象一个特别虐待性的过程如下：
 
 \begin{enumerate}
-\item	The tester presents the test case.
-\item	The moderator starts the code under a debugger, using the
-	specified test case as input.
-\item	Before each statement is executed, the developer is required
-	to predict the outcome of the statement and explain why
-	this outcome is correct.
-\item	If the outcome differs from that predicted by the developer,
-	this is taken as a potential bug.
-\item	In parallel code, a ``concurrency shark'' asks what code
-	might execute concurrently with this code, and why such
-	concurrency is harmless.
+\item	测试者提出测试用例。
+\item	主持人使用指定的测试用例作为输入，
+	在调试器下启动代码。
+\item	在每条语句执行之前，要求开发者
+	预测该语句的结果并解释为什么这个结果是正确的。
+\item	如果结果与开发者的预测不同，
+	则将其视为潜在的bug。
+\item	在并行代码中，一个"并发鲨鱼"会问什么代码
+	可能与此代码并发执行，以及为什么这种
+	并发是无害的。
 \end{enumerate}
 
-Sadistic, certainly.
-Effective?
-Maybe.
-If the participants have a good understanding of the requirements,
-software tools, data structures, and algorithms, then walkthroughs
-can be extremely effective.
-If not, walkthroughs are often a waste of time.
+虐待性的，当然。
+有效吗？
+也许。
+如果参与者对需求、软件工具、数据结构和算法有良好的理解，
+那么走查可以极为有效。
+如果没有，走查通常是浪费时间。
 
-\subsection{Self-Inspection}
+\subsection{自我审查}
 \label{sec:debugging:Self-Inspection}
 
-Although developers are usually not all that effective at inspecting
-their own code, there are a number of situations where there is no
-reasonable alternative.
-For example, the developer might be the only person authorized to look
-at the code, other qualified developers might all be too busy, or
-the code in question might be sufficiently bizarre that the developer
-is unable to convince anyone else to take it seriously until after
-demonstrating a prototype.
-In these cases, the following procedure can be quite helpful,
-especially for complex parallel code:
+虽然开发者通常并不擅长审查自己的代码，
+但在很多情况下没有合理的替代方案。
+例如，开发者可能是唯一被授权查看代码的人，
+其他合格的开发者可能都太忙了，或者
+有问题的代码可能足够奇特，以至于开发者在展示原型之前
+无法说服其他任何人认真对待它。
+在这些情况下，以下程序可能非常有帮助，
+特别是对于复杂的并行代码：
 
 \begin{enumerate}
-\item	Write design document with requirements, diagrams for data structures,
-	and rationale for design choices.
-\item	Consult with experts, updating the design document as needed.
-\item	Write the code in pen on paper, correcting errors as you go.
-	Resist the temptation to refer to pre-existing nearly identical code
-	sequences, instead, copy them.
-\item	At each step, articulate and question your assumptions,
-	inserting assertions or constructing tests to check them.
-\item	If there were errors, copy the code in pen on fresh paper, correcting
-	errors as you go.
-	Repeat until the last two copies are identical.
-\item	Produce proofs of correctness for any non-obvious code.
-\item	Use a source-code control system.
-	Commit early; commit often.
-\item	Test the code fragments from the bottom up.
-\item	When all the code is integrated (but preferably before),
-	do full-up functional and stress testing.
-\item	Once the code passes all tests, write code-level documentation,
-	perhaps as an extension to the design document discussed above.
-	Fix both the code and the test code as needed.
+\item	编写设计文档，包括需求、数据结构图，
+	以及设计选择的理由。
+\item	咨询专家，根据需要更新设计文档。
+\item	用笔在纸上编写代码，边写边纠正错误。
+	抵制引用已有的几乎相同的代码序列的诱惑，
+	而是复制它们。
+\item	在每一步，明确表述并质疑你的假设，
+	插入断言或构造测试来检验它们。
+\item	如果有错误，用笔在新纸上复制代码，
+	边写边纠正错误。
+	重复直到最后两份副本完全相同。
+\item	为任何不明显的代码编写正确性证明。
+\item	使用源代码控制系统。
+	早提交；勤提交。
+\item	自底向上测试代码片段。
+\item	当所有代码集成后（但最好在之前），
+	进行完整的功能测试和压力测试。
+\item	一旦代码通过所有测试，编写代码级文档，
+	也许作为上面讨论的设计文档的扩展。
+	根据需要修复代码和测试代码。
 \end{enumerate}
 
-When I follow this procedure for new RCU code, there are normally only
-a few bugs left at the end.
-With a few prominent (and embarrassing)
-exceptions~\cite{PaulEMcKenney2011RCU3.0trainwreck},
-I usually manage to locate these bugs before others do.
-That said, this is getting more difficult over time as the number and
-variety of Linux-kernel users increases.
+当我对新的RCU代码遵循此程序时，最终通常只剩下
+少数几个bug。
+除了几个显著（且令人尴尬）的例外~\cite{PaulEMcKenney2011RCU3.0trainwreck}，
+我通常能在别人之前找到这些bug。
+话虽如此，随着Linux内核用户数量和种类的增加，
+这变得越来越困难了。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why would anyone bother copying existing code in pen on paper???
-	Doesn't that just increase the probability of transcription errors?
+	为什么会有人费心在纸上用笔复制现有代码？？？
+	那不是只会增加抄写错误的概率吗？
 }\QuickQuizAnswerB{
-	If you are worried about transcription errors, please allow me
-	to be the first to introduce you to a really cool tool named
-	\co{diff}.
-	In addition, carrying out the copying can be quite valuable:
+	如果你担心抄写错误，请允许我第一个向你介绍一个
+	非常酷的工具，叫\co{diff}。
+	此外，执行复制操作可能非常有价值：
 	\begin{enumerate}
-	\item	If you are copying a lot of code, you are probably failing
-		to take advantage of an opportunity for abstraction.
-		The act of copying code can provide great motivation
-		for abstraction.
-	\item	Copying the code gives you an opportunity to think about
-		whether the code really works in its new setting.
-		Is there some non-obvious constraint, such as the need
-		to disable interrupts or to hold some lock?
-	\item	Copying the code also gives you time to consider whether
-		there is some better way to get the job done.
+	\item	如果你复制了大量代码，你可能没有利用
+		抽象的机会。
+		复制代码的行为可以为抽象提供巨大的动力。
+	\item	复制代码让你有机会思考
+		代码在新环境中是否真的能工作。
+		是否有某些不明显的约束，比如需要
+		禁用中断或持有某个锁？
+	\item	复制代码还让你有时间考虑是否
+		有更好的方法来完成工作。
 	\end{enumerate}
-	So, yes, copy the code!
+	所以，是的，复制代码吧！
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	This procedure is ridiculously over-engineered!
-	How can you expect to get a reasonable amount of software
-	written doing it this way???
+	这个过程太过度设计了！
+	用这种方式怎么可能编写出合理数量的软件？？？
 }\QuickQuizAnswerM{
-	Indeed, repeatedly copying code by hand is laborious and slow.
-	However, when combined with heavy-duty stress testing and
-	proofs of correctness, this approach is also extremely effective
-	for complex parallel code where ultimate performance and
-	reliability are required and where debugging is difficult.
-	The Linux-kernel RCU implementation is a case in point.
+	确实，反复手工复制代码既费力又缓慢。
+	然而，当与高强度压力测试和正确性证明相结合时，
+	对于需要极致性能和可靠性且调试困难的
+	复杂并行代码，这种方法也极为有效。
+	Linux内核的RCU实现就是一个典型的例子。
 
-	On the other hand, if you are writing a simple single-threaded
-	shell script, then you would be best-served by a different
-	methodology.
-	For example, enter each command one at a time into an interactive
-	shell with a test data set to make sure that it does what you
-	want, then copy-and-paste the successful commands into your
-	script.
-	Finally, test the script as a whole.
+	另一方面，如果你正在编写一个简单的单线程shell脚本，
+	那么你最好使用不同的方法论。
+	例如，将每个命令逐一输入到带有测试数据集的交互式shell中，
+	确保它做了你想要的事情，然后将成功的命令
+	复制粘贴到你的脚本中。
+	最后，对脚本进行整体测试。
 
-	If you have a friend or colleague who is willing to help out,
-	pair programming can work very well, as can any number of
-	formal design- and code-review processes.
+	如果你有一个愿意帮忙的朋友或同事，
+	结对编程可以非常有效，
+	各种正式的设计和代码审查流程也是如此。
 
-	And if you are writing code as a hobby, then do whatever you like.
+	如果你是作为业余爱好编写代码，那就随你喜欢。
 
-	In short, different types of software need different development
-	methodologies.
+	简而言之，不同类型的软件需要不同的开发方法论。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	What do you do if, after all the pen-on-paper copying, you find
-	a bug while typing in the resulting code?
+	如果在所有的纸笔复制之后，你在输入最终代码时
+	发现了一个bug，该怎么办？
 }\QuickQuizAnswerE{
-	The answer, as is often the case, is ``it depends''.
-	If the bug is a simple typo, fix that typo and continue typing.
-	However, if the bug indicates a design flaw, go back to pen
-	and paper.
+	答案，通常是"看情况"。
+	如果bug是一个简单的拼写错误，修正它然后继续输入。
+	然而，如果bug表明存在设计缺陷，则回到纸和笔。
 }\QuickQuizEndE
 }
 
-The above procedure works well for new code, but what if you need to
-inspect code that you have already written?
-You can of course apply the above procedure for old code in the special
-case where you wrote one to throw away~\cite{Brooks79},
-but the following approach can also be helpful in less desperate
-circumstances:
+上述过程适用于新代码，但如果你需要审查已经编写的代码怎么办？
+你当然可以在"编写一个用来丢弃的版本"~\cite{Brooks79}的
+特殊情况下对旧代码应用上述过程，
+但以下方法在不那么绝望的情况下也很有帮助：
 
 \begin{enumerate}
-\item	Using your favorite documentation tool (\LaTeX{}, HTML,
-	OpenOffice, or straight ASCII), describe the high-level
-	design of the code in question.
-	Use lots of diagrams to illustrate the data structures
-	and how these structures are updated.
-\item	Make a copy of the code, stripping away all comments.
-\item	Document what the code does statement by statement.
-\item	Fix bugs as you find them.
+\item	使用你喜欢的文档工具（\LaTeX{}、HTML、
+	OpenOffice或纯ASCII），描述有问题代码的
+	高层设计。
+	使用大量图表来说明数据结构
+	以及这些结构是如何被更新的。
+\item	复制一份代码，去掉所有注释。
+\item	逐语句记录代码做了什么。
+\item	发现bug时修复它们。
 \end{enumerate}
 
-This works because describing the code in detail is an excellent way to spot
-bugs~\cite{GlenfordJMyers1979}.
-This second procedure is also a good way to get your head around
-someone else's code, although the first step often suffices.
+这之所以有效，是因为详细描述代码是发现bug的绝佳方式~\cite{GlenfordJMyers1979}。
+这第二个过程也是理解他人代码的好方法，
+尽管第一步通常就足够了。
 
-Although review and inspection by others is probably more efficient and
-effective, the above procedures can be quite helpful in cases where
-for whatever reason it is not feasible to involve others.
+虽然他人的审查和检查可能更高效、更有效，
+但在由于各种原因无法让他人参与的情况下，
+上述过程可能非常有帮助。
 
-At this point, you might be wondering how to write parallel code without
-having to do all this boring paperwork.
-Here are some time-tested ways of accomplishing this:
+此时，你可能在想如何编写并行代码而不必做所有这些无聊的文书工作。
+以下是一些经过时间检验的方法：
 
 \begin{enumerate}
-\item	Write a sequential program that scales through use of
-	available parallel library functions.
-\item	Write sequential plug-ins for a parallel framework,
-	such as map-reduce, BOINC, or a web-application server.
-\item	Fully partition your problems, then implement sequential
-	program(s) that run in parallel without communication.
-\item	Stick to one of the application areas (such as linear algebra)
-	where tools can automatically decompose and parallelize
-	the problem.
-\item	Make extremely disciplined use of parallel-programming
-	primitives, so that the resulting code is easily seen to be correct.
-	But beware:
-	It is always tempting to break the rules ``just a little bit''
-	to gain better performance or scalability.
-	Breaking the rules often results in general breakage.
-	That is, unless you carefully do the paperwork described in this
-	section.
+\item	编写顺序程序，通过使用可用的并行库函数来实现可扩展性。
+\item	为并行框架编写顺序插件，
+	例如map-reduce、BOINC或Web应用程序服务器。
+\item	完全划分你的问题，然后实现无需通信即可
+	并行运行的顺序程序。
+\item	坚持使用那些工具可以自动分解和并行化问题的
+	应用领域（如线性代数）。
+\item	极其严格地使用并行编程原语，
+	使得生成的代码很容易被看出是正确的。
+	但要注意：
+	总是很诱人地"稍微"打破规则以获得更好的性能或可扩展性。
+	打破规则通常导致全面崩溃。
+	也就是说，除非你仔细地做了本节所描述的文书工作。
 \end{enumerate}
 
-But the sad fact is that even if you do the paperwork or use one of
-the above ways to more-or-less safely avoid paperwork,
-there will be bugs.
-If nothing else, more users and a greater variety of users will expose
-more bugs more quickly, especially if those users are doing things
-that the original developers did not consider.
-The next section describes how to handle the probabilistic bugs that
-occur all too commonly when validating parallel software.
+但可悲的事实是，即使你做了文书工作或使用了上述方法之一来
+或多或少安全地避免文书工作，bug仍然会出现。
+如果没有其他原因，更多的用户和更多样化的用户将更快地
+暴露更多的bug，特别是当这些用户在做原始开发者
+没有考虑到的事情时。
+下一节描述如何处理在验证并行软件时
+极为常见的概率性bug。
 
 \QuickQuiz{
-	Wait!
-	Why on earth would an abstract piece of software fail only
-	sometimes???
+	等等！
+	为什么一个抽象的软件只会偶尔失败？？？
 }\QuickQuizAnswer{
-	Because complexity and concurrency can produce results that
-	are indistinguishable from
-	randomness~\cite{PeterOkech2009InherentRandomness}.
-	For example, a bug in Linux-kernel RCU required the following
-	to hold before that bug would manifest:
+	因为复杂性和并发可以产生与随机性无法区分的
+	结果~\cite{PeterOkech2009InherentRandomness}。
+	例如，Linux内核RCU中的一个bug需要以下条件
+	同时满足才会显现：
 	\begin{enumerate}
-	\item	The kernel was built for HPC or real-time use, so that
-		a given CPU's RCU work could be offloaded to some other
-		CPU\@.
-	\item	An offloaded CPU went offline just after generating a
-		large quantity of RCU work.
-	\item	A special \co{rcu_barrier()} API was invoked just at
-		this time.
-	\item	The RCU work from the newly offlined CPU was still being
-		processed after \co{rcu_barrier()} returned.
-	\item	One of these remaining RCU work items was related to
-		the code invoking the \co{rcu_barrier()}.
+	\item	内核是为HPC或实时用途构建的，以便
+		给定CPU的RCU工作可以卸载到其他CPU\@。
+	\item	一个被卸载的CPU在生成大量RCU工作后
+		刚好下线。
+	\item	一个特殊的\co{rcu_barrier()} API恰好在
+		此时被调用。
+	\item	来自新下线CPU的RCU工作在
+		\co{rcu_barrier()}返回后仍在被处理。
+	\item	这些剩余的RCU工作项之一与调用
+		\co{rcu_barrier()}的代码相关。
 	\end{enumerate}
-	Making this bug manifest therefore required considerable luck
-	or great testing skill.
-	But the testing skill could be effective only if the bug was
-	known, which of course it was not.
-	Therefore, the manifesting of this bug was very well modeled
-	as a probabilistic process.
+	因此，使这个bug显现需要相当大的运气
+	或出色的测试技能。
+	但测试技能只有在bug已知的情况下才能有效，
+	而它当然是未知的。
+	因此，这个bug的显现可以很好地用概率过程来建模。
 }\QuickQuizEnd
 
-\section{Probability and Heisenbugs}
+\section{概率与海森bug}
 \label{sec:debugging:Probability and Heisenbugs}
 %
-\epigraph{With both heisenbugs and impressionist art, the closer you
-	  get, the less you see.}
-	 {Unknown}
+\epigraph{Heisenbug和印象派艺术都是这样：你靠得越近，看到的反而越少。}
+	 {佚名}
 
-So your parallel program fails sometimes.
-But you used techniques from the earlier sections to locate
-the problem and now have a fix in place!
-Congratulations!!!
+你的并行程序有时会失败。
+但你使用了前面章节的技术定位了问题，
+现在已经有了修复方案！
+恭喜！！！
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/r-2014-Passed-the-stress-test}}
-\caption{Passed on Merits?
-			   Or Dumb Luck?}
+\caption{凭实力通过？还是凭运气？}
 \ContributedBy{fig:cpu:Passed-the-stress-test}{Melissa Broussard}
 \end{figure}
 
-Now the question is just how much testing is required in order to be
-certain that
-you actually fixed the bug, as opposed to just reducing the probability
-of it occurring on the one hand, having fixed only one of several
-related bugs on the other hand, or made some ineffectual unrelated
-change on yet a third hand.
-In short, what is the answer to the eternal question posed by
-\cref{fig:cpu:Passed-the-stress-test}?
+现在的问题是，到底需要多少测试才能确信
+你真的修复了bug，而不是仅仅降低了它发生的概率，
+或者只修复了几个相关bug中的一个，
+又或者做了一个无效的不相关更改。
+简而言之，\cref{fig:cpu:Passed-the-stress-test}提出的
+永恒问题的答案是什么？
 
-Unfortunately, the honest answer is that an infinite amount of testing
-is required to attain absolute certainty.
+不幸的是，诚实的回答是需要无限量的测试才能获得绝对的确定性。
 
 \QuickQuiz{
-	Suppose that you had a very large number of systems at your
-	disposal.
-	For example, at current cloud prices, you can purchase a
-	huge amount of CPU time at low cost.
-	Why not use this approach to get close enough to certainty
-	for all practical purposes?
+	假设你有大量的系统可供使用。
+	例如，按照当前的云计算价格，你可以低成本购买大量的CPU时间。
+	为什么不使用这种方法来获得对所有实际目的来说
+	足够接近确定性的结果？
 }\QuickQuizAnswer{
-	This approach might well be a valuable addition to your
-	validation arsenal.
-	But it does have limitations that rule out ``for all practical
-	purposes'':
+	这种方法可能确实是你验证武器库中有价值的补充。
+	但它确实有局限性，排除了"对所有实际目的来说"：
 	\begin{enumerate}
-	\item	Some bugs have extremely low probabilities of occurrence,
-		but nevertheless need to be fixed.
-		For example, suppose that the Linux kernel's RCU
-		implementation had a bug that is triggered only once
-		per million years of machine time on average.
-		A million years of CPU time is hugely expensive even on
-		the cheapest cloud platforms, but we could expect
-		this bug to result in more than 50 failures per day
-		on the more than 20~billion Linux instances in the
-		world as of 2017.
-	\item	The bug might well have zero probability of occurrence
-		on your particular cloud-computing test setup, which
-		means that you won't see it no matter how much machine
-		time you burn testing it.
-		For but one example, there have been (and likely
-		still are) Linux-kernel RCU bugs that appear only
-		in preemptible kernels, others that appear only if
-		callbacks are offloaded, still others that appear only
-		in the presence of closely spaced CPU-hotplug operations,
-		and even more that can be provoked only on systems with
-		weak memory ordering.
+	\item	某些bug发生的概率极低，
+		但仍然需要被修复。
+		例如，假设Linux内核的RCU实现有一个bug，
+		平均每一百万年的机器时间才触发一次。
+		即使在最便宜的云平台上，一百万年的CPU时间也非常昂贵，
+		但我们可以预期这个bug在截至2017年
+		世界上超过200亿个Linux实例上
+		每天导致超过50次失败。
+	\item	这个bug在你特定的云计算测试设置上
+		可能发生概率为零，
+		这意味着无论你燃烧多少机器时间来测试它，
+		你都不会看到它。
+		仅举一例，曾经有（而且很可能仍然有）
+		Linux内核RCU bug只出现在可抢占内核中，
+		其他bug只在回调被卸载时出现，
+		还有一些只在密集的CPU热插拔操作时出现，
+		甚至还有一些只能在具有弱内存排序的系统上触发。
 	\end{enumerate}
-	Of course, if your code is small enough, formal validation
-	may be helpful, as discussed in
-	\cref{chp:Formal Verification}.
-	But beware:
-	Formal validation of your code will not find errors in your
-	assumptions, misunderstanding of the requirements,
-	misunderstanding of the software or hardware primitives you use,
-	or errors that you did not think to construct a proof for.
+	当然，如果你的代码足够小，
+	形式化验证可能会有帮助，如
+	\cref{chp:Formal Verification}中所讨论的。
+	但要注意：
+	对你代码的形式化验证不会发现你假设中的错误、
+	对需求的误解、对你使用的软件或硬件原语的误解，
+	或者你没有想到要为其构造证明的错误。
 }\QuickQuizEnd
 
-But suppose that we are willing to give up absolute certainty in favor
-of high probability.
-Then we can bring powerful statistical tools to bear on this problem.
-However, this section will focus on simple statistical tools.
-These tools are extremely helpful, but please note that reading this
-section is not a substitute for statistics classes.\footnote{
-	Which I most highly recommend.
-	The few statistics courses I have taken have provided value
-	far beyond that of the time I spent on them.}
+但假设我们愿意放弃绝对确定性，转而追求高概率。
+那么我们可以将强大的统计工具应用于这个问题。
+然而，本节将专注于简单的统计工具。
+这些工具非常有帮助，但请注意，阅读本节并不能替代统计学课程。\footnote{
+	我强烈推荐统计学课程。
+	我修过的为数不多的几门统计学课程提供的价值
+	远超我在其上花费的时间。}
 
-For our start with simple statistical tools, we need to decide whether
-we are doing discrete or continuous testing.
-Discrete testing features well-defined individual test runs.
-For example, a boot-up test of a Linux kernel patch is an example
-of a discrete test:
-The kernel either comes up or it does not.
-Although you might spend an hour boot-testing your kernel, the number of
-times you attempted to boot the kernel and the number of times the
-boot-up succeeded would often be of more interest than the length
-of time you spent testing.
-Functional tests tend to be discrete.
+开始使用简单统计工具时，我们需要决定是进行离散测试还是连续测试。
+离散测试有明确定义的单独测试运行。
+例如，对Linux内核补丁进行启动测试就是离散测试的一个例子：
+内核要么启动成功，要么没有。
+虽然你可能花一个小时来启动测试你的内核，但你尝试启动内核的次数
+和启动成功的次数通常比你花在测试上的时间长度更重要。
+功能测试往往是离散的。
 
-On the other hand, if my patch involved RCU, I would probably run
-\co{rcutorture}, which is a kernel module that, strangely enough, tests RCU\@.
-Unlike booting the kernel, where the appearance of a login prompt
-signals the successful end of a discrete test, \co{rcutorture} will happily
-continue torturing RCU until either the kernel crashes or until you
-tell it to stop.
-The duration of the \co{rcutorture} test is usually of more
-interest than the number of times you started and stopped it.
-Therefore, \co{rcutorture} is an example of a continuous test, a category
-that includes many stress tests.
+另一方面，如果我的补丁涉及RCU，我可能会运行\co{rcutorture}，
+这是一个——说来也怪——用于测试RCU的内核模块。
+与启动内核不同，在启动内核中登录提示符的出现
+标志着离散测试的成功结束，\co{rcutorture}会愉快地
+持续折磨RCU，直到内核崩溃或你让它停止。
+\co{rcutorture}测试的持续时间通常比你启动和停止它的次数
+更重要。
+因此，\co{rcutorture}是连续测试的一个例子，
+这个类别包括许多压力测试。
 
-Statistics for discrete tests are simpler and more familiar than those
-for continuous tests, and furthermore the statistics for discrete tests
-can often be pressed into service for continuous tests, though with some
-loss of accuracy.
-We therefore start with discrete tests.
+离散测试的统计比连续测试的更简单、更为人熟知，
+而且离散测试的统计通常可以被用于连续测试，
+尽管会有一些精度损失。
+因此我们从离散测试开始。
 
-\subsection{Statistics for Discrete Testing}
+\subsection{离散测试的统计}
 \label{sec:debugging:Statistics for Discrete Testing}
 
-Suppose a bug has a 10\pct\ chance of occurring in a given run and that
-we do five runs.
-How do we compute the probability of at least one run failing?
-Here is one way:
+假设一个bug在给定运行中有10\pct\ 的发生概率，
+我们进行五次运行。
+我们如何计算至少一次运行失败的概率？
+以下是一种方法：
 
 \begin{enumerate}
-\item	Compute the probability of a given run succeeding, which is 90\pct.
-\item	Compute the probability of all five runs succeeding, which
-	is 0.9 raised to the fifth power, or about 59\pct.
-\item	Because either all five runs succeed, or at least one fails,
-	subtract the 59\pct\ expected success rate from 100\pct, yielding
-	a 41\pct\ expected failure rate.
+\item	计算给定运行成功的概率，即90\pct。
+\item	计算所有五次运行都成功的概率，
+	即0.9的五次方，约59\pct。
+\item	因为要么所有五次运行都成功，要么至少一次失败，
+	从100\pct\ 中减去59\pct\ 的预期成功率，
+	得到41\pct\ 的预期失败率。
 \end{enumerate}
 
-For those preferring formulas, call the probability of a single failure $f$.
-The probability of a single success is then $1-f$ and the probability
-that all of $n$ tests will succeed is $S_n$:
+对于偏好公式的人，将单次失败的概率设为$f$。
+那么单次成功的概率为$1-f$，
+所有$n$次测试都成功的概率为$S_n$：
 
 \begin{equation}
 	S_n = \left(1-f\right)^n
 \end{equation}
 
-The probability of failure is $1-S_n$, or:
+失败的概率为$1-S_n$，即：
 
 \begin{equation}
 	F_n = 1-\left(1-f\right)^n
@@ -1317,41 +1085,37 @@ The probability of failure is $1-S_n$, or:
 \end{equation}
 
 \QuickQuiz{
-	Say what???
-	When I plug the earlier five-test 10\pct-failure-rate example into
-	the formula, I get 59,050\pct\ and that just doesn't make sense!!!
+	说什么？？？
+	当我把之前五次测试10\pct\ 失败率的例子代入
+	公式时，我得到59,050\pct\ ，这根本说不通！！！
 }\QuickQuizAnswer{
-	You are right, that makes no sense at all.
+	你说得对，这完全说不通。
 
-	Remember that a probability is a number between zero and one,
-	so that you need to divide a percentage by 100 to get a
-	probability.
-	So 10\pct\ is a probability of 0.1, which gets a probability
-	of 0.4095, which rounds to 41\pct, which quite sensibly
-	matches the earlier result.
+	记住概率是零到一之间的数字，
+	因此你需要将百分比除以100来得到概率。
+	所以10\pct\ 是概率0.1，代入得到概率0.4095，
+	四舍五入为41\pct，这合理地
+	与之前的结果吻合。
 }\QuickQuizEnd
 
-So suppose that a given test has been failing 10\pct\ of the time.
-How many times do you have to run the test to be 99\pct\ sure that
-your alleged fix actually helped?
+假设某个测试有10\pct\ 的时间会失败。
+你需要运行多少次测试才能有99\pct\ 的把握
+你声称的修复确实有帮助？
 
-Another way to ask this question is ``How many times would we need
-to run the test to cause the probability of failure to rise above 99\pct?''
-After all, if we were to run the test enough times that the probability
-of seeing at least one failure becomes 99\pct, and none of these test
-runs fail,
-there is only 1\pct\ probability of this ``success'' being due to dumb luck.
-And if we plug $f=0.1$ into
-\cref{eq:debugging:Binomial Failure Rate} and vary $n$,
-we find that 43 runs gives us a 98.92\pct\ chance of at least one test failing
-given the original 10\pct\ per-test failure rate,
-while 44 runs gives us a 99.03\pct\ chance of at least one test failing.
-So if we run the test on our fix 44 times and see no failures, there
-is a 99\pct\ probability that our fix really did help.
+另一种提问方式是"我们需要运行多少次测试才能使失败概率超过99\pct？"
+毕竟，如果我们运行足够多次测试使得看到至少一次失败的概率达到99\pct，
+而这些测试运行都没有失败，
+那么这种"成功"仅仅由于运气好的概率只有1\pct。
+如果我们将$f=0.1$代入
+\cref{eq:debugging:Binomial Failure Rate}并变化$n$，
+我们发现43次运行给我们98.92\pct\ 的概率在原始的每次测试10\pct\ 失败率下
+至少有一次测试失败，
+而44次运行给我们99.03\pct\ 的概率至少有一次测试失败。
+所以如果我们对修复后的代码运行测试44次且没有看到失败，
+就有99\pct\ 的概率说明我们的修复确实有帮助。
 
-But repeatedly plugging numbers into
-\cref{eq:debugging:Binomial Failure Rate}
-can get tedious, so let's solve for $n$:
+但反复将数字代入\cref{eq:debugging:Binomial Failure Rate}
+可能很繁琐，所以让我们求解$n$：
 
 \begin{align}
 	F_n & = 1-\left(1-f\right)^n \\
@@ -1359,156 +1123,136 @@ can get tedious, so let's solve for $n$:
 	\log \left(1 - F_n\right) & = n \; \log \left(1 - f\right)
 \end{align}
 
-Finally the number of tests required is given by:
+最终所需的测试次数由以下公式给出：
 
 \begin{equation}
 	n = \frac{\log\left(1 - F_n\right)}{\log\left(1 - f\right)}
 \label{eq:debugging:Binomial Number of Tests Required}
 \end{equation}
 
-Plugging $f=0.1$ and $F_n=0.99$ into
+将$f=0.1$和$F_n=0.99$代入
 \cref{eq:debugging:Binomial Number of Tests Required}
-gives 43.7, meaning that we need 44 consecutive successful test
-runs to be 99\pct\ certain that our fix was a real improvement.
-This matches the number obtained by the previous method, which
-is reassuring.
+得到43.7，意味着我们需要44次连续成功的测试运行
+才能有99\pct\ 的把握确认我们的修复是真正的改进。
+这与前一种方法得到的数字一致，令人放心。
 
 \QuickQuiz{
-	In \cref{eq:debugging:Binomial Number of Tests Required},
-	are the logarithms base-10, base-2, or base-$\euler$?
+	在\cref{eq:debugging:Binomial Number of Tests Required}中，
+	对数是以10为底、以2为底还是以$\euler$为底？
 }\QuickQuizAnswer{
-	It does not matter.
-	You will get the same answer no matter what base of logarithms
-	you use because the result is a pure ratio of logarithms.
-	The only constraint is that you use the same base for both
-	the numerator and the denominator.
+	这无关紧要。
+	无论你使用什么底数的对数，都会得到相同的答案，
+	因为结果是对数的纯比值。
+	唯一的约束是分子和分母使用相同的底数。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/debugging/BinomialNRuns}}
-\caption{Number of Tests Required for 99 Percent Confidence Given Failure Rate}
+\caption{给定失败率下达到99\%置信度所需的测试次数}
 \label{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}
 \end{figure}
 
 \Cref{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}
-shows a plot of this function.
-Not surprisingly, the less frequently each test run fails, the more
-test runs are required to be 99\pct\ confident that the bug has been
-at least partially fixed.
-If the bug caused the test to fail only 1\pct\ of the time, then a
-mind-boggling 458 test runs are required.
-As the failure probability decreases, the number of test runs required
-increases, going to infinity as the failure probability goes to zero.
+展示了这个函数的图形。
+不出所料，每次测试运行失败的频率越低，
+达到99\pct\ 置信度所需的测试运行次数就越多。
+如果bug只在1\pct\ 的时间导致测试失败，
+那么需要令人难以置信的458次测试运行。
+随着失败概率的降低，所需的测试运行次数会增加，
+当失败概率趋向零时，所需次数趋向无穷。
 
-The moral of this story is that when you have found a rarely occurring
-bug, your testing job will be much easier if you can come up with
-a carefully targeted test (or ``reproducer'') with a much higher failure rate.
-For example, if your reproducer raised the failure rate from 1\pct\
-to 30\pct, then the number of runs required for 99\pct\ confidence
-would drop from 458 to a more tractable 13.
+这个故事的寓意是，当你发现了一个很少发生的bug时，
+如果你能想出一个精心针对性的测试（或"复现器"）
+使其具有更高的失败率，你的测试工作就会容易得多。
+例如，如果你的复现器将失败率从1\pct\ 提升到30\pct，
+那么达到99\pct\ 置信度所需的运行次数将从458次
+降到更可控的13次。
 
-But these thirteen test runs would only give you 99\pct\ confidence that
-your fix had produced ``some improvement''.
-Suppose you instead want to have 99\pct\ confidence that your fix reduced
-the failure rate by an order of magnitude.
-How many failure-free test runs are required?
+但这十三次测试运行只会给你99\pct\ 的置信度，
+说明你的修复产生了"某种改善"。
+假设你想要有99\pct\ 的置信度说你的修复将失败率
+降低了一个数量级。
+需要多少次无失败的测试运行？
 
-An order of magnitude improvement from a 30\pct\ failure rate would be
-a 3\pct\ failure rate.
-Plugging these numbers into
-\cref{eq:debugging:Binomial Number of Tests Required} yields:
+从30\pct\ 失败率改善一个数量级将是3\pct\ 的失败率。
+将这些数字代入
+\cref{eq:debugging:Binomial Number of Tests Required}得到：
 
 \begin{equation}
 	n = \frac{\log\left(1 - 0.99\right)}{\log\left(1 - 0.03\right)} = 151.2
 \end{equation}
 
-So our order of magnitude improvement requires roughly an order of
-magnitude more testing.
-Certainty is impossible, and high probabilities are quite expensive.
-This is why creating high-quality reproducers is so important:
-Making tests run more quickly and making failures more
-probable are essential skills in the development of highly reliable
-software.
-These skills will be covered in
-\cref{sec:debugging:Hunting Heisenbugs}.
+所以我们一个数量级的改善大致需要一个数量级更多的测试。
+确定性是不可能的，而高概率则相当昂贵。
+这就是为什么创建高质量复现器如此重要：
+使测试运行更快并使故障更容易发生是开发高度可靠软件的基本技能。
+这些技能将在\cref{sec:debugging:Hunting Heisenbugs}中涵盖。
 
-\subsection{Statistics Abuse for Discrete Testing}
+\subsection{离散测试的统计滥用}
 \label{sec:debugging:Statistics Abuse for Discrete Testing}
 
-But suppose that you have a continuous test that fails about three
-times every ten hours, and that you fix the bug that you believe was
-causing the failure.
-How long do you have to run this test without failure to be 99\pct\ certain
-that you reduced the probability of failure?
+但假设你有一个连续测试，大约每十小时失败三次，
+而你修复了你认为导致失败的bug。
+该测试需要无故障运行多长时间才能有99\pct\ 的把握
+你降低了失败的概率？
 
-Without doing excessive violence to statistics, we could simply
-redefine a one-hour run to be a discrete test that has a 30\pct\
-probability of failure.
-Then the results of in the previous section tell us that if the test
-runs for 13 hours without failure, there is a 99\pct\ probability that
-our fix actually improved the program's reliability.
+在不对统计学造成过度暴力的前提下，我们可以简单地
+将一小时的运行重新定义为具有30\pct\ 失败概率的离散测试。
+那么上一节的结果告诉我们，如果测试运行13小时而无故障，
+就有99\pct\ 的概率说明我们的修复确实改善了程序的可靠性。
 
-A dogmatic statistician might not approve of this approach, but the sad
-fact is that the errors introduced by this sort of statistical abuse are
-usually quite small compared to the errors in your failure-rate estimates.
-Nevertheless, the next section takes a more rigorous approach.
+教条的统计学家可能不赞成这种方法，但可悲的事实是
+这种统计滥用引入的误差通常远小于你的故障率估计中的误差。
+尽管如此，下一节将采用更严格的方法。
 
-\subsection{Statistics for Continuous Testing}
+\subsection{连续测试的统计}
 \label{sec:debuggingStatistics for Continuous Testing}
 
-The fundamental formula for failure probabilities is the Poisson
-distribution:
+故障概率的基本公式是泊松（Poisson）分布：
 
 \begin{equation}
 	F_m = \frac{\lambda^m}{m!} \euler^{-\lambda}
 \label{eq:debugging:Poisson Probability}
 \end{equation}
 
-Here $F_m$ is the probability of $m$ failures in the test and
-$\lambda$ is the expected failure rate per unit time.
-A rigorous derivation may be found in any advanced probability
-textbook, for example, Feller's classic ``An Introduction to Probability
-Theory and Its Applications''~\cite{Feller58}, while a more
-intuitive derivation may be found in the first edition of
-this book~\cite[Equations 11.8--11.26]{McKenney2014ParallelProgramming-e1}.
+这里$F_m$是测试中出现$m$次失败的概率，
+$\lambda$是单位时间内的预期失败率。
+严格的推导可以在任何高等概率论教科书中找到，
+例如Feller的经典著作"An Introduction to Probability
+Theory and Its Applications"~\cite{Feller58}，而更直观的推导
+可以在本书第一版~\cite[Equations 11.8--11.26]{McKenney2014ParallelProgramming-e1}中找到。
 
-Let's rework the example from
-\cref{sec:debugging:Statistics Abuse for Discrete Testing}
-using the Poisson distribution.
-Recall that this example involved an alleged fix for a bug with a 30\pct\
-failure rate per hour.
-If we need to be 99\pct\ certain that the fix actually reduced the failure
-rate, how long an error-free test run is required?
-In this case, $m$ is zero, so that
-\cref{eq:debugging:Poisson Probability} reduces to:
+让我们使用泊松分布来重新处理
+\cref{sec:debugging:Statistics Abuse for Discrete Testing}中的例子。
+回忆一下，这个例子涉及对一个每小时30\pct\ 失败率的bug的修复。
+如果我们需要99\pct\ 的把握确认修复确实降低了失败率，
+需要多长时间的无错误测试运行？
+在这种情况下，$m$为零，因此
+\cref{eq:debugging:Poisson Probability}简化为：
 
 \begin{equation}
 	F_0 =  \euler^{-\lambda}
 \end{equation}
 
-Solving this requires setting $F_0$
-to 0.01 and solving for $\lambda$, resulting in:
+求解需要将$F_0$设为0.01并求解$\lambda$，得到：
 
 \begin{equation}
 	\lambda = - \ln 0.01 = 4.6
 \end{equation}
 
-Because we get $0.3$ failures per hour, the number of hours required
-is $4.6/0.3 = 14.3$, which is within 10\pct\ of the 13 hours
-calculated using the method in
-\cref{sec:debugging:Statistics Abuse for Discrete Testing}.
-Given that you normally won't know your failure rate to anywhere near
-10\pct, the simpler method described in
-\cref{sec:debugging:Statistics Abuse for Discrete Testing}
-is almost always good and sufficient.
+因为我们每小时有$0.3$次失败，所需的小时数
+为$4.6/0.3 = 14.3$，与
+\cref{sec:debugging:Statistics Abuse for Discrete Testing}中
+计算的13小时相差不到10\pct。
+鉴于你通常无法将故障率了解到接近10\pct\ 的精度，
+\cref{sec:debugging:Statistics Abuse for Discrete Testing}中
+描述的更简单方法几乎总是足够好的。
 
-However, those wanting to learn more about statistics for continuous
-testing are encouraged to read on.
+然而，想要了解更多关于连续测试统计的读者可以继续阅读。
 
-More generally, if we have $n$ failures per unit time, and we want to
-be $P$\pct\ certain that a fix reduced the failure rate, we can use the
-following formula:
+更一般地，如果我们每单位时间有$n$次故障，并且我们想要
+$P$\pct\ 的把握确认修复降低了故障率，我们可以使用以下公式：
 
 \begin{equation}
 	T = - \frac{1}{n} \ln \frac{100 - P}{100}
@@ -1516,111 +1260,99 @@ following formula:
 \end{equation}
 
 \QuickQuiz{
-	Suppose that a bug causes a test failure three times per hour
-	on average.
-	How long must the test run error-free to provide 99.9\pct\
-	confidence that the fix significantly reduced the probability
-	of failure by at least a little bit?
+	假设一个bug平均每小时导致三次测试失败。
+	测试必须无错误运行多长时间才能提供99.9\pct\ 的把握
+	确认修复至少在一定程度上显著降低了
+	失败的概率？
 }\QuickQuizAnswer{
-	We set $n$ to $3$ and $P$ to $99.9$ in
-	\cref{eq:debugging:Error-Free Test Duration}, resulting in:
+	我们在\cref{eq:debugging:Error-Free Test Duration}中
+	将$n$设为$3$，$P$设为$99.9$，得到：
 
 	\begin{equation}
 		T = - \frac{1}{3} \ln \frac{100 - 99.9}{100} = 2.3
 	\end{equation}
 
-	If the test runs without failure for 2.3 hours, we can be 99.9\pct\
-	certain that the fix reduced (by at least some small amount)
-	the probability of failure.
+	如果测试无故障运行2.3小时，我们可以有99.9\pct\ 的把握
+	确认修复（至少在某种程度上）降低了失败的概率。
 }\QuickQuizEnd
 
-As before, the less frequently the bug occurs and the greater the
-required level of confidence, the longer the required error-free test run.
+与之前一样，bug发生的频率越低，所需的置信水平越高，
+所需的无错误测试运行时间就越长。
 
-Suppose that a given test fails about once every hour, but after a bug
-fix, a 24-hour test run fails only twice.
-Assuming that the failure leading to the bug is a random occurrence,
-what is the probability of a false negative?
-In other words, how confident are we that the alleged fix actually had
-some effect on the bug?
-This probability may be calculated by summing
-\cref{eq:debugging:Poisson Probability} as follows:
+假设某个测试大约每小时失败一次，但在修复bug后，
+24小时的测试运行仅失败两次。
+假设导致bug的故障是随机发生的，
+假阴性的概率是多少？
+换句话说，我们对所谓的修复确实对bug产生了某些效果
+有多大把握？
+这个概率可以通过对
+\cref{eq:debugging:Poisson Probability}求和计算如下：
 
 \begin{equation}
 	F_0 + F_1 + \dots + F_{m - 1} + F_m =
 		\sum_{i=0}^m \frac{\lambda^i}{i!} \euler^{-\lambda}
 \end{equation}
 
-This is the Poisson cumulative distribution function, which can be
-written more compactly as:
+这是泊松累积分布函数，可以更简洁地写为：
 
 \begin{equation}
 	F_{i \le m} = \sum_{i=0}^m \frac{\lambda^i}{i!} \euler^{-\lambda}
 \label{eq:debugging:Possion CDF}
 \end{equation}
 
-Here $m$ is the actual number of errors in the long test run with the
-alleged fix applied (in this case, two errors) and $\lambda$ is expected
-number of errors in the long test run prior to applying the fix (in this
-case, 24 errors).
-Plugging $m=2$ and $\lambda=24$ into this expression gives the probability
-of a false negative (that is, of two or fewer failures), as about
-$1.2 \times 10^{-8}$, in other words, we have a high level of confidence
-that the fix actually had some relationship to the bug.\footnote{
-	Of course, this result in no way excuses you from finding and
-	fixing the bug(s) causing the remaining two failures!}
+这里$m$是应用了所谓修复后长测试运行中的实际错误数
+（在本例中为两个错误），$\lambda$是应用修复之前
+该长测试运行中的预期错误数（在本例中为24个错误）。
+将$m=2$和$\lambda=24$代入此表达式得到
+假阴性的概率（即两次或更少失败的概率），约为
+$1.2 \times 10^{-8}$，换句话说，我们有很高的置信度
+确认修复确实与该bug有某种关系。\footnote{
+	当然，这个结果绝不意味着你可以不去查找和
+	修复导致剩余两次失败的bug！}
 
-It is often more convenient to work with statistical confidences.
-When the probability of a false negative is low, the confidence is high,
-giving this result:
+使用统计置信度来表示通常更方便。
+当假阴性概率低时，置信度高，得到以下结果：
 
 \begin{equation}
 	C_{m,\lambda} = 1 - \sum_{i=0}^m \frac{\lambda^i}{i!} \euler^{-\lambda}
 \label{eq:debugging:Possion Confidence}
 \end{equation}
 
-Continuing our example with $m=2$ and $\lambda=24$, this gives a confidence
-of about 0.999999988, or equivalently, 99.9999988\pct.
-This level of confidence should satisfy all but the purest of purists.
+继续我们的例子，$m=2$和$\lambda=24$，这给出了约
+0.999999988的置信度，即99.9999988\pct。
+这个置信水平应该能满足除了最纯粹的纯粹主义者以外的所有人。
 
-But what if we are interested not in ``some relationship'' to the bug,
-but instead in at least an order of magnitude \emph{reduction} in its
-expected frequency of occurrence?
-Then we divide $\lambda$ by ten, and plug $m=2$ and $\lambda=2.4$ into
-\cref{eq:debugging:Possion Confidence},
-which gives but a 90.9\pct\ confidence level.
-This illustrates the sad fact that increasing either statistical
-confidence or degree of improvement, let alone both, can be quite
-expensive.
+但如果我们感兴趣的不是与bug的"某种关系"，
+而是其预期发生频率至少一个数量级的\emph{降低}呢？
+那么我们将$\lambda$除以十，并将$m=2$和$\lambda=2.4$代入
+\cref{eq:debugging:Possion Confidence}，
+仅得到90.9\pct\ 的置信水平。
+这说明了一个可悲的事实：提高统计置信度或改善程度，
+更不用说两者同时提高，代价可能相当昂贵。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Doing the summation of all the factorials and exponentials
-	is a real pain.
-	Isn't there an easier way?
+	对所有阶乘和指数进行求和真的很痛苦。
+	有没有更简单的方法？
 }\QuickQuizAnswerB{
-	One approach is to use the open-source symbolic manipulation
-	program named ``maxima''.
-	Once you have installed this program, which is a part of many
-	Linux distributions, you can run it and give the
-	\co{load(distrib);} command followed by any number of
-	\co{bfloat(cdf_poisson(m,lambda));} commands, where the \co{m} is
-	replaced by the value of $m$ (the actual number of failures in
-	actual test of the alleged fix, usually zero) and the \co{lambda}
-	is replaced by the value of $\lambda$ (the expected number of
-	failures in that same test prior to applying the alleged fix).
-	You can adjust for the desired improvement, for example, if the
-	run prior to the fix had 24 failures and you are looking for an
-	improvement of at least an order of magnitude, then set $\lambda$
-	to 2.4 instead of 24.
+	一种方法是使用名为"maxima"的开源符号运算程序。
+	安装此程序（它是许多Linux发行版的一部分）后，
+	你可以运行它并输入\co{load(distrib);}命令，
+	然后输入任意数量的
+	\co{bfloat(cdf_poisson(m,lambda));}命令，其中\co{m}
+	替换为$m$的值（所谓修复的实际测试中的实际失败次数，通常为零），
+	\co{lambda}替换为$\lambda$的值（应用所谓修复之前
+	同一测试中的预期失败次数）。
+	你可以根据期望的改善进行调整，例如，如果
+	修复前的运行有24次失败，而你在寻找
+	至少一个数量级的改善，那么将$\lambda$设为2.4而不是24。
 
-	In particular, the \co{bfloat(cdf_poisson(2,24));} command
-	results in \co{1.181617112359357b-8}, which matches the value
-	given by \cref{eq:debugging:Possion CDF}.
-	Similarly, referring to
-	\cref{eq:debugging:Possion Confidence},
-	the \co{bfloat(1-cdf_poisson(m,lambda));} command results in
-	\co{9.092820467105875b-1}, which is again a match.
+	具体来说，\co{bfloat(cdf_poisson(2,24));}命令
+	的结果为\co{1.181617112359357b-8}，这与
+	\cref{eq:debugging:Possion CDF}给出的值一致。
+	类似地，参照\cref{eq:debugging:Possion Confidence}，
+	\co{bfloat(1-cdf_poisson(m,lambda));}命令的结果为
+	\co{9.092820467105875b-1}，同样是匹配的。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.25}
@@ -1642,936 +1374,819 @@ expensive.
 	99.9	& 6.9	& 69.1	& 690.7  \\
 	\bottomrule
 \end{tabular}
-\caption{Human-Friendly Poisson-Function Display}
+\caption{人性化的泊松函数展示}
 \label{tab:debugging:Human-Friendly Poisson-Function Display}
 \end{table}
 
-	Another approach is to recognize that in this real world,
-	it is not all that useful to compute (say) the duration of a test
-	having two or fewer errors that would give a 76.8\pct\ confidence
-	of a 349.2x improvement in reliability.
-	Instead, human beings tend to focus on specific values, for
-	example, a 95\pct\ confidence of a 10x improvement.
-	People also greatly prefer error-free test runs, and so should
-	you because doing so reduces your required test durations.
-	Therefore, it is quite possible that the values in
-	\cref{tab:debugging:Human-Friendly Poisson-Function Display}
-	will suffice.
-	Simply look up the desired confidence and degree of improvement,
-	and the resulting number will give you the required
-	error-free test duration in terms of the expected time for
-	a single error to appear.
-	So if your pre-fix testing suffered one failure per hour, and the
-	powers that be require a 95\pct\ confidence of a 10x improvement,
-	you need a 30-hour error-free run.
+	另一种方法是认识到，在现实世界中，
+	计算（比如说）具有两次或更少错误的测试的持续时间以获得76.8\pct\ 的
+	349.2倍可靠性改善的置信度，并不是那么有用。
+	相反，人类倾向于关注特定的值，
+	例如，10倍改善的95\pct\ 置信度。
+	人们也非常偏好无错误的测试运行，你也应该如此，
+	因为这样做可以减少所需的测试持续时间。
+	因此，\cref{tab:debugging:Human-Friendly Poisson-Function Display}
+	中的值很可能就足够了。
+	只需查找所需的置信度和改善程度，
+	得到的数字将给出所需的无错误测试持续时间，
+	以单次错误出现的预期时间为单位。
+	所以如果你修复前的测试每小时遭受一次失败，而
+	权力机关要求10倍改善的95\pct\ 置信度，
+	你需要30小时的无错误运行。
 
-	Alternatively, you can use the rough-and-ready method described in
-	\cref{sec:debugging:Statistics Abuse for Discrete Testing}.
+	或者，你可以使用\cref{sec:debugging:Statistics Abuse for Discrete Testing}中
+	描述的简便方法。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But wait!!!
-	Given that there has to be \emph{some} number of failures
-	(including the possibility of zero failures), shouldn't
+	但是等等！！！
+	鉴于\emph{必须}有某个数量的失败
+	（包括零次失败的可能性），
+	当$m$趋向无穷大时，
 	\cref{eq:debugging:Possion CDF}
-	approach the value $1$ as $m$ goes to infinity?
+	不应该趋向值$1$吗？
 }\QuickQuizAnswerE{
-	Indeed it should.
-	And it does.
+	确实应该如此。
+	而且确实如此。
 
-	To see this, note that $\euler^{-\lambda}$ does not depend on $i$,
-	which means that it can be pulled out of the summation as follows:
+	要理解这一点，注意$\euler^{-\lambda}$不依赖于$i$，
+	这意味着它可以从求和中提取出来，如下所示：
 
 	\begin{equation}
 		\euler^{-\lambda} \sum_{i=0}^\infty \frac{\lambda^i}{i!}
 	\end{equation}
 
-	The remaining summation is exactly the Taylor series for
-	$\euler^\lambda$, yielding:
+	剩余的求和恰好是$\euler^\lambda$的泰勒级数，得到：
 
 	\begin{equation}
 		\euler^{-\lambda} \euler^\lambda
 	\end{equation}
 
-	The two exponentials are reciprocals, and therefore cancel,
-	resulting in exactly $1$, as required.
+	这两个指数互为倒数，因此相消，
+	恰好得到$1$，正如所需。
 }\QuickQuizEndE
 }
 
-The Poisson distribution is a powerful tool for analyzing test results,
-but the fact is that in this last example there were still two remaining
-test failures in a 24-hour test run.
-Such a low failure rate results in very long test runs.
-The next section discusses counter-intuitive ways of improving this situation.
+泊松分布是分析测试结果的强大工具，
+但事实是在最后这个例子中，24小时的测试运行中仍有两次
+测试失败。
+这么低的失败率会导致非常长的测试运行时间。
+下一节讨论改善这种情况的反直觉方法。
 
-\subsection{Hunting Heisenbugs}
+\subsection{追踪海森bug}
 \label{sec:debugging:Hunting Heisenbugs}
 
-This line of thought also helps explain heisenbugs:
-Adding tracing and assertions can easily reduce the probability
-of a bug appearing, which
-is why extremely lightweight tracing and assertion mechanism are
-so critically important.
+这一思路也有助于解释Heisenbug：
+添加追踪和断言很容易降低bug出现的概率，
+这就是为什么极其轻量的追踪和断言机制
+如此至关重要。
 
-The term ``\IXB{heisenbug}'' was inspired by the \pplsur{Weiner}{Heisenberg}
-\IX{Uncertainty Principle} from quantum physics, which states that
-it is impossible to
-exactly quantify a given particle's position and velocity at any given
-point in time~\cite{WeinerHeisenberg1927Uncertain}.
-Any attempt to more accurately measure that particle's position will
-result in increased uncertainty of its velocity and vice versa.
-Similarly, attempts to track down
-the heisenbug causes its symptoms to radically change or even disappear
-completely.\footnote{
-	The term ``heisenbug'' is a misnomer, as most heisenbugs are
-	fully explained by the \emph{observer effect} from classical
-	physics.
-	Nevertheless, the name has stuck.}
-Of course, adding debugging overhead can and sometimes does make bugs
-more probable.
-But developers are more likely to remember the frustration of a
-disappearing heisenbug than the joy inspired by the bug becoming
-more easily reproduced!
+"Heisenbug"一词的灵感来自量子物理学中的\pplsur{Weiner}{Heisenberg}
+\IX{Uncertainty Principle}，该原理指出
+不可能在任何给定时间点精确量化一个粒子的位置和速度~\cite{WeinerHeisenberg1927Uncertain}。
+任何更精确测量该粒子位置的尝试都会
+导致其速度的不确定性增加，反之亦然。
+类似地，追踪海森bug的尝试会导致其症状发生根本性变化
+甚至完全消失。\footnote{
+	"Heisenbug"一词其实是用词不当，因为大多数Heisenbug
+	完全可以用经典物理学中的\emph{观察者效应}来解释。
+	尽管如此，这个名字已经约定俗成。}
+当然，添加调试开销有时确实会使bug更容易出现。
+但开发者更可能记住Heisenbug消失的挫败感，
+而不是bug变得更容易复现时的喜悦！
 
-If the field of physics inspired the name of this problem, it is only
-fair that the field of physics should inspire the solution.
-Fortunately, particle physics is up to the task:
-Why not create an \IXBhy{anti-}{heisenbug} to annihilate the heisenbug?
-Or, perhaps more accurately, to annihilate the heisen-ness of
-the heisenbug?
-Although producing an anti-heisenbug for a given heisenbug is more an
-art than a science, the following sections describe a number of ways to
-do just that:
+如果物理学领域启发了这个问题的命名，那么
+物理学领域也应该启发解决方案，这才公平。
+幸运的是，粒子物理学能够胜任这项任务：
+为什么不创建一个\IXBhy{anti-}{heisenbug}来湮灭Heisenbug呢？
+或者，更准确地说，湮灭Heisenbug中的"Heisen"性质？
+虽然为给定的Heisenbug产生一个anti-heisenbug
+更像是艺术而非科学，但以下各节描述了多种方法来做到这一点：
 
 \begin{enumerate}
-\item	Add delay to race-prone regions (\cref{sec:debugging:Add Delay}).
-\item	Increase workload intensity
-	(\cref{sec:debugging:Increase Workload Intensity}).
-\item	Isolate suspicious subsystems
-	(\cref{sec:debugging:Isolate Suspicious Subsystems}).
-\item	Make rare events less rare
-	(\cref{sec:debugging:Make Rare Events Less Rare}).
-\item	Count near misses (\cref{sec:debugging:Count Near Misses}).
-\item	Proactive hunting techniques
-	(\cref{sec:debugging:Proactive Hunting Techniques}).
+\item	在容易竞争的区域添加延迟（\cref{sec:debugging:Add Delay}）。
+\item	增加工作负载强度
+	（\cref{sec:debugging:Increase Workload Intensity}）。
+\item	隔离可疑子系统
+	（\cref{sec:debugging:Isolate Suspicious Subsystems}）。
+\item	使罕见事件不再罕见
+	（\cref{sec:debugging:Make Rare Events Less Rare}）。
+\item	计算险些发生的情况（\cref{sec:debugging:Count Near Misses}）。
+\item	主动追踪技术
+	（\cref{sec:debugging:Proactive Hunting Techniques}）。
 \end{enumerate}
 
-These are followed by discussion in
-\cref{sec:debugging:Heisenbug Discussion}.
+随后是\cref{sec:debugging:Heisenbug Discussion}中的讨论。
 
-\subsubsection{Add Delay}
+\subsubsection{添加延迟}
 \label{sec:debugging:Add Delay}
 
-Consider the count-lossy code in
-\cref{sec:count:Why Isn't Concurrent Counting Trivial?}.
-Adding \co{printf()} statements will likely greatly reduce or even
-eliminate the lost counts.
-However, converting the load-add-store sequence to a load-add-delay-store
-sequence will greatly increase the incidence of lost counts (try it!).
-Once you spot a bug involving a \IX{race condition}, it is frequently possible
-to create an anti-heisenbug by adding delay in this manner.
+考虑\cref{sec:count:Why Isn't Concurrent Counting Trivial?}中的有损计数代码。
+添加\co{printf()}语句很可能会大大减少甚至消除丢失的计数。
+然而，将加载-加-存储序列转换为加载-加-延迟-存储序列
+将大大增加丢失计数的发生率（试试看！）。
+一旦你发现了一个涉及\IX{race condition}的bug，
+通常可以通过以这种方式添加延迟来创建一个anti-heisenbug。
 
-Of course, this begs the question of how to find the race condition in
-the first place.
-Although very lucky developers might accidentally create delay-based
-anti-heisenbugs when adding debug code, this is in general a dark art.
-Nevertheless, there are a number of things you can do to find your race
-conditions.
+当然，这就引出了如何首先找到竞争条件的问题。
+虽然非常幸运的开发者在添加调试代码时可能会意外创建
+基于延迟的anti-heisenbug，但这通常是一门暗黑艺术。
+尽管如此，有一些方法可以帮你找到竞争条件。
 
-One approach is to recognize that race conditions often end up corrupting
-some of the data involved in the race.
-It is therefore good practice to double-check the synchronization of
-any corrupted data.
-Even if you cannot immediately recognize the race condition, adding
-delay before and after accesses to the corrupted data might change
-the failure rate.
-By adding and removing the delays in an organized fashion (e.g., binary
-search), you might learn more about the workings of the race condition.
+一种方法是认识到竞争条件通常最终会损坏
+参与竞争的某些数据。
+因此，仔细检查任何被损坏数据的同步是一种好的做法。
+即使你无法立即识别竞争条件，在访问被损坏数据前后
+添加延迟可能会改变失败率。
+通过有组织地添加和移除延迟（例如二分搜索），
+你可能会更多地了解竞争条件的运作方式。
 
 \QuickQuiz{
-	How is this approach supposed to help if the corruption affected some
-	unrelated pointer, which then caused the corruption???
+	如果损坏是由某个不相关的指针造成的，
+	然后这个指针才导致了损坏，这种方法应该怎么帮助？？？
 }\QuickQuizAnswer{
-	Indeed, that can happen.
-	Many CPUs have hardware-debugging facilities that can help you
-	locate that unrelated pointer.
-	Furthermore, if you have a core dump, you can search the core
-	dump for pointers referencing the corrupted region of memory.
-	You can also look at the data layout of the corruption, and
-	check pointers whose type matches that layout.
+	确实，这种情况可能发生。
+	许多CPU都有硬件调试设施，可以帮助你
+	定位那个不相关的指针。
+	此外，如果你有核心转储文件，你可以搜索核心转储
+	以查找引用被损坏内存区域的指针。
+	你还可以查看损坏的数据布局，
+	并检查类型与该布局匹配的指针。
 
-	You can also step back and test the modules making up your
-	program more intensively, which will likely confine the corruption
-	to the module responsible for it.
-	If this makes the corruption vanish, consider adding additional
-	argument checking to the functions exported from each module.
+	你也可以退一步，更密集地测试组成你
+	程序的模块，这很可能将损坏限制在
+	负责的模块中。
+	如果这使损坏消失了，考虑为每个模块导出的
+	函数添加额外的参数检查。
 
-	Nevertheless, this is a hard problem, which is why I used the
-	words ``a bit of a dark art''.
+	尽管如此，这是一个困难的问题，这就是为什么
+	我用了"有点像暗黑艺术"这样的说法。
 }\QuickQuizEnd
 
-Another important approach is to
-vary the software and hardware configuration and look for statistically
-significant differences in failure rate.
-For example, back in the 1990s, it was common practice to test on systems
-having CPUs running at different clock rates, which tended to make some
-types of race conditions more probable.
-One way of getting a similar effect today is to test on multi-socket
-systems, thus incurring the large delays described in
-\cref{sec:cpu:Overheads}.
+另一种重要的方法是
+改变软件和硬件配置，并寻找故障率中的
+统计显著差异。
+例如，回到1990年代，常见的做法是在
+具有不同时钟频率CPU的系统上测试，这往往会使某些
+类型的竞争条件更容易发生。
+今天获得类似效果的一种方法是在多插槽系统上测试，
+从而产生\cref{sec:cpu:Overheads}中描述的大延迟。
 
-However you choose to add delays, you can then look more intensively at
-the code implicated by those delays that make the greatest difference
-in failure rate.
-It might be helpful to test that code in isolation, for example.
+无论你选择如何添加延迟，你随后都可以更密集地检查
+那些使故障率产生最大差异的延迟所牵涉的代码。
+例如，单独测试该代码可能会有帮助。
 
-One important aspect of software configuration is the history of
-changes, which is why \co{git bisect} is so useful.
-Bisection of the change history can provide very valuable clues as
-to the nature of the heisenbug, in this case presumably by locating
-a commit that shows a change in the software's response to the addition
-or removal of a given delay.
+软件配置的一个重要方面是变更历史，
+这就是为什么\co{git bisect}如此有用。
+对变更历史的二分搜索可以提供关于
+Heisenbug性质的非常有价值的线索，在这种情况下
+大概是通过定位一个显示软件对给定延迟的添加
+或移除产生响应变化的提交。
 
 \QuickQuiz{
-	But I did the bisection, and ended up with a huge commit.
-	What do I do now?
+	但我做了二分搜索，结果定位到一个巨大的提交。
+	现在怎么办？
 }\QuickQuizAnswer{
-	A huge commit?
-	Shame on you!
-	This is but one reason why you are supposed to keep the commits small.
+	巨大的提交？
+	你应该感到羞愧！
+	这正是你应该保持提交小巧的原因之一。
 
-	And that is your answer:
-	Break up the commit into bite-sized pieces and bisect the pieces.
-	In my experience, the act of breaking up the commit is often
-	sufficient to make the bug painfully obvious.
+	这也是你的答案：
+	将提交拆分成小块，然后对这些小块进行二分搜索。
+	根据我的经验，拆分提交的行为本身通常就足以
+	使bug变得显而易见。
 }\QuickQuizEnd
 
-Once you locate the suspicious section of code, you can then introduce
-delays to attempt to increase the probability of failure.
-As we have seen, increasing the probability of failure makes it much
-easier to gain high confidence in the corresponding fix.
+一旦你定位了可疑的代码段，你就可以引入延迟
+以尝试增加故障的概率。
+正如我们所见，增加故障概率使得获得对相应修复的
+高置信度容易得多。
 
-However, it is sometimes quite difficult to track down the problem using
-normal debugging techniques.
-The following sections present some other alternatives.
+然而，有时使用正常的调试技术追踪问题
+是相当困难的。
+以下各节介绍一些其他替代方案。
 
-\subsubsection{Increase Workload Intensity}
+\subsubsection{增加工作负载强度}
 \label{sec:debugging:Increase Workload Intensity}
 
-It is often the case that a given test suite places relatively
-low stress on a given subsystem, so that a small change in timing
-can cause a heisenbug to disappear.
-One way to create an anti-heisenbug for this case is to increase
-the workload intensity, which has a good chance of increasing the
-bug's probability.
-If the probability is increased sufficiently, it may be possible to
-add lightweight diagnostics such as tracing without causing the
-bug to vanish.
+通常情况下，给定的测试套件对特定子系统施加的
+压力相对较低，以至于时序上的小变化
+就能使Heisenbug消失。
+在这种情况下，创建anti-heisenbug的一种方法是增加
+工作负载强度，这很有可能增加bug的概率。
+如果概率增加到足够高，就可能
+添加轻量级诊断（如追踪）而不会导致bug消失。
 
-How can you increase the workload intensity?
-This depends on the program, but here are some things to try:
+如何增加工作负载强度？
+这取决于程序，但以下是一些可以尝试的方法：
 
 \begin{enumerate}
-\item	Add more CPUs.
-\item	If the program uses networking, add more network adapters
-	and more or faster remote systems.
-\item	If the program is doing heavy I/O when the problem occurs,
-	either (1) add more storage devices, (2) use faster storage
-	devices, for example, substitute SSDs for disks,
-	or (3) use a RAM-based filesystem to substitute main
-	memory for mass storage.
-\item	Change the size of the problem, for example, if doing a parallel
-	matrix multiply, change the size of the matrix.
-	Larger problems may introduce more complexity, but smaller
-	problems often increase the level of contention.
-	If you aren't sure whether you should go large or go small,
-	just try both.
+\item	添加更多CPU。
+\item	如果程序使用网络，添加更多网络适配器
+	以及更多或更快的远程系统。
+\item	如果问题发生时程序正在进行大量I/O，
+	可以(1)添加更多存储设备，(2)使用更快的存储
+	设备，例如用SSD替代磁盘，
+	或(3)使用基于RAM的文件系统来用主内存替代大容量存储。
+\item	改变问题的规模，例如，如果进行并行矩阵乘法，
+	改变矩阵的大小。
+	更大的问题可能引入更多复杂性，但更小的
+	问题通常会增加竞争级别。
+	如果你不确定应该增大还是缩小，两种都试试。
 \end{enumerate}
 
-However, it is often the case that the bug is in a specific subsystem,
-and the structure of the program limits the amount of stress that can
-be applied to that subsystem.
-The next section addresses this situation.
+然而，bug通常存在于特定的子系统中，
+而程序的结构限制了可以对该子系统施加的压力量。
+下一节将解决这个问题。
 
-\subsubsection{Isolate Suspicious Subsystems}
+\subsubsection{隔离可疑子系统}
 \label{sec:debugging:Isolate Suspicious Subsystems}
 
-If the program is structured such that it is difficult or impossible
-to apply much stress to a subsystem that is under suspicion,
-a useful anti-heisenbug is a stress test that tests that subsystem in
-isolation.
-The Linux kernel's \co{rcutorture} module takes exactly this approach with RCU\@:
-Applying more stress to RCU than is feasible in a production environment
-increases the probability that RCU bugs will be found during testing
-rather than in production.\footnote{
-	Though sadly not increased to probability one.}
+如果程序的结构使得难以或不可能对受怀疑的
+子系统施加足够的压力，
+一个有用的anti-heisenbug是对该子系统进行隔离测试的
+压力测试。
+Linux内核的\co{rcutorture}模块正是对RCU采取了这种方法：
+施加比生产环境中可行的更大的压力给RCU，
+增加了RCU bug在测试期间而非在生产中被发现的概率。\footnote{
+	虽然遗憾的是概率没有增加到1。}
 
-In fact, when creating a parallel program, it is wise to stress-test
-the components separately.
-Creating such component-level stress tests can seem like a waste of time,
-but a little bit of component-level testing can save a huge amount
-of system-level debugging.
+事实上，在创建并行程序时，单独对组件进行压力测试是明智的。
+创建这种组件级别的压力测试可能看起来像是浪费时间，
+但少量的组件级测试可以节省大量的系统级调试时间。
 
-\subsubsection{Make Rare Events Less Rare}
+\subsubsection{使罕见事件不再罕见}
 \label{sec:debugging:Make Rare Events Less Rare}
 
-Heisenbugs are sometimes due to rare events, such as
-memory-allocation failure, conditional-lock-acquisition failure,
-CPU-hotplug operations, timeouts, packet losses, large-scale changes
-in state, and so on.
-The corresponding anti-heisenbug is thus simply to make these rare events
-happen much more frequently.
-For example, the TREE03 rcutorture scenario waits only 200~milliseconds
-between CPU-hotplug operations.
-For another example, most of the rcutorture scenarios emulate RCU
-callback flooding every minute.
-For a final example, a memory-management stress test for x86 CPUs might
-do well to frequently transition an aligned 2\,MB block of memory back
-and forth between 2\,MB and 4\,KB pages.
+Heisenbug有时是由罕见事件引起的，例如
+内存分配失败、条件锁获取失败、
+CPU热插拔操作、超时、丢包、大规模状态变化等。
+对应的anti-heisenbug因此简单地就是让这些罕见事件
+更频繁地发生。
+例如，TREE03 rcutorture场景在CPU热插拔操作之间
+仅等待200毫秒。
+另一个例子，大多数rcutorture场景每分钟
+模拟一次RCU回调洪泛。
+最后一个例子，x86 CPU的内存管理压力测试
+可能做得好的方式是频繁地将一个对齐的2\,MB内存块
+在2\,MB和4\,KB页面之间来回转换。
 
-Another way to construct an anti-heisenbug for this class of heisenbug
-is to introduce spurious failures.
-For example, instead of invoking \co{malloc()} directly, invoke
-a wrapper function that uses a random number to decide whether
-to return \co{NULL} unconditionally on the one hand, or to actually
-invoke \co{malloc()} and return the resulting pointer on the other.
-Inducing spurious failures is an excellent way to bake robustness into
-sequential programs as well as parallel programs.
+为这类Heisenbug构造anti-heisenbug的另一种方式
+是引入虚假失败。
+例如，不直接调用\co{malloc()}，而是调用
+一个包装函数，该函数使用随机数来决定是
+无条件返回\co{NULL}，还是实际调用\co{malloc()}
+并返回结果指针。
+引入虚假失败是将鲁棒性融入
+顺序程序和并行程序的绝佳方式。
 
 \QuickQuiz{
-	Why don't conditional-locking primitives provide this
-	spurious-failure functionality?
+	为什么条件锁原语不提供这种虚假失败功能？
 }\QuickQuizAnswer{
-	There are locking algorithms that depend on conditional-locking
-	primitives telling them the truth.
-	For example, if conditional-lock failure signals that
-	some other thread is already working on a given job,
-	spurious failure might cause that job to never get done,
-	possibly resulting in a hang.
+	有些锁算法依赖于条件锁原语告诉它们真实情况。
+	例如，如果条件锁失败表示某个其他线程已经在处理
+	给定的工作，虚假失败可能导致该工作永远不会完成，
+	可能导致挂起。
 
-	However, this is a design choice.
-	You could create a conditional-locking primitive that was subject
-	to spurious failure, and some have.
-	Therefore, when moving to a new software environment, check
-	your assumptions!
+	然而，这是一个设计选择。
+	你可以创建一个容易产生虚假失败的条件锁原语，
+	而且有些人已经这样做了。
+	因此，当迁移到新的软件环境时，
+	请检查你的假设！
 }\QuickQuizEnd
 
-\subsubsection{Count Near Misses}
+\subsubsection{计算险些发生的情况}
 \label{sec:debugging:Count Near Misses}
 
-Bugs are often all-or-nothing things, so that a bug either happens
-or not, with nothing in between.
-However, it is sometimes possible to define a \emph{near miss} where
-the bug does not result in a failure, but has likely manifested.
-For example, suppose your code is making a robot walk.
-The robot's falling down constitutes a bug in your program, but
-stumbling and recovering might constitute a near miss.
-If the robot falls over only once per hour, but stumbles every few
-minutes, you might be able to speed up your debugging progress by
-counting the number of stumbles in addition to the number of falls.
+Bug通常是非此即彼的事情，bug要么发生，要么不发生，
+中间没有过渡。
+然而，有时可以定义一种\emph{险些发生}的情况，
+其中bug没有导致失败，但很可能已经显现。
+例如，假设你的代码在让一个机器人行走。
+机器人摔倒构成你程序中的一个bug，但
+绊倒后恢复可能构成一次险些发生的情况。
+如果机器人每小时才摔倒一次，但每几分钟就会绊倒一次，
+你可能可以通过同时计算绊倒和摔倒的次数来
+加速你的调试进度。
 
-In concurrent programs, timestamping can sometimes be used to detect
-near misses.
-For example, locking primitives incur significant delays, so if there is
-a too-short delay between a pair of operations that are supposed
-to be protected by different acquisitions of the same lock, this too-short
-delay might be counted as a near miss.\footnote{
-	Of course, in this case, you might be better off using
-	whatever \co{lock_held()} primitive is available
-	in your environment.
-	If there isn't a \co{lock_held()} primitive, create one!}
+在并发程序中，时间戳有时可以用来检测
+险些发生的情况。
+例如，锁原语会产生显著的延迟，所以如果
+在一对本应被同一锁的不同获取所保护的操作之间
+存在过短的延迟，这个过短的延迟
+可以被计为一次险些发生的情况。\footnote{
+	当然，在这种情况下，你最好使用
+	你环境中可用的\co{lock_held()}原语。
+	如果没有\co{lock_held()}原语，就创建一个！}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{debugging/RCUnearMiss}}
-\caption{RCU Errors and Near Misses}
+\caption{RCU错误与险些发生的情况}
 \label{fig:debugging:RCU Errors and Near Misses}
 \end{figure}
 
-For example, a low-probability bug in RCU priority boosting occurred
-roughly once every hundred hours of focused \co{rcutorture} testing.
-Because it would take almost 500 hours of failure-free testing to be
-99\pct\ certain that the bug's probability had been significantly reduced,
-the \co{git bisect} process
-to find the failure would be painfully slow---or would require an extremely
-large test farm.
-Fortunately, the RCU operation being tested included not only a wait for
-an RCU grace period, but also a previous wait for the grace period to start
-and a subsequent wait for an RCU callback to be
-invoked after completion of the RCU grace period.
-This distinction between an \co{rcutorture} error and near miss is
-shown in
-\cref{fig:debugging:RCU Errors and Near Misses}.
-To qualify as a full-fledged error, an RCU read-side critical section
-must extend from the \co{call_rcu()} that initiated a grace period,
-through the remainder of the previous grace period, through the
-entirety of the grace period initiated by the \co{call_rcu()}
-(denoted by the region between the jagged lines), and
-through the delay from the end of that grace period to the callback
-invocation, as indicated by the ``Error'' arrow.
-However, the formal definition of RCU prohibits RCU read-side critical
-sections from extending across a single grace period, as indicated by
-the ``Near Miss'' arrow.
-This suggests using near misses as the error condition, however, this
-can be problematic because different CPUs can have different opinions
-as to exactly where a given
-grace period starts and ends, as indicated by the jagged lines.\footnote{
-	In real life, these lines can be much more jagged because idle
-	CPUs can be completely unaware of a great many recent grace
-	periods.}
-Using the near misses as the error condition could therefore result
-in false positives, which need to be avoided in the automated
-\co{rcutorture} testing.
+例如，RCU优先级提升中的一个低概率bug大约
+每一百小时的集中\co{rcutorture}测试中发生一次。
+因为需要将近500小时的无故障测试才能有99\pct\ 的把握
+确认该bug的概率已被显著降低，
+用\co{git bisect}过程来定位故障将会痛苦地缓慢——
+或者需要一个极其庞大的测试农场。
+幸运的是，被测试的RCU操作不仅包括等待一个RCU grace period，
+还包括之前等待grace period开始
+以及之后等待RCU grace period完成后的RCU回调被调用。
+\co{rcutorture}错误和险些发生情况之间的这种区别如
+\cref{fig:debugging:RCU Errors and Near Misses}所示。
+要构成一个完全意义上的错误，RCU读端临界区
+必须从发起grace period的\co{call_rcu()}开始，
+经过前一个grace period的剩余部分，经过
+由\co{call_rcu()}发起的grace period的全部
+（由锯齿线之间的区域表示），
+并经过从该grace period结束到回调调用的延迟，
+如"Error"箭头所示。
+然而，RCU的正式定义禁止RCU读端临界区
+跨越单个grace period，如"Near Miss"箭头所示。
+这暗示使用险些发生的情况作为错误条件，然而这
+可能会有问题，因为不同的CPU对于给定grace period
+的精确开始和结束位置可能有不同的看法，
+如锯齿线所示。\footnote{
+	在实际情况中，这些线条可能更加锯齿，因为空闲的
+	CPU可能完全不知道最近的许多grace period。}
+因此，使用险些发生的情况作为错误条件可能导致
+误报，而在自动化的\co{rcutorture}测试中需要避免误报。
 
-By sheer dumb luck, \co{rcutorture} happens to include some statistics that
-are sensitive to the near-miss version of the grace period.
-As noted above, these statistics are subject to false positives due to
-their unsynchronized access to RCU's state variables,
-but these false positives turn out to be extremely rare on strongly
-ordered systems such as the IBM mainframe and x86, occurring less than
-once per thousand hours of testing.
+纯粹由于运气好，\co{rcutorture}恰好包含了一些对
+grace period的险些发生版本敏感的统计数据。
+如上所述，由于对RCU状态变量的非同步访问，
+这些统计数据会产生误报，
+但在IBM大型机和x86等强排序系统上，
+这些误报极为罕见，每千小时测试中出现不到一次。
 
-These near misses occurred roughly once per hour, about two orders of
-magnitude more frequently than the actual errors.
-Use of these near misses allowed the bug's root cause to be identified
-in less than a week and a high degree of confidence in the fix to be
-built in less than a day.
-In contrast, excluding the near misses in favor of the real errors would
-have required months of debug and validation time.
+这些险些发生的情况大约每小时发生一次，
+比实际错误频繁大约两个数量级。
+使用这些险些发生的情况使得该bug的根本原因
+在不到一周内被识别出来，并在不到一天内建立了
+对修复的高度置信度。
+相比之下，排除险些发生的情况而只使用真实错误
+将需要数月的调试和验证时间。
 
-To sum up near-miss counting, the general approach is to replace counting
-of infrequent failures with more-frequent near misses that are believed
-to be correlated with those failures.
-These near-misses can be considered an anti-heisenbug to the real failure's
-heisenbug because the near-misses, being more frequent, are likely to
-be more robust in the face of changes to your code, for example, the
-changes you make to add debugging code.
+总结险些发生情况的计数，一般方法是用更频繁的、
+被认为与不频繁的失败相关的险些发生情况来替代
+对不频繁失败的计数。
+这些险些发生的情况可以被看作是对真实失败的Heisenbug的
+anti-heisenbug，因为险些发生的情况更频繁，
+在你的代码发生变化（例如你添加调试代码时
+做出的更改）时可能更加稳健。
 
-\subsubsection{Proactive Hunting Techniques}
+\subsubsection{主动追踪技术}
 \label{sec:debugging:Proactive Hunting Techniques}
 
-Most of the anti-heisenbug techniques discussed in the precending sections
-are backwards looking.
-After all, prior experience is the best guide to knowing which regions
-of code are prone to race conditions, what aspects of the workload
-can most profitably be increased in intensity, which subsystems are
-deserving of suspicion, which rare events are important, and what near
-misses are good proxies for actual failures.
+前面各节讨论的大多数anti-heisenbug技术是向后看的。
+毕竟，先前的经验是了解哪些代码区域容易出现竞争条件、
+工作负载的哪些方面最值得增加强度、
+哪些子系统值得怀疑、哪些罕见事件很重要、
+以及什么险些发生的情况是实际失败的好代理的最佳指南。
 
-What can you do to get ahead of the game?
+你能做什么来领先一步？
 
-Getting ahead of the anti-heisenbug game is even more of an art than
-constructing an anti-heisenbug for a specific situation, but here
-are some techniques that can be helpful:
+在anti-heisenbug游戏中领先比为特定情况构造anti-heisenbug
+更像是一门艺术，但以下一些技术可能会有帮助：
 
 \begin{enumerate}
-\item	Add delay to sections of concurrent code that required the
-	most analysis, that needed formal verification, or that
-	deviated the most from common concurrency practice.
-\item	Analyze trends in workload intensity, and use the results to
-	guide increasing the intensity of your testing.
-\item	Be most suspicious of new code, especially if it is your new
-	code.
-\item	Instrument your workload, looking for complex operations that
-	occur frequently enough to be an uptime problem but rarely
-	enough to avoid much exposure in your current testing.
-\item	Look for near misses in failure-recovery code and on slowpaths.
+\item	在需要最多分析、需要形式化验证或最偏离
+	常见并发实践的并发代码段中添加延迟。
+\item	分析工作负载强度的趋势，并使用结果
+	来指导增加测试的强度。
+\item	对新代码最为怀疑，特别是如果它是你的新代码。
+\item	对你的工作负载进行检测，寻找那些发生频率足以
+	成为正常运行时间问题但又罕见到在当前测试中
+	没有得到太多暴露的复杂操作。
+\item	在故障恢复代码和慢路径中寻找险些发生的情况。
 \end{enumerate}
 
-Finally, and most importantly, pay special attention to code that people
-are the most proud of.
-After all, people are most likely to be proud of code that is unusual,
-which means that its bugs (and the bugs in the code that it uses) are
-likely to escape your usual testing efforts.
+最后，也是最重要的，特别注意人们最引以为豪的代码。
+毕竟，人们最可能为不寻常的代码感到自豪，
+这意味着它的bug（以及它使用的代码中的bug）
+很可能逃过你通常的测试工作。
 
-\subsubsection{Heisenbug Discussion}
+\subsubsection{海森bug讨论}
 \label{sec:debugging:Heisenbug Discussion}
 
-The alert reader might have noticed that this section was fuzzy and
-qualitative, in stark contrast to the precise mathematics of
-\cref{sec:debugging:Statistics for Discrete Testing,%
+细心的读者可能已经注意到本节是模糊和定性的，
+与\cref{sec:debugging:Statistics for Discrete Testing,%
 sec:debugging:Statistics Abuse for Discrete Testing,%
-sec:debuggingStatistics for Continuous Testing}.
-If you love precision and mathematics, you may be disappointed to
-learn that the situations to which this section applies are far
-more common than those to which the preceding sections apply.
+sec:debuggingStatistics for Continuous Testing}
+的精确数学形成鲜明对比。
+如果你热爱精确和数学，你可能会失望地发现
+本节适用的情况远比前几节适用的情况更常见。
 
-In fact, the common case is that although you might have reason to believe
-that your code has bugs, you have no idea what those bugs are, what
-causes them, how likely they are to appear, or what conditions affect
-their probability of appearance.
-In this all-too-common case, statistics cannot help you.\footnote{
-	Although if you know what your program is supposed to do and
-	if your program is small enough (both less likely that you
-	might think), then the formal-verification tools described in
-	\cref{chp:Formal Verification}
-	can be helpful.}
-That is to say, statistics cannot help you \emph{directly}.
-But statistics can be of great indirect help---\emph{if} you have the
-humility required to admit that you make mistakes, that you can reduce the
-probability of these mistakes (for example, by getting enough sleep), and
-that the number and type of mistakes you made in the past is indicative of
-the number and type of mistakes that you are likely to make in the future.
-For example, I have a deplorable tendency to forget to write a small
-but critical portion of the initialization code, and frequently get most
-or even all of a parallel program correct---except for a stupid
-omission in initialization.
-Once I was willing to admit to myself that I am prone to this type of
-mistake, it was easier (but not easy!\@) to force myself to double-check
-my initialization code.
-Doing this allowed me to find numerous bugs ahead of time.
+事实上，常见的情况是：虽然你可能有理由相信
+你的代码有bug，但你不知道这些bug是什么、
+什么导致了它们、它们出现的可能性有多大，
+或者什么条件影响它们出现的概率。
+在这种极其常见的情况下，统计学无法帮助你。\footnote{
+	虽然如果你知道你的程序应该做什么，
+	并且你的程序足够小（两者都不太可能如你所想），
+	那么\cref{chp:Formal Verification}中描述的
+	形式化验证工具可能会有帮助。}
+也就是说，统计学不能\emph{直接}帮助你。
+但统计学可以提供巨大的间接帮助——\emph{如果}你有承认自己会犯错的谦逊，
+知道你可以降低这些错误的概率（例如，通过获得充足的睡眠），
+并且你过去犯的错误的数量和类型预示着
+你未来可能犯的错误的数量和类型。
+例如，我有一个可悲的倾向，就是忘记编写初始化代码中
+一小部分但至关重要的部分，经常使并行程序的大部分
+甚至全部都正确——除了初始化中的一个愚蠢遗漏。
+一旦我愿意向自己承认我容易犯这种类型的错误，
+就更容易（但不容易！）强迫自己仔细检查
+我的初始化代码。
+这样做使我能够提前发现许多bug。
 
-When your quick bug hunt morphs into a long-term quest, it is important
-to log everything you have tried and what happened.
-In the common case where the software is changing during the course of
-your quest, make sure to record the exact version of the software to
-which each log entry applies.
-From time to time, reread the entire log in order to make connections
-between clues encountered at different times.
-Such rereading is especially important upon encountering a surprising
-test result, for example, I reread my log upon realizing that what I
-thought was a failure of the hypervisor to schedule a vCPU was instead
-an interrupt storm preventing that vCPU from making forward progress
-on the interrupted code.
-If the code you are debugging is new to you, this log is also an
-excellent place to document the relationships between code and data
-structures.
-Keeping a log when you are furiously chasing a difficult bug might seem
-like needless paperwork, but it has on many occasions saved me from
-debugging around and around in circles, which can waste far more time
-than keeping a log ever could.
+当你的快速bug狩猎演变为长期任务时，记录你尝试过的
+一切以及发生了什么是很重要的。
+在软件在你的任务过程中不断变化的常见情况下，
+确保记录每个日志条目适用的软件的确切版本。
+不时重新阅读整个日志，以便在不同时间遇到的
+线索之间建立联系。
+这种重新阅读在遇到令人惊讶的测试结果时尤其重要，
+例如，当我意识到我以为是虚拟机管理程序未能调度vCPU的情况
+实际上是中断风暴阻止了该vCPU在被中断的代码上
+取得前进进展时，我重新阅读了我的日志。
+如果你正在调试的代码对你来说是新的，
+这个日志也是记录代码和数据结构之间关系的绝佳场所。
+当你疯狂地追踪一个困难的bug时，保持日志可能看起来
+像是不必要的文书工作，但它在许多场合下
+使我免于在圈子里来回调试，后者浪费的时间
+远比保持日志多得多。
 
-Using Taleb's nomenclature~\cite{NassimTaleb2007BlackSwan},
-a white swan is a bug that we can reproduce.
-We can run a large number of tests, use ordinary statistics to
-estimate the bug's probability, and use ordinary statistics again
-to estimate our confidence in a proposed fix.
-An unsuspected bug is a black swan.
-We know nothing about it, we have no tests that have yet caused it
-to happen, and statistics is of no help.
-Studying our own behavior, especially the number and types of mistakes
-we make, can turn black swans into grey swans.
-We might not know exactly what the bugs are, but we have some idea of
-their number and maybe also of their type.
-Ordinary statistics is still of no help (at least not until we are
-able to reproduce one of the bugs), but robust\footnote{
-	That is to say brutal.}
-testing methods can be of great help.
-The goal, therefore, is to use experience and good validation practices
-to turn the black swans grey, focused testing and analysis to turn the
-grey swans white, and ordinary methods to fix the white swans.
+使用Taleb的术语~\cite{NassimTaleb2007BlackSwan}，
+白天鹅是我们可以复现的bug。
+我们可以运行大量测试，使用普通统计来
+估计bug的概率，并再次使用普通统计来
+估计我们对提议修复的置信度。
+未被发现的bug是黑天鹅。
+我们对它一无所知，我们没有任何测试使它发生过，
+统计学也帮不了忙。
+研究我们自己的行为，特别是我们犯的错误的数量和类型，
+可以将黑天鹅变成灰天鹅。
+我们可能不确切知道bug是什么，但我们对
+它们的数量和可能的类型有一些了解。
+普通统计仍然没有帮助（至少在我们能够复现某个bug之前），
+但稳健的\footnote{
+	也就是说残酷的。}
+测试方法可以提供很大帮助。
+因此，目标是利用经验和良好的验证实践
+将黑天鹅变成灰色，用有针对性的测试和分析将灰天鹅变成白色，
+然后用普通方法修复白天鹅。
 
-That said, thus far, we have focused solely on bugs in the parallel program's
-functionality.
-However, performance is a first-class requirement for a parallel program.
-Otherwise, why not write a sequential program?
-To repurpose Kipling, our goal when writing parallel code is to fill
-the unforgiving second with sixty minutes worth of distance run.
-The next section therefore discusses a number of performance bugs that
-would be happy to thwart this Kiplingesque goal.
+话虽如此，到目前为止，我们仅关注了并行程序功能中的bug。
+然而，性能是并行程序的一等要求。
+否则，为什么不写一个顺序程序呢？
+借用Kipling的话，我们编写并行代码的目标是用
+每一秒钟跑出六十分钟的距离。
+因此，下一节讨论了一些乐于阻碍这一Kipling式目标的
+性能bug。
 
-\section{Performance Estimation}
+\section{性能估计}
 \label{sec:debugging:Performance Estimation}
 %
-\epigraph{There are lies, damn lies, statistics, and benchmarks.}
-	 {Unknown}
+\epigraph{有谎言、该死的谎言、统计数据和基准测试。}
+	 {佚名}
 
-Parallel programs usually have performance and scalability requirements,
-after all, if performance is not an issue, why not use a sequential
-program?
-Ultimate performance and linear scalability might not be necessary, but
-there is little use for a parallel program that runs slower than its
-optimal sequential counterpart.
-And there really are cases where every microsecond matters and every
-nanosecond is needed.
-Therefore, for parallel programs, insufficient performance is just as
-much a bug as is incorrectness.
+并行程序通常有性能和可扩展性要求，毕竟，如果性能不是问题，
+为什么不使用顺序程序呢？
+极致的性能和线性可扩展性可能不是必需的，
+但一个运行比其最优顺序对应程序还慢的并行程序几乎没有什么用处。
+而且确实存在每一微秒都很重要、每一纳秒都不可缺的情况。
+因此，对于并行程序来说，性能不足和不正确一样是bug。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	That is ridiculous!!!
-	After all, isn't getting a late but correct answer always
-	better than getting an incorrect answer???
+	这太荒谬了！！！
+	毕竟，得到一个迟到但正确的答案难道不总是
+	比得到一个不正确的答案好吗？？？
 }\QuickQuizAnswerB{
-	This question fails to consider the option of choosing not to
-	compute the answer at all, and in doing so, also fails to consider
-	the costs of computing the answer.
-	For example, consider short-term weather forecasting, for which
-	accurate models exist, but which require large (and expensive)
-	clustered supercomputers, at least if you want to actually run
-	the model faster than the weather.
+	这个问题没有考虑到选择完全不计算答案的选项，
+	因此也没有考虑计算答案的成本。
+	例如，考虑短期天气预报，
+	虽然存在精确的模型，但需要大型（且昂贵的）
+	集群超级计算机，至少如果你想让模型运行得
+	比天气变化更快的话。
 
-	And in this case, any performance bug that prevents the model from
-	running faster than the actual weather prevents any forecasting.
-	Given that the whole purpose of purchasing the large clustered
-	supercomputers was to forecast weather, if you cannot run the
-	model faster than the weather, you would be better off not running
-	the model at all.
+	在这种情况下，任何阻止模型运行速度快于实际天气的
+	性能bug都会阻止任何预报。
+	鉴于购买大型集群超级计算机的全部目的就是预报天气，
+	如果你不能让模型运行得比天气快，
+	你还不如根本不运行模型。
 
-	More severe examples may be found in the area of safety-critical
-	real-time computing.
+	在安全关键实时计算领域可以找到更严重的例子。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But if you are going to put in all the hard work of parallelizing
-	an application, why not do it right?
-	Why settle for anything less than optimal performance and
-	linear scalability?
+	但如果你要投入所有艰苦的工作来并行化一个应用，
+	为什么不做到位？
+	为什么要接受低于最优性能和线性可扩展性的东西？
 }\QuickQuizAnswerE{
-	Although I do heartily salute your spirit and aspirations,
-	you are forgetting that there may be high costs due to delays
-	in the program's completion.
-	For an extreme example, suppose that a 30\pct\ performance shortfall
-	from a single-threaded application is causing one person to die
-	each day.
-	Suppose further that in a day you could hack together a
-	quick and dirty
-	parallel program that ran 50\pct\ faster on an eight-CPU system.
-	This is of course horrible scalability, given that the seven
-	additional CPUs provide only half a CPU's worth of additional
-	performance.
+	虽然我衷心赞赏你的精神和抱负，
+	但你忘记了程序完成延迟可能带来的高昂代价。
+	举一个极端的例子，假设单线程应用30\pct\ 的性能不足
+	导致每天有一个人死亡。
+	再假设你可以在一天内拼凑出一个
+	快速而粗糙的并行程序，在八CPU系统上运行快50\pct。
+	这当然是很糟糕的可扩展性，因为七个
+	额外的CPU只提供了半个CPU的额外性能。
 
-	But it might well be that constructing an optimal parallel
-	program would require four months of painstaking design, coding,
-	debugging, and tuning.
-	I would guess that more than 100 people would prefer the
-	quick and dirty version.
+	但构建一个最优的并行程序可能需要四个月的
+	精心设计、编码、调试和调优。
+	我猜测超过100个人会更喜欢快速而粗糙的版本。
 
-	Once that is done, \emph{maybe} it is worth creating an optimal
-	version.
-	But that depends on what else could be accomplished with this
-	same four months of effort.
-	For example, us carbon-based lifeforms just might feel that
-	saving more lives is more important than saving 6.5 CPUs.
+	一旦完成了这一步，\emph{也许}值得创建一个最优版本。
+	但这取决于用同样四个月的努力还能完成什么其他事情。
+	例如，我们这些碳基生命形式可能会觉得
+	拯救更多的生命比节省6.5个CPU更重要。
 
-	Fortunately, most developers of low-level concurrent code play
-	for much lower stakes, allowing much greater freedom to choose.
-	In addition, small improvements in low-level code can benefit
-	huge numbers of users, in many cases justifying considerable
-	investments in performance, scalability, and real-time response.
+	幸运的是，大多数底层并发代码的开发者
+	面临的风险要低得多，允许更大的选择自由。
+	此外，底层代码的小改进可以惠及
+	大量用户，在许多情况下证明了在性能、
+	可扩展性和实时响应方面的大量投资是合理的。
 }\QuickQuizEndE
 }
 
-Validating a parallel program must therfore include validating its
-performance.
-But validating performance means having a workload to run and performance
-criteria with which to evaluate the program at hand.
-These needs are often met by \emph{performance benchmarks}, which
-are discussed in the next section.
+因此，验证并行程序必须包括验证其性能。
+但验证性能意味着需要有一个工作负载来运行，
+以及用于评估手头程序的性能标准。
+这些需求通常由\emph{性能基准测试}来满足，
+下一节将讨论这些内容。
 
-\subsection{Benchmarking}
+\subsection{基准测试}
 \label{sec:debugging:Benchmarking}
 
-Frequent abuse aside, benchmarks are both useful and heavily used,
-so it is not helpful to be too dismissive of them.
-Benchmarks span the range from ad hoc test jigs to international
-standards, but regardless of their level of formality, benchmarks
-serve four major purposes:
+撇开频繁的滥用不谈，基准测试既有用又被大量使用，
+因此对它们过于轻视并无帮助。
+基准测试的范围从临时测试夹具到国际标准，
+但无论其正式程度如何，基准测试服务于四个主要目的：
 
 \begin{enumerate}
-\item	Providing a fair framework for comparing competing implementations.
-\item	Focusing competitive energy on improving implementations in ways
-	that matter to users.
-\item	Serving as example uses of the implementations being benchmarked.
-\item	Serving as a marketing tool to highlight your software
-	against your competitors' offerings.
+\item	为比较竞争性实现提供公平的框架。
+\item	将竞争能量集中在以对用户有意义的方式改进实现上。
+\item	作为被基准测试的实现的示例用途。
+\item	作为营销工具，突出你的软件相对于竞争对手产品的优势。
 \end{enumerate}
 
-Of course, the only completely fair framework is the intended
-application itself.
-So why would anyone who cared about fairness in benchmarking
-bother creating imperfect benchmarks rather than simply
-using the application itself as the benchmark?
+当然，唯一完全公平的框架是目标应用程序本身。
+那么，关心基准测试公平性的人为什么要费心创建不完美的基准测试，
+而不是简单地使用应用程序本身作为基准测试呢？
 
-Running the actual application is in fact the best approach where it is practical.
-Unfortunately, it is often impractical for the following reasons:
+运行实际应用程序确实是在可行时的最佳方法。
+不幸的是，由于以下原因，这通常不可行：
 
 \begin{enumerate}
-\item	The application might be proprietary, and you
-	might not have the right to run the intended application.
-\item	The application might require more hardware
-	than you have access to.
-\item	The application might use data that you cannot
-	access, for example, due to privacy regulations.
-\item	The application might take longer than is convenient to
-	reproduce a performance or scalability problem.\footnote{
-		Microbenchmarks can help, but
-		please see \cref{sec:debugging:Microbenchmarking}.}
+\item	应用程序可能是专有的，你可能没有运行目标应用程序的权利。
+\item	应用程序可能需要比你能获得的更多的硬件。
+\item	应用程序可能使用你无法访问的数据，例如由于隐私法规。
+\item	应用程序可能需要比方便地重现性能或可扩展性问题更长的
+	时间。\footnote{
+		微基准测试可以帮助，但
+		请参见\cref{sec:debugging:Microbenchmarking}。}
 \end{enumerate}
 
-Creating a benchmark that approximates
-the application can help overcome these obstacles.
-A carefully constructed benchmark can help promote performance,
-scalability, \IXh{energy}{efficiency}, and much else besides.
-However, be careful to avoid investing too much into the benchmarking
-effort.
-It is after all important to invest at least a little into the
-application itself~\cite{Gray91}.
+创建一个近似应用程序的基准测试可以帮助克服这些障碍。
+精心构造的基准测试可以帮助提升性能、
+可扩展性、\IXh{energy}{efficiency}等。
+然而，要注意避免在基准测试工作上投入过多。
+毕竟，至少要在应用程序本身上投入一点也是重要的~\cite{Gray91}。
 
-\subsection{Profiling}
+\subsection{性能剖析}
 \label{sec:debugging:Profiling}
 
-In many cases, a fairly small portion of your software is responsible
-for the majority of the performance and scalability shortfall.
-However, developers are notoriously unable to identify the actual
-bottlenecks by inspection.
-For example, in the case of a kernel buffer allocator, all attention focused
-on a search of a dense array which turned out to represent only
-a few percent of the allocator's execution time.
-An execution profile collected via a logic analyzer focused attention
-on the cache misses that were actually responsible for the majority
-of the problem~\cite{McKenney93}.
+在许多情况下，你的软件中相当小的一部分
+负责大部分性能和可扩展性不足。
+然而，开发者在通过审查来识别实际瓶颈方面
+是出了名的无能。
+例如，在内核缓冲区分配器的情况下，所有注意力都集中在
+对一个密集数组的搜索上，结果发现这只占分配器执行时间的
+百分之几。
+通过逻辑分析仪收集的执行剖析将注意力集中到
+实际上负责大部分问题的缓存未命中上~\cite{McKenney93}。
 
-An old-school but quite effective method of tracking down performance
-and scalability bugs is to run your program under a debugger,
-then periodically interrupt it, recording the stacks of all threads
-at each interruption.
-The theory here is that if something is slowing down your program,
-it has to be visible in your threads' executions.
+一种老派但相当有效的追踪性能和可扩展性bug的方法是
+在调试器下运行你的程序，然后定期中断它，
+在每次中断时记录所有线程的栈。
+这里的理论是，如果有什么东西在拖慢你的程序，
+它必须在你的线程执行中可见。
 
-That said, there are a number of tools
-that will usually do a much better job of helping you to focus your
-attention where it will do the most good.
-Two popular choices are \co{gprof} and \co{perf}.
-To use \co{perf} on a single-process program, prefix your command
-with \co{perf record}, then after the command completes, type
-\co{perf report}.
-There is a lot of work on tools for performance debugging of multi-threaded
-programs, which should make this important job easier.
-Again, one good starting point is Brendan Gregg's blog.\footnote{
+话虽如此，有一些工具通常能更好地帮助你
+将注意力集中在最有价值的地方。
+两个流行的选择是\co{gprof}和\co{perf}。
+要对单进程程序使用\co{perf}，在你的命令前加上\co{perf record}，
+然后在命令完成后，输入\co{perf report}。
+关于多线程程序性能调试的工具有大量工作，
+这应该会使这项重要的工作更容易。
+同样，一个好的起点是Brendan Gregg的博客。\footnote{
 	\url{http://www.brendangregg.com/blog/}}
 
-\subsection{Differential Profiling}
+\subsection{差异剖析}
 \label{sec:debugging:Differential Profiling}
 
-Scalability problems will not necessarily be apparent unless you are running
-on very large systems.
-However, it is sometimes possible to detect impending scalability problems
-even when running on much smaller systems.
-One technique for doing this is called \emph{differential profiling}.
+可扩展性问题不一定在你没有运行非常大的系统时才明显。
+然而，有时即使在更小的系统上运行时也可以检测到
+即将出现的可扩展性问题。
+做到这一点的一种技术称为\emph{差异剖析}。
 
-The idea is to run your workload under two different sets of conditions.
-For example, you might run it on two CPUs, then run it again on four
-CPUs.
-You might instead vary the load placed on the system, the number of
-network adapters, the number of mass-storage devices, and so on.
-You then collect profiles of the two runs, and mathematically combine
-corresponding profile measurements.
-For example, if your main concern is scalability, you might take the
-ratio of corresponding measurements, and then sort the ratios into
-descending numerical order.
-The prime scalability suspects will then be sorted to the top of the
-list~\cite{McKenney95a,McKenney99b}.
+其想法是在两组不同的条件下运行你的工作负载。
+例如，你可能在两个CPU上运行它，然后再在四个CPU上运行它。
+你也可以改变系统上的负载、网络适配器的数量、
+大容量存储设备的数量等。
+然后你收集两次运行的剖析数据，并对相应的剖析测量
+进行数学组合。
+例如，如果你的主要关注点是可扩展性，你可以取
+相应测量值的比率，然后按降序排列这些比率。
+主要的可扩展性嫌疑犯将排在列表的顶部~\cite{McKenney95a,McKenney99b}。
 
-Some tools such as \co{perf} have built-in differential-profiling
-support.
+一些工具如\co{perf}内置了差异剖析支持。
 
-\subsection{Microbenchmarking}
+\subsection{微基准测试}
 \label{sec:debugging:Microbenchmarking}
 
-Microbenchmarking can be useful when deciding which algorithms or
-data structures are worth incorporating into a larger body of software
-for deeper evaluation.
+在决定哪些算法或数据结构值得纳入更大的软件中
+进行更深入评估时，微基准测试可能很有用。
 
-One common approach to microbenchmarking is to measure the time,
-run some number of iterations of the code
-under test, then measure the time again.
-The difference between the two times divided by the number of iterations
-gives the measured time required to execute the code under test.
+微基准测试的一种常见方法是测量时间，
+运行被测代码的若干次迭代，然后再次测量时间。
+两次时间之差除以迭代次数就给出了执行被测代码
+所需的测量时间。
 
-Unfortunately, this approach to measurement allows any number of errors
-to creep in, including:
+不幸的是，这种测量方法允许任意数量的误差潜入，包括：
 
 \begin{enumerate}
-\item	The measurement will include some of the overhead of
-	the time measurement.
-	This source of error can be reduced to an arbitrarily small
-	value by increasing the number of iterations.
-\item	The first few iterations of the test might incur cache misses
-	or (worse yet) page faults that might inflate the measured
-	value.
-	This source of error can also be reduced by increasing the
-	number of iterations, or it can often be eliminated entirely
-	by running a few warm-up iterations before starting the
-	measurement period.
-	Most systems have ways of detecting whether a given process
-	incurred a page fault, and you should make use of this to
-	reject runs whose performance has been thus impeded.
-\item	Some types of interference, for example, random memory errors,
-	are so rare that they can be dealt with by running a number
-	of sets of iterations of the test.
-	If the level of interference was statistically significant,
-	any performance outliers could be rejected statistically.
-\item	Any iteration of the test might be interfered with by other
-	activity on the system.
-	Sources of interference include other applications, system
-	utilities and daemons, device interrupts, firmware interrupts
-	(including system management interrupts, or SMIs),
-	virtualization, memory errors, and much else besides.
-	Assuming that these sources of interference occur randomly,
-	their effect can be minimized by reducing the number of
-	iterations.
-\item	\IX{Thermal throttling} can understate scalability because increasing
-	CPU activity increases heat generation, and on systems without
-	adequate cooling (most of them!), this can result in the CPU
-	frequency decreasing as the number of CPUs increases.\footnote{
-		Systems with adequate cooling tend to look like gaming systems.}
-	Of course, if you are testing an application to evaluate its
-	expected behavior when run in production, such thermal throttling
-	is simply a fact of life.
-	Otherwise, if you are interested in theoretical scalability,
-	use a system with adequate cooling or reduce the CPU clock rate
-	to a level that the cooling system can handle.
+\item	测量将包含时间测量本身的一些开销。
+	通过增加迭代次数，可以将此误差源减小到
+	任意小的值。
+\item	测试的前几次迭代可能会遇到缓存未命中
+	或（更糟的是）页面故障，这可能会膨胀测量值。
+	通过增加迭代次数也可以减小此误差源，
+	或者通常可以通过在开始测量周期之前运行
+	几次预热迭代来完全消除它。
+	大多数系统有方法检测给定进程是否遇到了页面故障，
+	你应该利用这一点来拒绝性能因此受到阻碍的运行。
+\item	某些类型的干扰，例如随机内存错误，
+	非常罕见，可以通过运行多组测试迭代来处理。
+	如果干扰水平具有统计显著性，
+	任何性能异常值都可以在统计上被拒绝。
+\item	测试的任何迭代都可能受到系统上其他活动的干扰。
+	干扰源包括其他应用程序、系统实用程序和守护进程、
+	设备中断、固件中断（包括系统管理中断即SMI）、
+	虚拟化、内存错误等。
+	假设这些干扰源随机发生，可以通过减少
+	迭代次数来最小化它们的影响。
+\item	\IX{Thermal throttling}可能低估可扩展性，因为增加
+	CPU活动会增加热量产生，而在没有足够冷却的系统上
+	（大多数系统！），这可能导致CPU频率随着CPU数量的
+	增加而降低。\footnote{
+		具有足够冷却的系统往往看起来像游戏系统。}
+	当然，如果你是为了评估应用程序在生产中运行时的
+	预期行为而进行测试，这种热节流只是生活中的一个事实。
+	否则，如果你对理论可扩展性感兴趣，
+	请使用具有足够冷却的系统或将CPU时钟频率降低到
+	冷却系统能够处理的水平。
 \end{enumerate}
 
-The first and fourth sources of interference provide conflicting advice,
-which is one sign that we are living in the real world.
+第一和第四个干扰源提供了相互矛盾的建议，
+这是我们生活在现实世界中的一个标志。
 
 \QuickQuiz{
-	But what about other sources of error, for example, due to
-	interactions between caches and memory layout?
+	但是其他误差源呢，例如由于缓存和内存布局之间的
+	交互？
 }\QuickQuizAnswer{
-	Changes in memory layout can indeed result in unrealistic
-	decreases in execution time.
-	For example, suppose that a given microbenchmark almost
-	always overflows the L0 cache's associativity, but with just the right
-	memory layout, it all fits.
-	If this is a real concern, consider running your microbenchmark
-	using huge pages (or within the kernel or on bare metal) in
-	order to completely control the memory layout.
+	内存布局的变化确实可能导致不切实际的
+	执行时间减少。
+	例如，假设给定的微基准测试几乎总是
+	溢出L0缓存的关联度，但在恰好正确的内存布局下，
+	它全部适合。
+	如果这是一个真正的担忧，考虑使用大页面
+	（或在内核中或在裸金属上）运行你的微基准测试，
+	以完全控制内存布局。
 
-	But note that there are many different possible memory-layout
-	bottlenecks.
-	Benchmarks sensitive to memory bandwidth (such as those involving
-	matrix arithmetic) should spread the running threads across the
-	available cores and sockets to maximize memory parallelism.
-	They should also spread the data across \IXplr{NUMA node}, memory
-	controllers, and DRAM chips to the extent possible.
-	In contrast, benchmarks sensitive to memory latency (including
-	most poorly scaling applications) should instead maximize
-	locality, filling each core and socket in turn before adding
-	another one.
+	但请注意，有许多不同的可能的内存布局瓶颈。
+	对内存带宽敏感的基准测试（如涉及矩阵运算的基准测试）
+	应将运行线程分散到可用的核心和插槽中
+	以最大化内存并行性。
+	它们还应尽可能将数据分散到\IXplr{NUMA node}、
+	内存控制器和DRAM芯片上。
+	相反，对内存延迟敏感的基准测试（包括大多数
+	可扩展性差的应用程序）应该最大化局部性，
+	在添加另一个之前先填满每个核心和插槽。
 }\QuickQuizEnd
 
-The following sections discuss ways of dealing with these measurement
-errors, with
-\cref{sec:debugging:Isolation}
-covering isolation techniques that may be used to prevent some forms of
-interference,
-and with
-\cref{sec:debugging:Detecting Interference}
-covering methods for detecting interference so as to reject measurement
-data that might have been corrupted by that interference.
+以下各节讨论处理这些测量误差的方法，
+\cref{sec:debugging:Isolation}涵盖了
+可用于防止某些形式干扰的隔离技术，
+\cref{sec:debugging:Detecting Interference}涵盖了
+检测干扰以拒绝可能被干扰损坏的测量数据的方法。
 
-\subsection{Isolation}
+\subsection{隔离}
 \label{sec:debugging:Isolation}
 
-The Linux kernel provides a number of ways to isolate a group of
-CPUs from outside interference.
+Linux内核提供了多种方法来隔离一组CPU
+免受外部干扰。
 
-First, let's look at interference by other processes, threads, and tasks.
-The POSIX \co{sched_setaffinity()} system call may be used to move
-most tasks off of a given set of CPUs and to confine your tests to
-that same group.
-The Linux-specific user-level \co{taskset} command may be used for
-the same purpose, though both \co{sched_setaffinity()} and
-\co{taskset} require elevated permissions.
-Linux-specific control groups (cgroups) may be used for this same purpose.
-This approach can be quite effective at reducing interference, and
-is sufficient in many cases.
-However, it does have limitations, for example, it cannot do anything
-about the per-CPU kernel threads that are often used for housekeeping
-tasks.
+首先，让我们看看来自其他进程、线程和任务的干扰。
+POSIX \co{sched_setaffinity()}系统调用可用于
+将大多数任务从给定的一组CPU上移走，并将你的测试
+限制在同一组上。
+Linux特定的用户级\co{taskset}命令可用于
+相同的目的，尽管\co{sched_setaffinity()}和
+\co{taskset}都需要提升的权限。
+Linux特定的控制组（cgroups）可用于此相同目的。
+这种方法在减少干扰方面可以相当有效，
+在许多情况下已经足够。
+然而，它确实有局限性，例如，它无法对
+通常用于内务任务的每CPU内核线程做任何事情。
 
-One way to avoid interference from per-CPU kernel threads is to run
-your test at a high real-time priority, for example, by using
-the POSIX \co{sched_setscheduler()} system call.
-However, note that if you do this, you are implicitly taking on
-responsibility for avoiding infinite loops, because otherwise
-your test can prevent part of the kernel from functioning.
-This is an example of the Spiderman Principle:
-``With great power comes great responsibility.''
-And although the default real-time throttling settings often address
-such problems, they might do so by causing your real-time threads
-to miss their deadlines.
+避免来自每CPU内核线程干扰的一种方法是
+以高实时优先级运行你的测试，例如使用
+POSIX \co{sched_setscheduler()}系统调用。
+然而请注意，如果你这样做，你就隐式地承担了
+避免无限循环的责任，否则你的测试可能会阻止
+内核部分功能的运作。
+这是蜘蛛侠原则的一个例子：
+"能力越大，责任越大。"
+虽然默认的实时节流设置通常能解决这类问题，
+但它们可能会导致你的实时线程错过其截止时间。
 
-These approaches can greatly reduce, and perhaps even eliminate,
-interference from processes, threads, and tasks.
-However, it does nothing to prevent interference from device
-interrupts, at least in the absence of threaded interrupts.
-Linux allows some control of threaded interrupts via the
-\path{/proc/irq} directory, which contains numerical directories, one
-per interrupt vector.
-Each numerical directory contains \co{smp_affinity} and
-\co{smp_affinity_list}.
-Given sufficient permissions, you can write a value to these files
-to restrict interrupts to the specified set of CPUs.
-For example, either
-``\co{echo 3 > /proc/irq/23/smp_affinity}''
-or
-``\co{echo 0-1 > /proc/irq/23/smp_affinity_list}''
-would confine interrupts on vector~23 to CPUs~0 and~1,
-at least given sufficient privileges.
-You can use ``\co{cat /proc/interrupts}'' to obtain a list of the interrupt
-vectors on your system, how many are handled by each CPU, and what
-devices use each interrupt vector.
+这些方法可以大大减少，甚至可能完全消除
+来自进程、线程和任务的干扰。
+然而，它对来自设备中断的干扰无能为力，
+至少在没有线程化中断的情况下是这样。
+Linux允许通过\path{/proc/irq}目录对线程化中断
+进行一些控制，该目录包含数字目录，每个中断向量一个。
+每个数字目录包含\co{smp_affinity}和
+\co{smp_affinity_list}。
+在足够的权限下，你可以向这些文件写入值
+以将中断限制到指定的CPU集合。
+例如，
+"\co{echo 3 > /proc/irq/23/smp_affinity}"
+或
+"\co{echo 0-1 > /proc/irq/23/smp_affinity_list}"
+都可以将向量23上的中断限制到CPU~0和~1，
+至少在有足够权限的情况下。
+你可以使用"\co{cat /proc/interrupts}"来获得系统上
+中断向量的列表、每个CPU处理了多少以及
+哪些设备使用了每个中断向量。
 
-Running a similar command for all interrupt vectors on your system
-would confine interrupts to CPUs~0 and~1, leaving the remaining CPUs
-free of interference.
-Or mostly free of interference, anyway.
-It turns out that the scheduling-clock interrupt fires on each CPU
-that is running in user mode.\footnote{
-	Frederic Weisbecker leads up a \co{NO_HZ_FULL}
-	adaptive-ticks project
-	that allows scheduling-clock interrupts to be disabled
-	on CPUs that have only one runnable task.
-	As of 2021, this is largely complete.}
-In addition you must take care to ensure that the set of CPUs that you
-confine the interrupts to is capable of handling the load.
+对系统上的所有中断向量运行类似的命令
+将把中断限制在CPU~0和~1上，使其余CPU
+免受干扰。
+或者说大部分免受干扰。
+事实证明调度时钟中断会在每个运行在用户模式下的CPU上触发。\footnote{
+	Frederic Weisbecker领导了一个\co{NO_HZ_FULL}
+	自适应时钟项目，允许在只有一个可运行任务的CPU上
+	禁用调度时钟中断。
+	截至2021年，这在很大程度上已经完成。}
+此外，你必须注意确保你将中断限制到的CPU集合
+能够处理负载。
 
-But this only handles processes and interrupts running in the same
-operating-system instance as the test.
-Suppose that you are running the test in a guest OS that is itself
-running on a hypervisor, for example, Linux running KVM\@?
-Although you can in theory apply the same techniques at the hypervisor
-level that you can at the guest-OS level, it is quite common for
-hypervisor-level operations to be restricted to authorized personnel.
-In addition, none of these techniques work against firmware-level
-interference.
+但这只处理了与测试运行在同一操作系统实例中的
+进程和中断。
+假设你正在一个运行在虚拟机管理程序上的客户OS中
+运行测试，例如运行KVM的Linux？
+虽然理论上你可以在虚拟机管理程序级别应用
+与客户OS级别相同的技术，但虚拟机管理程序级别的操作
+通常被限制为授权人员。
+此外，这些技术都无法对抗固件级别的干扰。
 
 \QuickQuiz{
-	Wouldn't the techniques suggested to isolate the code under
-	test also affect that code's performance, particularly if
-	it is running within a larger application?
+	为隔离被测代码而建议的技术不会也影响到
+	该代码的性能吗，特别是如果它运行在
+	更大的应用程序中？
 }\QuickQuizAnswer{
-	Indeed it might, although in most microbenchmarking efforts
-	you would extract the code under test from the enclosing
-	application.
-	Nevertheless, if for some reason you must keep the code under
-	test within the application, you will very likely need to use
-	the techniques discussed in
-	\cref{sec:debugging:Detecting Interference}.
+	确实可能，尽管在大多数微基准测试工作中
+	你会将被测代码从封装的应用程序中提取出来。
+	然而，如果由于某种原因你必须将被测代码
+	保留在应用程序中，你很可能需要使用
+	\cref{sec:debugging:Detecting Interference}中
+	讨论的技术。
 }\QuickQuizEnd
 
-Of course, if it is in fact the interference that is producing the
-behavior of interest, you will instead need to promote interference,
-in which case being unable to prevent it is not a problem.
-But if you really do need interference-free measurements, then instead
-of preventing the interference, you might need to detect the interference
-as described in the next section.
+当然，如果实际上是干扰产生了你感兴趣的行为，
+你反而需要促进干扰，
+在这种情况下无法阻止它不是问题。
+但如果你确实需要无干扰的测量，那么与其
+阻止干扰，你可能需要检测干扰，
+如下一节所述。
 
-\subsection{Detecting Interference}
+\subsection{检测干扰}
 \label{sec:debugging:Detecting Interference}
 
-If you cannot prevent interference, perhaps you can detect it
-and reject results from any affected test runs.
+如果你无法阻止干扰，也许你可以检测它
+并拒绝受影响的测试运行的结果。
 \Cref{sec:debugging:Detecting Interference Via Measurement}
-describes methods of rejection involving additional measurements,
-while \cref{sec:debugging:Detecting Interference Via Statistics}
-describes statistics-based rejection.
+描述了涉及额外测量的拒绝方法，
+而\cref{sec:debugging:Detecting Interference Via Statistics}
+描述了基于统计的拒绝。
 
-\subsubsection{Detecting Interference Via Measurement}
+\subsubsection{通过测量检测干扰}
 \label{sec:debugging:Detecting Interference Via Measurement}
 
 %	Sources of interference include other applications, system
@@ -2579,13 +2194,12 @@ describes statistics-based rejection.
 %	(including system management interrupts, or SMIs),
 %	virtualization, memory errors, and much else besides.
 
-Many systems, including Linux, provide means for determining after the
-fact whether some forms of interference have occurred.
-For example, process-based interference results in context switches,
-which, on Linux-based systems, are visible in
-\path{/proc/<PID>/sched} via the \co{nr_switches} field.
-Similarly, interrupt-based interference can be detected via the
-\path{/proc/interrupts} file.
+许多系统，包括Linux，提供了在事后确定
+是否发生了某些形式干扰的方法。
+例如，基于进程的干扰会导致上下文切换，
+在基于Linux的系统上，这可以通过
+\path{/proc/<PID>/sched}中的\co{nr_switches}字段看到。
+类似地，基于中断的干扰可以通过\path{/proc/interrupts}文件检测。
 
 \begin{listing}
 \begin{fcvlabel}[ln:debugging:Using getrusage() to Detect Context Switches]
@@ -2613,163 +2227,146 @@ int runtest(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Using \tco{getrusage()} to Detect Context Switches}
+\caption{使用\tco{getrusage()}检测上下文切换}
 \label{lst:debugging:Using getrusage() to Detect Context Switches}
 \end{listing}
 
-Opening and reading files is not the way to low overhead, and it is
-possible to get the count of context switches for a given thread
-by using the \co{getrusage()} system call, as shown in
-\cref{lst:debugging:Using getrusage() to Detect Context Switches}.
-This same system call can be used to detect minor page faults (\co{ru_minflt})
-and major page faults (\co{ru_majflt}).
+打开和读取文件并不是低开销的方式，可以通过使用
+\co{getrusage()}系统调用来获取给定线程的上下文切换计数，如
+\cref{lst:debugging:Using getrusage() to Detect Context Switches}所示。
+同一系统调用也可用于检测次要页面错误(\co{ru_minflt})
+和主要页面错误(\co{ru_majflt})。
 
-Unfortunately, detecting memory errors and firmware interference is quite
-system-specific, as is the detection of interference due to virtualization.
-Although avoidance is better than detection, and detection is better than
-statistics, there are times when one must avail oneself of statistics,
-a topic addressed in the next section.
+不幸的是，检测内存错误和固件干扰是非常
+依赖于特定系统的，检测由虚拟化引起的干扰也是如此。
+虽然避免优于检测，检测优于统计，
+但有时候人们不得不借助统计方法，
+下一节将讨论这个主题。
 
-\subsubsection{Detecting Interference Via Statistics}
+\subsubsection{通过统计检测干扰}
 \label{sec:debugging:Detecting Interference Via Statistics}
 
-Any statistical analysis will be based on assumptions about the data,
-and performance microbenchmarks often support the following assumptions:
+任何统计分析都基于对数据的假设，
+性能微基准测试通常支持以下假设：
 
 \begin{enumerate}
-\item	Smaller measurements are more likely to be accurate than
-	larger measurements.
-\item	The measurement uncertainty of good data is known.
-\item	A reasonable fraction of the test runs will result in good data.
+\item	较小的测量值比较大的测量值更可能准确。
+\item	好数据的测量不确定性是已知的。
+\item	合理比例的测试运行将产生好数据。
 \end{enumerate}
 
-The fact that smaller measurements are more likely to be accurate than
-larger measurements suggests that sorting the measurements in increasing
-order is likely to be productive.\footnote{
-	To paraphrase the old saying, ``Sort first and ask questions later.''}
-The fact that the measurement uncertainty is known allows us to accept
-measurements within this uncertainty of each other:
-If the effects of interference are large compared to this uncertainty,
-this will ease rejection of bad data.
-Finally, the fact that some fraction (for example, one third) can be
-assumed to be good allows us to blindly accept the first portion of the
-sorted list, and this data can then be used to gain an estimate of the
-natural variation of the measured data, over and above the assumed
-measurement error.
+较小的测量值更可能准确这一事实表明，按递增顺序
+对测量值排序可能会很有成效。\footnote{
+	套用一句老话：``先排序，再提问。''}
+测量不确定性已知这一事实使我们可以接受
+彼此在此不确定性范围内的测量值：
+如果干扰的影响相对于此不确定性很大，
+这将便于拒绝坏数据。
+最后，某些比例（例如三分之一）可以
+被假定为好数据，这允许我们盲目接受
+排序列表的前面部分，然后可以使用这些数据来估计
+测量数据的自然变化，超出假定的测量误差。
 
-The approach is to take the specified number of leading elements from the
-beginning of the sorted list, and use these to estimate a typical
-inter-element delta, which in turn may be multiplied by the number of
-elements in the list to obtain an upper bound on permissible values.
-The algorithm then repeatedly considers the next element of the list.
-If it falls below the upper bound, and if the distance between
-the next element and the previous element is not too much greater than
-the average inter-element distance for the portion of the list accepted
-thus far, then the next element is accepted and the process repeats.
-Otherwise, the remainder of the list is rejected.
+该方法是从排序列表的开头取指定数量的前导元素，
+并使用这些元素来估计典型的元素间增量，
+然后将其乘以列表中的元素数量以获得允许值的上界。
+然后算法重复考虑列表的下一个元素。
+如果它低于上界，并且下一个元素与前一个元素之间的距离
+不比到目前为止已接受的列表部分的
+平均元素间距离大太多，
+则接受下一个元素并重复此过程。
+否则，列表的其余部分将被拒绝。
 
 \begin{listing}
 \input{CodeSamples/debugging/datablows@whole.fcv}
-\caption{Statistical Elimination of Interference}
+\caption{干扰的统计消除}
 \label{lst:debugging:Statistical Elimination of Interference}
 \end{listing}
 
 \Cref{lst:debugging:Statistical Elimination of Interference}
-shows a simple \co{sh}/\co{awk} script implementing this notion.
-Input consists of an x-value followed by an arbitrarily long list of y-values,
-and output consists of one line for each input line, with fields as follows:
+展示了实现此概念的一个简单\co{sh}/\co{awk}脚本。
+输入由一个x值后跟任意长度的y值列表组成，
+输出由每个输入行对应一行组成，字段如下：
 
 \begin{enumerate}
-\item	The x-value.
-\item	The average of the selected data.
-\item	The minimum of the selected data.
-\item	The maximum of the selected data.
-\item	The number of selected data items.
-\item	The number of input data items.
+\item	x值。
+\item	选定数据的平均值。
+\item	选定数据的最小值。
+\item	选定数据的最大值。
+\item	选定数据项的数量。
+\item	输入数据项的数量。
 \end{enumerate}
 
-This script takes three optional arguments as follows:
+该脚本接受三个可选参数，如下：
 
 \begin{description}
-\item	[\lopt{divisor}\nf{:}] Number of segments to divide the list
-	into, for example, a divisor of four means that the first quarter of
-	the data elements will be assumed to be good.
-	This defaults to three.
-\item	[\lopt{relerr}\nf{:}] Relative measurement error.
-	The script assumes that values that differ by less than this
-	error are for all intents and purposes equal.
-	This defaults to 0.01, which is equivalent to 1\pct.
-\item	[\lopt{trendbreak}\nf{:}] Ratio of inter-element spacing
-	constituting a break in the trend of the data.
-	For example, if the average spacing in the data accepted so far
-	is 1.5, then if the trend-break ratio is 2.0, then if the next
-	data value differs from the last one by more than 3.0, this
-	constitutes a break in the trend.
-	(Unless of course, the relative error is greater than 3.0, in
-	which case the ``break'' will be ignored.)
+\item	[\lopt{divisor}\nf{:}] 将列表分成的段数，
+	例如，除数为四意味着前四分之一的数据元素将被假定为好数据。
+	默认为三。
+\item	[\lopt{relerr}\nf{:}] 相对测量误差。
+	脚本假设差异小于此误差的值在所有实际意义上相等。
+	默认为0.01，相当于1\pct。
+\item	[\lopt{trendbreak}\nf{:}] 构成数据趋势中断的元素间距比率。
+	例如，如果到目前为止接受的数据中的平均间距为1.5，
+	趋势中断比率为2.0，那么如果下一个数据值与上一个
+	相差超过3.0，这就构成了趋势中断。
+	（当然，除非相对误差大于3.0，在这种情况下
+	"中断"将被忽略。）
 \end{description}
 
 \begin{fcvref}[ln:debugging:datablows:whole]
 \Clnrefrange{param:b}{param:e} of
 \cref{lst:debugging:Statistical Elimination of Interference}
-set the default values for the parameters, and
-\clnrefrange{parse:b}{parse:e} parse
-any command-line overriding of these parameters.
+设置参数的默认值，而
+\clnrefrange{parse:b}{parse:e}解析
+命令行中对这些参数的覆盖。
 \end{fcvref}
 \begin{fcvref}[ln:debugging:datablows:whole:awk]
-The \co{awk} invocation on \clnref{invoke} sets the values of the
-\co{divisor}, \co{relerr}, and \co{trendbreak} variables to their
-\co{sh} counterparts.
-In the usual \co{awk} manner,
-\clnrefrange{copy:b}{end} are executed on each input
-line.
-The loop spanning \clnref{copy:b,copy:e} copies
-the input y-values to the
-\co{d} array, which \clnref{asort} sorts into increasing order.
-\Clnref{comp_i} computes the number of trustworthy y-values
-by applying \co{divisor} and rounding up.
+\clnref{invoke}上的\co{awk}调用将\co{divisor}、\co{relerr}和\co{trendbreak}变量的值设置为
+它们的\co{sh}对应值。
+按照\co{awk}的通常方式，
+\clnrefrange{copy:b}{end}在每个输入行上执行。
+\clnref{copy:b,copy:e}跨越的循环将
+输入的y值复制到\co{d}数组中，\clnref{asort}将其按递增顺序排序。
+\Clnref{comp_i}通过应用\co{divisor}并向上取整来计算
+可信y值的数量。
 
-\Clnrefrange{delta}{comp_max:e} compute the \co{maxdelta}
-lower bound on the upper bound of y-values.
-To this end, \clnref{maxdelta} multiplies the difference in values over
-the trusted region of data by the \co{divisor}, which projects the
-difference in values across the trusted region across the entire
-set of y-values.
-However, this value might well be much smaller than the relative error,
-so \clnref{maxdelta1} computes the absolute error (\co{d[i] * relerr})
-and adds
-that to the difference \co{delta} across the trusted portion of the data.
-\Clnref{comp_max:b,comp_max:e} then compute the maximum of
-these two values.
+\Clnrefrange{delta}{comp_max:e}计算y值上界的\co{maxdelta}
+下界。
+为此，\clnref{maxdelta}将数据可信区域上的值差异
+乘以\co{divisor}，将可信区域上的值差异投射到
+整个y值集合上。
+然而，该值可能远小于相对误差，
+因此\clnref{maxdelta1}计算绝对误差(\co{d[i] * relerr})
+并将其加到数据可信部分的差异\co{delta}上。
+\Clnref{comp_max:b,comp_max:e}然后计算
+这两个值中的最大值。
 
-Each pass through the loop spanning \clnrefrange{add:b}{add:e}
-attempts to add another
-data value to the set of good data.
-\Clnrefrange{chk_engh}{break} compute the trend-break delta,
-with \clnref{chk_engh} disabling this
-limit if we don't yet have enough values to compute a trend,
-and with \clnref{mul_avr} multiplying \co{trendbreak} by the average
-difference between pairs of data values in the good set.
-If \clnref{chk_max} determines that the candidate data value would exceed the
-lower bound on the upper bound (\co{maxdelta}) \emph{and}
-that the difference between the candidate data value
-and its predecessor exceeds the trend-break difference (\co{maxdiff}),
-then \clnref{break} exits the loop:
-We have the full good set of data.
+\clnrefrange{add:b}{add:e}跨越的循环的每次迭代
+尝试向好数据集合中添加另一个数据值。
+\Clnrefrange{chk_engh}{break}计算趋势中断增量，
+其中\clnref{chk_engh}在我们还没有足够的值来计算趋势时
+禁用此限制，
+而\clnref{mul_avr}将\co{trendbreak}乘以
+好数据集合中数据值对之间的平均差异。
+如果\clnref{chk_max}确定候选数据值将超过
+上界的下界(\co{maxdelta})\emph{并且}
+候选数据值与其前驱之间的差异
+超过趋势中断差异(\co{maxdiff})，
+则\clnref{break}退出循环：
+我们已经获得了完整的好数据集合。
 
-\Clnrefrange{comp_stat:b}{comp_stat:e} then compute and print
-statistics.
+\Clnrefrange{comp_stat:b}{comp_stat:e}然后计算并打印统计信息。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	This approach is just plain weird!
-	Why not use means and standard deviations, like we were taught
-	in our statistics classes?
+	这种方法太奇怪了！
+	为什么不像我们在统计课上学的那样使用均值和标准差？
 }\QuickQuizAnswerB{
-	Because mean and standard deviation were not designed to do this job.
-	To see this, try applying mean and standard deviation to the
-	following data set, given a 1\pct\ relative error in measurement:
+	因为均值和标准差不是为做这项工作而设计的。
+	要理解这一点，试着将均值和标准差应用到
+	以下数据集，假设测量中有1\pct\ 的相对误差：
 
 	\begin{quote}
 		49,548.4 49,549.4 49,550.2 49,550.9 49,550.9 49,551.0
@@ -2778,144 +2375,127 @@ statistics.
 		53,706.3 54,084.5
 	\end{quote}
 
-	The problem is that mean and standard deviation do not rest on
-	any sort of measurement-error assumption, and they will therefore
-	see the difference between the values near 49,500 and those near
-	49,900 as being statistically significant, when in fact they are
-	well within the bounds of estimated measurement error.
+	问题在于均值和标准差不依赖于任何类型的
+	测量误差假设，因此它们会认为
+	接近49,500的值与接近49,900的值之间的差异
+	具有统计显著性，而实际上它们完全
+	在估计测量误差的范围内。
 
-	Of course, it is possible to create a script similar to
-	that in
-	\cref{lst:debugging:Statistical Elimination of Interference}
-	that uses standard deviation rather than absolute difference
-	to get a similar effect,
-	and this is left as an exercise for the interested reader.
-	Be careful to avoid divide-by-zero errors arising from strings
-	of identical data values!
+	当然，可以创建一个类似于
+	\cref{lst:debugging:Statistical Elimination of Interference}中
+	脚本的脚本，使用标准差而不是绝对差来
+	获得类似的效果，
+	这留给有兴趣的读者作为练习。
+	注意避免由相同数据值序列引起的除零错误！
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But what if all the y-values in the trusted group of data
-	are exactly zero?
-	Won't that cause the script to reject any non-zero value?
+	但如果可信数据组中的所有y值
+	恰好为零怎么办？
+	那不会导致脚本拒绝任何非零值吗？
 }\QuickQuizAnswerE{
-	Indeed it will!
-	But if your performance measurements often produce a value of
-	exactly zero, perhaps you need to take a closer look at your
-	performance-measurement code.
+	确实会！
+	但如果你的性能测量经常产生恰好为零的值，
+	也许你需要更仔细地看看你的
+	性能测量代码。
 
-	Note that many approaches based on mean and standard deviation
-	will have similar problems with this sort of dataset.
+	注意，许多基于均值和标准差的方法
+	对这类数据集也会有类似的问题。
 }\QuickQuizEndE
 }
 
-Although statistical interference detection can be quite useful, it should
-be used only as a last resort.
-Where feasible, it is far better to avoid interference in the first place
-(\cref{sec:debugging:Isolation}), or, failing that,
-detecting interference via measurement
-(\cref{sec:debugging:Detecting Interference Via Measurement}).
+虽然统计干扰检测可以非常有用，但它应该
+只作为最后的手段使用。
+在可行的情况下，最好首先避免干扰
+(\cref{sec:debugging:Isolation})，如果做不到，
+则通过测量检测干扰
+(\cref{sec:debugging:Detecting Interference Via Measurement})。
 
-Never forget that for any statistical method that you create, there is
-a dataset out there that will defeat it, thus making fools of both you
-and your method.
-Therefore, the more creative you are, the more careful you must be!
+永远不要忘记，对于你创建的任何统计方法，
+总有一个数据集会打败它，从而让你和你的方法都成为笑柄。
+因此，你越有创造力，就必须越谨慎！
 
-\section{Summary}
+\section{总结}
 \label{sec:debugging:Summary}
 %
 % \epigraph{To err is human---but it feels devine.}{\emph{Mae West}}
-\epigraph{To err is human!
-	  Stop being human!!!}{Ed Nofziger}
+\epigraph{犯错乃人之常情！
+	  停止做人吧！！！}{Ed Nofziger}
 
-Although validation never will be an exact science, much can be gained
-by taking an organized approach to it, as an organized approach will
-help you choose the right validation tools for your job, avoiding
-situations like the one fancifully depicted in
-\cref{fig:debugging:Choose Validation Methods Wisely}.
+虽然验证永远不会成为一门精确的科学，但采用有组织的方法
+可以获益良多，因为有组织的方法将帮助你为工作
+选择正确的验证工具，避免
+\cref{fig:debugging:Choose Validation Methods Wisely}中
+奇特描绘的那种情况。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/UseTheRightCannon}}
-\caption{Choose Validation Methods Wisely}
+\caption{明智地选择验证方法}
 \ContributedBy{fig:debugging:Choose Validation Methods Wisely}{Melissa Broussard}
 \end{figure}
 
-A key choice is that of statistics.
-Although the methods described in this chapter work very well most of
-the time, they do have their limitations, courtesy of the Halting
-Problem~\cite{AlanMTuring1937HaltingProblem,GeoffreyKPullum2000HaltingProblem}.
-Fortunately for us, there is a huge number of special cases in which
-we can not only work out whether a program will halt, but also
-estimate how long it will run before halting, as discussed in
-\cref{sec:debugging:Performance Estimation}.
-Furthermore, in cases where a given program might or might not work
-correctly, we can often establish estimates for what fraction of the
-time it will work correctly, as discussed in
-\cref{sec:debugging:Probability and Heisenbugs}.
+一个关键的选择是统计方法。
+虽然本章描述的方法在大多数时候都工作得很好，
+但它们确实有其局限性，这要归功于停机问题~\cite{AlanMTuring1937HaltingProblem,GeoffreyKPullum2000HaltingProblem}。
+幸运的是，有大量的特殊情况，
+我们不仅可以确定程序是否会停止，还可以
+估计它在停止前会运行多长时间，如
+\cref{sec:debugging:Performance Estimation}所讨论的。
+此外，在给定程序可能正确也可能不正确工作的情况下，
+我们通常可以估计它正确工作的时间比例，如
+\cref{sec:debugging:Probability and Heisenbugs}所讨论的。
 
-Nevertheless, unthinking reliance on these estimates is brave to the
-point of foolhardiness.
-After all, we are summarizing a huge mass of complexity in code and
-data structures down to a single solitary number.
-Even though we can get away with such bravery a surprisingly large
-fraction of the time, abstracting all that code and data away will
-occasionally cause severe problems.
+然而，不加思考地依赖这些估计是勇敢到愚蠢的地步。
+毕竟，我们正在将代码和数据结构中的大量复杂性
+总结为一个孤零零的数字。
+尽管我们在令人惊讶的很大比例的情况下可以逃脱这种勇敢，
+但将所有代码和数据抽象掉偶尔会导致严重问题。
 
-One possible problem is variability, where repeated runs give wildly
-different results.
-This problem is often addressed using standard deviation, however, using
-two numbers to summarize the behavior of a large and complex program is
-about as brave as using only one number.
-In computer programming, the surprising thing is that use of the
-mean or the mean and standard deviation are often sufficient.
-Nevertheless, there are no guarantees.
+一个可能的问题是变异性，即重复运行给出大相径庭的结果。
+这个问题通常使用标准差来解决，然而，
+用两个数字来总结一个大型复杂程序的行为
+和只用一个数字一样大胆。
+在计算机编程中，令人惊讶的是，使用
+均值或均值加标准差通常就足够了。
+然而，没有任何保证。
 
-One cause of variation is confounding factors.
-For example, the CPU time consumed by a linked-list search will depend
-on the length of the list.
-Averaging together runs with wildly different list lengths will
-probably not be useful, and adding a standard deviation to the mean
-will not be much better.
-The right thing to do would be control for list length, either by
-holding the length constant or to measure CPU time as a function of
-list length.
+变异的一个原因是混杂因素。
+例如，linked list搜索消耗的CPU时间取决于列表的长度。
+将列表长度大不相同的运行结果平均在一起
+可能没有用处，在均值上加标准差也好不了多少。
+正确的做法是控制列表长度，要么保持长度恒定，
+要么将CPU时间作为列表长度的函数来测量。
 
-Of course, this advice assumes that you are aware of the confounding
-factors, and Murphy says that you will not be.
-I have been involved in projects that had confounding factors as diverse
-as air conditioners (which drew considerable power at startup, thus
-causing the voltage supplied to the computer to momentarily drop too
-low, sometimes resulting in failure), cache state (resulting in odd
-variations in performance), I/O errors (including disk errors, packet
-loss, and duplicate Ethernet MAC addresses), and even porpoises (which
-could not resist playing with an array of transponders, which could be
-otherwise used for high-precision acoustic positioning and navigation).
-And this is but one reason why a good night's sleep is such an effective
-debugging tool.
+当然，这个建议假设你知道混杂因素是什么，
+而墨菲定律说你不会知道。
+我参与过的项目中遇到过各种各样的混杂因素，
+包括空调（启动时消耗大量电力，导致供给计算机的电压
+瞬间下降过低，有时导致故障）、cache状态（导致性能的
+奇怪变化）、I/O错误（包括磁盘错误、丢包
+和重复的以太网MAC地址），甚至海豚（它们
+忍不住去玩弄一组应答器，而这些应答器本可用于
+高精度声学定位和导航）。
+这只是一个充分的睡眠是如此有效的调试工具的原因之一。
 
-In short, validation always will require some measure of the behavior of
-the system.
-To be at all useful, this measure must be a severe summarization of the
-system, which in turn means that it can be misleading.
-So as the saying goes, ``Be careful.
-It is a real world out there.''
+简而言之，验证总是需要对系统行为进行某种度量。
+要有任何用处，这种度量必须是对系统的
+大幅度简化总结，这反过来意味着它可能具有误导性。
+所以正如那句话说的：``小心。
+外面是一个真实的世界。''
 
-But what if you are working on the Linux kernel, which as of 2017 was
-estimated to have more than 20 billion instances running throughout
-the world?
-In that case, a bug that occurs once every million years on a single system
-will be encountered more than 50 times per day across the installed base.
-A test with a 50\pct\ chance of encountering this bug in a one-hour run
-would need to increase that bug's probability of occurrence by more than
-ten orders of magnitude, which poses a severe challenge to
-today's testing methodologies.
-One important tool that can sometimes be applied with good effect to
-such situations is formal verification, the subject of the next chapter,
-and, more speculatively, \cref{sec:future:Formal Regression Testing?}.
+但如果你正在开发Linux内核，截至2017年估计
+全世界有超过200亿个实例在运行呢？
+在这种情况下，在单个系统上每百万年发生一次的bug
+在整个安装基础上每天将被遇到超过50次。
+一个在一小时运行中有50\pct\ 机会遇到此bug的测试
+需要将该bug的发生概率增加超过
+十个数量级，这对当今的测试方法论构成了严峻挑战。
+一个有时可以对这类情况产生良好效果的重要工具
+是形式化验证，这是下一章的主题，
+以及更具推测性的\cref{sec:future:Formal Regression Testing?}。
 
-The topic of choosing a validation plan, be it testing, formal
-verification, or both, is taken up by
-\cref{sec:formal:Choosing a Validation Plan}.
+选择验证计划的主题，无论是测试、形式化验证
+还是两者兼用，由\cref{sec:formal:Choosing a Validation Plan}来讨论。
 
 \QuickQuizAnswersChp{qqzdebugging}

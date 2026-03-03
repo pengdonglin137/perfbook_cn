@@ -2,40 +2,38 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Partitioning Exercises}
+\section{分区练习}
 \label{sec:SMPdesign:Partitioning Exercises}
 %
-\epigraph{Whenever a theory appears to you as the only possible one,
-	  take this as a sign that you have neither understood the theory
-	  nor the problem which it was intended to solve.}
+\epigraph{当一个理论在你看来是唯一可能的理论时，
+	  这表明你既没有理解这个理论，
+	  也没有理解它试图解决的问题。}
 	  {Karl Popper}
 
-Although partitioning is more widely understood than it was in the early
-2000s, its value is still underappreciated.
-\Cref{sec:SMPdesign:Dining Philosophers Problem}
-therefore takes more highly parallel look at the classic Dining
-Philosophers problem and
-\cref{sec:SMPdesign:Double-Ended Queue}
-revisits the double-ended queue.
+尽管分区技术比2000年代早期更广为人知，但其价值仍然被低估。
+因此，\Cref{sec:SMPdesign:Dining Philosophers Problem}
+以更高度并行的视角审视经典的哲学家就餐问题，
+而\cref{sec:SMPdesign:Double-Ended Queue}
+则重新审视双端队列。
 
-\subsection{Dining Philosophers Problem}
+\subsection{哲学家就餐问题}
 \label{sec:SMPdesign:Dining Philosophers Problem}
 
 \begin{figure}
 \centering
 \includegraphics[scale=.7]{SMPdesign/DiningPhilosopher5}
-\caption{Dining Philosophers Problem}
+\caption{哲学家就餐问题}
 \ContributedBy{fig:SMPdesign:Dining Philosophers Problem}{Kornilios Kourtis}
 \end{figure}
 
-\Cref{fig:SMPdesign:Dining Philosophers Problem} shows a diagram
-of the classic \IX{Dining Philosophers problem}~\cite{Dijkstra1971HOoSP}.
-This problem features five philosophers who do nothing but think and
-eat a ``very difficult kind of spaghetti'' which requires two forks
-to eat.\footnote{
-	But feel free to instead think in terms of chopsticks.}
-A given philosopher is permitted to use only the forks to his or her
-immediate right and left, but will not put a given fork down until sated.
+\Cref{fig:SMPdesign:Dining Philosophers Problem}展示了
+经典\IX{Dining Philosophers problem}的示意图~\cite{Dijkstra1971HOoSP}。
+这个问题描述的是五位哲学家，他们除了思考和吃饭什么都不做，
+而且吃的是一种"非常难对付的意大利面"，需要两把叉子才能
+吃。\footnote{
+	你也可以用筷子来类比思考这个问题。}
+每位哲学家只能使用紧邻自己左右两侧的叉子，
+而且在吃饱之前不会放下已经拿起的叉子。
 
 \begin{figure*}
 \centering
@@ -44,822 +42,695 @@ immediate right and left, but will not put a given fork down until sated.
 }{
 \resizebox{\onecolumntextwidth}{!}{\includegraphics{cartoons/Dining-philosophers}}
 }
-\caption{Partial Starvation Is Also Bad}
+\caption{部分饥饿同样糟糕}
 \ContributedBy{fig:cpu:Partial Starvation Is Also Bad}{Melissa Broussard}
 \end{figure*}
 
-The object is to construct an algorithm that, quite literally,
-prevents \IX{starvation}.
-One starvation scenario would be if all of the philosophers picked up
-their leftmost forks simultaneously.
-Because none of them will put down their fork until after they finished
-eating, and because none of them may pick up their second fork until at
-least one of them has finished eating, they all starve.
-Please note that it is not sufficient to allow at least one philosopher
-to eat.
-As \cref{fig:cpu:Partial Starvation Is Also Bad}
-shows, starvation of even a few of the philosophers is to be avoided.
+目标是构造一个算法，从字面意义上防止\IX{starvation}（饥饿）。
+一种饥饿场景是所有哲学家同时拿起了左手边的叉子。
+因为在吃完之前没有人会放下自己的叉子，而且在至少有一人吃完之前
+没有人能拿起第二把叉子，所以他们全都会饿死。
+请注意，仅让至少一位哲学家能吃到东西是不够的。
+如\cref{fig:cpu:Partial Starvation Is Also Bad}所示，
+即使只有少数哲学家挨饿也是应当避免的。
 
 \begin{figure}
 \centering
 \includegraphics[scale=.7]{SMPdesign/DiningPhilosopher5TB}
-\caption{Dining Philosophers Problem, Textbook Solution}
+\caption{哲学家就餐问题，教科书解法}
 \ContributedBy{fig:SMPdesign:Dining Philosophers Problem; Textbook Solution}{Kornilios Kourtis}
 \end{figure}
 
-\pplsur{Edsger W.}{Dijkstra}'s solution used a global semaphore,
-which works fine assuming
-negligible communications delays, an assumption that became invalid
-in the late 1980s or early 1990s.\footnote{
-	It is all too easy to denigrate Dijkstra from the viewpoint
-	of the year 2021, more than 50 years after the fact.
-	If you still feel the need to denigrate Dijkstra, my advice
-	is to publish something, wait 50 years, and then see
-	how well \emph{your} ideas stood the test of time.}
-More recent solutions number the forks as shown in
-\cref{fig:SMPdesign:Dining Philosophers Problem; Textbook Solution}.
-Each philosopher picks up the lowest-numbered fork next to his or her
-plate, then picks up the other fork.
-The philosopher sitting in the uppermost position in the diagram thus
-picks up the leftmost fork first, then the rightmost fork, while the
-rest of the philosophers instead pick up their rightmost fork first.
-Because two of the philosophers will attempt to pick up fork~1 first,
-and because only one of those two philosophers will succeed,
-there will be five forks available to four philosophers.
-At least one of these four will have two forks, and will thus be able
-to eat.
+\pplsur{Edsger W.}{Dijkstra}的解法使用了一个全局信号量，
+在假设通信延迟可以忽略不计的情况下运作良好，
+但这一假设在1980年代末或1990年代初就已失效。\footnote{
+	站在2021年的角度来贬低Dijkstra，也就是事后50多年来看，
+	是非常容易的。
+	如果你仍然觉得有必要贬低Dijkstra，我的建议是先发表点什么，
+	等50年，然后看看\emph{你的}想法能否经受住时间的考验。}
+更近期的解法对叉子进行编号，如
+\cref{fig:SMPdesign:Dining Philosophers Problem; Textbook Solution}所示。
+每位哲学家先拿起自己盘子旁边编号较小的叉子，然后再拿另一把。
+因此，图中最上方位置的哲学家先拿左手边的叉子，再拿右手边的叉子，
+而其余哲学家则先拿右手边的叉子。
+由于会有两位哲学家试图先拿起叉子~1，而且只有一位能成功，
+所以四位哲学家将有五把叉子可用。
+这四位中至少有一位将拥有两把叉子，从而能够进餐。
 
-This general technique of numbering resources and acquiring them in
-numerical order is heavily used as a deadlock-prevention technique.
-However, it is easy to imagine a sequence of events that will result
-in only one philosopher eating at a time even though all are hungry:
+这种对资源编号并按编号顺序获取的通用技术被广泛用作
+死锁预防技术。
+然而，很容易设想出一种事件序列，使得即使所有人都饿了，
+每次也只有一位哲学家在进餐：
 
 \begin{enumerate}
-    \item P2 picks up fork~1, preventing P1 from taking a fork.
-    \item P3 picks up fork~2.
-    \item P4 picks up fork~3.
-    \item P5 picks up fork~4.
-    \item P5 picks up fork~5 and eats.
-    \item P5 puts down forks~4 and 5.
-    \item P4 picks up fork~4 and eats.
+    \item P2拿起叉子~1，阻止了P1拿到叉子。
+    \item P3拿起叉子~2。
+    \item P4拿起叉子~3。
+    \item P5拿起叉子~4。
+    \item P5拿起叉子~5并进餐。
+    \item P5放下叉子~4和5。
+    \item P4拿起叉子~4并进餐。
 \end{enumerate}
 
-In short, this algorithm can result in only one philosopher eating at
-a given time, even when all five philosophers are hungry,
-despite the fact that there are more than enough forks for two
-philosophers to eat concurrently.
-It should be possible to do better than this!
+简而言之，即使有足够的叉子让两位哲学家同时进餐，
+这个算法也可能导致在所有五位哲学家都饿的情况下，
+在任何给定时刻只有一位哲学家在进餐。
+我们应该能做得更好！
 
 \begin{figure}
 \centering
 \includegraphics[scale=.7]{SMPdesign/DiningPhilosopher4part-b}
-\caption{Dining Philosophers Problem, Partitioned}
+\caption{哲学家就餐问题，分区方案}
 \ContributedBy{fig:SMPdesign:Dining Philosophers Problem; Partitioned}{Kornilios Kourtis}
 \end{figure}
 
-One approach is shown in
-\cref{fig:SMPdesign:Dining Philosophers Problem; Partitioned},
-which includes four philosophers rather than five to better illustrate the
-partition technique.
-Here the upper and rightmost philosophers share a pair of forks,
-while the lower and leftmost philosophers share another pair of forks.
-If all philosophers are simultaneously hungry, at least two will
-always be able to eat concurrently.
-In addition, as shown in the figure, the forks can now be bundled
-so that the pair are picked up and put down simultaneously, simplifying
-the acquisition and release algorithms.
+一种方法如\cref{fig:SMPdesign:Dining Philosophers Problem; Partitioned}所示，
+其中包含四位而非五位哲学家，以更好地说明分区技术。
+这里上方和右方的哲学家共享一对叉子，
+而下方和左方的哲学家共享另一对叉子。
+如果所有哲学家同时饥饿，至少有两位总是能同时进餐。
+此外，如图所示，叉子现在可以捆绑在一起，
+一对同时拿起和放下，从而简化了获取和释放算法。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Is there a better solution to the Dining
-	Philosophers Problem?
+	哲学家就餐问题有更好的解法吗？
 }\QuickQuizAnswerB{
-	One such improved solution is shown in
-	\cref{fig:SMPdesign:Dining Philosophers Problem; Fully Partitioned},
-	where the philosophers are simply provided with an additional
-	five forks.
-	All five philosophers may now eat simultaneously, and there
-	is never any need for philosophers to wait on one another.
-	In addition, this approach offers greatly improved disease control.
+	一种改进的解法如
+	\cref{fig:SMPdesign:Dining Philosophers Problem; Fully Partitioned}所示，
+	即简单地为哲学家们额外提供五把叉子。
+	现在五位哲学家可以同时进餐，
+	而且永远不需要互相等待。
+	此外，这种方法还大大改善了卫生状况。
 
 \begin{figure}
 \centering
 \includegraphics[scale=.7]{SMPdesign/DiningPhilosopher5PEM}
-\caption{Dining Philosophers Problem, Fully Partitioned}
+\caption{哲学家就餐问题，完全分区}
 \QContributedBy{fig:SMPdesign:Dining Philosophers Problem; Fully Partitioned}{Kornilios Kourtis}
 \end{figure}
 
-	This solution might seem like cheating to some, but such
-	``cheating'' is key to finding good solutions to many
-	concurrency problems, as any hungry philosopher would agree.
+	这种解法在某些人看来可能像是作弊，但这种
+	"作弊"正是找到许多并发问题优秀解法的关键，
+	任何饥饿的哲学家都会同意这一点。
 
-	And this is one solution to the Dining Philosophers
-	concurrent-consumption problem called out on
-	\cpageref{sec:SMPdesign:Problems Dining Philosophers}.
+	这是\cpageref{sec:SMPdesign:Problems Dining Philosophers}
+	提出的哲学家就餐并发进食问题的一个解法。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	How would you valididate an algorithm alleged to solve the Dining
-	Philosophers Problem?
+	你会如何验证一个声称能解决哲学家就餐问题的算法？
 }\QuickQuizAnswerE{
-	Much depends on the details of the algorithm, but here are a
-	couple of places to start.
+	这很大程度上取决于算法的细节，但以下是几个着手点。
 
-	First, for algorithms in which picking up left-hand and right-hand
-	forks are separate operations, start with all forks on the table.
-	Then have all philosophers attempt to pick up their first fork.
-	Once all philosophers either have their first fork or are waiting
-	for someone to put down their first fork, have each non-waiting
-	philosopher pick up their second fork.
-	At this point in any starvation-free solution, at least one
-	philosopher will be eating.
-	If there were any waiting philosophers, repeat this test,
-	preferably imposing random variations in timing.
+	首先，对于拿起左手和右手叉子是分开操作的算法，
+	从所有叉子都在桌上开始。
+	然后让所有哲学家尝试拿起第一把叉子。
+	一旦所有哲学家要么拿到了第一把叉子，要么在等待别人放下第一把叉子，
+	就让每位未等待的哲学家拿起第二把叉子。
+	在任何无饥饿的解法中，此时至少有一位哲学家在进餐。
+	如果有等待中的哲学家，重复此测试，
+	最好在时序上加入随机变化。
 
-	Second, create a stress test in which philosphers start and
-	stop eating at random times.
-	Generate starvation and fairness conditions and verify that
-	these conditions are met.
-	Here are a couple of example starvation and fairness conditions:
+	其次，创建一个压力测试，让哲学家在随机时间开始和停止进餐。
+	生成饥饿和公平性条件并验证这些条件是否满足。
+	以下是几个饥饿和公平性条件的示例：
 
 	\begin{enumerate}
-	\item	If all other philosophers have stopped eating $N$ times
-		since a given philosopher attempted to pick up a given
-		fork, that philosopher should have succeeded in picking
-		up that fork.
-		For high-quality solutions using high-quality locking
-		primitives (or high-quality atomic operations), $N=1$
-		is doable.
-	\item	Given an upper bound $T$ on the time any philosopher holds
-		onto both forks before putting them down, the maximum
-		waiting time for any philosopher should be bounded by
-		$NT$ for some $N$ that is not hugely larger than the
-		number of philosophers.
-	\item	Generate some statistic representing the time from
-		when philosophers attempt to pick up their first fork
-		to the time when they start eating.
-		The smaller this statistic, the better the solution.
-		Mean, median, and maximum are all useful statistics,
-		but examining the full distribution can also be
-		enlightening.
+	\item	如果自某位哲学家尝试拿起某把叉子以来，
+		其他所有哲学家都已停止进餐$N$次，
+		则该哲学家应该已经成功拿起了那把叉子。
+		对于使用高质量锁原语（或高质量原子操作）
+		的高质量解法，$N=1$是可行的。
+	\item	给定任何哲学家持有两把叉子到放下之间时间的上界$T$，
+		任何哲学家的最大等待时间应该由$NT$限定，
+		其中$N$不应比哲学家的数量大太多。
+	\item	生成某种统计量，表示从哲学家尝试拿起第一把叉子
+		到开始进餐之间的时间。
+		该统计量越小，解法越好。
+		均值、中位数和最大值都是有用的统计量，
+		但检查完整的分布也很有启发性。
 	\end{enumerate}
 
-	Readers are encouraged to actually try testing any of the
-	solutions presented in this book, and especially testing solutions
-	of their own devising.
+	鼓励读者实际测试本书中介绍的任何解法，
+	特别是测试自己设计的解法。
 }\QuickQuizEndE
 }
 
-This is an example of ``horizontal parallelism''~\cite{Inman85}
-or ``data parallelism'',
-so named because there is no dependency among the pairs of philosophers.
-In a horizontally parallel data-processing system, a given item of data
-would be processed by only one of a replicated set of software
-components.
+这是"水平并行"~\cite{Inman85}
+或"data parallelism"的一个例子，
+之所以这样命名，是因为各对哲学家之间没有依赖关系。
+在水平并行的数据处理系统中，给定的数据项
+只会被一组复制的软件组件中的一个所处理。
 
 \QuickQuiz{
-	And in just what sense can this ``horizontal parallelism'' be
-	said to be ``horizontal''?
+	这种"水平并行"在什么意义上可以说是"水平"的？
 }\QuickQuizAnswer{
 	Jack Inman~\cite{Inman85}
-	was working with protocol stacks, which are normally
-	depicted vertically, with the application on top and the
-	hardware interconnect on the bottom.
-	Data flows up and down this stack.
-	``Horizontal parallelism'' processes packets from different network
-	connections in parallel, while ``vertical parallelism''
-	handles different protocol-processing steps for a given
-	packet in parallel.
+	当时在处理协议栈，协议栈通常被垂直描绘，
+	应用程序在顶部，硬件互连在底部。
+	数据在这个栈中上下流动。
+	"水平并行"并行处理来自不同网络连接的数据包，
+	而"垂直并行"则并行处理给定数据包的不同协议处理步骤。
 
-	``Vertical parallelism'' is also called ``pipelining''.
+	"垂直并行"也称为"pipelining"。
 }\QuickQuizEnd
 
-\subsection{Double-Ended Queue}
+\subsection{双端队列}
 \label{sec:SMPdesign:Double-Ended Queue}
 
-A double-ended queue is a data structure containing a list of elements
-that may be inserted or removed from either end~\cite{Knuth73}.
-It has been claimed that a lock-based implementation permitting
-concurrent operations on both ends of the double-ended queue is
-difficult~\cite{DanGrossman2007TMGCAnalogy}.
-This section shows how a partitioning design strategy can result
-in a reasonably simple implementation, looking at three
-general approaches in the following sections.
-But first, how should we validate a concurrent double-ended queue?
+双端队列是一种数据结构，包含一个元素列表，
+可以从任一端插入或移除元素~\cite{Knuth73}。
+有人声称，允许在双端队列两端并发操作的基于锁的实现
+是困难的~\cite{DanGrossman2007TMGCAnalogy}。
+本节展示了分区设计策略如何产生
+一个相当简单的实现，在以下小节中考察三种
+通用方法。
+但首先，我们应该如何验证一个并发双端队列？
 
-\subsubsection{Double-Ended Queue Validation}
+\subsubsection{双端队列验证}
 \label{sec:SMPdesign:Double-Ended Queue Validation}
 
-A good place to start is with invariants.
-For example, if elements are pushed onto one end of a double-ended
-queue and popped off of the other, the order of those elements must
-be preserved.
-Similarly, if elements are pushed onto one end of the queue and popped
-off of that same end, the order of those elements must be reversed.
-Any element popped from the queue must have been most recently pushed
-onto that queue, and if the queue is emptied, all elements pushed onto
-it must have already been popped from it.
+一个好的起点是不变量。
+例如，如果元素从双端队列的一端推入而从另一端弹出，
+这些元素的顺序必须保持不变。
+类似地，如果元素从队列的一端推入又从同一端弹出，
+这些元素的顺序必须反转。
+从队列中弹出的任何元素都必须是最近推入该队列的，
+而且如果队列被清空，所有推入的元素都必须已经被弹出。
 
-The beginnings of a test suite for concurrent double-ended queues
-(``\path{deqtorture.h}'') provides the following checks:
+并发双端队列的测试套件（"\path{deqtorture.h}"）
+起步阶段提供以下检查：
 
 \begin{enumerate}
-\item	Element-ordering checks provided by \co{CHECK_SEQUENCE_PAIR()}.
-\item	Checks that elements popped were most recently pushed, provided
-	by \co{melee()}.
-\item	Checks that elements pushed are popped before the queue is
-	emptied, also provided by \co{melee()}.
+\item	由\co{CHECK_SEQUENCE_PAIR()}提供的元素顺序检查。
+\item	由\co{melee()}提供的检查，验证弹出的元素是最近推入的。
+\item	同样由\co{melee()}提供的检查，验证推入的元素在队列清空前已被弹出。
 \end{enumerate}
 
-This suite includes both sequential and concurrent tests.
-Although this suite is good and sufficient for textbook code, you
-should test considerably more thoroughly for code intended for
-production use.
-\Cref{chp:Validation,chp:Formal Verification} cover a large array
-of validation tools and techniques.
+该套件包含顺序测试和并发测试。
+虽然该套件对于教科书代码来说是好且足够的，
+但对于用于生产的代码，你应该进行更加彻底的测试。
+\Cref{chp:Validation,chp:Formal Verification}涵盖了大量的
+验证工具和技术。
 
-But with a prototype test suite in place, we are ready to look at the
-double-ended-queue algorithms in the next sections.
+有了原型测试套件，我们就可以在下面的小节中
+考察双端队列算法了。
 
-\subsubsection{Left- and Right-Hand Locks}
+\subsubsection{左右手锁}
 \label{sec:SMPdesign:Left- and Right-Hand Locks}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{SMPdesign/lockdeq}}
-\caption{Double-Ended Queue With Left- and Right-Hand Locks}
+\caption{带左右手锁的双端队列}
 \label{fig:SMPdesign:Double-Ended Queue With Left- and Right-Hand Locks}
 \end{figure}
 
-One seemingly straightforward approach would be to use a doubly
-linked list with a left-hand lock
-for left-hand-end enqueue and dequeue operations along with a right-hand
-lock for right-hand-end operations, as shown in
-\cref{fig:SMPdesign:Double-Ended Queue With Left- and Right-Hand Locks}.
-However, the problem with this approach is that the two locks'
-domains must overlap when there are fewer than four elements on the
-list.
-This overlap is due to the fact that removing any given element affects
-not only that element, but also its left- and right-hand neighbors.
-These domains are indicated by color in the figure, with blue
-with downward stripes indicating
-the domain of the left-hand lock, red with upward stripes
-indicating the domain of the right-hand
-lock, and purple (with no stripes) indicating overlapping domains.
-Although it is possible to create an algorithm that works this way,
-perhaps using a dummy element similar to the two-lock queue
-presented by Michael and Scott~\cite{MichaelScott96},
-the fact that it has no fewer than five special cases should raise
-a big red flag, especially given that concurrent activity at the other
-end of the list can shift the queue from one special case to another
-at any time.
+一种看似直接的方法是使用双向链表，
+配备一个左手锁用于左端的入队和出队操作，
+以及一个右手锁用于右端操作，
+如\cref{fig:SMPdesign:Double-Ended Queue With Left- and Right-Hand Locks}所示。
+然而，这种方法的问题在于，当列表中少于四个元素时，
+两个锁的域必须重叠。
+这种重叠是因为移除任何给定元素不仅影响该元素本身，
+还影响其左右邻居。
+这些域在图中用颜色表示，蓝色带向下条纹表示
+左手锁的域，红色带向上条纹表示右手锁的域，
+紫色（无条纹）表示重叠域。
+虽然可以创建一个以这种方式工作的算法，
+也许使用类似于Michael和Scott提出的双锁队列的虚拟元素~\cite{MichaelScott96}，
+但它至少有五种特殊情况这一事实应该引起高度警惕，
+特别是考虑到列表另一端的并发活动可以随时
+将队列从一种特殊情况转换到另一种。
 
-It is far better to consider other designs.
+最好考虑其他设计。
 
-\subsubsection{Compound Double-Ended Queue}
+\subsubsection{复合双端队列}
 \label{sec:SMPdesign:Compound Double-Ended Queue}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{SMPdesign/lockdeqpair}}
-\caption{Compound Double-Ended Queue}
+\caption{复合双端队列}
 \label{fig:SMPdesign:Compound Double-Ended Queue}
 \end{figure}
 
-One way of forcing non-overlapping lock domains is shown in
-\cref{fig:SMPdesign:Compound Double-Ended Queue}.
-Two separate double-ended queues are run in tandem, each protected by
-its own lock.
-This means that elements must occasionally be shuttled from one of
-the double-ended queues to the other, in which case both locks must
-be held.
-A simple lock hierarchy may be used to avoid \IX{deadlock}, for example,
-always acquiring the left-hand lock before acquiring the right-hand lock.
-This will be much simpler than applying two locks to the same
-double-ended queue, as we can unconditionally left-enqueue elements
-to the left-hand queue and right-enqueue elements to the right-hand
-queue.
-The main complication arises when dequeuing from an empty queue, in
-which case it is necessary to:
+\cref{fig:SMPdesign:Compound Double-Ended Queue}展示了
+一种强制锁域不重叠的方法。
+两个独立的双端队列串联运行，每个都由自己的锁保护。
+这意味着元素有时必须在两个双端队列之间转移，
+这种情况下必须同时持有两个锁。
+可以使用简单的锁层次来避免\IX{deadlock}，例如，
+始终在获取右手锁之前先获取左手锁。
+这将比对同一个双端队列应用两个锁简单得多，
+因为我们可以无条件地将元素左入队到左手队列，
+将元素右入队到右手队列。
+主要的复杂性出现在从空队列出队时，
+这种情况下需要：
 
 \begin{enumerate}
-\item	If holding the right-hand lock, release it and acquire the
-	left-hand lock.
-\item	Acquire the right-hand lock.
-\item	Rebalance the elements across the two queues.
-\item	Remove the required element if there is one.
-\item	Release both locks.
+\item	如果持有右手锁，释放它并获取左手锁。
+\item	获取右手锁。
+\item	在两个队列之间重新平衡元素。
+\item	如果有元素，则移除所需的元素。
+\item	释放两个锁。
 \end{enumerate}
 
 \QuickQuiz{
-	In this compound double-ended queue implementation, what should
-	be done if the queue has become non-empty while releasing
-	and reacquiring the lock?
+	在这个复合双端队列实现中，如果在释放
+	并重新获取锁的过程中队列变为非空，应该怎么办？
 }\QuickQuizAnswer{
-	In this case, simply dequeue an item from the non-empty
-	queue, release both locks, and return.
+	在这种情况下，只需从非空队列出队一个元素，
+	释放两个锁，然后返回。
 }\QuickQuizEnd
 
-The resulting code (\path{locktdeq.c}) is quite straightforward.
-The rebalancing operation might well shuttle a given element back
-and forth between the two queues, wasting time and possibly requiring
-workload-dependent heuristics to obtain optimal performance.
-Although this might well be the best approach in some cases, it is
-interesting to try for an algorithm with greater determinism.
+生成的代码（\path{locktdeq.c}）相当直观。
+重新平衡操作可能会使给定元素在两个队列之间来回转移，
+浪费时间，可能需要依赖工作负载的启发式方法来获得最佳性能。
+虽然这在某些情况下可能是最好的方法，
+但尝试一种具有更高确定性的算法也很有趣。
 
-\subsubsection{Hashed Double-Ended Queue}
+\subsubsection{哈希双端队列}
 \label{sec:SMPdesign:Hashed Double-Ended Queue}
 
-One of the simplest and most effective ways to deterministically
-partition a data structure is to hash it.
-It is possible to trivially hash a double-ended queue by assigning
-each element a sequence number based on its position in the list,
-so that the first element left-enqueued into an empty queue is numbered
-zero and the first element right-enqueued into an empty queue is numbered
-one.
-A series of elements left-enqueued into an otherwise-idle queue would
-be assigned decreasing numbers ($-1$, $-2$, $-3$, \ldots), while a series of
-elements right-enqueued into an otherwise-idle queue would be assigned
-increasing numbers (2, 3, 4, \ldots).
-A key point is that it is not necessary to actually represent a given
-element's number, as this number will be implied by its position in
-the queue.
+确定性地分区数据结构的最简单和最有效的方法之一是对其进行哈希。
+可以通过根据元素在列表中的位置为其分配序列号来简单地对双端队列进行哈希，
+使得第一个左入队到空队列的元素编号为零，
+第一个右入队到空队列的元素编号为一。
+一系列左入队到原本空闲队列的元素将被分配递减的编号（$-1$, $-2$, $-3$, \ldots），
+而一系列右入队到原本空闲队列的元素将被分配递增的编号（2, 3, 4, \ldots）。
+关键点是实际上不需要表示给定元素的编号，
+因为这个编号将由其在队列中的位置隐含。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{SMPdesign/lockdeqhash}}
-\caption{Hashed Double-Ended Queue}
+\caption{哈希双端队列}
 \label{fig:SMPdesign:Hashed Double-Ended Queue}
 \end{figure}
 
-Given this approach, we assign one lock to guard the left-hand index,
-one to guard the right-hand index, and one lock for each hash chain.
-\Cref{fig:SMPdesign:Hashed Double-Ended Queue} shows the resulting
-data structure given four hash chains.
-Note that the lock domains do not overlap, and that deadlock is avoided
-by acquiring the index locks before the chain locks, and by never
-acquiring more than one lock of a given type (index or chain) at a time.
+采用这种方法，我们分配一个锁来保护左手索引，
+一个锁来保护右手索引，以及每个哈希链一个锁。
+\Cref{fig:SMPdesign:Hashed Double-Ended Queue}展示了
+给定四个哈希链的结果数据结构。
+注意锁域不重叠，并且通过在链锁之前获取索引锁，
+以及永远不同时获取多个给定类型（索引或链）的锁，
+来避免死锁。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{SMPdesign/lockdeqhash1R}}
-\caption{Hashed Double-Ended Queue After Insertions}
+\caption{插入后的哈希双端队列}
 \label{fig:SMPdesign:Hashed Double-Ended Queue After Insertions}
 \end{figure}
 
-Each hash chain is itself a double-ended queue, and in this example,
-each holds every fourth element.
-The uppermost portion of
-\cref{fig:SMPdesign:Hashed Double-Ended Queue After Insertions}
-shows the state after a single element (``R$_1$'') has been
-right-enqueued, with the right-hand index having been incremented to
-reference hash chain~2.
-The middle portion of this same figure shows the state after
-three more elements have been right-enqueued.
-As you can see, the indexes are back to their initial states
-(see \cref{fig:SMPdesign:Hashed Double-Ended Queue}), however,
-each hash chain is now non-empty.
-The lower portion of this figure shows the state after three additional
-elements have been left-enqueued and an additional element has been
-right-enqueued.
+每个哈希链本身就是一个双端队列，在这个例子中，
+每个持有每四个元素。
+\Cref{fig:SMPdesign:Hashed Double-Ended Queue After Insertions}
+的最上部分显示了单个元素（"R$_1$"）被右入队后的状态，
+右手索引已递增以引用哈希链~2。
+同一图的中间部分显示了再右入队三个元素后的状态。
+如你所见，索引回到了初始状态
+（见\cref{fig:SMPdesign:Hashed Double-Ended Queue}），
+然而，每个哈希链现在都非空。
+该图的下部分显示了三个额外元素被左入队
+以及一个额外元素被右入队后的状态。
 
-From the last state shown in
-\cref{fig:SMPdesign:Hashed Double-Ended Queue After Insertions},
-a left-dequeue operation would return element ``L$_{-2}$'' and leave
-the left-hand index referencing hash chain~2, which would then
-contain only a single element (``R$_2$'').
-In this state, a left-enqueue running concurrently with a right-enqueue
-would result in \IX{lock contention}, but the probability of such contention
-can be reduced to arbitrarily low levels by using a larger hash table.
+从\cref{fig:SMPdesign:Hashed Double-Ended Queue After Insertions}
+显示的最后状态开始，
+左出队操作将返回元素"L$_{-2}$"并使
+左手索引引用哈希链~2，该链随后
+将只包含一个元素（"R$_2$"）。
+在这种状态下，左入队与右入队并发运行
+将导致\IX{lock contention}，但可以通过使用更大的哈希表
+将这种竞争的概率降低到任意低的水平。
 
 \begin{figure}
 \centering
 \resizebox{1.5in}{!}{\includegraphics{SMPdesign/lockdeqhashlots}}
-\caption{Hashed Double-Ended Queue With 16 Elements}
+\caption{包含16个元素的哈希双端队列}
 \label{fig:SMPdesign:Hashed Double-Ended Queue With 16 Elements}
 \end{figure}
 
 \Cref{fig:SMPdesign:Hashed Double-Ended Queue With 16 Elements}
-shows how 16 elements would be organized in a four-hash-bucket
-parallel double-ended queue.
-Each underlying single-lock double-ended queue holds a one-quarter
-slice of the full parallel double-ended queue.
+展示了16个元素如何在四个哈希桶的
+并行双端队列中组织。
+每个底层的单锁双端队列持有完整并行双端队列的
+四分之一切片。
 
 \begin{listing}
 \input{CodeSamples/SMPdesign/lockhdeq@struct_pdeq.fcv}
-\caption{Lock-Based Parallel Double-Ended Queue Data Structure}
+\caption{基于锁的并行双端队列数据结构}
 \label{lst:SMPdesign:Lock-Based Parallel Double-Ended Queue Data Structure}
 \end{listing}
 
 \Cref{lst:SMPdesign:Lock-Based Parallel Double-Ended Queue Data Structure}
-shows the corresponding C-language data structure, assuming an
-existing \co{struct deq} that provides a trivially locked
-double-ended-queue implementation.
+展示了对应的C语言数据结构，假设已存在一个提供简单加锁
+双端队列实现的\co{struct deq}。
 \begin{fcvref}[ln:SMPdesign:lockhdeq:struct_pdeq]
-This data structure contains the left-hand lock on \clnref{llock},
-the left-hand index on \clnref{lidx}, the right-hand lock on \clnref{rlock}
-(which is cache-aligned in the actual implementation),
-the right-hand index on \clnref{ridx}, and, finally, the hashed array
-of simple lock-based double-ended queues on \clnref{bkt}.
-A high-performance implementation would of course use padding or special
-alignment directives to avoid \IX{false sharing}.
+该数据结构包含\clnref{llock}上的左手锁，
+\clnref{lidx}上的左手索引，\clnref{rlock}上的右手锁
+（在实际实现中是cache对齐的），
+\clnref{ridx}上的右手索引，以及最后是\clnref{bkt}上的
+简单基于锁的双端队列哈希数组。
+高性能实现当然会使用填充或特殊的
+对齐指令来避免\IX{false sharing}。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/SMPdesign/lockhdeq@pop_push.fcv}
-\caption{Lock-Based Parallel Double-Ended Queue Implementation}
+\caption{基于锁的并行双端队列实现}
 \label{lst:SMPdesign:Lock-Based Parallel Double-Ended Queue Implementation}
 \end{listing}
 
 \Cref{lst:SMPdesign:Lock-Based Parallel Double-Ended Queue Implementation}
-(\path{lockhdeq.c})
-shows the implementation of the enqueue and dequeue functions.\footnote{
-	One could easily create a polymorphic implementation in any
-	number of languages, but doing so is left as an exercise for
-	the reader.}
-Discussion will focus on the left-hand operations, as the right-hand
-operations are trivially derived from them.
+（\path{lockhdeq.c}）
+展示了入队和出队函数的实现。\footnote{
+	人们可以轻松地用任意数量的语言创建多态实现，
+	但这留作读者练习。}
+讨论将集中于左手操作，因为右手操作
+可以简单地从左手操作推导出来。
 
 \begin{fcvref}[ln:SMPdesign:lockhdeq:pop_push:popl]
-\Clnrefrange{b}{e} show \co{pdeq_pop_l()},
-which left\-/dequeues and returns
-an element if possible, returning \co{NULL} otherwise.
-\Clnref{acq} acquires the left-hand spinlock,
-and \clnref{idx} computes the
-index to be dequeued from.
-\Clnref{deque} dequeues the element, and,
-if \clnref{check} finds the result to be
-non-\co{NULL}, \clnref{record} records the new left-hand index.
-Either way, \clnref{rel} releases the lock, and,
-finally, \clnref{return} returns
-the element if there was one, or \co{NULL} otherwise.
+\Clnrefrange{b}{e}展示了\co{pdeq_pop_l()}，
+它左出队并返回一个元素（如果可能的话），否则返回\co{NULL}。
+\Clnref{acq}获取左手自旋锁，
+\clnref{idx}计算要出队的索引。
+\Clnref{deque}出队元素，如果\clnref{check}发现结果
+非\co{NULL}，\clnref{record}记录新的左手索引。
+无论哪种情况，\clnref{rel}释放锁，最后\clnref{return}
+返回元素（如果有的话），否则返回\co{NULL}。
 \end{fcvref}
 
 \begin{fcvref}[ln:SMPdesign:lockhdeq:pop_push:pushl]
-\Clnrefrange{b}{e} show \co{pdeq_push_l()},
-which left-enqueues the specified
-element.
-\Clnref{acq} acquires the left-hand lock,
-and \clnref{idx} picks up the left-hand
-index.
-\Clnref{enque} left-enqueues the specified element
-onto the double-ended queue
-indexed by the left-hand index.
-\Clnref{update} then updates the left-hand index
-and \clnref{rel} releases the lock.
+\Clnrefrange{b}{e}展示了\co{pdeq_push_l()}，
+它左入队指定的元素。
+\Clnref{acq}获取左手锁，
+\clnref{idx}取得左手索引。
+\Clnref{enque}将指定元素左入队到
+由左手索引索引的双端队列上。
+\Clnref{update}然后更新左手索引，
+\clnref{rel}释放锁。
 \end{fcvref}
 
-As noted earlier, the right-hand operations are completely analogous
-to their left-handed counterparts, so their analysis is left as an
-exercise for the reader.
+如前所述，右手操作与其左手对应操作完全类似，
+因此其分析留作读者练习。
 
 \QuickQuiz{
-	Is the hashed double-ended queue a good solution?
-	Why or why not?
+	哈希双端队列是一个好的解决方案吗？
+	为什么是或者为什么不是？
 }\QuickQuizAnswer{
-	The best way to answer this is to run \path{lockhdeq.c} on
-	a number of different multiprocessor systems, and you are
-	encouraged to do so in the strongest possible terms.
-	One reason for concern is that each operation on this
-	implementation must acquire not one but two locks.
+	回答这个问题的最好方法是在多种不同的多处理器系统上
+	运行\path{lockhdeq.c}，强烈鼓励你这样做。
+	一个令人担忧的原因是，此实现上的每个操作
+	必须获取的不是一个而是两个锁。
 	% Getting about 500 nanoseconds per element when used as
 	% a queue on a 4.2GHz Power system.  This is roughly the same as
 	% the version covered by a single lock.  Sequential (unlocked
 	% variant is more than an order of magnitude faster!
 
-	The first well-designed performance study will be cited.\footnote{
-		The studies by Dalessandro
-		et al.~\cite{LukeDalessandro:2011:ASPLOS:HybridNOrecSTM:deque}
-		and Dice et al.~\cite{DavidDice:2010:SCA:HTM:deque} are
-		excellent starting points.}
-	Do not forget to compare to a sequential implementation!
+	第一个设计良好的性能研究将被引用。\footnote{
+		Dalessandro等人的研究~\cite{LukeDalessandro:2011:ASPLOS:HybridNOrecSTM:deque}
+		和Dice等人的研究~\cite{DavidDice:2010:SCA:HTM:deque}是
+		很好的起点。}
+	不要忘记与顺序实现进行比较！
 }\QuickQuizEnd
 
-\subsubsection{Compound Double-Ended Queue Revisited}
+\subsubsection{复合双端队列再探}
 \label{sec:SMPdesign:Compound Double-Ended Queue Revisited}
 
-This section revisits the compound double-ended queue, using a trivial
-rebalancing scheme that moves all the elements from the non-empty
-queue to the now-empty queue.
+本节重新审视复合双端队列，使用一种简单的重新平衡方案，
+将所有元素从非空队列移动到变空的队列。
 
 \QuickQuiz{
-	Move \emph{all} the elements to the queue that became empty?
-	In what possible universe is this brain-dead solution in any
-	way optimal???
+	将\emph{所有}元素移动到变空的队列？
+	在什么可能的世界里，这种愚蠢的解决方案在任何意义上是最优的？？？
 }\QuickQuizAnswer{
-	It is optimal in the case where data flow switches direction only
-	rarely.
-	It would of course be an extremely poor choice if the double-ended
-	queue was being emptied from both ends concurrently.
-	This of course raises another question, namely, in what possible
-	universe emptying from both ends concurrently would be a reasonable
-	thing to do.
-	Work-stealing queues are one possible answer to this question.
+	当数据流方向很少切换时，它是最优的。
+	当然，如果双端队列同时从两端被清空，
+	这将是一个极其糟糕的选择。
+	这自然引出了另一个问题，即在什么可能的世界里
+	同时从两端清空是合理的做法。
+	工作窃取队列是这个问题的一个可能答案。
 }\QuickQuizEnd
 
-In contrast to the hashed implementation presented in
-the previous section, the compound implementation will build on
-a sequential implementation of a double-ended queue that uses
-neither locks nor atomic operations.
+与上一节介绍的哈希实现不同，复合实现将建立在
+一个既不使用锁也不使用原子操作的双端队列顺序实现之上。
 
 \begin{listing}
 \ebresizeverb{.97}{\input{CodeSamples/SMPdesign/locktdeq@pop_push.fcv}}
-\caption{Compound Parallel Double-Ended Queue Implementation}
+\caption{复合并行双端队列实现}
 \label{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}
 \end{listing}
 
 \Cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}
-shows the implementation.
-Unlike the hashed implementation, this compound implementation is
-asymmetric, so that we must consider the \co{pdeq_pop_l()}
-and \co{pdeq_pop_r()} implementations separately.
+展示了该实现。
+与哈希实现不同，这个复合实现是不对称的，
+因此我们必须分别考虑\co{pdeq_pop_l()}
+和\co{pdeq_pop_r()}的实现。
 
 \QuickQuiz{
-	Why can't the compound parallel double-ended queue
-	implementation be symmetric?
+	为什么复合并行双端队列的实现不能是对称的？
 }\QuickQuizAnswer{
-	The need to avoid deadlock by imposing a lock hierarchy
-	forces the asymmetry, just as it does in the fork-numbering
-	solution to the Dining Philosophers Problem
-	(see \cref{sec:SMPdesign:Dining Philosophers Problem}).
+	需要通过施加锁层次来避免死锁，
+	这迫使了不对称性，就像哲学家就餐问题中叉子编号解法
+	的情况一样
+	（见\cref{sec:SMPdesign:Dining Philosophers Problem}）。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:popl]
-The \co{pdeq_pop_l()} implementation is shown on
-\clnrefrange{b}{e}
-of the figure.
-\Clnref{acq:l} acquires the left-hand lock,
-which \clnref{rel:l} releases.
-\Clnref{deq:ll} attempts to left-dequeue an element
-from the left-hand underlying
-double-ended queue, and, if successful,
-skips \clnrefrange{acq:r}{skip} to simply
-return this element.
-Otherwise, \clnref{acq:r} acquires the right-hand lock, \clnref{deq:lr}
-left-dequeues an element from the right-hand queue,
-and \clnref{move} moves any remaining elements on the right-hand
-queue to the left-hand queue, \clnref{init:r} initializes
-the right-hand queue,
-and \clnref{rel:r} releases the right-hand lock.
-The element, if any, that was dequeued on \clnref{deq:lr} will be returned.
+\co{pdeq_pop_l()}的实现如图的
+\clnrefrange{b}{e}所示。
+\Clnref{acq:l}获取左手锁，
+\clnref{rel:l}释放它。
+\Clnref{deq:ll}尝试从左手底层双端队列左出队一个元素，
+如果成功，则跳过\clnrefrange{acq:r}{skip}直接返回此元素。
+否则，\clnref{acq:r}获取右手锁，\clnref{deq:lr}
+从右手队列左出队一个元素，
+\clnref{move}将右手队列上剩余的元素
+移动到左手队列，\clnref{init:r}初始化右手队列，
+\clnref{rel:r}释放右手锁。
+在\clnref{deq:lr}上出队的元素（如果有的话）将被返回。
 \end{fcvref}
 
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:popr]
-The \co{pdeq_pop_r()} implementation is shown on \clnrefrange{b}{e}
-of the figure.
-As before, \clnref{acq:r1} acquires the right-hand lock
-(and \clnref{rel:r2}
-releases it), and \clnref{deq:rr1} attempts to right-dequeue an element
-from the right-hand queue, and, if successful,
-skips \clnrefrange{rel:r1}{skip2}
-to simply return this element.
-However, if \clnref{check1} determines that there was no element to dequeue,
-\clnref{rel:r1} releases the right-hand lock and
-\clnrefrange{acq:l}{acq:r2} acquire both
-locks in the proper order.
-\Clnref{deq:rr2} then attempts to right-dequeue an element
-from the right-hand
-list again, and if \clnref{check2} determines that this second attempt has
-failed, \clnref{deq:rl} right-dequeues an element from the left-hand queue
-(if there is one available), \clnref{move} moves any remaining elements
-from the left-hand queue to the right-hand queue, and \clnref{init:l}
-initializes the left-hand queue.
-Either way, \clnref{rel:l} releases the left-hand lock.
+\co{pdeq_pop_r()}的实现如图的\clnrefrange{b}{e}所示。
+与之前一样，\clnref{acq:r1}获取右手锁
+（\clnref{rel:r2}释放它），\clnref{deq:rr1}尝试从右手队列
+右出队一个元素，如果成功，
+则跳过\clnrefrange{rel:r1}{skip2}直接返回此元素。
+然而，如果\clnref{check1}确定没有可出队的元素，
+\clnref{rel:r1}释放右手锁，
+\clnrefrange{acq:l}{acq:r2}按正确顺序获取两个锁。
+\Clnref{deq:rr2}然后再次尝试从右手列表右出队一个元素，
+如果\clnref{check2}确定第二次尝试也失败了，
+\clnref{deq:rl}从左手队列右出队一个元素
+（如果有可用的），\clnref{move}将左手队列的
+剩余元素移动到右手队列，\clnref{init:l}
+初始化左手队列。
+无论哪种情况，\clnref{rel:l}释放左手锁。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why is it necessary to retry the right-dequeue operation
-	on \clnrefr{ln:SMPdesign:locktdeq:pop_push:popr:deq:rr2} of
-	\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}?
+	为什么有必要在
+	\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}的
+	\clnrefr{ln:SMPdesign:locktdeq:pop_push:popr:deq:rr2}
+	上重试右出队操作？
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:popr]
-	This retry is necessary because some other thread might have
-	enqueued an element between the time that this thread dropped
-	\co{d->rlock} on \clnref{rel:r1} and the time that it reacquired this
-	same lock on \clnref{acq:r2}.
+	这个重试是必要的，因为在本线程在\clnref{rel:r1}上放下
+	\co{d->rlock}和在\clnref{acq:r2}上重新获取同一个锁之间，
+	其他某个线程可能已经入队了一个元素。
 	\end{fcvref}
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Surely the left-hand lock must \emph{sometimes} be available!!!
-	So why is it necessary that
-	\clnrefr{ln:SMPdesign:locktdeq:pop_push:popr:rel:r1} of
-	\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}
-	unconditionally release the right-hand lock?
+	左手锁肯定\emph{有时候}是可用的！！！
+	那么为什么
+	\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}的
+	\clnrefr{ln:SMPdesign:locktdeq:pop_push:popr:rel:r1}
+	必须无条件释放右手锁？
 }\QuickQuizAnswerE{
-	It would be possible to use \co{spin_trylock()} to attempt
-	to acquire the left-hand lock when it was available.
-	However, the failure case would still need to drop the
-	right-hand lock and then re-acquire the two locks in order.
-	Making this transformation (and determining whether or not
-	it is worthwhile) is left as an exercise for the reader.
+	可以使用\co{spin_trylock()}在左手锁可用时
+	尝试获取它。
+	然而，失败的情况仍然需要放下右手锁，
+	然后按顺序重新获取两个锁。
+	进行这个转换（以及确定是否值得）
+	留作读者练习。
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:pushl]
-The \co{pdeq_push_l()} implementation is shown on
-\clnrefrange{b}{e} of
-\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}.
-\Clnref{acq:l} acquires the left-hand spinlock,
-\clnref{que:l} left-enqueues the
-element onto the left-hand queue, and finally \clnref{rel:l} releases
-the lock.
+\co{pdeq_push_l()}的实现如
+\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}的
+\clnrefrange{b}{e}所示。
+\Clnref{acq:l}获取左手自旋锁，
+\clnref{que:l}将元素左入队到左手队列，
+最后\clnref{rel:l}释放锁。
 \end{fcvref}
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:pushr]
-The \co{pdeq_push_r()} implementation (shown on \clnrefrange{b}{e})
-is quite similar.
+\co{pdeq_push_r()}的实现（如\clnrefrange{b}{e}所示）
+非常类似。
 \end{fcvref}
 
 \QuickQuiz{
-	But in the case where data is flowing in only one direction,
-	the algorithm shown in
+	但在数据仅沿一个方向流动的情况下，
 	\cref{lst:SMPdesign:Compound Parallel Double-Ended Queue Implementation}
-	will have both ends attempting to acquire the same lock
-	whenever the consuming end empties its underlying
-	double-ended queue.
-	Doesn't that mean that sometimes this algorithm fails to
-	provide concurrent access to both ends of the queue even
-	when the queue contains an arbitrarily large number of elements?
+	中展示的算法会使两端在消费端清空其底层
+	双端队列时都尝试获取同一个锁。
+	这难道不意味着有时即使队列包含任意大量的元素，
+	该算法也无法提供对队列两端的并发访问吗？
 }\QuickQuizAnswer{
-	Indeed it does!
+	确实如此！
 
-	But the same is true of other algorithms claiming this property.
-	For example, in solutions using software transactional memory
-	mechanisms based on hashed arrays of locks,
-	the leftmost and rightmost elements' addresses will sometimes
-	happen to hash to the same lock.
-	These hash collisions will also prevent concurrent access.
-	For another example, solutions using hardware transactional
-	memory mechanisms with software
-	fallbacks~\cite{Yoo:2013:PEI:2503210.2503232,RickMerrit2011PowerTM,ChristianJacobi2012MainframeTM}
-	often use locking within those software fallbacks, and thus
-	suffer (albeit hopefully rarely) from whatever concurrency
-	limitations that these locking solutions suffer from.
+	但其他声称具有这一属性的算法也是如此。
+	例如，在使用基于哈希锁数组的软件事务内存
+	机制的解法中，最左端和最右端元素的地址
+	有时恰好会哈希到同一个锁。
+	这些哈希冲突也会阻止并发访问。
+	再举一个例子，使用带有软件回退的硬件事务内存
+	机制的解法~\cite{Yoo:2013:PEI:2503210.2503232,RickMerrit2011PowerTM,ChristianJacobi2012MainframeTM}
+	通常在这些软件回退中使用锁，因此
+	会受到（虽然希望很少）这些锁方案所具有的
+	任何并发限制的影响。
 
-	Therefore, as of 2021, all practical solutions to the
-	concurrent double-ended queue problem fail to provide full
-	concurrency in at least some circumstances, including the
-	compound double-ended queue.
+	因此，截至2021年，所有并发双端队列问题的实际解法
+	至少在某些情况下都无法提供完全的并发性，
+	包括复合双端队列。
 }\QuickQuizEnd
 
-\subsubsection{Double-Ended Queue Discussion}
+\subsubsection{双端队列讨论}
 \label{sec:SMPdesign:Double-Ended Queue Discussion}
 
-The compound implementation is somewhat more complex than the
-hashed variant presented in
-\cref{sec:SMPdesign:Hashed Double-Ended Queue},
-but is still reasonably simple.
-Of course, a more intelligent rebalancing scheme could be arbitrarily
-complex, but the simple scheme shown here has been shown to
-perform well compared to software
-alternatives~\cite{LukeDalessandro:2011:ASPLOS:HybridNOrecSTM:deque}
-and even compared to algorithms using hardware
-assist~\cite{DavidDice:2010:SCA:HTM:deque}.
-Nevertheless, the best we can hope for from such a scheme
-is 2x scalability, as at most two threads can be holding the
-dequeue's locks concurrently.
-This limitation also applies to algorithms based on \IXacrl{nbs},
-such as the compare-and-swap-based dequeue algorithm of
-Michael~\cite{DBLP:conf/europar/Michael03}.\footnote{
-	This paper is interesting in that it showed that special
-	double-compare-and-swap (DCAS) instructions are not needed
-	for lock-free implementations of double-ended queues.
-	Instead, the common compare-and-swap (e.g., x86 cmpxchg)
-	suffices.}
+复合实现比\cref{sec:SMPdesign:Hashed Double-Ended Queue}中介绍的
+哈希变体稍微复杂一些，但仍然相当简单。
+当然，更智能的重新平衡方案可以任意复杂，
+但这里展示的简单方案已被证明与软件替代方案相比
+性能良好~\cite{LukeDalessandro:2011:ASPLOS:HybridNOrecSTM:deque}，
+甚至与使用硬件辅助的算法相比也是
+如此~\cite{DavidDice:2010:SCA:HTM:deque}。
+然而，从这种方案中我们最多能期望的是2倍的可扩展性，
+因为最多只有两个线程可以同时持有出队的锁。
+这一限制同样适用于基于\IXacrl{nbs}的算法，
+例如Michael的基于compare-and-swap的出队
+算法~\cite{DBLP:conf/europar/Michael03}。\footnote{
+	这篇论文很有趣，因为它表明不需要特殊的
+	double-compare-and-swap（DCAS）指令来实现双端队列的无锁实现。
+	相反，通用的compare-and-swap（例如x86 cmpxchg）
+	就足够了。}
 
 \QuickQuiz{
-	Why are there not one but two solutions to the double-ended queue
-	problem?
+	为什么双端队列问题不是有一个而是有两个解法？
 }\QuickQuizAnswer{
-	There are actually at least three.
-	The third, by Dominik Dingel, makes interesting use of
-	reader-writer locking, and may be found in \path{lockrwdeq.c}.
+	实际上至少有三个。
+	第三个由Dominik Dingel提出，有趣地使用了
+	读写锁，可以在\path{lockrwdeq.c}中找到。
 
-	And so there is not one, but rather three solutions to the
-	lock-based double-ended queue problem on
-	\cpageref{sec:SMPdesign:Problems Double-Ended Queue}!
+	因此在\cpageref{sec:SMPdesign:Problems Double-Ended Queue}上，
+	基于锁的双端队列问题不是有一个，而是有三个解法！
 }\QuickQuizEnd
 
-In fact, as noted by Dice et al.~\cite{DavidDice:2010:SCA:HTM:deque},
-an unsynchronized single-threaded double-ended queue significantly
-outperforms any of the parallel implementations they studied.
-Therefore, the key point is that there can be significant overhead enqueuing to
-or dequeuing from a shared queue, regardless of implementation.
-This should come as no surprise in light of the material in
-\cref{chp:Hardware and its Habits}, given the strict
-first-in-first-out (FIFO) nature of these queues.
+事实上，正如Dice等人~\cite{DavidDice:2010:SCA:HTM:deque}所指出的，
+一个未同步的单线程双端队列在性能上显著
+优于他们研究的任何并行实现。
+因此，关键点是无论实现方式如何，
+向共享队列入队或出队可能会有显著的开销。
+鉴于\cref{chp:Hardware and its Habits}中的材料
+以及这些队列严格的先进先出（FIFO）特性，
+这应该不足为奇。
 
-Furthermore, these strict FIFO queues are strictly FIFO only with
-respect to
-\emph{linearization points}~\cite{Herlihy:1990:LCC:78969.78972}\footnote{
-	In short, a linearization point is a single point within a given
-	function where that function can be said to have taken effect.
-	In this lock-based implementation, the linearization points
-	can be said to be anywhere within the critical section that
-	does the work.}
-that are not visible to the caller, in fact, in these examples,
-the linearization points are buried in the lock-based critical
-sections.
-These queues are not strictly FIFO with respect to (say) the times at which
-the individual operations started~\cite{AndreasHaas2012FIFOisnt}.
-This indicates that the strict FIFO property is not all that valuable
-in concurrent programs, and in fact, Kirsch et al.\ present less-strict
-queues that provide improved performance and
-scalability~\cite{ChristophMKirsch2012FIFOisntTR}.\footnote{
-	Nir Shavit produced relaxed stacks for roughly the same
-	reasons~\cite{Shavit:2011:DSM:1897852.1897873}.
-	This situation leads some to believe that the linearization
-	points are useful to theorists rather than developers, and
-	leads others to wonder to what extent the designers of such
-	data structures and algorithms were considering the needs
-	of their users.}
-All that said, if you are pushing all the data used by your concurrent
-program through a single queue, you really need to rethink your
-overall design.
+此外，这些严格的FIFO队列仅在
+\emph{线性化点}~\cite{Herlihy:1990:LCC:78969.78972}\footnote{
+	简而言之，线性化点是给定函数中的一个单一点，
+	在该点上可以认为该函数已经生效。
+	在这个基于锁的实现中，线性化点
+	可以说是在完成工作的临界区内的任何位置。}
+方面是严格FIFO的，而这些线性化点对调用者不可见，
+实际上，在这些例子中，线性化点被埋在基于锁的
+临界区中。
+这些队列在（比如说）各个操作开始的时间
+方面不是严格FIFO的~\cite{AndreasHaas2012FIFOisnt}。
+这表明严格的FIFO属性在并发程序中并不那么有价值，
+事实上，Kirsch等人提出了限制较少的队列，
+提供了改进的性能和
+可扩展性~\cite{ChristophMKirsch2012FIFOisntTR}。\footnote{
+	Nir Shavit出于大致相同的原因
+	提出了宽松的栈~\cite{Shavit:2011:DSM:1897852.1897873}。
+	这种情况使一些人认为线性化点对理论家比对开发者更有用，
+	也使另一些人怀疑这些数据结构和算法的设计者
+	在多大程度上考虑了用户的需求。}
+总之，如果你将并发程序使用的所有数据都通过
+一个单一队列推送，你真的需要重新思考你的整体设计。
 
-\subsection{Partitioning Example Discussion}
+\subsection{分区示例讨论}
 \label{sec:SMPdesign:Partitioning Example Discussion}
 
-The optimal solution to the dining philosophers problem given in
-the answer to the Quick Quiz in
-\cref{sec:SMPdesign:Dining Philosophers Problem}
-is an excellent example of ``horizontal parallelism'' or
-``data parallelism''.
-The synchronization overhead in this case is nearly (or even exactly)
-zero.
-In contrast, the double-ended
-queue implementations are examples of ``vertical parallelism'' or
-``pipelining'', given that data moves from one thread to another.
-The tighter coordination required for pipelining in turn requires
-larger units of work to obtain a given level of \IX{efficiency}.
+在\cref{sec:SMPdesign:Dining Philosophers Problem}中
+Quick Quiz的答案中给出的哲学家就餐问题最优解
+是"水平并行"或"data parallelism"的一个极好的例子。
+在这种情况下，同步开销几乎（甚至完全）为零。
+相比之下，双端队列实现是"垂直并行"或
+"pipelining"的例子，因为数据从一个线程移动到另一个线程。
+流水线所需的更紧密协调反过来要求
+更大的工作单元来获得给定水平的\IX{efficiency}。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	The tandem double-ended queue runs about twice as fast as
-	the hashed double-ended queue, even when I increase the
-	size of the hash table to an insanely large number.
-	Why is that?
+	串联双端队列的速度大约是哈希双端队列的两倍，
+	即使我将哈希表的大小增加到一个疯狂的巨大数字。
+	这是为什么？
 }\QuickQuizAnswerB{
-	The hashed double-ended queue's locking design only permits
-	one thread at a time at each end, and further requires
-	two lock acquisitions for each operation.
-	The tandem double-ended queue also permits one thread at a time
-	at each end, and in the common case requires only one lock
-	acquisition per operation.
-	Therefore, the tandem double-ended queue should be expected to
-	outperform the hashed double-ended queue.
+	哈希双端队列的锁设计只允许每端一次一个线程，
+	而且每个操作需要两次锁获取。
+	串联双端队列同样允许每端一次一个线程，
+	但在常见情况下每个操作只需要一次锁获取。
+	因此，串联双端队列应该预期会
+	优于哈希双端队列。
 
-	Can you create a double-ended queue that allows multiple
-	concurrent operations at each end?
-	If so, how?
-	If not, why not?
+	你能创建一个允许每端多个并发操作的双端队列吗？
+	如果能，怎么做？
+	如果不能，为什么不能？
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Is there a significantly better way of handling concurrency
-	for double-ended queues?
+	有没有明显更好的方法来处理双端队列的并发性？
 }\QuickQuizAnswerE{
-	One approach is to transform the problem to be solved
-	so that multiple double-ended queues can be used in parallel,
-	allowing the simpler single-lock double-ended queue to be used,
-	and perhaps also replace each double-ended queue with a pair of
-	conventional single-ended queues.
-	Without such ``horizontal scaling'', the speedup is limited
-	to 2.0.
-	In contrast, horizontal-scaling designs can achieve very large
-	speedups, and are especially attractive if there are multiple threads
-	working either end of the queue, because in this
-	multiple-thread case the dequeue
-	simply cannot provide strong ordering guarantees.
-	After all, the fact that a given thread removed an item first
-	in no way implies that it will process that item
-	first~\cite{AndreasHaas2012FIFOisnt}.
-	And if there are no guarantees, we may as well obtain the
-	performance benefits that come with refusing to provide these
-	guarantees.
+	一种方法是转换要解决的问题，
+	使得可以并行使用多个双端队列，
+	允许使用更简单的单锁双端队列，
+	并且也许还可以用一对传统的单端队列
+	替换每个双端队列。
+	如果没有这种"水平扩展"，加速比限制在2.0。
+	相比之下，水平扩展设计可以实现非常大的加速比，
+	如果有多个线程在队列的任一端工作则特别有吸引力，
+	因为在这种多线程情况下，出队
+	根本无法提供强排序保证。
+	毕竟，一个给定线程先移除了一个元素
+	并不意味着它会先处理该
+	元素~\cite{AndreasHaas2012FIFOisnt}。
+	如果没有保证，我们不如获取
+	拒绝提供这些保证所带来的性能优势。
 	% about twice as fast as hashed version on 4.2GHz Power.
 
-	Regardless of whether or not the problem can be transformed
-	to use multiple queues, it is worth asking whether work can
-	be batched so that each enqueue and dequeue operation corresponds
-	to larger units of work.
-	This batching approach decreases contention on the queue data
-	structures, which increases both performance and scalability,
-	as will be seen in
-	\cref{sec:SMPdesign:Synchronization Granularity}.
-	After all, if you must incur high synchronization overheads,
-	be sure you are getting your money's worth.
+	无论问题是否可以转换为使用多个队列，
+	都值得问一下是否可以批处理工作，
+	使每个入队和出队操作对应更大的工作单元。
+	这种批处理方法减少了对队列数据结构的竞争，
+	从而提高了性能和可扩展性，
+	如\cref{sec:SMPdesign:Synchronization Granularity}中
+	所示。
+	毕竟，如果你必须承受高同步开销，
+	请确保你获得了相应的回报。
 
-	Other researchers are working on other ways to take advantage
-	of limited ordering guarantees in
-	queues~\cite{ChristophMKirsch2012FIFOisntTR}.
+	其他研究人员正在研究利用队列中
+	有限排序保证的其他方法~\cite{ChristophMKirsch2012FIFOisntTR}。
 }\QuickQuizEndE
 }
 
-These two examples show just how powerful partitioning can be in
-devising parallel algorithms.
+这两个例子展示了分区在设计并行算法方面有多么强大。
 \Cref{sec:SMPdesign:Locking Granularity and Performance}
-looks briefly at a third example, matrix multiply.
-However, all three of these examples beg for more and better design
-criteria for parallel programs, a topic taken up in the next section.
+简要考察了第三个例子——矩阵乘法。
+然而，这三个例子都迫切需要更多更好的并行程序设计准则，
+这是下一节要探讨的主题。

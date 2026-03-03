@@ -2,74 +2,72 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Counter Conundrums}
+\section{计数器难题}
 \label{sec:together:Counter Conundrums}
 %
-\epigraph{Ford carried on counting quietly.
-	  This is about the most aggressive thing you can do to a
-	  computer, the equivalent of going up to a human being and saying
-	  ``Blood \dots blood \dots blood \dots blood \dots''}
+\epigraph{Ford继续安静地计数。
+	  这大概是你能对计算机做的最具攻击性的事情了，
+	  相当于走到一个人面前说
+	  ``血……血……血……血……''}
 	 {Douglas Adams}
 
-This \lcnamecref{sec:together:Counter Conundrums}
-outlines solutions to counter conundrums.
+本\lcnamecref{sec:together:Counter Conundrums}
+概述计数器难题的解决方案。
 
-\subsection{Counting Updates}
+\subsection{计算更新次数}
 \label{sec:together:Counting Updates}
 
-Suppose that Schr\"odinger (see
-\cref{sec:datastruct:Motivating Application})
-wants to count the number of updates for each animal,
-and that these updates are synchronized using a per-data-element lock.
-How can this counting best be done?
+假设 Schr\"odinger（参见
+\cref{sec:datastruct:Motivating Application}）
+想要计算每个动物的更新次数，
+并且这些更新使用每数据元素锁来同步。
+如何最好地进行这种计数？
 
-Of course, any number of counting algorithms from \cref{chp:Counting}
-might qualify, but the optimal approach is quite simple.
-Just place a counter in each data element, and increment it under the
-protection of that element's lock!
+当然，\cref{chp:Counting} 中的任何计数算法都可能适用，
+但最优的方法相当简单。
+只需在每个数据元素中放置一个计数器，
+并在该元素锁的保护下递增它！
 
-If readers access the count locklessly, then updaters should use
-\co{WRITE_ONCE()} to update the counter and lockless readers should
-use \co{READ_ONCE()} to load it.
+如果读者无锁地访问计数，
+那么更新者应使用 \co{WRITE_ONCE()} 来更新计数器，
+而无锁读者应使用 \co{READ_ONCE()} 来加载它。
 
-\subsection{Counting Lookups}
+\subsection{计算查找次数}
 \label{sec:together:Counting Lookups}
 
-Suppose that Schr\"odinger also wants to count the number of lookups for
-each animal, where lookups are protected by RCU\@.
-How can this counting best be done?
+假设 Schr\"odinger 还想计算每个动物的查找次数，
+其中查找由 RCU 保护。
+如何最好地进行这种计数？
 
-One approach would be to protect a lookup counter with the per-element
-lock, as discussed in \cref{sec:together:Counting Updates}.
-Unfortunately, this would require all lookups to acquire this lock,
-which would be a severe bottleneck on large systems.
+一种方法是使用每元素锁来保护查找计数器，
+如 \cref{sec:together:Counting Updates} 中所述。
+不幸的是，这将要求所有查找都获取此锁，
+这在大型系统上会成为严重的瓶颈。
 
-Another approach is to ``just say no'' to counting, following the example
-of the \co{noatime} mount option.
-If this approach is feasible, it is clearly the best:
-After all, nothing is faster than doing nothing.
-If the lookup count cannot be dispensed with, read on!
+另一种方法是"直接拒绝"计数，
+效仿 \co{noatime} 挂载选项的做法。
+如果这种方法可行，它显然是最好的：
+毕竟，没有什么比什么都不做更快。
+如果查找计数不可或缺，请继续阅读！
 
-Any of the counters from \cref{chp:Counting}
-could be pressed into service, with the statistical counters described in
-\cref{sec:count:Statistical Counters} being perhaps the most common choice.
-However, this results in a large memory footprint:
-The number of counters required is the number of data elements multiplied
-by the number of threads.
+\cref{chp:Counting} 中的任何计数器都可以派上用场，
+其中 \cref{sec:count:Statistical Counters} 描述的统计计数器
+可能是最常见的选择。
+然而，这会导致较大的内存占用：
+所需的计数器数量是数据元素数量乘以线程数量。
 
-If this memory overhead is excessive, then one approach is to keep
-per-core or even per-socket counters rather than per-CPU counters,
-with an eye to the hash-table performance results depicted in
-\cref{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; 448 CPUs}.
-This will require that the counter increments be atomic operations,
-especially for user-mode execution where a given thread could migrate
-to another CPU at any time.
+如果这种内存开销过大，
+一种方法是保持每核心甚至每插槽的计数器而非每 CPU 计数器，
+同时参考
+\cref{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; 448 CPUs}
+中所示的 hash table 性能结果。
+这将要求计数器递增是原子操作，
+特别是对于用户态执行，
+因为给定的线程可能在任何时候迁移到另一个 CPU。
 
-If some elements are looked up very frequently, there are a number
-of approaches that batch updates by maintaining a per-thread log,
-where multiple log entries for a given element can be merged.
-After a given log entry has a sufficiently large increment or after
-sufficient time has passed, the log entries may be applied to the
-corresponding data elements.
-Silas Boyd-Wickizer has done some work formalizing this
-notion~\cite{SilasBoydWickizerPhD}.
+如果某些元素被非常频繁地查找，
+有许多方法可以通过维护每线程日志来批量更新，
+其中同一元素的多个日志条目可以合并。
+在给定的日志条目具有足够大的增量或经过足够的时间后，
+日志条目可以应用到相应的数据元素上。
+Silas Boyd-Wickizer 在形式化这一概念方面做了一些工作~\cite{SilasBoydWickizerPhD}。

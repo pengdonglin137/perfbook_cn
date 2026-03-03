@@ -1,9 +1,9 @@
 \documentclass[10pt,letterpaper]{pfbook} % book class customized for perfbook
-% For arxiv.org, must be on or before line 5:
-\pdfoutput=1
+% For arxiv.org (pdflatex only):
+\ifdefined\pdfoutput\pdfoutput=1\fi
 
-% To accomodate change in Ghostscript 9.26 (default output: PDF 1.7)
-\pdfminorversion=7
+% To accomodate change in Ghostscript 9.26 (pdflatex only):
+\ifdefined\pdfminorversion\pdfminorversion=7\fi
 
 % Suppress warning emitted when multiple figures drawn by inkscape appear
 % within a page. See: https://tex.stackexchange.com/questions/183149/
@@ -11,16 +11,26 @@
 
 % standard packages
 
-% A more pleasant font
-\usepackage[full]{textcomp} % use symbols in TS1 encoding
-\usepackage{lmodern}
-\usepackage[scale=0.9]{tgheros}
-\usepackage[T1]{fontenc} % use postscript type 1 fonts
-\usepackage[table,svgnames]{xcolor} % newtxtext v1.73 loads xcolor without options
-\usepackage[defaultsups,helvratio=0.9]{newtxtext} % use nice, standard fonts for roman
+% XeLaTeX font setup with Chinese support
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage[table,svgnames]{xcolor}
 
-% Improves the text layout
-\usepackage{microtype}
+% Set Western fonts (matching original newtxtext/tgheros/lmodern choices)
+\setmainfont{TeX Gyre Termes}[Ligatures=TeX]
+\setsansfont{TeX Gyre Heros}[Scale=0.9,Ligatures=TeX]
+\setmonofont{Latin Modern Mono}[Scale=MatchLowercase]
+
+% Set CJK fonts (Noto CJK Simplified Chinese)
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+
+% Chinese typesetting support (structural names, line breaking, etc.)
+\usepackage[fontset=none,scheme=chinese,zihao=false,heading=false]{ctex}
+
+% Improves the text layout (limited in XeLaTeX)
+\usepackage[protrusion=true]{microtype}
 \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
 \usepackage{etoolbox}
 
@@ -28,7 +38,7 @@
 \usepackage{float}
 \floatstyle{ruled}
 \newfloat{listing}{tbp}{lst}[chapter]
-\floatname{listing}{Listing}
+\floatname{listing}{代码清单}
 \usepackage{lscape}
 \usepackage{epsfig}
 \usepackage{subfig}
@@ -192,9 +202,9 @@
 \usepackage{placeins}
 }
 % Custom commands for index
-\renewcommand{\indexname}{Index of Terms}
-\newindex[Index of APIs]{api} % index for API
-\newindex[Index of People]{ppl} % index for People Name
+\renewcommand{\indexname}{术语索引}
+\newindex[API 索引]{api} % index for API
+\newindex[人名索引]{ppl} % index for People Name
 \newcommand{\categapi}[1]{~{\scriptsize (#1)}}
 \IfIndexHl{
 \newcommand{\hlindex}[1]{\textcolor{DarkGreen}{#1}}
@@ -328,12 +338,6 @@
 }
 }{}
 
-\IfNimbusAvail{
-\usepackage{nimbusmononarrow}
-}{}
-\renewcommand*\ttdefault{lmtt}
-%msfontstub
-
 \IfEbookSize{
   \newcommand{\OneColumnHSpace}[1]{}
 }{
@@ -344,22 +348,11 @@
 \renewcommand{\familydefault}{\sfdefault}
 \normalfont
 \usepackage[slantedGreek,scaled=.96]{newtxsf}
-% Silence inevitable warnings on missing slanted shape
-\RequirePackage[save]{silence}
-\WarningFilter[sansslant]{latexfont}{Font shape `T1/qhv/m/sl'}
-\ActivateWarningFilters[sansslant]
 }{
-\usepackage[slantedGreek]{newtxmath} % math package to be used with newtxtext
-% Poor person's slanted shape for roman --- newtxtext lacks slanted shape
-\AtBeginDocument{%
-  \DeclareFontShape{\encodingdefault}{\rmdefault}{m}{sl}{<-> ptmro7t}{}%
-  \DeclareFontShape{\encodingdefault}{\rmdefault}{b}{sl}{<-> ptmbo7t}{}%
-  \DeclareFontShape{\encodingdefault}{\rmdefault}{bx}{sl}{<->ssub * ptm/b/sl}{}%
+\usepackage[slantedGreek]{newtxmath} % math package
 }
-}
-\usepackage{biolinum}
-% restore \sfdefault of newtxtext
-\renewcommand{\sfdefault}{qhv}
+% Linux Biolinum for epigraphs (OpenType via fontspec)
+\newfontfamily\biolinum{Linux Biolinum O}[Ligatures=TeX]
 
 \newcommand{\LstLineNo}{\makebox[5ex][r]{\arabic{VerbboxLineNo}\hspace{2ex}}}
 
@@ -407,25 +400,39 @@
 \captionsetup[listing]{hangindent=20pt}
 
 \usepackage[capitalise,noabbrev,nosort]{cleveref}
-\crefname{subsubsubappendix}{Appendix}{Appendices}
-\crefname{sublisting}{Listing}{Listings}
-\crefname{sequencei}{step}{steps}
-\Crefname{sequencei}{Step}{Steps}
-\crefname{enumi}{item}{items}
-\Crefname{enumi}{Item}{Items}
-\crefname{page}{page}{pages}
-\Crefname{page}{Page}{Pages}
-\Crefformat{equation}{Equation~#2#1#3}
-\crefformat{equation}{Eq.~#2#1#3}
+\crefname{chapter}{第}{第}
+\Crefname{chapter}{第}{第}
+\crefname{section}{节}{节}
+\Crefname{section}{节}{节}
+\crefname{subsection}{节}{节}
+\Crefname{subsection}{节}{节}
+\crefname{subsubsection}{节}{节}
+\Crefname{subsubsection}{节}{节}
+\crefname{figure}{图}{图}
+\Crefname{figure}{图}{图}
+\crefname{table}{表}{表}
+\Crefname{table}{表}{表}
+\crefname{listing}{代码清单}{代码清单}
+\Crefname{listing}{代码清单}{代码清单}
+\crefname{subsubsubappendix}{附录}{附录}
+\crefname{sublisting}{代码清单}{代码清单}
+\crefname{sequencei}{步骤}{步骤}
+\Crefname{sequencei}{步骤}{步骤}
+\crefname{enumi}{项}{项}
+\Crefname{enumi}{项}{项}
+\crefname{page}{页}{页}
+\Crefname{page}{页}{页}
+\Crefformat{equation}{公式~#2#1#3}
+\crefformat{equation}{公式~#2#1#3}
 \newcommand{\crefrangeconjunction}{--}
-\newcommand{\creflastconjunction}{, and~}
+\newcommand{\creflastconjunction}{和~}
 
-% Define \crefthro{} for "Sections~m.n through~m.p"
+% Define \crefthro{} for "第m.n至m.p节"
 \newcommand{\crefthro}[2]{%
-  \namecrefs{#1}~\ref{#1} through~\ref{#2}%
+  \namecrefs{#1}~\ref{#1}至~\ref{#2}%
 }
 \newcommand{\Crefthro}[2]{%
-  \nameCrefs{#1}~\ref{#1} through~\ref{#2}%
+  \nameCrefs{#1}~\ref{#1}至~\ref{#2}%
 }
 
 % Define \clnref{} and \Clnref{} for reference to line labels
@@ -434,48 +441,38 @@
   \setcounter{lblcount}{0}% Restart label count
   \renewcommand*{\do}[1]{\stepcounter{lblcount}}% Count label
   \docsvlist{#1}% Process list and count labels
-  \def\nextitem{\def\nextitem{, }}% Separator
-  \ifnum\value{lblcount}=1 #2~\lnref{#1}%
-  \else\ifnum\value{lblcount}=2 {#2}s~%
+  \def\nextitem{\def\nextitem{、}}% Chinese comma separator
+  \ifnum\value{lblcount}=1 第\lnref{#1}行%
+  \else 第%
   \renewcommand*{\do}[1]{%
     \addtocounter{lblcount}{-1}%
-    \ifnum\value{lblcount}=0 { }and~\else\nextitem\fi\lnref{##1}}% How to process each label
-  \else {#2}s~%
-  \renewcommand*{\do}[1]{%
-    \addtocounter{lblcount}{-1}%
-    \ifnum\value{lblcount}=0 , and~\else\nextitem\fi\lnref{##1}}% How to process each label
-  \fi%
-  \docsvlist{#1}% Process list
+    \ifnum\value{lblcount}=0 和\else\nextitem\fi\lnref{##1}}%
+  \docsvlist{#1}行%
   \fi%
 }
 \newcommand{\clnrefpraw}[2]{%
   \setcounter{lblcount}{0}% Restart label count
   \renewcommand*{\do}[1]{\stepcounter{lblcount}}% Count label
   \docsvlist{#1}% Process list and count labels
-  \def\nextitem{\def\nextitem{, }}% Separator
-  \ifnum\value{lblcount}=1 #2~\lnrefraw{#1}%
-  \else\ifnum\value{lblcount}=2 {#2}s~%
+  \def\nextitem{\def\nextitem{、}}% Chinese comma separator
+  \ifnum\value{lblcount}=1 第\lnrefraw{#1}行%
+  \else 第%
   \renewcommand*{\do}[1]{%
     \addtocounter{lblcount}{-1}%
-    \ifnum\value{lblcount}=0 { }and~\else\nextitem\fi\lnrefraw{##1}}% How to process each label
-  \else {#2}s~%
-  \renewcommand*{\do}[1]{%
-    \addtocounter{lblcount}{-1}%
-    \ifnum\value{lblcount}=0 , and~\else\nextitem\fi\lnrefraw{##1}}% How to process each label
-  \fi%
-  \docsvlist{#1}% Process list
+    \ifnum\value{lblcount}=0 和\else\nextitem\fi\lnrefraw{##1}}%
+  \docsvlist{#1}行%
   \fi%
 }
-\newcommand{\clnref}[1]{\clnrefp{#1}{line}}
-\newcommand{\Clnref}[1]{\clnrefp{#1}{Line}}
-\newcommand{\clnrefr}[1]{\clnrefpraw{#1}{line}}
-\newcommand{\Clnrefr}[1]{\clnrefpraw{#1}{Line}}
-\newcommand{\clnrefrange}[2]{lines~\lnref{#1}\==\lnref{#2}}
-\newcommand{\Clnrefrange}[2]{Lines~\lnref{#1}\==\lnref{#2}}
-\newcommand{\clnrefthro}[2]{lines~\lnref{#1} through~\lnref{#2}}
-\newcommand{\Clnrefthro}[2]{Lines~\lnref{#1} through~\lnref{#2}}
-\newcommand{\pararef}[1]{Paragraph ``\nameref{#1}'' on Page~\pageref{#1}}
-\newcommand{\Pararef}[1]{Paragraph ``\nameref{#1}'' on Page~\pageref{#1}}
+\newcommand{\clnref}[1]{\clnrefp{#1}{}}
+\newcommand{\Clnref}[1]{\clnrefp{#1}{}}
+\newcommand{\clnrefr}[1]{\clnrefpraw{#1}{}}
+\newcommand{\Clnrefr}[1]{\clnrefpraw{#1}{}}
+\newcommand{\clnrefrange}[2]{第\lnref{#1}\==\lnref{#2}行}
+\newcommand{\Clnrefrange}[2]{第\lnref{#1}\==\lnref{#2}行}
+\newcommand{\clnrefthro}[2]{第\lnref{#1}至\lnref{#2}行}
+\newcommand{\Clnrefthro}[2]{第\lnref{#1}至\lnref{#2}行}
+\newcommand{\pararef}[1]{第~\pageref{#1}~页``\nameref{#1}''段落}
+\newcommand{\Pararef}[1]{第~\pageref{#1}~页``\nameref{#1}''段落}
 
 % geometry setting
 \newlength{\twocolumnwidth}
@@ -517,7 +514,7 @@
     %\renewcommand{\familydefault}{\sfdefault}
     % Smaller font and tighter space for chapter title
     \titleformat{\chapter}[display]{\normalfont\bfseries}
-                {\Large\chaptertitlename~\thechapter}{0pt}{\LARGE}
+                {\Large 第\,\thechapter\,章}{0pt}{\LARGE}
     \titlespacing*{\chapter}{0pt}{*1}{*2}
   }{
   \IfHardCover{
@@ -636,10 +633,10 @@
 \input{pfhyphex} % Hyphenation exceptions for perfbook
 
 \title{
-  Is Parallel Programming Hard, And, If So, \\
-  What Can You Do About It?}
+  并行编程难吗？如果是的话，\\
+  你能做些什么？}
 \author{
-	Edited by: \\
+	编辑：\\
 	\\
 	Paul E. McKenney \\
 	Meta Platforms, Inc. \\
@@ -750,10 +747,10 @@
 \printglossary[type=\acronymtype]
 \phantomsection
 \setindexprenote{%
-  \hfill\begin{minipage}{1in}
+  \hfill\begin{minipage}{1.2in}
     \footnotesize%
-    \BF{Bold}: Major reference.
-    \GL{Underline}: Definition.
+    \BF{粗体}：主要参考。
+    \GL{下划线}：定义。
     \vspace*{1ex}
   \end{minipage}
 }

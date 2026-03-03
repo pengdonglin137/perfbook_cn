@@ -2,59 +2,55 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Hazard-Pointer Helpers}
+\section{风险指针助手}
 \label{sec:together:Hazard-Pointer Helpers}
 %
-\epigraph{It's the little things that count, hundreds of them.}
+\epigraph{重要的是小事情，成百上千的小事情。}
 	 {Cliff Shaw}
 
-This section looks at some issues that can be addressed with the
-help of hazard pointers.
-In addition, hazard pointers can sometimes be used to address the
-issues called out in \cref{sec:together:RCU Rescues}, and vice versa.
+本节探讨一些可以借助 hazard pointer 解决的问题。
+此外，hazard pointer 有时也可以用来解决
+\cref{sec:together:RCU Rescues} 中提出的问题，反之亦然。
 
-\subsection{Scalable Reference Count}
+\subsection{可扩展引用计数}
 \label{sec:together:Scalable Reference Count}
 
-Suppose a reference count is becoming a performance or scalability
-bottleneck.
-What can you do?
+假设引用计数正在成为性能或可扩展性的瓶颈。
+你能做什么？
 
-One approach is to instead use \IXpl{hazard pointer}.
+一种方法是改用\IXpl{hazard pointer}。
 
-There are some differences, perhaps most notably that with
-hazard pointers it is extremely expensive to determine when
-the corresponding reference count has reached zero.
+两者之间存在一些差异，
+最显著的也许是使用 hazard pointer 时，
+确定相应的引用计数何时达到零的代价极其昂贵。
 
-One way to work around this problem is to split the load between
-reference counters and hazard pointers.
-Each data element has a reference counter that tracks the number
-of other data elements referencing this element on the one hand,
-and readers use hazard pointers on the other.
+解决此问题的一种方法是在引用计数和 hazard pointer 之间分担负载。
+每个数据元素都有一个引用计数器，
+一方面跟踪引用该元素的其他数据元素的数量，
+另一方面读者使用 hazard pointer。
 
-Making this arrangement work both efficiently and correctly can be
-quite challenging, and so interested readers are invited to examine
-the UnboundedQueue and ConcurrentHashMap data structures implemented in
-Folly open-source library.\footnote{
+要使这种安排既高效又正确可能相当具有挑战性，
+因此有兴趣的读者可以查看
+Folly 开源库中实现的 UnboundedQueue 和 ConcurrentHashMap 数据结构。\footnote{
 	\url{https://github.com/facebook/folly}}
 
-\subsection{Long-Duration Accesses}
+\subsection{长时间访问}
 \label{sec:together:Long-Duration Accesses}
 
-Suppose a reader-writer-locking reader is holding the lock for so
-long that updates are excessively delayed.
-If that reader can reasonably be converted to use reference counting
-instead of reader-writer locking, but if performance and scalability
-considerations prevent use of actual reference counters, then hazard
-pointers provides a scalable variant of reference counting.
+假设一个读写锁的读者持有锁的时间太长，
+导致更新被过度延迟。
+如果该读者可以合理地转换为使用引用计数
+而非读写锁，但性能和可扩展性的考虑又阻止使用
+实际的引用计数器，那么 hazard pointer 提供了
+引用计数的一种可扩展变体。
 
-The key point is that where reader-writer locking readers block all
-updates for that lock, hazard pointers instead simply hang onto the
-data that is actually needed, while still allowing updates to proceed.
+关键点在于，读写锁的读者会阻塞该锁的所有更新，
+而 hazard pointer 只是保持住实际需要的数据，
+同时仍允许更新继续进行。
 
-If the reader cannot be reasonably be converted to use reference
-counting, the tricks in \cref{sec:together:Long-Duration Accesses Two}
-might be helpful.
+如果该读者无法合理地转换为使用引用计数，
+\cref{sec:together:Long-Duration Accesses Two}
+中的技巧可能会有所帮助。
 
 % @@@ papers to maybe cite: OrcGC, ThreadScan, Fast and Robust Memory...
 

@@ -2,255 +2,214 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\subsection{Introduction to RCU}
+\subsection{RCU 简介}
 \label{sec:defer:Introduction to RCU}
 
-The approaches discussed in the preceding sections have provided
-good scalability but decidedly non-ideal performance for the
-Pre-BSD routing table.
-Therefore, in the spirit of ``only those who have gone too far
-know how far you can go'',\footnote{
-	With apologies to T.~S.~Eliot.}
-we will go all the way, looking into algorithms in which concurrent
-readers might well execute exactly the same sequence of assembly language
-instructions as would a single-threaded lookup, despite the presence of
-concurrent updates.
-Of course, this laudable goal might raise serious implementability
-questions, but we cannot possibly succeed if we don't even try!
+前面几节讨论的方法为 Pre-BSD 路由表提供了良好的可扩展性，
+但性能明显不够理想。
+因此，本着``只有走得太远的人才知道能走多远''的精神，\footnote{
+	向 T.~S.~Eliot 致歉。}
+我们将一探到底，研究并发读者可能执行的汇编语言指令序列
+与单线程查找完全相同的算法，尽管存在并发更新。
+当然，这个崇高的目标可能会引发严重的可实现性问题，
+但如果我们连尝试都不做，就不可能成功！
 
-And should we succeed, we will have uncovered yet another of the
-mysteries set forth on
-\cpageref{sec:defer:Mysteries RCU}.
+如果我们成功了，我们将揭开
+\cpageref{sec:defer:Mysteries RCU}中提出的又一个秘密。
 
-\subsubsection{Minimal Insertion and Deletion}
+\subsubsection{最小插入和删除}
 \label{sec:defer:Minimal Insertion and Deletion}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUListInsertClassic}}
-\caption{Insertion With Concurrent Readers}
+\caption{并发读者下的插入}
 \label{fig:defer:Insertion With Concurrent Readers}
 \end{figure}
 
-To minimize implementability concerns, we focus on a minimal
-data structure, which consists of a single global pointer that is either
-\co{NULL} or references a single structure.
-Minimal though it might be, this data structure is heavily used in
-production~\cite{GeoffRomer2018C++DeferredReclamationP0561R4}.
-A classic approach for insertion is shown in
-\cref{fig:defer:Insertion With Concurrent Readers},
-which shows four states with time advancing from top to bottom.
-The first row shows the initial state, with \co{gptr} equal to \co{NULL}.
-In the second row, we have allocated a structure which is uninitialized,
-as indicated by the question marks.
-In the third row, we have initialized the structure.
-Finally, in the fourth and final row, we have updated \co{gptr} to
-reference the newly allocated and initialized element.
+为了最小化可实现性问题，我们关注一个最小数据结构，
+它由一个全局指针组成，该指针要么是 \co{NULL}，
+要么引用一个结构。
+尽管它可能很简单，但此数据结构在
+生产中被大量使用~\cite{GeoffRomer2018C++DeferredReclamationP0561R4}。
+\cref{fig:defer:Insertion With Concurrent Readers}展示了
+经典的插入方法，显示了四个状态，时间从上到下推进。
+第一行显示初始状态，\co{gptr} 等于 \co{NULL}。
+第二行中，我们分配了一个未初始化的结构，如问号所示。
+第三行中，我们初始化了该结构。
+最后，在第四行也是最后一行，我们更新了 \co{gptr}
+以引用新分配和初始化的元素。
 
-We might hope that this assignment to \co{gptr} could use a simple
-C-language assignment statement.
-Unfortunately,
-\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-dashes these hopes.
-Therefore, the updater cannot use a simple C-language assignment, but
-must instead use \co{smp_store_release()} as shown in the figure,
-or, as will be seen, \co{rcu_assign_pointer()}.
+我们可能希望对 \co{gptr} 的赋值可以使用简单的 C 语言赋值语句。
+不幸的是，\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
+粉碎了这些希望。
+因此，更新者不能使用简单的 C 语言赋值，
+而必须使用如图所示的 \co{smp_store_release()}，
+或者如后面将看到的 \co{rcu_assign_pointer()}。
 
-Similarly, one might hope that readers could use a single C-language
-assignment to fetch the value of \co{gptr}, and be guaranteed to either
-get the old value of \co{NULL} or to get the newly installed pointer,
-but either way see a valid result.
-Unfortunately, \cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-dashes these hopes as well.
-To obtain this guarantee, readers must instead use \co{READ_ONCE()},
-or, as will be seen, \co{rcu_dereference()}.
-However, on most modern computer systems, each of these read-side primitives
-can be implemented with a single load instruction, exactly the instruction
-that would normally be used in single-threaded code.
+类似地，人们可能希望读者可以使用单个 C 语言赋值来获取 \co{gptr} 的值，
+并保证要么得到旧值 \co{NULL}，要么得到新安装的指针，
+但无论哪种方式都看到有效的结果。
+不幸的是，\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
+同样粉碎了这些希望。
+为了获得此保证，读者必须使用 \co{READ_ONCE()}，
+或者如后面将看到的 \co{rcu_dereference()}。
+然而，在大多数现代计算机系统上，这些读侧原语中的每一个
+都可以用单条加载指令实现，正是在单线程代码中通常使用的指令。
 
-Reviewing \cref{fig:defer:Insertion With Concurrent Readers}
-from the viewpoint of readers, in the first three states all readers
-see \co{gptr} having the value \co{NULL}.
-Upon entering the fourth state, some readers might see \co{gptr} still
-having the value \co{NULL} while others might see it referencing the
-newly inserted element, but after some time, all readers will see this
-new element.
-At all times, all readers will see \co{gptr} as containing a valid pointer.
-Therefore, it really is possible to add new data to linked data structures
-while allowing concurrent readers to execute the same sequence of machine
-instructions that is normally used in single-threaded code.
-This no-cost approach to concurrent reading provides excellent performance
-and scalability, and also is eminently suitable for real-time use.
+从读者的角度回顾\cref{fig:defer:Insertion With Concurrent Readers}，
+在前三个状态中，所有读者看到 \co{gptr} 的值为 \co{NULL}。
+进入第四个状态后，一些读者可能仍然看到 \co{gptr} 的值为 \co{NULL}，
+而其他读者可能看到它引用新插入的元素，
+但过了一段时间后，所有读者都将看到这个新元素。
+在所有时刻，所有读者都将看到 \co{gptr} 包含一个有效指针。
+因此，在允许并发读者执行通常用于单线程代码的相同机器指令序列的同时，
+确实可以向链式数据结构添加新数据。
+这种零成本的并发读取方法提供了出色的性能和可扩展性，
+也非常适合实时使用。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUListDeleteClassic}}
-\caption{Deletion With Concurrent Readers}
+\caption{并发读者下的删除}
 \label{fig:defer:Deletion With Concurrent Readers}
 \end{figure}
 
-Insertion is of course quite useful, but sooner or later, it will also
-be necessary to delete data.
-As can be seen in
-\cref{fig:defer:Deletion With Concurrent Readers},
-the first step is easy.
-Again taking the lessons from
-\cref{sec:toolsoftrade:Shared-Variable Shenanigans}
-to heart, \co{smp_store_release()} is used to \co{NULL} the pointer,
-thus moving from the first row to the second in the figure.
-At this point, pre-existing readers see the old structure with
-\co{->addr} of~42 and \co{->iface} of~1, but new readers will see
-a \co{NULL} pointer, that is, concurrent readers can disagree on
-the state, as indicated by the ``2~Versions'' in the figure.
+插入当然非常有用，但迟早也需要删除数据。
+如\cref{fig:defer:Deletion With Concurrent Readers}所示，
+第一步很简单。
+再次牢记\cref{sec:toolsoftrade:Shared-Variable Shenanigans}的教训，
+使用 \co{smp_store_release()} 将指针置为 \co{NULL}，
+从而从图中的第一行移到第二行。
+此时，先前存在的读者看到旧结构，其 \co{->addr} 为~42，
+\co{->iface} 为~1，但新读者将看到 \co{NULL} 指针，
+即并发读者可能对状态不一致，
+如图中的``2~Versions''所示。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why does
-	\cref{fig:defer:Deletion With Concurrent Readers}
-	use \co{smp_store_release()} given that it is storing
-	a \co{NULL} pointer?
-	Wouldn't \co{WRITE_ONCE()} work just as well in this case,
-	given that there is no structure initialization to order
-	against the store of the \co{NULL} pointer?
+	为什么\cref{fig:defer:Deletion With Concurrent Readers}
+	在存储 \co{NULL} 指针时使用 \co{smp_store_release()}？
+	鉴于没有结构初始化需要与 \co{NULL} 指针的存储排序，
+	\co{WRITE_ONCE()} 在这种情况下不是同样适用吗？
 }\QuickQuizAnswerB{
-	Yes, it would.
+	是的，同样适用。
 
-	Because a \co{NULL} pointer is being assigned, there is nothing
-	to order against, so there is no need for \co{smp_store_release()}.
-	In contrast, when assigning a non-\co{NULL} pointer, it is
-	necessary to use \co{smp_store_release()} in order to ensure
-	that initialization of the pointed-to structure is carried
-	out before assignment of the pointer.
+	因为赋值的是 \co{NULL} 指针，没有什么需要排序的，
+	所以不需要 \co{smp_store_release()}。
+	相比之下，当赋值非 \co{NULL} 指针时，
+	有必要使用 \co{smp_store_release()} 以确保
+	指向结构的初始化在指针赋值之前完成。
 
-	In short, \co{WRITE_ONCE()} would work, and would
-	save a little bit of CPU time on some architectures.
-	However, as we will see, software-engineering concerns
-	will motivate use of a special \co{rcu_assign_pointer()}
-	that is quite similar to \co{smp_store_release()}.
+	简而言之，\co{WRITE_ONCE()} 是可行的，
+	并且在某些架构上可以节省少量 CPU 时间。
+	然而，正如我们将看到的，软件工程的考虑
+	将促使使用与 \co{smp_store_release()} 非常相似的
+	特殊 \co{rcu_assign_pointer()}。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Readers running concurrently with each other and with the procedure
-	outlined in
-	\cref{fig:defer:Deletion With Concurrent Readers}
-	can disagree on the value of \co{gptr}.
-	Isn't that just a wee bit problematic???
+	与彼此以及与\cref{fig:defer:Deletion With Concurrent Readers}
+	中概述的过程并发运行的读者
+	可能对 \co{gptr} 的值不一致。
+	这难道不是有点问题吗？？？
 }\QuickQuizAnswerE{
-	Not necessarily.
+	不一定。
 
-	As hinted at in
-	\cref{sec:cpu:Hardware Optimizations,sec:cpu:Hardware Free Lunch?},
-	speed-of-light delays mean that a computer's data is always
-	stale compared to whatever external reality that data is intended
-	to model.
+	正如\cref{sec:cpu:Hardware Optimizations,sec:cpu:Hardware Free Lunch?}
+	中暗示的那样，光速延迟意味着计算机的数据
+	与该数据旨在建模的外部现实相比总是过时的。
 
-	Real-world algorithms therefore absolutely must tolerate
-	inconsistencies between external reality and the in-computer
-	data reflecting that reality.
-	Many of those algorithms are also able to tolerate some degree
-	of inconsistency within the in-computer data.
+	因此，现实世界的算法绝对必须容忍外部现实
+	与反映该现实的计算机内数据之间的不一致。
+	许多此类算法还能够容忍计算机内数据的
+	一定程度的不一致。
 	\Cref{sec:datastruct:RCU-Protected Hash Table Discussion}
-	discusses this point in more detail.
+	更详细地讨论了这一点。
 
-	Please note that this need to tolerate inconsistent and stale
-	data is not limited to RCU\@.
-	It also applies to reference counting, hazard pointers, sequence
-	locks, and even to some locking use cases.
-	For example, if you compute some quantity while holding a lock,
-	but use that quantity after releasing that lock,
-	you might well be using stale data.
-	After all, the data that quantity is based on might change
-	arbitrarily as soon as the lock is released.
+	请注意，容忍不一致和过时数据的需要不仅限于 RCU\@。
+	它也适用于 reference counting、hazard pointers、sequence
+	locks，甚至某些锁的使用场景。
+	例如，如果你在持有锁时计算某个值，
+	但在释放锁后使用该值，
+	你很可能在使用过时的数据。
+	毕竟，该值所基于的数据可能在锁释放后立即发生任意变化。
 
-	So yes, RCU readers can see stale and inconsistent data, but no,
-	this is not necessarily problematic.
-	And, when needed, there are RCU usage patterns that avoid both
-	staleness and inconsistency~\cite{Arcangeli03}.
+	所以是的，RCU 读者可能看到过时和不一致的数据，
+	但不，这不一定是个问题。
+	而且在需要时，有 RCU 使用模式可以同时避免
+	过时和不一致~\cite{Arcangeli03}。
 }\QuickQuizEndE
 }
 
-We get back to a single version simply by waiting for all the
-pre-existing readers to complete, as shown in row~3.\footnote{
-	Which means that the wait-for-readers property introduced in
-	\cref{sec:defer:Read-Copy Update (RCU)}
-	really did have an important use after all!}
-At that point, all the pre-existing readers are done, and no later
-reader has a path to the old data item, so there can no longer be
-any readers referencing it.
-It may therefore be safely freed, as shown on row~4.
+我们只需等待所有先前存在的读者完成，
+就可以回到单一版本，如第~3 行所示。\footnote{
+	这意味着\cref{sec:defer:Read-Copy Update (RCU)}中引入的
+	等待读者属性毕竟确实有重要用途！}
+此时，所有先前存在的读者都已完成，
+没有后续读者有通往旧数据项的路径，
+因此不再有任何读者引用它。
+因此可以安全地释放它，如第~4 行所示。
 
-Thus, given a way to wait for pre-existing readers to complete,
-it is possible to both add data to and remove data from a linked
-data structure, despite the readers executing the same sequence
-of machine instructions that would be appropriate for single-threaded
-execution.
-So perhaps going all the way was not too far after all!
+因此，给定一种等待先前存在读者完成的方法，
+就可以在链式数据结构中添加和删除数据，
+尽管读者执行的机器指令序列与单线程执行相同。
+所以也许走到底并没有走得太远！
 
-But how can we tell when all of the pre-existing readers have in
-fact completed?
-This question is the topic of \cref{sec:defer:Waiting for Readers}.
-But first, the next section defines RCU's core API.
+但我们如何知道所有先前存在的读者实际上何时完成？
+这个问题是\cref{sec:defer:Waiting for Readers}的主题。
+不过首先，下一节定义 RCU 的核心 API。
 
-\subsubsection{Core RCU API}
+\subsubsection{核心 RCU API}
 \label{sec:defer:Core RCU API}
 
-The full Linux-kernel API is quite extensive, with more than one
-hundred API members.
-However, this section will confine itself to six core RCU API members,
-which suffices for the upcoming sections introducing RCU and covering
-its fundamentals.
-The full API is covered in \cref{sec:defer:RCU Linux-Kernel API}.
+完整的 Linux 内核 API 相当广泛，有一百多个 API 成员。
+然而，本节将仅限于六个核心 RCU API 成员，
+这对于接下来介绍 RCU 和涵盖其基础知识的各节来说已经足够。
+完整的 API 在\cref{sec:defer:RCU Linux-Kernel API}中介绍。
 
-Three members of the core APIs are used by readers.
-The \apik{rcu_read_lock()} and \apik{rcu_read_unlock()} functions delimit
-\IXhmrpl{RCU read-side}{critical section}.
-These may be nested, so that one \co{rcu_read_lock()}--\co{rcu_read_unlock()}
-pair can be enclosed within another.
-In this case, the nested set of RCU read-side critical sections act as
-one large critical section covering the full extent of the nested set.
-The third read-side API member, \apik{rcu_dereference()}, fetches an
-\IXr{RCU-protected pointer}.
-Conceptually, \co{rcu_dereference()} simply loads from memory, but we
-will see in
-\cref{sec:defer:Publish-Subscribe Mechanism}
-that \co{rcu_dereference()} must prevent the compiler and (in
-one case) the CPU from reordering its load with later memory operations
-that dereference this pointer.
+核心 API 的三个成员由读者使用。
+\apik{rcu_read_lock()} 和 \apik{rcu_read_unlock()} 函数界定
+\IXhmrpl{RCU read-side}{critical section}。
+它们可以嵌套，使得一个
+\co{rcu_read_lock()}--\co{rcu_read_unlock()} 对可以包含在另一个中。
+在这种情况下，嵌套的 RCU 读侧临界区集合作为一个大型临界区，
+覆盖嵌套集合的完整范围。
+第三个读侧 API 成员 \apik{rcu_dereference()} 获取一个
+\IXr{RCU-protected pointer}。
+概念上，\co{rcu_dereference()} 只是从内存加载，但我们将在
+\cref{sec:defer:Publish-Subscribe Mechanism}中看到，
+\co{rcu_dereference()} 必须防止编译器和（在一种情况下）CPU
+将其加载与后续解引用该指针的内存操作重排序。
 
 \QuickQuiz{
-	What is an RCU-protected pointer?
+	什么是 RCU-protected pointer？
 }\QuickQuizAnswer{
-	A pointer to \IXr{RCU-protected data}.
-	RCU-protected data is in turn a block of dynamically allocated
-	memory whose freeing will be deferred such that an RCU grace
-	period will elapse between the time that there were no longer
-	any RCU-reader-accessible pointers to that block and the time
-	that that block is freed.
-	This ensures that no RCU readers will have access to that block at
-	the time that it is freed.
+	指向\IXr{RCU-protected data}的指针。
+	RCU-protected data 则是一块动态分配的内存，
+	其释放将被延迟，使得从不再有任何
+	RCU 读者可访问的指向该块的指针到该块被释放之间
+	会经过一个 RCU grace period。
+	这确保在释放该块时没有 RCU 读者能够访问它。
 
-	RCU-protected pointers must be handled carefully.
-	For example, any reader that intends to dereference an
-	RCU-protected pointer must use \co{rcu_dereference()} (or
-	stronger) to load that pointer.
-	In addition, any updater must use \co{rcu_assign_pointer()}
-	(or stronger) to store to that pointer.
+	RCU-protected pointers 必须小心处理。
+	例如，任何打算解引用 RCU-protected pointer 的读者
+	必须使用 \co{rcu_dereference()}（或更强的）来加载该指针。
+	此外，任何更新者必须使用 \co{rcu_assign_pointer()}
+	（或更强的）来存储该指针。
 }\QuickQuizEnd
 
-The other three members of the core APIs are used by updaters.
-The \apik{synchronize_rcu()} function implements the ``wait for readers''
-operation from \cref{fig:defer:Deletion With Concurrent Readers}.
-The \apik{call_rcu()} function is the asynchronous counterpart of
-\co{synchronize_rcu()} by invoking the specified function after
-all pre-existing RCU readers have completed.
-Finally, the \apik{rcu_assign_pointer()} macro is used to update an
-RCU-protected pointer.
-Conceptually, this is simply an assignment statement, but we will
-see in
-\cref{sec:defer:Publish-Subscribe Mechanism}
-that \co{rcu_assign_pointer()} must prevent the compiler and the CPU
-from reordering this assignment to precede any prior assignments used
-to initialize the pointed-to structure.
+核心 API 的另外三个成员由更新者使用。
+\apik{synchronize_rcu()} 函数实现了
+\cref{fig:defer:Deletion With Concurrent Readers}中的
+``等待读者''操作。
+\apik{call_rcu()} 函数是 \co{synchronize_rcu()} 的异步对应物，
+它在所有先前存在的 RCU 读者完成后调用指定的函数。
+最后，\apik{rcu_assign_pointer()} 宏用于更新 RCU-protected pointer。
+概念上，这只是一条赋值语句，但我们将在
+\cref{sec:defer:Publish-Subscribe Mechanism}中看到，
+\co{rcu_assign_pointer()} 必须防止编译器和 CPU
+将此赋值重排序到用于初始化所指向结构的任何先前赋值之前。
 
 \begin{table*}
 \renewcommand*{\arraystretch}{1.25}
@@ -261,249 +220,209 @@ to initialize the pointed-to structure.
 \begin{tabular}{llp{2.4in}}
 \toprule
 &
-	Primitive &
-		Purpose \\
+	原语 &
+		用途 \\
 \midrule
-\cellcolor{white}\emph{Readers} &
+\cellcolor{white}\emph{读者} &
 	\tco{rcu_read_lock()} &
-		Start an RCU read-side critical section. \\
+		开始一个 RCU 读侧临界区。 \\
 &
 	\tco{rcu_read_unlock()} &
-		End an RCU read-side critical section. \\
+		结束一个 RCU 读侧临界区。 \\
 \cellcolor{white}&
 	\tco{rcu_dereference()} &
-		Safely load an RCU-protected pointer. \\
+		安全地加载一个 RCU-protected pointer。 \\
 \midrule
-\emph{Updaters} &
+\emph{更新者} &
 	\tco{synchronize_rcu()} &
-		Wait for all pre-existing RCU read-side critical sections to
-		complete. \\
+		等待所有先前存在的 RCU 读侧临界区完成。 \\
 \cellcolor{white}&
 	\tco{call_rcu()} &
-		Invoke the specified function after all pre-existing RCU read-side
-		critical sections complete. \\
+		在所有先前存在的 RCU 读侧临界区完成后调用指定函数。 \\
 &
 	\tco{rcu_assign_pointer()} &
-		Safely update an RCU-protected pointer. \\
+		安全地更新一个 RCU-protected pointer。 \\
 \bottomrule
 \end{tabular}
 }
-\caption{Core RCU API}
+\caption{核心 RCU API}
 \label{tab:defer:Core RCU API}
 \end{table*}
 
 \QuickQuiz{
-	What does \co{synchronize_rcu()} do if it starts at about
-	the same time as an \co{rcu_read_lock()}?
+	如果 \co{synchronize_rcu()} 大约与
+	\co{rcu_read_lock()} 同时开始，会怎样？
 }\QuickQuizAnswer{
-	If a \co{synchronize_rcu()} cannot prove that it started
-	before a given \co{rcu_read_lock()}, then it must wait
-	for the corresponding \co{rcu_read_unlock()}.
+	如果 \co{synchronize_rcu()} 无法证明它在给定的
+	\co{rcu_read_lock()} 之前开始，
+	则它必须等待对应的 \co{rcu_read_unlock()}。
 }\QuickQuizEnd
 
-The core RCU API is summarized in \cref{tab:defer:Core RCU API} for
-easy reference.
-With that, we are ready to continue this introduction to RCU with
-the key RCU operation, waiting for readers.
+核心 RCU API 总结在\cref{tab:defer:Core RCU API}中以便参考。
+有了这些，我们准备好继续介绍 RCU 的关键操作——等待读者。
 
-\subsubsection{Waiting for Readers}
+\subsubsection{等待读者}
 \label{sec:defer:Waiting for Readers}
 
-It is tempting to base the reader-waiting functionality of
-\co{synchronize_rcu()} and \co{call_rcu()} on a reference counter
-updated by \co{rcu_read_lock()} and \co{rcu_read_unlock()}, but
+很容易想到将 \co{synchronize_rcu()} 和 \co{call_rcu()}
+的等待读者功能建立在由 \co{rcu_read_lock()} 和
+\co{rcu_read_unlock()} 更新的引用计数器之上，
+但\cref{chp:Counting}中的
 \cref{fig:count:Atomic Increment Scalability on x86}
-in
-\cref{chp:Counting}
-shows that concurrent reference counting results in extreme overhead.
-This extreme overhead was confirmed in the specific case of
-reference counters in
+表明并发引用计数导致极高的开销。
+这种极高开销在引用计数器的特定情况下由
+\cpageref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}上的
 \cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
-on
-\cpageref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}.
-Hazard pointers profoundly reduce this overhead, but, as we saw in
+所证实。
+Hazard pointers 大幅降低了此开销，但正如我们在
+\cpageref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}上的
 \cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-on
-\cpageref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers},
-not to zero.
-Nevertheless, many RCU implementations use counters with carefully
-controlled cache locality.
+中看到的，没有降到零。
+然而，许多 RCU 实现使用精心控制缓存局部性的计数器。
 
-A second approach observes that memory synchronization is expensive,
-and therefore uses registers instead, namely each CPU's or thread's
-program counter (PC), thus imposing no overhead on readers, at least
-in the absence of concurrent updates.
-The updater polls each relevant PC, and if that PC is not within read-side
-code, then the corresponding CPU or thread is within a quiescent state,
-in turn signaling the completion of any reader that might have access
-to the newly removed data element.
-Once all CPU's or thread's PCs have been observed to be outside of any
-reader, the \IX{grace period} has completed.
-Please note that this approach poses some serious challenges, including
-memory ordering, functions that are \emph{sometimes} invoked from readers,
-and ever-exciting code-motion optimizations.
-Nevertheless, this approach is said to be used in
-production~\cite{MikeAsh2015Apple}.
+第二种方法观察到内存同步是昂贵的，
+因此改用寄存器，即每个 CPU 或线程的程序计数器（PC），
+从而至少在没有并发更新的情况下不给读者带来开销。
+更新者轮询每个相关的 PC，如果该 PC 不在读侧代码内，
+则对应的 CPU 或线程处于 quiescent state，
+进而表示可能访问新移除数据元素的任何读者已完成。
+一旦所有 CPU 或线程的 PC 都被观察到在任何读者之外，
+\IX{grace period}就完成了。
+请注意，此方法带来一些严重的挑战，
+包括内存排序、\emph{有时}从读者调用的函数，
+以及令人兴奋的代码移动优化。
+然而，据说此方法在生产中使用~\cite{MikeAsh2015Apple}。
 
-A third approach is to simply wait for a fixed period of time that is
-long enough to comfortably exceed the lifetime of any reasonable
-reader~\cite{Jacobson93,AjuJohn95}.
-This can work quite well in hard real-time systems~\cite{YuxinRen2018RTRCU},
-but in less exotic
-settings, Murphy says that it is critically important to be prepared
-even for unreasonably long-lived readers.
-To see this, consider the consequences of failing to do so:
-A data item will be freed while the unreasonable reader is still
-referencing it, and that item might well be immediately reallocated,
-possibly even as a data item of some other type.
-The unreasonable reader and the unwitting reallocator would then
-be attempting to use the same memory for two very different purposes.
-The ensuing mess will be exceedingly difficult to debug.
+第三种方法是简单地等待一段固定的时间，
+该时间足以舒适地超过任何合理读者的
+生命周期~\cite{Jacobson93,AjuJohn95}。
+这在硬实时系统中可以很好地工作~\cite{YuxinRen2018RTRCU}，
+但在不那么特殊的环境中，Murphy 说
+即使对不合理的长寿命读者也要做好准备是至关重要的。
+要理解这一点，考虑未能做到的后果：
+在不合理的读者仍在引用它时，数据项将被释放，
+该项很可能被立即重新分配，甚至可能作为其他类型的数据项。
+不合理的读者和不知情的重新分配者将试图
+将同一块内存用于两个非常不同的目的。
+随之而来的混乱将极难调试。
 
-A fourth approach is to wait forever, secure in the knowledge that
-doing so will accommodate even the most unreasonable reader.
-This approach is also called ``leaking memory'', and has a bad reputation
-due to the fact that memory leaks often require untimely and
-inconvenient reboots.
-Nevertheless, this is a viable strategy when the update rate and the
-uptime are both sharply bounded.
-For example, this approach could work well in a high-availability
-cluster where systems were periodically crashed in order to ensure
-that cluster really remained highly available.\footnote{
-	The program that forces the periodic crashing is sometimes
-	known as a ``chaos monkey'':
-	\url{https://netflix.github.io/chaosmonkey/}.
-	However, it might also be a mistake to neglect chaos caused
-	by systems running for too long.}
-Leaking the memory is also a viable strategy in environments having
-garbage collectors, in which case the garbage collector can be thought
-of as plugging the leak~\cite{Kung80}.
-However, if your environment lacks a garbage collector, read on!
+第四种方法是永远等待，确信这样做可以容纳
+即使是最不合理的读者。
+此方法也称为``内存泄漏''，由于内存泄漏通常需要
+不合时宜和不方便的重启，因而名声不好。
+然而，当更新速率和运行时间都有严格上限时，这是一个可行的策略。
+例如，此方法在高可用性集群中效果很好，
+其中系统定期被崩溃以确保集群确实保持高可用性。\footnote{
+	强制定期崩溃的程序有时被称为``混沌猴''：
+	\url{https://netflix.github.io/chaosmonkey/}。
+	然而，忽视系统运行太久导致的混沌也可能是个错误。}
+在有垃圾回收器的环境中，泄漏内存也是可行的策略，
+在这种情况下，垃圾回收器可以被认为是堵住了泄漏~\cite{Kung80}。
+但如果你的环境缺少垃圾回收器，请继续阅读！
 
-A fifth approach avoids the periodic crashes in favor of periodically
-``stopping the world'', as exemplified by the traditional stop-the-world
-garbage collector.
-This approach was also heavily used during the decades before
-ubiquitous connectivity, when it was common practice to power systems
-off at the end of each working day.
-However, in today's always-connected always-on world, stopping the world
-can gravely degrade response times, which has been one motivation for the
-development of concurrent garbage collectors~\cite{DavidFBacon2003RTGC}.
-Furthermore, although we need all pre-existing readers to complete, we do
-not need them all to complete at the same time.
+第五种方法通过定期``停止世界''来避免定期崩溃，
+传统的 stop-the-world 垃圾回收器就是这种方法的范例。
+在无处不在的连接之前的几十年中，这种方法也被大量使用，
+当时在每个工作日结束时关闭系统电源是常见做法。
+然而，在当今始终连接、始终在线的世界中，
+停止世界会严重降低响应时间，
+这也是开发并发垃圾回收器的一个动机~\cite{DavidFBacon2003RTGC}。
+此外，虽然我们需要所有先前存在的读者完成，
+但我们不需要它们同时完成。
 
-This observation leads to the sixth approach, which is stopping
-one CPU or thread at a time.
-This approach has the advantage of not degrading reader response times
-at all, let alone gravely.
-Furthermore, numerous applications already have states (termed
-\emph{\IXpl{quiescent state}}) that can be
-reached only after all pre-existing readers are done.
-In transaction-processing systems, the time between a pair of
-successive transactions might be a quiescent state.
-In reactive systems, the state between a pair of successive events
-might be a quiescent state.
-Within non-preemptive operating-systems kernels, a context switch can be
-a quiescent state~\cite{McKenney98}.
-Either way, once all CPUs and/or threads have passed through a quiescent
-state, the system is said to have completed a \emph{grace period},
-at which point all readers in existence at the start of that grace period
-are guaranteed to have completed.
-As a result, it is also guaranteed to be safe to free any removed data
-items that were removed prior to the start of that grace period.\footnote{
-	It is possible to do much more with RCU than simply defer
-	reclamation of memory, but deferred reclamation is RCU's most
-	common use case, and is therefore an excellent place to start.
-	For an example of the more general case of deferred execution,
-	please see phased state change in \cref{sec:defer:Phased State
-	Change}.}
+这一观察引出了第六种方法，即一次停止一个 CPU 或线程。
+此方法的优点是完全不降低读者的响应时间，更不用说严重降低了。
+此外，许多应用程序已经有只有在所有先前存在的读者完成后
+才能到达的状态（称为\emph{\IXpl{quiescent state}}）。
+在事务处理系统中，一对连续事务之间的时间可能是 quiescent state。
+在反应式系统中，一对连续事件之间的状态可能是 quiescent state。
+在非抢占式操作系统内核中，上下文切换可以是
+quiescent state~\cite{McKenney98}。
+无论哪种方式，一旦所有 CPU 和/或线程都通过了 quiescent state，
+系统就被认为完成了一个\emph{grace period}，
+此时保证在该 grace period 开始时存在的所有读者都已完成。
+因此，也保证可以安全释放在该 grace period 开始之前
+移除的任何已移除数据项。\footnote{
+	使用 RCU 可以做的远不止简单地推迟内存回收，
+	但延迟回收是 RCU 最常见的使用场景，
+	因此是一个很好的起点。
+	有关延迟执行的更一般情况的示例，
+	请参见\cref{sec:defer:Phased State Change}中的
+	分阶段状态变更。}
 
-Within a non-preemptive operating-system kernel, for a context switch to be
-a valid quiescent state, readers must be prohibited from blocking while
-referencing a given instance of the data structure obtained via the \co{gptr}
-pointer shown in
+在非抢占式操作系统内核中，要使上下文切换成为有效的
+quiescent state，读者必须被禁止在引用通过
 \cref{fig:defer:Insertion With Concurrent Readers,%
-fig:defer:Deletion With Concurrent Readers}.
-This no-blocking constraint is consistent with similar constraints
-on pure spinlocks, where a CPU is forbidden from blocking while
-holding a spinlock.
-Without this constraint, all CPUs might be consumed by threads
-spinning attempting to acquire a spinlock held by a blocked thread.
-The spinning threads will not relinquish their CPUs until they acquire
-the lock, but the thread holding the lock cannot possibly release it
-until one of the spinning threads relinquishes a CPU\@.
-This is a classic deadlock situation, and this \IX{deadlock} is avoided
-by forbidding blocking while holding a spinlock.
+fig:defer:Deletion With Concurrent Readers}
+中所示的 \co{gptr} 指针获得的数据结构的给定实例时阻塞。
+此不阻塞约束与纯自旋锁的类似约束一致，
+即 CPU 在持有自旋锁时被禁止阻塞。
+没有此约束，所有 CPU 可能会被试图获取
+被阻塞线程持有的自旋锁的自旋线程消耗。
+自旋线程在获取锁之前不会释放其 CPU，
+但持有锁的线程不可能释放它，
+直到某个自旋线程释放一个 CPU\@。
+这是一个经典的死锁情况，
+通过禁止在持有自旋锁时阻塞来避免这种\IX{deadlock}。
 
-Again, this same constraint is imposed on reader threads dereferencing
-\co{gptr}:
-Such threads are not allowed to block until after
-they are done using the pointed-to data item.
-Returning to the second row of
-\cref{fig:defer:Deletion With Concurrent Readers},
-where the updater has just completed executing the \co{smp_store_release()},
-imagine that CPU~0 executes a context switch.
-Because readers are not permitted to block while traversing the linked
-list, we are guaranteed that all prior readers that might have been running on
-CPU~0 will have completed.
-Extending this line of reasoning to the other CPUs, once each CPU has
-been observed executing a context switch, we are guaranteed that all
-prior readers have completed, and that there are no longer any reader
-threads referencing the newly removed data element.
-The updater can then safely free that data element, resulting in the
-state shown at the bottom of
-\cref{fig:defer:Deletion With Concurrent Readers}.
+同样的约束也施加在解引用 \co{gptr} 的读者线程上：
+这些线程在使用完指向的数据项之前不允许阻塞。
+回到\cref{fig:defer:Deletion With Concurrent Readers}的第二行，
+更新者刚刚完成执行 \co{smp_store_release()}，
+想象 CPU~0 执行了一次上下文切换。
+因为读者在遍历链表时不允许阻塞，
+我们保证所有可能在 CPU~0 上运行的先前读者都已完成。
+将这条推理线扩展到其他 CPU，一旦每个 CPU
+都被观察到执行了上下文切换，
+我们就保证所有先前的读者都已完成，
+不再有任何读者线程引用新移除的数据元素。
+然后更新者可以安全释放该数据元素，
+产生\cref{fig:defer:Deletion With Concurrent Readers}底部所示的状态。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/QSBRGracePeriod}}
-\caption{QSBR\@:
-		 Waiting for Pre-Existing Readers}
+\caption{QSBR\@：等待先前存在的读者}
 \label{fig:defer:QSBR: Waiting for Pre-Existing Readers}
 \end{figure}
 
-This approach is termed \IXacrfst{qsbr}~\cite{ThomasEHart2006a}.
-A QSBR schematic is shown in
-\cref{fig:defer:QSBR: Waiting for Pre-Existing Readers},
-with time advancing from the top of the figure to the bottom.
-The cyan-colored boxes depict RCU read-side critical sections,
-each of which begins with \co{rcu_read_lock()} and ends with
-\co{rcu_read_unlock()}.
-CPU~1 does the \co{WRITE_ONCE()} that removes the current data
-item (presumably having previously read the pointer value and
-availed itself of appropriate synchronization), then waits
-for readers.
-This wait operation results in an immediate context switch, which is a
-quiescent state (denoted by the pink circle), which in turn means that
-all prior reads on CPU~1 have completed.
-Next, CPU~2 does a context switch, so that all readers on CPUs~1 and~2
-are now known to have completed.
-Finally, CPU~3 does a context switch.
-At this point, all readers throughout the entire system are known to have
-completed, so the grace period ends, permitting \co{synchronize_rcu()} to
-return to its caller, in turn permitting CPU~1 to free the old data item.
+此方法被称为\IXacrfst{qsbr}~\cite{ThomasEHart2006a}。
+\cref{fig:defer:QSBR: Waiting for Pre-Existing Readers}中
+展示了 QSBR 示意图，时间从图的顶部向底部推进。
+青色方框描绘了 RCU 读侧临界区，
+每个临界区从 \co{rcu_read_lock()} 开始，
+到 \co{rcu_read_unlock()} 结束。
+CPU~1 执行移除当前数据项的 \co{WRITE_ONCE()}
+（大概之前已读取指针值并利用了适当的同步），
+然后等待读者。
+此等待操作导致立即上下文切换，
+这是一个 quiescent state（由粉色圆圈表示），
+这反过来意味着 CPU~1 上所有先前的读取都已完成。
+接下来，CPU~2 执行上下文切换，
+因此 CPU~1 和~2 上的所有读者现在都已知完成。
+最后，CPU~3 执行上下文切换。
+此时，整个系统中的所有读者都已知完成，
+所以 grace period 结束，
+允许 \co{synchronize_rcu()} 返回给其调用者，
+进而允许 CPU~1 释放旧数据项。
 
 \QuickQuiz{
-	In \cref{fig:defer:QSBR: Waiting for Pre-Existing Readers},
-	the last of CPU~3's readers that could possibly have
-	access to the old data item ended before the grace period
-	even started!
-	So why would anyone bother waiting until CPU~3's later context
-	switch???
+	在\cref{fig:defer:QSBR: Waiting for Pre-Existing Readers}中，
+	CPU~3 可能访问旧数据项的最后一个读者
+	在 grace period 开始之前就结束了！
+	那为什么还要等到 CPU~3 后来的上下文切换？？？
 }\QuickQuizAnswer{
-	Because that waiting is exactly what enables readers to use
-	the same sequence of instructions that is appropriate for
-	single-theaded situations.
-	In other words, this additional ``redundant'' waiting enables
-	excellent read-side performance, scalability, and real-time
-	response.
+	因为那种等待正是使读者能够使用
+	适合单线程情况的相同指令序列的原因。
+	换句话说，这种额外的``冗余''等待
+	实现了出色的读侧性能、可扩展性和实时响应。
 }\QuickQuizEnd
 
-\subsubsection{Toy Implementation}
+\subsubsection{玩具实现}
 \label{sec:defer:Toy Implementation}
 
-Although production-quality QSBR implementations can be quite complex,
-a toy non-preemptive Linux-kernel implementation is quite simple:
+虽然生产质量的 QSBR 实现可能相当复杂，
+但一个玩具级的非抢占式 Linux 内核实现非常简单：
 
 \begin{VerbatimN}[samepage=true]
 void synchronize_rcu(void)
@@ -515,13 +434,12 @@ void synchronize_rcu(void)
 }
 \end{VerbatimN}
 
-The \co{for_each_online_cpu()} primitive iterates over all CPUs, and
-the \co{sched_setaffinity()} function causes the current thread to
-execute on the specified CPU, which forces the destination CPU to execute
-a context switch.
-Therefore, once the \co{for_each_online_cpu()} has completed, each CPU
-has executed a context switch, which in turn guarantees that
-all pre-existing reader threads have completed.
+\co{for_each_online_cpu()} 原语遍历所有 CPU，
+\co{sched_setaffinity()} 函数使当前线程在指定的 CPU 上执行，
+这强制目标 CPU 执行上下文切换。
+因此，一旦 \co{for_each_online_cpu()} 完成，
+每个 CPU 都执行了上下文切换，
+这反过来保证所有先前存在的读者线程都已完成。
 
 \begin{listing}
 \begin{fcvlabel}[ln:defer:Insertion and Deletion With Concurrent Readers]
@@ -566,198 +484,172 @@ int del_route(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Insertion and Deletion With Concurrent Readers}
+\caption{并发读者下的插入和删除}
 \label{lst:defer:Insertion and Deletion With Concurrent Readers}
 \end{listing}
 
-Please note that this approach is \emph{not} production quality.
-Correct handling of a number of corner cases and the need for a number
-of powerful optimizations mean that production-quality implementations
-are quite complex.
-In addition, RCU implementations for preemptible environments
-require that readers actually do something, which in non-real-time
-Linux-kernel environments can be as simple as defining
-\co{rcu_read_lock()} and \co{rcu_read_unlock()} as \co{preempt_disable()}
-and \co{preempt_enable()}, respectively.\footnote{
-	Some toy RCU implementations that handle preempted
-	read-side critical sections are shown in
-	\cref{chp:app:``Toy'' RCU Implementations}\@.}
-However, this simple non-preemptible approach is conceptually complete,
-and demonstrates that it really is possible to provide read-side
-synchronization at zero cost, even in the face of concurrent updates.
-In fact,
-\cref{lst:defer:Insertion and Deletion With Concurrent Readers}
-shows how reading (\co{access_route()}),
-\cref{fig:defer:Insertion With Concurrent Readers}'s
-insertion (\co{ins_route()}) and
-\cref{fig:defer:Deletion With Concurrent Readers}'s
-deletion (\co{del_route()}) can
-be implemented.
-(A slightly more capable routing table is shown in
-\cref{sec:defer:RCU for Pre-BSD Routing}.)
+请注意此方法\emph{不是}生产质量的。
+正确处理许多边界情况以及大量强大优化的需要
+意味着生产质量的实现相当复杂。
+此外，可抢占环境的 RCU 实现要求读者实际做些事情，
+在非实时 Linux 内核环境中，这可以简单到将
+\co{rcu_read_lock()} 和 \co{rcu_read_unlock()}
+分别定义为 \co{preempt_disable()} 和 \co{preempt_enable()}。\footnote{
+	一些处理被抢占的读侧临界区的玩具 RCU 实现
+	见\cref{chp:app:``Toy'' RCU Implementations}\@。}
+然而，这个简单的非抢占式方法在概念上是完整的，
+并且证明了即使面对并发更新，
+也确实可以零成本提供读侧同步。
+事实上，\cref{lst:defer:Insertion and Deletion With Concurrent Readers}
+展示了如何实现读取（\co{access_route()}）、
+\cref{fig:defer:Insertion With Concurrent Readers}的
+插入（\co{ins_route()}）和
+\cref{fig:defer:Deletion With Concurrent Readers}的
+删除（\co{del_route()}）。
+（稍微更强大的路由表在
+\cref{sec:defer:RCU for Pre-BSD Routing}中展示。）
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What is the point of \co{rcu_read_lock()} and \co{rcu_read_unlock()} in
-	\cref{lst:defer:Insertion and Deletion With Concurrent Readers}?
-	Why not just let the quiescent states speak for themselves?
+	\cref{lst:defer:Insertion and Deletion With Concurrent Readers}中
+	\co{rcu_read_lock()} 和 \co{rcu_read_unlock()} 有什么意义？
+	为什么不让 quiescent states 自己说话？
 }\QuickQuizAnswerB{
-	Recall that readers are not permitted to pass through a quiescent
-	state.
-	For example, within the Linux kernel, RCU readers are not permitted
-	to execute a context switch.
-	Use of \co{rcu_read_lock()} and \co{rcu_read_unlock()} enables
-	debug checks for improperly placed quiescent states, making it
-	easy to find bugs that would otherwise be difficult to find,
-	intermittent, and quite destructive.
+	回想一下，读者不允许通过 quiescent state。
+	例如，在 Linux 内核中，RCU 读者不允许执行上下文切换。
+	使用 \co{rcu_read_lock()} 和 \co{rcu_read_unlock()}
+	可以对不正确放置的 quiescent states 进行调试检查，
+	使得容易找到否则难以发现的、间歇性的且相当具有破坏性的错误。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	What is the point of \co{rcu_dereference()}, \co{rcu_assign_pointer()}
-	and \co{RCU_INIT_POINTER()} in
-	\cref{lst:defer:Insertion and Deletion With Concurrent Readers}?
-	Why not just use \co{READ_ONCE()}, \co{smp_store_release()}, and
-	\co{WRITE_ONCE()}, respectively?
+	\cref{lst:defer:Insertion and Deletion With Concurrent Readers}中
+	\co{rcu_dereference()}、\co{rcu_assign_pointer()} 和
+	\co{RCU_INIT_POINTER()} 有什么意义？
+	为什么不直接分别使用 \co{READ_ONCE()}、\co{smp_store_release()}
+	和 \co{WRITE_ONCE()}？
 }\QuickQuizAnswerE{
-	The RCU-specific APIs do have similar semantics to the suggested
-	replacements, but also enable static-analysis debugging checks
-	that complain if an RCU-specific API is invoked on a non-RCU
-	pointer and vice versa.
+	RCU 特定的 API 确实与建议的替代品具有类似的语义，
+	但也启用了静态分析调试检查，
+	如果对非 RCU 指针调用 RCU 特定 API 或反之则会报错。
 }\QuickQuizEndE
 }
 
-Referring back to
-\cref{lst:defer:Insertion and Deletion With Concurrent Readers},
-note that \co{route_lock} is used to synchronize between concurrent updaters
-invoking \co{ins_route()} and \co{del_route()}.
-However, this lock is not acquired by readers invoking \co{access_route()}:
-Readers are instead protected by the QSBR techniques described in
-\cref{sec:defer:Waiting for Readers}.
+回顾\cref{lst:defer:Insertion and Deletion With Concurrent Readers}，
+注意 \co{route_lock} 用于同步调用 \co{ins_route()} 和
+\co{del_route()} 的并发更新者。
+但是，调用 \co{access_route()} 的读者不获取此锁：
+读者由\cref{sec:defer:Waiting for Readers}中描述的
+QSBR 技术保护。
 
-Note that \co{ins_route()} simply returns the old value of \co{gptr}, which
-\cref{fig:defer:Insertion With Concurrent Readers} assumed would
-always be \co{NULL}.
-This means that it is the caller's responsibility to figure out what to
-do with a non-\co{NULL} value, a task complicated by the fact that
-readers might still be referencing it for an indeterminate period of time.
-Callers might use one of the following approaches:
+注意 \co{ins_route()} 只是返回 \co{gptr} 的旧值，
+\cref{fig:defer:Insertion With Concurrent Readers}假设它总是 \co{NULL}。
+这意味着调用者有责任弄清楚如何处理非 \co{NULL} 值，
+这个任务因为读者可能在不确定的时间段内仍在引用它而变得复杂。
+调用者可以使用以下方法之一：
 
 \begin{enumerate}
-\item	Use \co{synchronize_rcu()} to safely free the pointed-to structure.
-	Although this approach is correct from an RCU perspective, it
-	arguably has software-engineering leaky-API problems.
-\item	Trip an assertion if the returned pointer is non-\co{NULL}.
-\item	Pass the returned pointer to a later invocation of
-	\co{ins_route()} to restore the earlier value.
+\item	使用 \co{synchronize_rcu()} 安全地释放指向的结构。
+	虽然此方法从 RCU 的角度来看是正确的，
+	但可以说存在软件工程方面的泄漏 API 问题。
+\item	如果返回的指针非 \co{NULL}，触发断言。
+\item	将返回的指针传递给后续的 \co{ins_route()} 调用
+	以恢复先前的值。
 \end{enumerate}
 
-In contrast, \co{del_route()} uses \co{synchronize_rcu()} and
-\co{free()} to safely free the newly deleted data item.
+相比之下，\co{del_route()} 使用 \co{synchronize_rcu()} 和
+\co{free()} 安全地释放新删除的数据项。
 
 \QuickQuiz{
-	But what if the old structure needs to be freed, but the caller
-	of \co{ins_route()} cannot block, perhaps due to performance
-	considerations or perhaps because the caller is executing within
-	an RCU read-side critical section?
+	但如果旧结构需要被释放，而 \co{ins_route()} 的调用者
+	不能阻塞，也许是由于性能考虑，
+	也许是因为调用者在 RCU 读侧临界区内执行，怎么办？
 }\QuickQuizAnswer{
-	A \co{call_rcu()} function, which is described in
-	\cref{sec:defer:Wait For Pre-Existing RCU Readers},
-	permits asynchronous grace-period waits.
+	\co{call_rcu()} 函数在
+	\cref{sec:defer:Wait For Pre-Existing RCU Readers}
+	中描述，允许异步 grace-period 等待。
 }\QuickQuizEnd
 
-This example shows one general approach to reading and updating
-RCU-protected data structures, however, there is quite a variety
-of use cases, several of which are covered in
-\cref{sec:defer:RCU Usage}.
+此示例展示了读取和更新 RCU 保护的数据结构的一般方法，
+然而存在相当多样的使用场景，
+其中几个在\cref{sec:defer:RCU Usage}中介绍。
 
-In summary, it is in fact possible to create concurrent linked data
-structures that can be traversed by readers executing the same sequence
-of machine instructions that would be executed by single-threaded readers.
-The next section summarizes RCU's high-level properties.
+总之，确实可以创建并发链式数据结构，
+使读者执行的机器指令序列与单线程读者执行的完全相同。
+下一节总结 RCU 的高级属性。
 
-\subsubsection{RCU Properties}
+\subsubsection{RCU 属性}
 \label{sec:defer:RCU Properties}
 
-A key RCU property is that reads need not wait for updates.
-This property enables RCU implementations to provide low-cost or even
-no-cost readers, resulting in low overhead and excellent scalability.
-This property also allows RCU readers and updaters to make useful
-concurrent forward progress.
-In contrast, conventional synchronization primitives must enforce strict
-mutual exclusion using expensive instructions, thus increasing overhead
-and degrading scalability, but also typically prohibiting readers and
-updaters from making useful concurrent forward progress.
+RCU 的一个关键属性是读操作不需要等待更新操作。
+此属性使 RCU 实现能够提供低成本甚至零成本的读者，
+从而实现低开销和出色的可扩展性。
+此属性还允许 RCU 读者和更新者进行有用的并发前进。
+相比之下，传统同步原语必须使用昂贵的指令强制严格的互斥，
+从而增加开销并降低可扩展性，
+但通常也阻止读者和更新者进行有用的并发前进。
 
 \QuickQuiz{
-	Doesn't \cref{sec:defer:Sequence Locks}'s seqlock
-	also permit readers and updaters to make useful concurrent
-	forward progress?
+	\cref{sec:defer:Sequence Locks}的 seqlock
+	是否也允许读者和更新者进行有用的并发前进？
 }\QuickQuizAnswer{
-	Yes and no.
-	Although seqlock readers can run concurrently with
-	seqlock writers, whenever this happens, the \co{read_seqretry()}
-	primitive will force the reader to retry.
-	This means that any work done by a seqlock reader running concurrently
-	with a seqlock updater will be discarded and then redone upon retry.
-	So seqlock readers can \emph{run} concurrently with updaters,
-	but they cannot actually get any work done in this case.
+	是也不是。
+	虽然 seqlock 读者可以与 seqlock 写者并发运行，
+	但每当这发生时，\co{read_seqretry()} 原语将迫使读者重试。
+	这意味着与 seqlock 更新者并发运行的 seqlock 读者所做的
+	任何工作都将被丢弃，然后在重试时重做。
+	所以 seqlock 读者可以与更新者\emph{并发运行}，
+	但在这种情况下实际上不能完成任何工作。
 
-	In contrast, RCU readers can perform useful work even in presence
-	of concurrent RCU updaters.
+	相比之下，RCU 读者即使在并发 RCU 更新者存在的情况下
+	也能执行有用的工作。
 
-	However, both reference counters
-	(\cref{sec:defer:Reference Counting})
-	and hazard pointers
-	(\cref{sec:defer:Hazard Pointers})
-	really do permit useful concurrent forward progress for both
-	updaters and readers, just at somewhat greater cost.
-	Please see
-	\cref{sec:defer:Which to Choose?}
-	for a comparison of these different solutions to the
-	deferred-reclamation problem.
+	然而，reference counters
+	（\cref{sec:defer:Reference Counting}）
+	和 hazard pointers
+	（\cref{sec:defer:Hazard Pointers}）
+	确实允许更新者和读者都进行有用的并发前进，
+	只是成本稍高。
+	请参见\cref{sec:defer:Which to Choose?}
+	以比较这些不同的延迟回收问题解决方案。
 }\QuickQuizEnd
 
-As noted earlier, RCU delimits readers with \co{rcu_read_lock()} and
-\co{rcu_read_unlock()}, and ensures that each reader has a coherent view
-of each object (see \cref{fig:defer:Deletion With Concurrent Readers}) by
-maintaining multiple versions of objects and using update-side primitives
-such as \co{synchronize_rcu()} to ensure that objects are not
-freed until after the completion of all readers that might be using them.
-RCU uses \co{rcu_assign_pointer()} and \co{rcu_dereference()} to provide
-efficient and scalable mechanisms for publishing and reading new versions
-of an object, respectively.
-These mechanisms distribute the work among read and
-update paths in such a way as to make read paths extremely fast, using
-replication and weakening optimizations in a manner similar to
-\IXpl{hazard pointer}, but without the need for read-side retries.
-In some cases, including \co{CONFIG_PREEMPT=n} Linux kernels,
-RCU's read-side primitives have zero overhead.
+如前所述，RCU 用 \co{rcu_read_lock()} 和
+\co{rcu_read_unlock()} 界定读者，
+通过维护对象的多个版本并使用更新侧原语（如 \co{synchronize_rcu()}）
+确保对象在可能使用它们的所有读者完成之前不被释放，
+从而确保每个读者对每个对象有一致的视图
+（参见\cref{fig:defer:Deletion With Concurrent Readers}）。
+RCU 使用 \co{rcu_assign_pointer()} 和 \co{rcu_dereference()}
+分别提供发布和读取对象新版本的高效且可扩展的机制。
+这些机制在读路径和更新路径之间分配工作，
+使读路径极其快速，以类似于\IXpl{hazard pointer}的方式
+使用复制和弱化优化，但不需要读侧重试。
+在某些情况下，包括 \co{CONFIG_PREEMPT=n} 的 Linux 内核，
+RCU 的读侧原语有零开销。
 
-But are these properties actually useful in practice?
-This question is taken up by the next section.
+但这些属性在实践中真的有用吗？
+下一节将探讨这个问题。
 
-\subsubsection{Practical Applicability}
+\subsubsection{实际适用性}
 \label{sec:defer:Practical Applicability}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/linux-RCU}}
-\caption{RCU Usage in the Linux Kernel}
+\caption{Linux 内核中的 RCU 使用}
 \label{fig:defer:RCU Usage in the Linux Kernel}
 \end{figure}
 
-RCU has been used in the Linux kernel since
-October 2002~\cite{Torvalds2.5.43}.
-Use of the RCU API has increased substantially since that time,
-as can be seen in
-\cref{fig:defer:RCU Usage in the Linux Kernel}.
-RCU has enjoyed heavy use both prior to and since its acceptance
-in the Linux kernel, as discussed in
-\cref{sec:defer:RCU Related Work}.
-In short, RCU enjoys wide practical applicability.
+RCU 从 2002 年 10 月起就在 Linux 内核中
+使用~\cite{Torvalds2.5.43}。
+此后，RCU API 的使用显著增加，
+如\cref{fig:defer:RCU Usage in the Linux Kernel}所示。
+RCU 在被 Linux 内核接受之前和之后都被大量使用，
+如\cref{sec:defer:RCU Related Work}中所讨论。
+简而言之，RCU 具有广泛的实际适用性。
 
-The minimal example discussed in this section is a good introduction to RCU\@.
-However, effective use of RCU often requires that you think differently
-about your problem.
-It is therefore useful to examine RCU's fundamentals, a task taken up
-by the following section.
+本节讨论的最小示例是 RCU 的良好入门。
+然而，有效使用 RCU 通常需要你以不同的方式思考你的问题。
+因此，审视 RCU 的基础知识是有用的，
+下一节将承担这个任务。

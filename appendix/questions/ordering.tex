@@ -2,187 +2,156 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{How Much Ordering Is Needed?}
+\section{需要多少排序？}
 \label{sec:app:questions:How Much Ordering Is Needed?}
 %
-\epigraph{A lost inch of gold may be found, a lost inch of time, never.}
-	 {Chinese proverb}
+\epigraph{一寸黄金可以找回，一寸光阴永不再来。}
+	 {中国谚语}
 
-Perhaps you have carefully constructed a strongly ordered concurrent
-system, only to find that it neither performs nor scales well.
-Or perhaps you threw caution to the wind, only to find that your
-brilliantly fast and scalable software is also unreliable.
-Is there a happy medium with both robust reliability on the one
-hand and powerful performance augmented by scintellating scalability on
-the other?
+也许你精心构建了一个强排序的并发系统，
+却发现它既不能良好地执行也不能良好地扩展。
+或者你抛开谨慎，却发现你那卓越的快速和可扩展软件也不可靠。
+是否存在一种既具有强健可靠性，
+又具有强大性能和出色可扩展性的折中方案？
 
-The answer, as is so often the case, is ``it depends''.
+答案，一如既往，是"视情况而定"。
 
-One approach is to construct a strongly ordered system, then examine
-its performance and scalability.
-If these suffice, the system is good and sufficient, and no more need
-be done.
-Otherwise, undertake careful analysis
-(see \cref{sec:debugging:Performance Estimation})
-and attack each bottleneck until the system's performance is good and
-sufficient.
+一种方法是先构建一个强排序系统，
+然后检查其性能和可扩展性。
+如果满足要求，系统就足够好了，不需要做更多的事情。
+否则，进行仔细的分析
+（参见\cref{sec:debugging:Performance Estimation}），
+逐一解决每个瓶颈，直到系统的性能达标。
 
-This approach can work very well, especially in contrast to the
-all-too-common approach of optimizing random components of the system
-in the hope of achieving significant system-wide benefits.
-However, starting with strong ordering can also be quite wasteful,
-given that weakening ordering of the system's bottleneck can require
-that large portions of the rest of the system be redesigned and
-rewritten to accommodate the weakening.
-Worse yet, eliminating one bottleneck often exposes another, which
-in turn needs to be weakened and which in turn can result in wholesale
-redesigns and rewrites of other parts of the system.
-Perhaps even worse is the approach, also common, of starting with a
-fast but unreliable system and then playing whack-a-mole with an endless
-succession of concurrency bugs, though in the latter case,
+这种方法可以工作得很好，特别是与那种
+对系统的随机组件进行优化以期望获得显著系统级收益的
+常见做法相比。
+然而，从强排序开始也可能相当浪费，
+因为弱化系统瓶颈的排序可能需要大量重新设计和重写
+系统其余部分以适应这种弱化。
+更糟糕的是，消除一个瓶颈通常会暴露另一个瓶颈，
+而后者又需要被弱化，进而可能导致系统其他部分的大规模重新设计和重写。
+也许更糟糕的是另一种同样常见的做法，
+即从一个快速但不可靠的系统开始，
+然后无休止地与并发bug打地鼠，尽管在后一种情况下，
 \cref{chp:Validation,chp:Formal Verification}
-are always there for you.
+总是在那里为你提供帮助。
 
-It would be better to have design-time tools to determine which portions
-of the system could use weak ordering, and at the same time, which
-portions actually benefit from weak ordering.
-These tasks are taken up by the following sections.
+更好的做法是在设计时就有工具来确定系统的哪些部分
+可以使用弱排序，同时确定哪些部分实际上从弱排序中受益。
+以下各节将承担这些任务。
 
-\subsection{Where is the Defining Data?}
+\subsection{定义数据在哪里？}
 \label{sec:app:questions:Where is the Defining Data?}
 
-One way to do this is to keep firmly in mind that the region of
-consistency engendered by strong ordering cannot extend out past the
-boundaries of the system.\footnote{
-	Which might well be a distributed system.}
-Portions of the system whose role is to track the state of the outside
-world can usually feature weak ordering, given that speed-of-light delays
-will force the within-system state to lag that of the outside world.
-There is often no point in incurring large overheads to force a consistent
-view of data that is inherently out of date.
-In these cases, the methods of \cref{chp:Deferred Processing} can be
-quite helpful, as can some of the data structures described in
-\cref{chp:Data Structures}.
+实现这一目标的一种方法是牢记，
+强排序所建立的一致性区域不能超出系统的边界。\footnote{
+	这很可能是一个分布式系统。}
+系统中那些角色是跟踪外部世界状态的部分
+通常可以使用弱排序，因为光速延迟将迫使系统内的状态
+落后于外部世界的状态。
+花费大量开销来强制对本质上已经过时的数据保持一致的视图，
+通常没有意义。
+在这些情况下，\cref{chp:Deferred Processing}的方法
+可能非常有帮助，\cref{chp:Data Structures}中描述的
+一些数据结构也是如此。
 
-Nevertheless, it is wise to adopt some meaningful semantics that are
-visible to those accessing the data, for example, a given function's
-return value might be:
+尽管如此，采用某种对数据访问者来说有意义的语义是明智的，
+例如，给定函数的返回值可能是：
 
 \begin{enumerate}
-\item	Some value between the conceptual value at the time of the call
-	to the function and the conceptual value at the time of the
-	return from that function.
-	For example, see the statistical counters discussed in
-	\cref{sec:count:Statistical Counters}, keeping in mind that such
-	counters are normally monotonic, at least between consecutive
-	overflows.
-\item	The actual value at some time between the call to and the return
-	from that function.
-	For example, see the single-variable atomic counter shown in
-	\cref{lst:count:Just Count Atomically!}.
-\item	If the values used by that function remain unchanged during the
-	time between that function's call and return, the expected
-	value, otherwise some approximation to the expected value.
-	Precise specification of the bounds on the approximation can
-	be quite challenging.
-	For example, consider a function combining values from
-	different elements of an RCU-protected linked data structure,
-	as described in \cref{sec:datastruct:Read-Mostly Data Structures}.
+\item	函数调用时的概念值与函数返回时的概念值之间的某个值。
+	例如，参见\cref{sec:count:Statistical Counters}
+	中讨论的统计计数器，记住这些计数器通常是单调的，
+	至少在连续溢出之间是这样。
+\item	函数调用到返回之间某个时刻的实际值。
+	例如，参见\cref{lst:count:Just Count Atomically!}中
+	所示的单变量原子计数器。
+\item	如果该函数使用的值在函数调用和返回之间保持不变，
+	则为预期值，否则为预期值的某种近似。
+	精确指定近似的边界可能相当有挑战性。
+	例如，考虑一个从RCU保护的链式数据结构的不同元素
+	组合值的函数，如\cref{sec:datastruct:Read-Mostly Data Structures}
+	中所述。
 \end{enumerate}
 
-Weaker ordering usually implies weaker semantics, and you should be
-able to give some sort of promise to your users as to how this weakening
-affects them.
-At the same time, unless the caller holds a lock across both the
-function call and the use of any values computed by that function,
-even fully ordered implementations normally cannot do any better
-than the semantics given by the options above.
+较弱的排序通常意味着较弱的语义，
+你应该能够向用户承诺这种弱化如何影响他们。
+同时，除非调用者在函数调用和使用该函数计算的任何值期间
+都持有锁，否则即使是完全有序的实现通常也不能
+比上述选项给出的语义做得更好。
 
 \QuickQuiz{
-	But if fully ordered implementations cannot offer stronger
-	guarantees than the better performing and more scalable weakly
-	ordered implementations, why bother with full ordering?
+	但如果完全有序的实现不能提供比性能更好、
+	可扩展性更强的弱排序实现更强的保证，
+	那为什么还要费心使用完全排序？
 }\QuickQuizAnswer{
-	Because strongly ordered implementations are sometimes
-	able to provide greater consistency among sets of calls to
-	functions accessing a given data structure.
-	For example, compare the atomic counter of
-	\cref{lst:count:Just Count Atomically!}
-	to the statistical counter of
-	\cref{sec:count:Statistical Counters}.
-	Suppose that one thread is adding the value~3 and another is
-	adding the value~5, while two other threads are concurrently
-	reading the counter's value.
-	With atomic counters, it is not possible for one of the readers
-	to obtain the value~3 while the other obtains the value~5.
-	With statistical counters, this outcome really can happen.
-	In fact, in some computing environments, this outcome can happen
-	even on relatively strongly ordered hardware such as x86.
+	因为强排序实现有时能够在对给定数据结构的
+	函数调用集合之间提供更大的一致性。
+	例如，比较\cref{lst:count:Just Count Atomically!}的原子计数器
+	和\cref{sec:count:Statistical Counters}的统计计数器。
+	假设一个线程正在加3，另一个线程正在加5，
+	同时另外两个线程正在并发读取计数器的值。
+	使用原子计数器，不可能出现一个读者获得值3
+	而另一个获得值5的情况。
+	使用统计计数器，这种结果确实可能发生。
+	事实上，在某些计算环境中，即使在像x86这样
+	相对强排序的硬件上，这种结果也可能发生。
 
-	Therefore, if your user happen to need this admittedly
-	unusual level of consistency, you should avoid weakly ordered
-	statistical counters.
+	因此，如果你的用户恰好需要这种公认不常见的一致性级别，
+	你应该避免使用弱排序统计计数器。
 }\QuickQuizEnd
 
-Some might argue that useful computing deals only with the outside world,
-and therefore that all computing can use weak ordering.
-Such arguments are incorrect.
-For example, the value of your bank account is defined within your
-bank's computers, and people often prefer exact computations involving
-their account balances, especially those who might suspect that any such
-approximations would be in the bank's favor.
+有些人可能会争辩说，有用的计算只处理外部世界，
+因此所有计算都可以使用弱排序。
+这种论点是不正确的。
+例如，你的银行账户余额是在银行的计算机内部定义的，
+人们通常更喜欢涉及其账户余额的精确计算，
+特别是那些可能怀疑任何此类近似都有利于银行的人。
 
-In short, although data tracking external state can be an attractive
-candidate for weakly ordered access, please think carefully about
-exactly what is being tracked and what is doing the tracking.
+简言之，虽然跟踪外部状态的数据可能是弱排序访问的
+有吸引力的候选者，但请仔细考虑到底在跟踪什么以及什么在做跟踪。
 
-\subsection{Consistent Data Used Consistently?}
+\subsection{一致数据被一致使用了吗？}
 \label{sec:app:questions:Consistent Data Used Consistently?}
 
-Another hint that weakening is safe can appear in the guise of data
-that is computed while holding a lock, but then used after the lock
-is released.
-The computed result clearly becomes at best an approximation as soon as
-the lock is released, which suggests computing an approximate result
-in the first place, possibly permitting use of weaker ordering.
-To this end, \cref{chp:Counting} covers numerous approximate methods
-for counting.
+弱化是安全的另一个暗示可能以这样的形式出现：
+数据在持有锁时计算，但在释放锁后使用。
+计算结果显然在锁释放后最多只是一个近似值，
+这表明首先可以计算一个近似结果，
+可能允许使用更弱的排序。
+为此，\cref{chp:Counting}涵盖了许多近似计数方法。
 
-Great care is required, however.
-Is the use of data following lock release a hint that weak-ordering
-optimizations might be helpful?
-Or is instead a bug in which the lock was released too soon?
+然而，需要非常谨慎。
+在锁释放后使用数据是弱排序优化可能有帮助的暗示？
+还是锁释放过早的bug？
 
-\subsection{Is the Problem Partitionable?}
+\subsection{问题可以分区吗？}
 \label{sec:app:questions:Is the Problem Partitionable?}
 
-Suppose that the system holds the defining instance of the data,
-or that using a computed value past lock release proved to be a bug.
-What then?
+假设系统持有数据的定义实例，
+或者在锁释放后使用计算值被证明是一个bug。
+那该怎么办？
 
-One approach is to partition the system, as discussed in
-\cref{chp:Partitioning and Synchronization Design}.
-Partititioning can provide excellent scalability and in its more
-extreme form, per-CPU performance rivaling that of a sequential program,
-as discussed in \cref{chp:Data Ownership}.
-Partial partitioning is often mediated by locking, which is the subject of
-\cref{chp:Locking}.
+一种方法是对系统进行分区，
+如\cref{chp:Partitioning and Synchronization Design}中所讨论的。
+分区可以提供出色的可扩展性，
+在其更极端的形式中，可以实现与串行程序相媲美的每CPU性能，
+如\cref{chp:Data Ownership}中所讨论的。
+部分分区通常由锁来协调，
+这是\cref{chp:Locking}的主题。
 
-\subsection{None of the Above?}
+\subsection{以上皆不适用？}
 \label{sec:app:questions:None of the Above?}
 
-The previous sections described the easier ways to gain performance
-and scalability, sometimes using weaker ordering and sometimes not.
-But the plain fact is that multicore systems are under no compunction
-to make life easy.
-But perhaps the advanced topics covered in
-\cref{sec:advsync:Advanced Synchronization,%
+前面各节描述了获得性能和可扩展性的较简单方法，
+有时使用更弱的排序，有时不使用。
+但事实是，多核系统没有义务让生活变得简单。
+也许\cref{sec:advsync:Advanced Synchronization,%
 chp:Advanced Synchronization: Memory Ordering}
-will prove helpful.
+中涵盖的高级主题会有所帮助。
 
-But please proceed with care, as it is all too easy to destabilize
-your codebase optimizing non-bottlenecks.
-Once again, \cref{sec:debugging:Performance Estimation} can help.
-It might also be worth your time to review other portions of this
-book, as it contains much information on handling a number of tricky
-situations.
+但请谨慎行事，因为优化非瓶颈代码来破坏代码库的稳定性太容易了。
+再次强调，\cref{sec:debugging:Performance Estimation}可以提供帮助。
+花时间回顾本书的其他部分也是值得的，
+因为它包含了处理许多棘手情况的大量信息。

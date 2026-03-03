@@ -2,28 +2,24 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Why Aren't Parallel Programs Always Faster?}
+\section{为什么并行程序不总是更快？}
 \label{sec:app:questions:Why Aren't Parallel Programs Always Faster?}
 %
-\epigraph{There is nothing quite so complicated as simplicity.}
+\epigraph{没有什么比简单更复杂的了。}
 	 {Charles Poore}
 
-The short answer is ``because parallel execution often requires
-communication, and communication is not free''.
+简短的回答是"因为并行执行通常需要通信，而通信不是免费的"。
 
-For more information on this question, see
-\cref{chp:Hardware and its Habits},
-\cref{sec:count:Why Isn't Concurrent Counting Trivial?},
-and especially
-\cref{chp:Partitioning and Synchronization Design},
-each of which present ways of slowing down your code by ineptly
-parallelizing it.
-Of course, much of this book deals with ways of ensuring that your
-parallel programs really are faster than their sequential counterparts.
+关于这个问题的更多信息，请参见
+\cref{chp:Hardware and its Habits}、
+\cref{sec:count:Why Isn't Concurrent Counting Trivial?}，
+特别是
+\cref{chp:Partitioning and Synchronization Design}，
+其中每一章都展示了因拙劣的并行化而使代码变慢的方式。
+当然，本书的大部分内容都在讨论如何确保你的并行程序确实比其串行版本更快。
 
-However, never forget that parallel programs can be quite fast while at
-the same time being quite simple, with the example in
+然而，永远不要忘记并行程序可以在相当快的同时也相当简单，
 \cref{sec:toolsoftrade:Scripting Languages}
-being a case in point.
-Also never forget that parallel execution is but one optimization of many,
-and there are programs for which other optimizations produce better results.
+中的示例就是一个很好的例证。
+还要记住，并行执行只是众多优化中的一种，
+有些程序通过其他优化可能获得更好的效果。

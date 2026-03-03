@@ -2,52 +2,36 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Hardware and its Habits}{Hardware and its Habits}{qqzcpu}
+\QuickQuizChapter{chp:Hardware and its Habits}{硬件及其特性}{qqzcpu}
 %
-\Epigraph{Premature abstraction is the root of all evil.}
-	 {A cast of thousands}
+\Epigraph{过早抽象是万恶之源。}
+	 {众人之见}
 
-Most people intuitively understand that passing messages between systems
-is more expensive than performing simple calculations within the confines
-of a single system.
-But it is also the case that communicating among threads within the
-confines of a single shared-memory system can be quite expensive.
-This chapter therefore looks at the cost of synchronization and communication
-within a shared-memory system.
-These few pages can do no more than scratch the surface of shared-memory
-parallel hardware design; readers desiring more detail would do well
-to start with a recent edition of \pplsur{John L.}{Hennessy}'s and
-\pplsur{David A.}{Patterson}'s classic
-text~\cite{Hennessy2017}.
+大多数人凭直觉就能理解，在系统之间传递消息比在单个系统内部执行简单计算要昂贵得多。
+但同样需要认识到的是，在单个共享内存系统内部的线程之间进行通信也可能相当昂贵。
+因此，本章将探讨共享内存系统内部同步和通信的开销。
+这寥寥数页只能触及共享内存并行硬件设计的皮毛；希望深入了解的读者不妨从
+\pplsur{John L.}{Hennessy}和\pplsur{David A.}{Patterson}的经典教材的
+最新版本~\cite{Hennessy2017}开始阅读。
 
 \QuickQuiz{
-	Why should parallel programmers bother learning low-level
-	properties of the hardware?
-	Wouldn't it be easier, better, more elegant, and more productive
-	to remain at a higher level of abstraction?
+	为什么并行程序员要费心学习硬件的底层特性？
+	保持在更高的抽象层次上难道不是更容易、更好、更优雅、更高效吗？
 }\QuickQuizAnswer{
-	It is often easier to ignore the detailed properties of the
-	hardware, and higher levels of abstraction can greatly improve
-	productivity.
-	But those of us working with low-level concurrent software would
-	be quite foolish to ignore those properties.
+	忽略硬件的具体特性通常确实更容易，更高层次的抽象也确实能大大提高生产力。
+	但对于我们这些从事底层并发软件的人来说，忽视这些特性是相当愚蠢的。
 
-	After all, if you accept that the only purpose of parallelism
-	is to increase performance, and if you further accept that
-	performance depends on detailed properties of the hardware,
-	then it logically follows that parallel programmers are going
-	to need to know at least a few hardware properties.
+	毕竟，如果你承认并行的唯一目的是提升性能，
+	并且进一步承认性能取决于硬件的具体特性，
+	那么合乎逻辑的结论就是：并行程序员至少需要了解一些硬件特性。
 
-	This is also the case in most engineering disciplines.
-	Would \emph{you} want to use a bridge designed by an
-	engineer who did not understand the properties of
-	the concrete and steel making up that bridge?
-	If not, why would you expect a parallel programmer to be
-	able to develop competent parallel software without at least
-	\emph{some} understanding of the underlying hardware?
+	在大多数工程学科中也是如此。
+	\emph{你}愿意使用一位不了解构成桥梁的混凝土和钢材特性的
+	工程师所设计的桥梁吗？
+	如果不愿意，那你为什么期望一个并行程序员在对底层硬件
+	\emph{毫无}了解的情况下，能够开发出合格的并行软件呢？
 
-	In short, you might not care about the laws of physics, but the
-	laws of physics cares deeply about your code!
+	简而言之，你可以不关心物理定律，但物理定律非常关心你的代码！
 }\QuickQuizEnd
 
 \input{cpu/overview}
@@ -55,26 +39,20 @@ text~\cite{Hennessy2017}.
 \input{cpu/hwfreelunch}
 \input{cpu/swdesign}
 
-So, to sum up:
+总结一下：
 
 \begin{enumerate}
-\item	The good news is that multicore systems are inexpensive and
-	readily available.
-\item	More good news:
-	The overhead of many synchronization operations is much lower
-	than it was on parallel systems from the early 2000s.
-\item	The bad news is that the overhead of cache misses is still high,
-	especially on large systems.
+\item	好消息是，多核系统价格低廉且随处可得。
+\item	更多好消息：
+	许多同步操作的开销比2000年代初期的并行系统要低得多。
+\item	坏消息是，cache miss的开销仍然很高，尤其是在大型系统上。
 \end{enumerate}
 
-The remainder of this book describes ways of handling this bad news.
+本书的其余部分将介绍应对这一坏消息的方法。
 
-In particular,
-\cref{chp:Tools of the Trade} will cover some of the low-level
-tools used for parallel programming,
-\cref{chp:Counting} will investigate problems and solutions to
-parallel counting, and
-\cref{chp:Partitioning and Synchronization Design}
-will discuss design disciplines that promote performance and scalability.
+具体而言，
+\cref{chp:Tools of the Trade}将介绍一些用于并行编程的底层工具，
+\cref{chp:Counting}将探讨并行计数的问题和解决方案，
+\cref{chp:Partitioning and Synchronization Design}将讨论促进性能和可扩展性的设计原则。
 
 \QuickQuizAnswersChp{qqzcpu}

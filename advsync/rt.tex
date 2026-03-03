@@ -2,735 +2,590 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Parallel Real-Time Computing}
+\section{并行实时计算}
 \label{sec:advsync:Parallel Real-Time Computing}
 %
-\epigraph{One always has time enough if one applies it well.}
+\epigraph{善用时间者，时间总是充裕的。}
 	 {Johann Wolfgang von G\"othe}
 % \epigraph{The difference between you and me is that I was right in time.}
 % 	 {Konrad Adenauer}
 % No support for this quote found.
 
-An important emerging area in computing is that of parallel real-time
-computing.
+并行实时计算是计算领域中一个重要的新兴方向。
 \Cref{sec:advsync:What is Real-Time Computing?}
-looks at a number of definitions of ``real-time computing'', moving
-beyond the usual sound bites to more meaningful criteria.
+审视了"实时计算"的多种定义，超越了常见的简短口号，
+转向更有意义的判断标准。
 \Cref{sec:advsync:Who Needs Real-Time?}
-surveys the sorts of applications that need real-time response.
+概述了哪些类型的应用需要实时响应。
 \Cref{sec:advsync:Who Needs Parallel Real-Time?}
-notes that parallel real-time computing is upon us, and discusses
-when and why parallel real-time computing can be useful.
+指出并行实时计算已经到来，并讨论了并行实时计算何时以及为何有用。
 \Cref{sec:advsync:Implementing Parallel Real-Time Systems}
-gives a brief overview of how parallel real-time systems may be implemented,
-with
+简要概述了并行实时系统的实现方式，其中
 \cref{sec:advsync:Implementing Parallel Real-Time Operating Systems,%
 sec:advsync:Implementing Parallel Real-Time Applications}
-focusing on operating systems and applications, respectively.
-Finally,
+分别侧重于操作系统和应用程序。
+最后，
 \cref{sec:advsync:Real Time vs. Real Fast: How to Choose?}
-outlines how to decide whether or not your application needs real-time
-facilities.
+概述了如何判断你的应用是否需要实时功能。
 
-\subsection{What is Real-Time Computing?}
+\subsection{什么是实时计算？}
 \label{sec:advsync:What is Real-Time Computing?}
 
-One traditional way of classifying real-time computing is into the
-categories of \emph{hard real time} and \emph{soft real time}, where
-the macho hard real-time applications never miss their deadlines, but
-the wimpy soft real-time applications miss their deadlines quite often.
+对实时计算进行分类的一种传统方法是将其划分为\emph{hard real time}（硬实时）
+和\emph{soft real time}（软实时）两个类别。
+在这种分类中，强悍的硬实时应用从不错过截止时间，
+而孱弱的软实时应用则经常错过截止时间。
 
-\subsubsection{Soft Real Time}
+\subsubsection{软实时}
 \label{sec:Soft Real Time}
 
-It should be easy to see problems with this definition of soft real time.
-For one thing, by this definition, \emph{any} piece of software could be
-said to be a soft real-time application:
-``My application computes million-point Fourier transforms in half a
-picosecond.''
-``No way!!!
-The clock cycle on this system is more than \emph{three hundred} picoseconds!''
-``Ah, but it is a \emph{soft} real-time application!''
-If the term ``soft real time'' is to be of any use whatsoever, some limits
-are clearly required.
+应该很容易看出这种软实时定义的问题。
+首先，按照这个定义，\emph{任何}软件都可以被称为软实时应用：
+"我的应用能在半个皮秒内计算百万点傅里叶变换。"
+"不可能！！！
+这个系统的时钟周期超过\emph{三百}皮秒！"
+"啊，但它是一个\emph{软}实时应用！"
+如果"软实时"这个术语还要有任何用处的话，显然需要一些限制条件。
 
-We might therefore say that a given soft real-time application must meet
-its response-time requirements at least some fraction of the time, for
-example, we might say that it must execute in less than 20 microseconds
-99.9\pct\ of the time.
+因此，我们或许可以说，一个给定的软实时应用必须在至少一定比例的时间内
+满足其响应时间要求。例如，我们可以规定它必须在99.9\pct\ 的情况下
+在20微秒内完成执行。
 
-This of course raises the question of what is to be done when the application
-fails to meet its response-time requirements.
-The answer varies with the application, but one possibility
-is that the system being controlled has sufficient stability and inertia
-to render harmless the occasional late control action.
-Another possibility is that the application has two ways of computing
-the result, a fast and deterministic but inaccurate method on the
-one hand and
-a very accurate method with unpredictable compute time on the other.
-One reasonable approach would be to start
-both methods in parallel, and if the accurate method fails to finish
-in time, kill it and use the answer from the fast but inaccurate method.
-One candidate for the fast but inaccurate method is to take
-no control action during the current time period, and another candidate is
-to take the same control action as was taken during the preceding time
-period.
+这当然引出了一个问题：当应用无法满足其响应时间要求时该怎么办？
+答案因应用而异，但一种可能是被控系统具有足够的稳定性和惯性，
+使偶尔的迟到控制动作不会造成危害。
+另一种可能是应用有两种计算结果的方法：一种是快速且确定性的但不精确的方法，
+另一种是非常精确但计算时间不可预测的方法。
+一个合理的做法是同时启动两种方法，如果精确方法未能及时完成，
+则终止它并使用快速但不精确方法的结果。
+快速但不精确方法的一个候选方案是在当前时间段内不采取任何控制动作，
+另一个候选方案是采取与前一时间段相同的控制动作。
 
-In short, it does not make sense to talk about soft real time without
-some measure of exactly how soft it is.
+简而言之，讨论软实时如果不对其"软"的程度做出某种度量，
+就毫无意义。
 
-\subsubsection{Hard Real Time}
+\subsubsection{硬实时}
 \label{sec:Hard Real Time}
 
-In contrast, the definition of hard real time is quite definite.
-After all, a given system either always meets its deadlines or it
-doesn't.
+相比之下，硬实时的定义相当明确。
+毕竟，一个给定的系统要么总是能满足其截止时间，要么不能。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/realtime-smash}}
-\caption{Real-Time Response, Meet Hammer}
+\caption{实时响应，遇上了锤子}
 \ContributedBy{fig:advsync:Hard Real-Time Response; Meet Hammer}{Melissa Broussard}
 \end{figure}
 
-Unfortunately, a strict application of this definition would mean that
-there can never be any hard real-time systems.
-The reason for this is fancifully depicted in
-\cref{fig:advsync:Hard Real-Time Response; Meet Hammer}.
-And although you can always construct a more robust system, perhaps with
-redundancy, your adversary can always get a bigger hammer.
-But don't take \emph{my} word for it:
-Ask the dinosaurs.
+不幸的是，严格应用这个定义将意味着永远不可能存在硬实时系统。
+其原因在\cref{fig:advsync:Hard Real-Time Response; Meet Hammer}
+中做了形象的描绘。
+虽然你总是可以构建更健壮的系统，比如通过冗余设计，
+但你的对手总是可以找到更大的锤子。
+不过别只听\emph{我}的话：
+去问问恐龙吧。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/realtime-lifesupport-nobomb}}
-\caption{Real-Time Response:
-			     Hardware Matters}
+\caption{实时响应：
+			     硬件很重要}
 \ContributedBy{fig:advsync:Real-Time Response: Hardware Matters}{Melissa Broussard}
 \end{figure}
 
-Then again, perhaps it is unfair to blame the software for what is clearly
-not just a hardware problem, but a bona fide big-iron hardware problem
-at that.\footnote{
-	Or, given modern hammers, a big-steel problem.}
-This suggests that we define hard real-time software as software that
-will always meet its deadlines, but only in the absence of a hardware
-failure.
-Unfortunately, failure is not always an option, as fancifully depicted in
-\cref{fig:advsync:Real-Time Response: Hardware Matters}.
-We simply cannot expect the poor gentleman depicted in that figure to be
-reassured our saying ``Rest assured that if a missed deadline results
-in your tragic death, it most certainly will not have been due to a
-software problem!''
-Hard real-time response is a property of the entire system, not
-just of the software.
+话说回来，将明显不仅仅是硬件问题——而且确实是大型硬件问题——
+归咎于软件，也许并不公平。\footnote{
+	或者，考虑到现代的锤子，应该说是大型钢铁问题。}
+这表明我们应该将硬实时软件定义为总是能满足其截止时间的软件，
+但仅限于没有硬件故障的情况下。
+不幸的是，故障并非总是一种可以接受的选项，
+如\cref{fig:advsync:Real-Time Response: Hardware Matters}
+中形象描绘的那样。
+我们不能指望图中那位可怜的先生在听到这样的话时感到安慰：
+"请放心，如果错过截止时间导致您不幸身亡，
+这绝对不会是软件问题造成的！"
+硬实时响应是整个系统的属性，而不仅仅是软件的属性。
 
-But if we cannot demand perfection, perhaps we can make do with
-notification, similar to the soft real-time approach noted earlier.
-Then if the Life-a-Tron in
-\cref{fig:advsync:Real-Time Response: Hardware Matters}
-is about to miss its deadline,
-it can alert the hospital staff.
+但如果我们不能要求完美，也许我们可以像前面提到的软实时方法那样，
+通过通知来弥补。
+那么，如果\cref{fig:advsync:Real-Time Response: Hardware Matters}
+中的Life-a-Tron设备即将错过其截止时间，
+它可以提醒医院工作人员。
 
 \begin{figure*}
 \centering
 \resizebox{\onecolumntextwidth}{!}{\rotatebox{90}{\includegraphics{cartoons/realtime-lazy-crop}}}
-\caption{Real-Time Response:
-			     Notification Insufficient}
+\caption{实时响应：
+			     通知不够}
 \ContributedBy{fig:advsync:Real-Time Response: Notification Insufficient}{Melissa Broussard}
 \end{figure*}
 
-Unfortunately, this approach has the trivial solution fancifully depicted in
-\cref{fig:advsync:Real-Time Response: Notification Insufficient}.
-A system that always immediately issues a notification that it won't
-be able to meet its deadline complies with the letter of the law,
-but is completely useless.
-There clearly must also be a requirement that the system meets its deadline
-some fraction of the time, or perhaps that it be prohibited from missing
-its deadlines on more than a certain number of consecutive operations.
+不幸的是，这种方法有一个平凡解，
+如\cref{fig:advsync:Real-Time Response: Notification Insufficient}
+中形象描绘的那样。
+一个总是立即发出无法满足截止时间通知的系统虽然符合法律条文，
+但完全无用。
+显然，还必须要求系统在一定比例的时间内满足其截止时间，
+或者也许应该禁止它在超过一定次数的连续操作中错过截止时间。
 
-We clearly cannot take a sound-bite approach to either hard or soft
-real time.
-The next section therefore takes a more real-world approach.
+显然，我们不能用简短口号的方式来对待硬实时或软实时。
+因此，下一节将采用一种更贴近现实世界的方法。
 
-\subsubsection{Real-World Real Time}
+\subsubsection{现实世界中的实时}
 \label{sec:advsync:Real-World Real Time}
 
-Although sentences like ``Hard real-time systems \emph{always} meet
-their deadlines!\@'' are catchy and easy to memorize, something else is
-needed for real-world real-time systems.
-Although the resulting specifications are
-harder to memorize, they can simplify construction of a real-time
-system by imposing constraints on the environment, the workload, and
-the real-time application itself.
+虽然像"硬实时系统\emph{总是}满足其截止时间！\@"这样的句子
+朗朗上口且容易记忆，但现实世界的实时系统需要更多的东西。
+虽然由此产生的规范更难记忆，但它们可以通过对环境、工作负载
+以及实时应用本身施加约束来简化实时系统的构建。
 
-\paragraph{Environmental Constraints}
+\paragraph{环境约束}
 \label{sec:advsync:Environmental Constraints}
 
-Constraints on the environment address the objection to open-ended
-promises of response times implied by ``hard real time''.
-These constraints might specify permissible operating temperatures,
-air quality, levels and types of electromagnetic radiation, and, to
-\cref{fig:advsync:Hard Real-Time Response; Meet Hammer}'s
-point, levels of shock and vibration.
+对环境的约束解决了"硬实时"所隐含的开放式响应时间承诺的问题。
+这些约束可能规定允许的操作温度、空气质量、
+电磁辐射的水平和类型，以及如
+\cref{fig:advsync:Hard Real-Time Response; Meet Hammer}
+所指出的冲击和振动水平。
 
-Of course, some constraints are easier to meet than others.
-Any number of people have learned the hard way that
-commodity computer components often refuse to operate at sub-freezing
-temperatures, which suggests a set of climate-control requirements.
+当然，有些约束比其他的更容易满足。
+许多人都曾付出惨痛代价才认识到，普通计算机组件在零下温度下
+往往拒绝工作，这暗示了一系列气候控制要求。
 
-An old college friend once had the challenge of operating
-a real-time system in an atmosphere featuring some rather aggressive
-chlorine compounds, a challenge that he wisely handed off to his
-colleagues designing the hardware.
-In effect, my colleague imposed an atmospheric-composition constraint
-on the environment immediately surrounding the computer, a constraint
-that the hardware designers met through use of physical seals.
+我的一位大学老友曾面临在含有一些相当具有腐蚀性的氯化物的
+大气中操作实时系统的挑战，他明智地将这个挑战转交给了
+设计硬件的同事们。
+实际上，我的同事对计算机周围的环境施加了一个大气成分约束，
+硬件设计者通过使用物理密封来满足了这个约束。
 
-Another old college friend worked on a computer-controlled system
-that sputtered ingots of titanium using an industrial-strength arc
-in a vacuum.
-From time to time, the arc would decide that it was bored with its path
-through the ingot of titanium and choose a far shorter and more
-entertaining path to ground.
-As we all learned in our physics classes, a sudden shift in the flow of
-electrons creates an electromagnetic wave, with larger shifts in larger
-flows creating higher-power electromagnetic waves.
-And in this case, the resulting electromagnetic pulses were sufficient
-to induce a quarter of a volt potential difference in the leads of
-a small ``rubber ducky'' antenna located more than 400 meters away.
-This meant that nearby conductors experienced higher voltages, courtesy
-of the inverse-square law.
-This included those conductors making up the computer controlling the
-sputtering process.
-In particular, the voltage induced on that computer's reset line was
-sufficient to actually reset the computer, mystifying everyone involved.
-This situation was addressed using hardware, including some elaborate
-shielding and a fiber-optic network with the lowest bitrate I have ever
-heard of, namely 9600 baud.
-Less spectacular electromagnetic environments can often be handled by
-software through use of error detection and correction codes.
-That said, it is important to remember that although error detection and
-correction codes can reduce failure rates, they normally cannot reduce
-them all the way down to zero, which can present yet another obstacle
-to achieving hard real-time response.
+我的另一位大学老友曾从事一个计算机控制系统的工作，
+该系统在真空中使用工业级电弧溅射钛锭。
+电弧时不时地会觉得穿过钛锭的路径太无聊，
+转而选择一条更短、更有趣的接地路径。
+正如我们在物理课上学到的，电子流的突然改变会产生电磁波，
+更大的电流中更大的改变会产生更高功率的电磁波。
+在这种情况下，产生的电磁脉冲足以在400多米之外的
+一根小型"橡皮鸭"天线的引线上感应出四分之一伏特的电位差。
+这意味着附近的导体会经历更高的电压，拜平方反比定律所赐。
+这包括组成控制溅射过程的计算机的那些导体。
+特别是，在该计算机复位线上感应出的电压足以实际重置计算机，
+让所有相关人员困惑不已。
+这种情况通过硬件手段得到了解决，包括一些精心设计的屏蔽装置
+和一个具有我听说过的最低比特率（即9600波特）的光纤网络。
+不那么壮观的电磁环境通常可以通过软件使用纠错编码来处理。
+也就是说，重要的是要记住，虽然纠错编码可以降低故障率，
+但它们通常不能将故障率降低到零，
+这可能成为实现硬实时响应的又一个障碍。
 
-There are also situations where a minimum level of energy
-is required, for example, through the power leads of the system and
-through the devices through which the system is to communicate with
-that portion of the outside world that is to be monitored or controlled.
+还有一些情况需要最低水平的能量输入，
+例如通过系统的电源线和系统用来与外部世界中
+需要监控或控制的部分进行通信的设备。
 
 \QuickQuiz{
-	But what about battery-powered systems?
-	They don't require energy flowing into the system as a whole.
+	但电池供电的系统怎么办？
+	它们不需要能量流入整个系统。
 }\QuickQuizAnswer{
-	Sooner or later, the battery must be recharged, which requires
-	energy to flow into the system.
+	电池迟早必须充电，这就需要能量流入系统。
 }\QuickQuizEnd
 
-A number of systems are intended to operate in environments with impressive
-levels of shock and vibration, for example, engine control systems.
-More strenuous requirements may be found when we move away from
-continuous vibrations to intermittent shocks.
-For example, during my undergraduate studies, I encountered an old Athena
-ballistics computer, which was designed to continue operating normally even if
-a hand grenade went off nearby.\footnote{
-	Decades later, the acceptance tests for some types of computer
-	systems involve large detonations, and some types of
-	communications networks must deal with what is delicately
-	termed ``ballistic jamming.''}
-And finally, the ``black boxes'' used in airliners must continue operating
-before, during, and after a crash.
+许多系统被设计为在具有惊人的冲击和振动水平的环境中运行，
+例如发动机控制系统。
+当我们从连续振动转向间歇性冲击时，要求会更加严格。
+例如，在我的本科学习期间，我遇到过一台古老的Athena弹道计算机，
+它被设计为即使附近手榴弹爆炸也能继续正常运行。\footnote{
+	几十年后，某些类型计算机系统的验收测试涉及大型爆炸，
+	某些类型的通信网络必须应对所谓的"弹道干扰"。}
+最后，客机上使用的"黑匣子"必须在坠毁前、坠毁中和坠毁后
+继续运行。
 
-Of course, it is possible to make hardware more robust against
-environmental shocks and insults.
-Any number of ingenious mechanical shock-absorbing devices can reduce the
-effects of shock and vibration, multiple layers of shielding can reduce
-the effects of low-energy electromagnetic radiation, error-correction
-coding can reduce the effects of high-energy radiation, various potting
-and sealing techniques can reduce the effect of air quality, and any
-number of heating and cooling systems can counter the effects of temperature.
-In extreme cases, triple modular redundancy can reduce the probability that
-a fault in one part of the system will result in incorrect behavior from
-the overall system.
-However, all of these methods have one thing in common:
-Although they can reduce the probability of failure, they cannot reduce
-it to zero.
+当然，可以使硬件对环境冲击和损害更加健壮。
+各种巧妙的机械减震装置可以减少冲击和振动的影响，
+多层屏蔽可以减少低能量电磁辐射的影响，
+纠错编码可以减少高能量辐射的影响，
+各种灌封和密封技术可以减少空气质量的影响，
+各种加热和冷却系统可以抵消温度的影响。
+在极端情况下，三模冗余可以降低系统某部分的故障
+导致整体系统行为不正确的概率。
+然而，所有这些方法都有一个共同点：
+虽然它们可以降低故障概率，但不能将其降低到零。
 
-These environmental challenges are often met via robust hardware, however,
-the workload and application constraints in the next two sections are
-often handled in software.
+这些环境挑战通常通过健壮的硬件来应对，
+然而，接下来两节中的工作负载和应用约束通常由软件来处理。
 
-\paragraph{Workload Constraints}
+\paragraph{工作负载约束}
 \label{sec:advsync:Workload Constraints}
 
-Just as with people, it is often possible to prevent a real-time system
-from meeting its deadlines by overloading it.
-For example, if the system is being interrupted too frequently, it might
-not have sufficient CPU bandwidth to handle its real-time application.
-A hardware solution to this problem might limit the rate at which
-interrupts were delivered to the system.
-Possible software solutions include disabling interrupts for some time if
-they are being received too frequently,
-resetting the device generating too-frequent interrupts,
-or even avoiding interrupts altogether in favor of polling.
+就像人一样，通过使实时系统过载通常可以阻止它满足截止时间。
+例如，如果系统被中断得太频繁，它可能没有足够的CPU带宽
+来处理其实时应用。
+该问题的硬件解决方案可能是限制向系统传递中断的速率。
+可能的软件解决方案包括：如果中断接收得太频繁就暂时禁用中断、
+重置产生过于频繁中断的设备、
+或者完全避免使用中断而改用轮询。
 
-Overloading can also degrade response times due to queueing effects,
-so it is not unusual for real-time systems to overprovision CPU bandwidth,
-so that a running system has (say) 80\pct\ idle time.
-This approach also applies to storage and networking devices.
-In some cases, separate storage and networking hardware might be reserved
-for the sole use of high-priority portions of the real-time application.
-In short, it is not unusual for this hardware to be mostly idle, given
-that response time is more important than throughput in
-real-time systems.
+过载还会由于排队效应而降低响应时间，
+因此实时系统超额配置CPU带宽并不罕见，
+使运行中的系统有（比如）80\pct\ 的空闲时间。
+这种方法也适用于存储和网络设备。
+在某些情况下，可能会为实时应用的高优先级部分
+保留专用的存储和网络硬件。
+简而言之，这些硬件大部分时间处于空闲状态并不罕见，
+因为在实时系统中，响应时间比吞吐量更重要。
 
 \QuickQuiz{
-	But given the results from queueing theory, won't low utilization
-	merely improve the average response time rather than improving
-	the worst-case response time?
-	And isn't worst-case response time all that most
-	real-time systems really care about?
+	但根据排队论的结果，低利用率难道不是仅仅改善了
+	平均响应时间，而不是改善最坏情况响应时间吗？
+	而最坏情况响应时间难道不是大多数实时系统真正关心的吗？
 }\QuickQuizAnswer{
-	Yes, but \ldots
+	是的，但是……
 
-	Those queueing-theory results assume infinite ``calling populations'',
-	which in the Linux kernel might correspond to an infinite number
-	of tasks.
-	As of early 2021, no real system supports an infinite number of
-	tasks, so results assuming infinite calling populations should
-	be expected to have less-than-infinite applicability.
+	那些排队论结果假设了无限的"调用群体"，
+	在Linux内核中这相当于无限数量的任务。
+	截至2021年初，没有真实系统支持无限数量的任务，
+	因此假设无限调用群体的结果的适用性不应被期望为无限的。
 
-	Other queueing-theory results have \emph{finite}
-	calling populations, which feature sharply bounded response
-	times~\cite{Hillier86}.
-	These results better model real systems, and these models do
-	predict reductions in both average and worst-case response
-	times as utilizations decrease.
-	These results can be extended to model concurrent systems that use
-	synchronization mechanisms such as
-	locking~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}.
+	其他排队论结果使用\emph{有限}的调用群体，
+	其特点是有严格有界的响应
+	时间~\cite{Hillier86}。
+	这些结果更好地建模了真实系统，并且这些模型确实预测了
+	随着利用率降低，平均和最坏情况响应时间都会减少。
+	这些结果可以扩展到建模使用同步机制（如
+	锁）的并发系统~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}。
 
-	In short, queueing-theory results that accurately describe
-	real-world real-time systems show that worst-case response
-	time decreases with decreasing utilization.
+	简而言之，准确描述现实世界实时系统的排队论结果
+	表明，最坏情况响应时间随着利用率的降低而减少。
 }\QuickQuizEnd
 
-Of course, maintaining sufficiently low utilization requires great
-discipline throughout the design and implementation.
-There is nothing quite like a little feature creep to destroy deadlines.
+当然，维持足够低的利用率需要在整个设计和实现过程中保持严格的纪律。
+没有什么比功能蔓延更能破坏截止时间了。
 
-\paragraph{Application Constraints}
+\paragraph{应用约束}
 \label{sec:advsync:Application Constraints}
 
-It is easier to provide bounded response time for some operations than
-for others.
-For example, it is quite common to see response-time specifications for
-interrupts and for wake-up operations, but quite rare for (say)
-filesystem unmount operations.
-One reason for this is that it is quite difficult to bound the amount
-of work that a filesystem-unmount operation might need to do, given that
-the unmount is required to flush all of that filesystem's in-memory
-data to mass storage.
+为某些操作提供有界响应时间比为其他操作更容易。
+例如，为中断和唤醒操作提供响应时间规范相当常见，
+但为（比如）文件系统卸载操作提供此类规范则相当罕见。
+原因之一是很难限定文件系统卸载操作可能需要做的工作量，
+因为卸载操作需要将该文件系统的所有内存中数据
+刷新到大容量存储上。
 
-This means that real-time applications must be confined to operations
-for which bounded latencies can reasonably be provided.
-Other operations must either be pushed out into the non-real-time portions
-of the application or forgone entirely.
+这意味着实时应用必须限制在那些可以合理地提供有界延迟的操作上。
+其他操作必须推到应用的非实时部分，或者完全放弃。
 
-There might also be constraints on the non-real-time portions of the
-application.
-For example, is the non-real-time application permitted to use the CPUs
-intended for the real-time portion?
-Are there time periods during which the real-time portion of the application
-is expected to be unusually busy, and if so, is the non-real-time portion
-of the application permitted to run at all during those times?
-Finally, by what amount is the real-time portion of the application permitted
-to degrade the throughput of the non-real-time portion?
+对应用的非实时部分也可能存在约束。
+例如，非实时应用是否被允许使用为实时部分预留的CPU？
+是否存在实时部分预计会异常繁忙的时间段，
+如果是的话，在这些时间段内是否允许非实时部分运行？
+最后，实时部分被允许在多大程度上降低非实时部分的吞吐量？
 
-\paragraph{Real-World Real-Time Specifications}
+\paragraph{现实世界的实时规范}
 \label{sec:advsync:Real-World Real-Time Specifications}
 
-As can be seen from the preceding sections, a real-world real-time
-specification needs to include constraints on the environment,
-on the workload, and on the application itself.
-In addition, for the operations that the real-time portion of the
-application is permitted to make use of, there must be constraints
-on the hardware and software implementing those operations.
+从前面的章节可以看出，一个现实世界的实时规范需要包含对环境、
+工作负载以及应用本身的约束。
+此外，对于实时部分被允许使用的操作，
+还必须对实现这些操作的硬件和软件有所约束。
 
-For each such operation, these constraints might include a maximum
-response time (and possibly also a minimum response time) and a
-probability of meeting that response time.
-A probability of 100\pct\ indicates that the corresponding operation
-must provide hard real-time service.
+对于每个这样的操作，这些约束可能包括最大响应时间
+（也可能包括最小响应时间）以及满足该响应时间的概率。
+100\pct\ 的概率表示相应的操作必须提供硬实时服务。
 
-In some cases, both the response times and the required probabilities of
-meeting them might vary depending on the parameters to the operation in
-question.
-For example, a network operation over a local LAN would be much more likely
-to complete in (say) 100~microseconds than would that same network operation
-over a transcontinental WAN\@.
-Furthermore, a network operation over a copper or fiber
-LAN might have an extremely
-high probability of completing without time-consuming retransmissions,
-while that same networking operation over a lossy WiFi network might
-have a much higher probability of missing tight deadlines.
-Similarly, a read from a tightly coupled solid-state disk (SSD) could be
-expected to complete much more quickly than that same read to an old-style
-USB-connected rotating-rust disk drive.\footnote{
-	Important safety tip:
-	Worst-case response times from USB devices can be extremely long.
-	Real-time systems should therefore take care to place any USB
-	devices well away from critical paths.}
+在某些情况下，响应时间和满足它们所需的概率
+可能会因相关操作的参数而变化。
+例如，通过本地LAN的网络操作比通过跨大陆WAN的相同网络操作
+更有可能在（比如）100~微秒内完成。\@
+此外，通过铜缆或光纤LAN的网络操作可能有极高的概率
+完成而不需要耗时的重传，
+而通过有损WiFi网络的相同网络操作
+可能有更高的概率错过紧迫的截止时间。
+类似地，从紧耦合固态硬盘（SSD）的读取
+可以预期比从老式USB连接的旋转磁盘驱动器
+的相同读取完成得更快。\footnote{
+	重要安全提示：
+	USB设备的最坏情况响应时间可能极长。
+	因此，实时系统应注意将任何USB设备
+	放在远离关键路径的地方。}
 
-Some real-time applications pass through different phases of operation.
-For example, a real-time system controlling a plywood lathe that peels
-a thin sheet of wood (called ``veneer'') from a spinning log must:
+有些实时应用会经历不同的运行阶段。
+例如，控制胶合板车床的实时系统——该车床从旋转的原木上
+剥离一层薄木片（称为"单板"）——必须：
 \begin{enumerate*}[(1)]
-\item Load the log into the lathe,
-\item Position the log on the lathe's chucks so as to expose the largest
-cylinder contained within that log to the blade,
-\item Start spinning the log,
-\item Continuously vary the knife's position so as to peel the log into veneer,
-\item Remove the remaining core of the log that is too small to peel, and
-\item Wait for the next log.
+\item 将原木装入车床，
+\item 将原木定位在车床卡盘上，使该原木内包含的最大圆柱体暴露给刀片，
+\item 开始旋转原木，
+\item 持续调整刀片位置以将原木剥离成单板，
+\item 移除太小而无法剥离的剩余原木芯，以及
+\item 等待下一根原木。
 \end{enumerate*}
-Each of these six phases of operation might well have its own set of
-deadlines and environmental constraints,
-for example, one would expect phase~4's deadlines to be much more severe
-than those of phase~6, as in milliseconds rather than seconds.
-One might therefore expect that low-priority work would be performed in
-phase~6 rather than in phase~4.
-In any case, careful choices of hardware, drivers, and software
-configuration would be required to support phase~4's more severe
-requirements.
+这六个运行阶段中的每一个都可能有其自己的一组
+截止时间和环境约束，
+例如，人们会期望阶段~4的截止时间比阶段~6严格得多，
+即毫秒级而非秒级。
+因此人们会期望低优先级的工作在阶段~6而非阶段~4中执行。
+无论如何，要支持阶段~4更严格的要求，
+需要仔细选择硬件、驱动程序和软件配置。
 
-A key advantage of this phase-by-phase approach is that the \IX{latency}
-budgets can be broken down, so that the application's various components
-can be developed independently, each with its own latency budget.
-Of course, as with any other kind of budget, there will likely be the
-occasional conflict as to which component gets which fraction of the
-overall budget, and as with any other kind of budget, strong leadership
-and a sense of shared goals can help to resolve these conflicts in
-a timely fashion.
-And, again as with other kinds of technical budget, a strong validation
-effort is required in order to ensure proper focus on latencies and to
-give early warning of latency problems.
-A successful validation effort will almost always include a good test
-suite, which might be unsatisfying to the theorists, but has the virtue
-of helping to get the job done.
-As a point of fact, as of early 2021, most real-world real-time system
-use an acceptance test rather than formal proofs.
+这种逐阶段方法的一个关键优势是\IX{latency}预算可以被分解，
+从而使应用的各个组件可以独立开发，每个组件都有自己的延迟预算。
+当然，与任何其他类型的预算一样，关于哪个组件获得整体预算的
+多少份额，可能会偶尔发生冲突。
+与任何其他类型的预算一样，强有力的领导和共同的目标感
+可以帮助及时解决这些冲突。
+同样，与其他类型的技术预算一样，
+需要强有力的验证工作来确保对延迟的适当关注，
+并对延迟问题给出早期预警。
+成功的验证工作几乎总是包括一个好的测试套件，
+这对理论家来说可能不尽如人意，但其优点在于有助于完成任务。
+事实上，截至2021年初，大多数现实世界的实时系统
+使用验收测试而非形式化证明。
 
-However, the widespread use of test suites to validate real-time systems
-does have a very real disadvantage, namely that real-time software is
-validated only on specific configurations of hardware and software.
-Adding additional configurations requires additional costly and
-time-consuming testing.
-Perhaps the field of formal verification will advance sufficiently to
-change this situation, but as of early 2021, rather
-large advances are required.
+然而，广泛使用测试套件来验证实时系统确实有一个非常现实的缺点，
+即实时软件仅在特定的硬件和软件配置上得到验证。
+添加额外的配置需要额外的昂贵且耗时的测试。
+也许形式化验证领域会有足够的进展来改变这种情况，
+但截至2021年初，还需要相当大的进展。
 
 \QuickQuiz{
-	Formal verification is already quite capable, benefiting from
-	decades of intensive study.
-	Are additional advances \emph{really} required, or is this just
-	a practitioner's excuse to continue to lazily ignore the awesome
-	power of formal verification?
+	形式化验证已经相当成熟，受益于数十年的深入研究。
+	真的还需要额外的进展吗，还是这只是实践者继续
+	懒惰地忽视形式化验证强大威力的借口？
 }\QuickQuizAnswer{
-	Perhaps this situation is just a theoretician's excuse to avoid
-	diving into the messy world of real software?
-	Perhaps more constructively, the following advances are required:
+	也许这种情况只是理论家避免深入真实软件复杂世界的借口？
+	也许更有建设性地说，需要以下进展：
 
 	\begin{enumerate}
-	\item	Formal verification needs to handle larger software
-		artifacts.
-		The largest verification efforts have been for systems
-		of only about 10,000 lines of code, and those have been
-		verifying much simpler properties than real-time latencies.
-	\item	Hardware vendors will need to publish formal timing
-		guarantees.
-		This used to be common practice back when hardware was
-		much simpler, but today's complex hardware results in
-		excessively complex expressions for worst-case performance.
-		Unfortunately, energy-efficiency concerns are pushing
-		vendors in the direction of even more complexity.
-	\item	Timing analysis needs to be integrated into development
-		methodologies and IDEs.
+	\item	形式化验证需要处理更大的软件工件。
+		最大的验证工作仅针对大约10,000行代码的系统，
+		而且验证的是比实时延迟简单得多的属性。
+	\item	硬件供应商需要发布正式的时序保证。
+		在硬件更简单的时代，这曾是常见做法，
+		但如今复杂的硬件导致最坏情况性能的
+		表达式过于复杂。
+		不幸的是，能效方面的考虑正推动供应商
+		朝着更复杂的方向发展。
+	\item	时序分析需要集成到开发方法论和IDE中。
 	\end{enumerate}
 
-	All that said, there is hope, given recent work formalizing
-	the memory models of real computer
-	systems~\cite{JadeAlglave2011ppcmem,Alglave:2013:SVW:2450268.2450306}.
-	On the other hand, formal verification has just as much trouble
-	as does testing with the astronomical number of variants of the
-	Linux kernel that can be constructed from different combinations
-	of its tens of thousands of Kconfig options.
-	Sometimes life is hard!
+	话虽如此，鉴于最近将真实计算机系统的内存模型
+	形式化的工作，还是有希望的~\cite{JadeAlglave2011ppcmem,Alglave:2013:SVW:2450268.2450306}。
+	另一方面，面对由Linux内核数以万计的Kconfig选项
+	的不同组合所构造出的天文数字般的变体，
+	形式化验证与测试一样面临困难。
+	有时候生活就是很艰难！
 }\QuickQuizEnd
 
-In addition to latency requirements for the real-time portions of the
-application, there will likely be performance and scalability requirements
-for the non-real-time portions of the application.
-These additional requirements reflect the fact that ultimate real-time
-latencies are often attained by degrading scalability and average performance.
+除了对应用实时部分的延迟要求外，
+应用的非实时部分可能还有性能和可扩展性要求。
+这些额外的要求反映了这样一个事实：
+极致的实时延迟往往是以牺牲可扩展性和平均性能为代价获得的。
 
-Software-engineering requirements can also be important, especially for
-large applications that must be developed and maintained by large teams.
-These requirements often favor increased modularity and fault isolation.
+软件工程要求也可能很重要，特别是对于必须由大型团队
+开发和维护的大型应用。
+这些要求通常倾向于增加模块化和故障隔离。
 
-This is a mere outline of the work that would be required to specify
-deadlines and environmental constraints for a production real-time system.
-It is hoped that this outline clearly demonstrates the inadequacy of
-the sound-bite-based approach to real-time computing.
+以上只是为一个生产实时系统指定截止时间和环境约束
+所需工作的简要概述。
+希望这个概述能清楚地展示基于简短口号的实时计算方法的不足之处。
 
-\subsection{Who Needs Real-Time?}
+\subsection{谁需要实时？}
 \label{sec:advsync:Who Needs Real-Time?}
 
-It is possible to argue that all computing is in fact real-time computing.
-For one example, when you purchase a birthday gift online, you expect
-the gift to arrive before the recipient's birthday.
-And in fact even turn-of-the-millennium web services observed sub-second
-response constraints~\cite{KristofferBohmann2001a}, and requirements have
-not eased with the passage of time~\cite{DeCandia:2007:DAH:1323293.1294281}.
-It is nevertheless useful to focus on those real-time applications
-whose response-time requirements cannot be achieved straightforwardly
-by non-real-time systems and applications.
-Of course, as hardware costs decrease and bandwidths and memory sizes
-increase, the line between real-time and non-real-time will continue
-to shift, but such progress is by no means a bad thing.
+可以说所有的计算实际上都是实时计算。
+举一个例子，当你在网上购买生日礼物时，你期望礼物在收礼人
+生日之前到达。
+事实上，即使在千禧年之交的Web服务也遵守亚秒级的响应
+约束~\cite{KristofferBohmann2001a}，而且随着时间的推移，
+要求并没有放松~\cite{DeCandia:2007:DAH:1323293.1294281}。
+尽管如此，关注那些响应时间要求无法被非实时系统和应用
+直接满足的实时应用仍然是有用的。
+当然，随着硬件成本下降以及带宽和内存容量增加，
+实时与非实时之间的界线将继续移动，
+但这种进步绝非坏事。
 
 \QuickQuiz{
-	Differentiating real-time from non-real-time based on what can
-	``be achieved straightforwardly by non-real-time systems and
-	applications'' is a travesty!
-	There is absolutely no theoretical basis for such a distinction!!!
-	Can't we do better than that???
+	基于非实时系统和应用"能够直接实现"的标准来区分
+	实时和非实时是荒谬的！
+	这种区分完全没有理论基础！！！
+	难道我们就不能做得更好吗？？？
 }\QuickQuizAnswer{
-	This distinction is admittedly unsatisfying from a strictly
-	theoretical perspective.
-	But on the other hand, it is exactly what the developer needs
-	in order to decide whether the application can be cheaply and
-	easily developed using standard non-real-time approaches, or
-	whether the more difficult and expensive real-time approaches
-	are required.
-	In other words, although theory is quite important, for those of
-	us called upon to complete practical projects, theory supports
-	practice, never the other way around.
+	从严格的理论角度来看，这种区分确实不令人满意。
+	但另一方面，这正是开发人员所需要的，
+	以便决定应用是否可以使用标准的非实时方法
+	来廉价且容易地开发，
+	还是需要更困难且昂贵的实时方法。
+	换句话说，虽然理论相当重要，但对于
+	被要求完成实际项目的我们来说，
+	理论服务于实践，永远不是反过来。
 }\QuickQuizEnd
 
-Real-time computing is used in industrial-control applications, ranging from
-manufacturing to avionics;
-scientific applications, perhaps most spectacularly in the adaptive
-optics used by
-large Earth-bound telescopes to de-twinkle starlight;
-military applications, including the afore-mentioned avionics;
-and financial-services applications, where the first computer to recognize
-an opportunity is likely to reap most of the profit.
-These four areas could be characterized as ``in search of production'',
-``in search of life'', ``in search of death'', and ``in search of money''.
+实时计算被用于工业控制应用，从制造业到航空电子设备；
+科学应用，也许最引人注目的是大型地面望远镜用于
+消除星光闪烁的自适应光学系统；
+军事应用，包括前面提到的航空电子设备；
+以及金融服务应用，其中第一个识别出机会的计算机
+最有可能获得大部分利润。
+这四个领域可以被描述为"追求生产"、"追求生命"、
+"追求死亡"和"追求金钱"。
 
-Financial-services applications differ subtly from applications in
-the other three categories in that money is non-material, meaning that
-non-computational latencies are quite small.
-In contrast, mechanical delays inherent in the other three categories
-provide a very real point of diminishing returns beyond which further
-reductions in the application's real-time response provide little or
-no benefit.
-This means that financial-services applications, along with other
-real-time information-processing applications, face an arms race,
-where the application with the lowest latencies normally wins.
-Although the resulting latency requirements can still be specified
-as described in
-\pararef{sec:advsync:Real-World Real-Time Specifications},
-the unusual nature of these requirements has led some to refer to
-financial and information-processing applications as ``low latency''
-rather than ``real time''.
+金融服务应用与其他三个类别的应用有一个微妙的不同之处，
+那就是金钱是非物质的，这意味着非计算延迟非常小。
+相比之下，其他三个类别固有的机械延迟提供了一个非常现实的
+收益递减点，超过该点后，进一步减少应用的实时响应
+几乎没有或完全没有好处。
+这意味着金融服务应用，以及其他实时信息处理应用，
+面临着一场军备竞赛，延迟最低的应用通常获胜。
+虽然由此产生的延迟要求仍然可以按照
+\pararef{sec:advsync:Real-World Real-Time Specifications}
+中描述的方式来规定，
+但这些要求的不寻常性质使得一些人将金融和信息处理应用
+称为"低延迟"而非"实时"。
 
-Regardless of exactly what we choose to call it, there is substantial
-need for real-time
-computing~\cite{JeremyWPeters2006NYTDec11,BillInmon2007a}.
+无论我们选择怎样称呼它，对实时计算都有着
+大量的需求~\cite{JeremyWPeters2006NYTDec11,BillInmon2007a}。
 
-\subsection{Who Needs Parallel Real-Time?}
+\subsection{谁需要并行实时？}
 \label{sec:advsync:Who Needs Parallel Real-Time?}
 
-It is less clear who really needs parallel real-time computing, but
-the advent of low-cost multicore systems has brought it to the fore
-regardless.
-Unfortunately, the traditional mathematical basis for real-time
-computing assumes single-CPU systems, with a few exceptions that
-prove the rule~\cite{BjoernBrandenburgPhD}.
-Fortunately, there are a couple of ways of squaring modern computing
-hardware to fit the real-time mathematical circle, and a few Linux-kernel
-hackers have been encouraging academics to make this
-transition~\cite{DanielBristot2019RTtrace,ThomasGleixner2010AcademiaVsReality}.
+谁真正需要并行实时计算还不太清楚，但低成本多核系统的出现
+已经使这个问题变得突出。
+不幸的是，实时计算的传统数学基础假设的是单CPU系统，
+只有少数例外证明了这一规则~\cite{BjoernBrandenburgPhD}。
+幸运的是，有几种方法可以让现代计算硬件适配实时数学的框架，
+而且一些Linux内核黑客一直在鼓励学术界进行这种
+转变~\cite{DanielBristot2019RTtrace,ThomasGleixner2010AcademiaVsReality}。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{advsync/rt-reflexes}}
-\caption{Real-Time Reflexes}
+\caption{实时反射}
 \label{fig:advsync:Real-Time Reflexes}
 \end{figure}
 
-One approach is to recognize the fact that many real-time systems
-resemble biological nervous systems, with responses ranging from
-real-time reflexes to non-real-time strategizing and planning,
-as depicted in
-\cref{fig:advsync:Real-Time Reflexes}.
-The hard real-time reflexes, which read from sensors and control
-actuators, run real-time on a single CPU or on special-purpose hardware
-such as an FPGA\@.
-The non-real-time strategy and planning portion of the application runs
-on the remaining CPUs.
-Strategy and planning activities might include statistical analysis,
-periodic calibration, user interface, supply-chain activities, and
-preparation.
-For an example of high-compute-load preparation activities, think back
-to the veneer-peeling application discussed in
-\pararef{sec:advsync:Real-World Real-Time Specifications}.
-While one CPU is attending to the high-speed real-time computations
-required to peel one log, the other CPUs might be analyzing the size
-and shape of the next log in order to determine how to position the
-next log so as to obtain the largest cylinder of high-quality wood.
-It turns out that many applications have non-real-time and real-time
-components~\cite{RobertBerry2008IBMSysJ}, so this approach can
-often be used to allow traditional real-time analysis to be combined
-with modern multicore hardware.
+一种方法是认识到这样一个事实：许多实时系统类似于生物神经系统，
+响应范围从实时反射到非实时战略和规划，
+如\cref{fig:advsync:Real-Time Reflexes}所示。
+硬实时反射——从传感器读取数据并控制执行器——
+在单个CPU上或在FPGA等专用硬件上实时运行。\@
+非实时的战略和规划部分在其余CPU上运行。
+战略和规划活动可能包括统计分析、定期校准、用户界面、
+供应链活动和准备工作。
+关于高计算负载准备活动的一个例子，回想一下在
+\pararef{sec:advsync:Real-World Real-Time Specifications}
+中讨论的单板剥离应用。
+当一个CPU正在处理剥离一根原木所需的高速实时计算时，
+其他CPU可能在分析下一根原木的大小和形状，
+以便确定如何定位下一根原木，从而获得最大的高质量木材圆柱体。
+事实证明，许多应用都有非实时和实时
+组件~\cite{RobertBerry2008IBMSysJ}，
+因此这种方法通常可以将传统的实时分析与现代多核硬件结合起来。
 
-Another trivial approach is to shut off all but one hardware thread so as
-to return to the settled mathematics of uniprocessor real-time
-computing.
-However, this approach gives up potential cost and energy-efficiency
-advantages.
-That said, obtaining these advantages requires overcoming the parallel
-performance obstacles covered in
-\cref{chp:Hardware and its Habits},
-and not merely on average, but instead in the worst case.
+另一种简单的方法是关闭除一个硬件线程以外的所有线程，
+回到单处理器实时计算的成熟数学中。
+然而，这种方法放弃了潜在的成本和能效优势。
+也就是说，要获得这些优势需要克服
+\cref{chp:Hardware and its Habits}
+中讨论的并行性能障碍，
+而且不仅仅是平均情况，而是最坏情况。
 
-Implementing parallel real-time systems can therefore be quite a
-challenge.
-Ways of meeting this challenge are outlined in the following section.
+因此，实现并行实时系统可能是一项相当大的挑战。
+应对这一挑战的方法将在下一节中概述。
 
-\subsection{Implementing Parallel Real-Time Systems}
+\subsection{实现并行实时系统}
 \label{sec:advsync:Implementing Parallel Real-Time Systems}
 
-We will look at two major styles of real-time systems, event-driven and
-polling.
-An event-driven real-time system remains idle much of the time, responding
-in real time to events passed up through the operating system to the
-application.
-Alternatively, the system could instead be running a background
-non-real-time workload.
-A polling real-time system features a real-time thread that is CPU
-bound, running in a tight loop that polls inputs and updates outputs on
-each pass.
-This tight polling loop often executes entirely in user mode, reading from
-and writing to hardware registers that have been mapped into the user-mode
-application's address space.
-Alternatively, some applications place the polling loop into the kernel,
-for example, using loadable kernel modules.
+我们将研究两种主要的实时系统风格：事件驱动和轮询。
+事件驱动的实时系统大部分时间保持空闲，
+实时地响应通过操作系统传递给应用的事件。
+或者，系统也可以运行一个后台非实时工作负载。
+轮询式实时系统具有一个CPU密集型的实时线程，
+在一个紧密循环中运行，每次迭代都轮询输入并更新输出。
+这种紧密轮询循环通常完全在用户模式下执行，
+读写已映射到用户模式应用地址空间的硬件寄存器。
+另一种方式是，某些应用将轮询循环放在内核中，
+例如使用可加载内核模块。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{advsync/rt-regimes}}
-\caption{Real-Time Response Regimes}
+\caption{实时响应区间}
 \label{fig:advsync:Real-Time Response Regimes}
 \end{figure}
 
-Regardless of the style chosen, the approach used to implement a real-time
-system will depend on the deadlines, for example, as shown in
-\cref{fig:advsync:Real-Time Response Regimes}.
-Starting from the top of this figure, if you can live with response times in
-excess of one second, you might well be able to use scripting languages
-to implement your real-time application---and scripting languages are
-in fact used surprisingly often, not that I necessarily recommend this
-practice.
-If the required latencies exceed several tens of milliseconds,
-old 2.4 versions of the Linux kernel can be used, not that I necessarily
-recommend this practice, either.
-Special real-time Java implementations can provide real-time response
-latencies of a few milliseconds, even when the garbage collector is
-used.
-The Linux 2.6.x and 3.x kernels can provide real-time latencies of
-a few hundred microseconds if painstakingly configured, tuned, and run
-on real-time-friendly hardware.
-Special real-time Java implementations can provide real-time latencies
-below 100 microseconds if use of the garbage collector is carefully avoided.
-(But note that avoiding the garbage collector means also avoiding
-Java's large standard libraries, thus also avoiding Java's productivity
-advantages.)
-The Linux 4.x and 5.x kernels can provide sub-hundred-microsecond
-latencies, but with all the same caveats as for the 2.6.x and 3.x kernels.
-A Linux kernel incorporating the \rt\ patchset can provide latencies
-well below 20 microseconds, and specialty real-time operating systems (RTOSes)
-running without MMUs can provide sub-ten-microsecond
-latencies.
-Achieving sub-microsecond latencies typically requires hand-coded assembly
-or even special-purpose hardware.
+无论选择哪种风格，实现实时系统所使用的方法将取决于截止时间，
+例如，如\cref{fig:advsync:Real-Time Response Regimes}所示。
+从该图的顶部开始，如果你能接受超过一秒的响应时间，
+你可能完全可以使用脚本语言来实现你的实时应用——
+事实上脚本语言的使用频率令人惊讶地高，
+虽然我不一定推荐这种做法。
+如果所需的延迟超过几十毫秒，
+可以使用旧的2.4版本Linux内核，
+虽然我也不一定推荐这种做法。
+特殊的实时Java实现可以提供几毫秒的实时响应延迟，
+即使在使用垃圾回收器时也是如此。
+Linux 2.6.x和3.x内核在经过精心配置、调优并运行在
+对实时友好的硬件上时，可以提供几百微秒的实时延迟。
+特殊的实时Java实现如果小心避免使用垃圾回收器，
+可以提供低于100微秒的实时延迟。
+（但请注意，避免使用垃圾回收器也意味着避免使用
+Java庞大的标准库，从而也放弃了Java的生产力优势。）
+Linux 4.x和5.x内核可以提供亚百微秒级的延迟，
+但具有与2.6.x和3.x内核相同的所有注意事项。
+集成了\rt\ 补丁集的Linux内核可以提供远低于20微秒的延迟，
+而不使用MMU运行的专用实时操作系统（RTOSes）可以提供
+低于10微秒的延迟。
+实现亚微秒级延迟通常需要手工编写的汇编代码
+甚至专用硬件。
 
-Of course, careful configuration and tuning are required all the way down
-the stack.
-In particular, if the hardware or firmware fails to provide real-time
-latencies, there is nothing that the software can do to make up for the
-lost time.
-Worse yet, high-performance hardware sometimes sacrifices worst-case behavior
-to obtain greater throughput.
-In fact, timings from tight loops run with interrupts disabled can
-provide the basis for a high-quality random-number
-generator~\cite{PeterOkech2009InherentRandomness}.
-Furthermore, some firmware does cycle-stealing to carry out various
-housekeeping tasks, in some cases attempting to cover its tracks by
-reprogramming the victim CPU's hardware clocks.
-Of course, cycle stealing is expected behavior in virtualized
-environment, but people are nevertheless working towards real-time
-response in virtualized
-environments~\cite{ThomasGleixner2012KVMrealtime,JanKiszka2014virtRT}.
-It is therefore critically important to evaluate your hardware's and
-firmware's real-time capabilities.
+当然，从上到下的整个栈都需要仔细的配置和调优。
+特别是，如果硬件或固件无法提供实时延迟，
+软件无论如何都无法弥补失去的时间。
+更糟糕的是，高性能硬件有时会牺牲最坏情况的行为
+来获得更大的吞吐量。
+事实上，在禁用中断的情况下运行紧密循环的时序
+可以为高质量随机数生成器提供
+基础~\cite{PeterOkech2009InherentRandomness}。
+此外，某些固件会窃取时钟周期来执行各种内务任务，
+在某些情况下还试图通过重新编程受害CPU的硬件时钟来掩盖其痕迹。
+当然，在虚拟化环境中，周期窃取是预期的行为，
+但人们仍然在努力实现虚拟化环境中的实时
+响应~\cite{ThomasGleixner2012KVMrealtime,JanKiszka2014virtRT}。
+因此，评估你的硬件和固件的实时能力至关重要。
 
-But given competent real-time hardware and firmware, the next
-layer up the stack is the operating system, which is covered in
-the next section.
+但如果有了胜任的实时硬件和固件，
+栈中的下一层就是操作系统，这将在下一节中讨论。
 
-\subsection{Implementing Parallel Real-Time Operating Systems}
+\subsection{实现并行实时操作系统}
 \label{sec:advsync:Implementing Parallel Real-Time Operating Systems}
 
 \begin{figure}
 \centering
 \resizebox{2.2in}{!}{\includegraphics{advsync/Linux-on-RTOS}}
-\caption{Linux Ported to RTOS}
+\caption{移植到 RTOS 上的 Linux}
 \label{fig:advsync:Linux Ported to RTOS}
 \end{figure}
 
-There are a number of strategies that may be used to implement a
-real-time system.
-One approach is to port a general-purpose non-real-time OS on top
-of a special purpose real-time operating system (RTOS), as shown in
-\cref{fig:advsync:Linux Ported to RTOS}.
-The green ``Linux Process'' boxes represent non-real-time processes
-running on the Linux kernel, while the yellow ``RTOS Process''
-boxes represent real-time processes running on the RTOS\@.
+有多种策略可用于实现实时系统。
+一种方法是将通用的非实时操作系统移植到
+专用实时操作系统（RTOS）之上，
+如\cref{fig:advsync:Linux Ported to RTOS}所示。
+绿色的"Linux Process"框代表运行在Linux内核上的非实时进程，
+而黄色的"RTOS Process"框代表运行在RTOS上的实时进程。\@
 
-This was a very popular approach before the Linux kernel gained
-real-time capabilities, and is still in
-use~\cite{Xenomai2014,VictorYodaiken2004a}.
-However, this approach requires that the application be split into
-one portion that runs on the RTOS and another that runs on Linux.
-Although it is possible to make the two environments look similar,
-for example, by forwarding POSIX system calls from the RTOS to a
-utility thread running on Linux, there are invariably rough edges.
+在Linux内核获得实时功能之前，这是一种非常流行的方法，
+并且仍在使用~\cite{Xenomai2014,VictorYodaiken2004a}。
+然而，这种方法要求将应用拆分为一部分运行在RTOS上，
+另一部分运行在Linux上。
+虽然可以使两个环境看起来相似，
+例如通过将POSIX系统调用从RTOS转发到运行在Linux上的
+实用线程，但总是不可避免地存在粗糙的边角。
 
-In addition, the RTOS must interface to both the hardware and to
-the Linux kernel, thus requiring significant maintenance with
-changes in both hardware and kernel.
-Furthermore, each such RTOS often has its own system-call interface
-and set of system libraries, which can balkanize both ecosystems and
-developers.
-In fact, these problems seem to be what drove the combination of
-RTOSes with Linux, as this approach allowed access to the full real-time
-capabilities of the RTOS, while allowing the application's non-real-time
-code full access to Linux's open-source ecosystem.
+此外，RTOS必须同时与硬件和Linux内核接口，
+因此在硬件和内核发生变化时都需要大量的维护工作。
+更进一步，每种RTOS通常都有自己的系统调用接口
+和系统库集合，这可能导致生态系统和开发者群体的碎片化。
+事实上，这些问题似乎正是推动RTOS与Linux组合的原因，
+因为这种方法既允许访问RTOS的完整实时能力，
+又允许应用的非实时代码完全访问Linux的开源生态系统。
 
 \begin{figure*}
 \centering
@@ -739,298 +594,251 @@ code full access to Linux's open-source ecosystem.
 }{
 \resizebox{4.4in}{!}{\includegraphics{advsync/preemption}}
 }
-\caption{Linux-Kernel Real-Time Implementations}
+\caption{Linux内核实时实现}
 \label{fig:advsync:Linux-Kernel Real-Time Implementations}
 \end{figure*}
 
-Although pairing RTOSes with the Linux kernel was a clever and useful
-short-term response during the time that the Linux kernel had minimal
-real-time capabilities, it also motivated adding real-time capabilities
-to the Linux kernel.
-Progress towards this goal is shown in
-\cref{fig:advsync:Linux-Kernel Real-Time Implementations}.
-The upper row shows a diagram of the Linux kernel with preemption disabled,
-thus having essentially no real-time capabilities.
-The middle row shows a set of diagrams showing the increasing real-time
-capabilities of the mainline Linux kernel with preemption enabled.
-Finally, the bottom row shows a diagram of the Linux kernel with the
-\rt\ patchset applied, maximizing real-time capabilities.
-Functionality from the \rt\ patchset is added to mainline,
-hence the increasing capabilities of the mainline Linux kernel over time.
-Nevertheless, the most demanding real-time applications continue to use
-the \rt\ patchset.
+虽然将RTOS与Linux内核配对在Linux内核实时功能最少的时期
+是一种聪明而有用的短期应对措施，
+但它也激发了向Linux内核添加实时功能的动力。
+朝着这一目标的进展如
+\cref{fig:advsync:Linux-Kernel Real-Time Implementations}所示。
+上面一行展示了禁用抢占的Linux内核图，
+因此基本上没有实时功能。
+中间一行展示了一组图，显示了启用抢占的主线Linux内核
+不断增强的实时功能。
+最后，底部一行展示了应用了\rt\ 补丁集的Linux内核图，
+最大化了实时功能。
+来自\rt\ 补丁集的功能不断被添加到主线中，
+因此主线Linux内核的功能随时间不断增强。
+尽管如此，最苛刻的实时应用仍然使用\rt\ 补丁集。
 
-The non-preemptible kernel shown at the top of
 \cref{fig:advsync:Linux-Kernel Real-Time Implementations}
-is built with \co{CONFIG_PREEMPT=n}, so that execution within the Linux
-kernel cannot be preempted.
-This means that the kernel's real-time response latency is bounded below
-by the longest code path in the Linux kernel, which is indeed long.
-However, user-mode execution is preemptible, so that one of the
-real-time Linux processes shown in the upper right may preempt any of the
-non-real-time Linux processes shown in the upper left anytime the
-non-real-time process is executing in user mode.
+顶部所示的不可抢占内核使用 \co{CONFIG_PREEMPT=n} 构建，
+因此 Linux 内核中的执行不能被抢占。
+这意味着内核的实时响应延迟的下界是 Linux 内核中最长的代码路径，
+而该路径确实很长。
+然而，用户模式执行是可抢占的，因此右上方所示的实时 Linux 进程
+可以在非实时进程在用户模式下执行的任何时候抢占左上方所示的
+任何非实时 Linux 进程。
 
-The middle row of
 \cref{fig:advsync:Linux-Kernel Real-Time Implementations}
-shows three stages (from left to right) in the development of Linux's
-preemptible kernels.
-In all three stages, most process-level code within the Linux kernel
-can be preempted.
-This of course greatly improves real-time response latency, but
-preemption is still disabled
-within RCU read-side critical sections,
-spinlock critical sections,
-interrupt handlers,
-interrupt-disabled code regions, and
-preempt-disabled code regions, as indicated by the red boxes in the
-left-most diagram in the middle row of the figure.
-The advent of preemptible RCU allowed RCU read-side critical sections
-to be preempted, as shown in the central diagram,
-and the advent of threaded interrupt handlers allowed device-interrupt
-handlers to be preempted, as shown in the right-most diagram.
-Of course, a great deal of other real-time functionality was added
-during this time, however, it cannot be as easily represented on this
-diagram.
-It will instead be discussed in
-\cref{sec:advsync:Event-Driven Real-Time Support}.
+的中间行展示了 Linux 可抢占内核开发中的三个阶段（从左到右）。
+在所有三个阶段中，Linux 内核中的大多数进程级代码都可以被抢占。
+这当然大大改善了实时响应延迟，但在 RCU 读端临界区、
+自旋锁临界区、中断处理程序、禁用中断的代码区域和
+禁用抢占的代码区域中，抢占仍然被禁用，
+如图中间行最左侧的图表中的红色框所示。
+可抢占 RCU 的出现允许 RCU 读端临界区被抢占，如中间图所示，
+线程化中断处理程序的出现允许设备中断处理程序被抢占，
+如最右侧图所示。
+当然，在此期间还添加了大量其他实时功能，
+但它们无法在此图表上轻易表示。
+它们将在
+\cref{sec:advsync:Event-Driven Real-Time Support}中讨论。
 
-The bottom row of
 \cref{fig:advsync:Linux-Kernel Real-Time Implementations}
-shows the \rt\ patchset, which features threaded (and thus preemptible)
-interrupt handlers for many devices, which also allows the corresponding
-``interrupt-disabled'' regions of these drivers to be preempted.
-These drivers instead use locking to coordinate the process-level
-portions of each driver with its threaded interrupt handlers.
-Finally, in some cases, disabling of preemption is replaced by
-disabling of migration.
-These measures result in excellent response times in many systems running
-the \rt\ patchset~\cite{Reghenzani:2019:RLK:3309872.3297714,DanielBristot2019RTtrace}.
+的底部行展示了 \rt\ 补丁集，该补丁集为许多设备提供了线程化
+（因此可抢占的）中断处理程序，这也允许这些驱动程序相应的
+``禁用中断''区域被抢占。
+这些驱动程序改为使用锁来协调每个驱动程序的进程级部分
+与其线程化中断处理程序。
+最后，在某些情况下，禁用抢占被替换为禁用迁移。
+这些措施在许多运行 \rt\ 补丁集的系统中产生了优秀的响应时间~\cite{Reghenzani:2019:RLK:3309872.3297714,DanielBristot2019RTtrace}。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{advsync/nohzfull}}
-\caption{CPU Isolation}
+\caption{CPU 隔离}
 \label{fig:advsync:CPU Isolation}
 \end{figure}
 
-A final approach is simply to get everything out of the way of the
-real-time process, clearing all other processing off of any CPUs that
-this process needs, as shown in \cref{fig:advsync:CPU Isolation}.
-This was implemented in the 3.10 Linux kernel via the \co{CONFIG_NO_HZ_FULL}
-Kconfig parameter~\cite{JonCorbet2013NO-HZ-FULL,FredericWeisbecker2013nohz}.
-It is important to note that this approach requires at least one
-\emph{housekeeping CPU} to do background processing, for example running
-kernel daemons.
-However, when there is only one runnable task on a given non-housekeeping CPU,
-scheduling-clock interrupts are shut off on that CPU, removing an important
-source of interference and \emph{OS jitter}.
-With a few exceptions, the kernel does not force other processing off of the
-non-housekeeping CPUs, but instead simply provides better performance
-when only one runnable task is present on a given CPU\@.
-Any number of userspace tools may be used to force a given CPU to have
-no more that one runnable task.
-If configured properly, a non-trivial undertaking, \co{CONFIG_NO_HZ_FULL}
-offers real-time threads levels of performance that come close to those of
-bare-metal systems~\cite{AbdullahAljuhni2018nohzfull}.
-\ppl{Fr\'{e}d\'{e}ric}{Weisbecker} produced a practical guide to
-\co{CONFIG_NO_HZ_FULL} configuration~\cite{
+最后一种方法是简单地将所有东西从实时进程的路径上移开，
+清除该进程所需的任何 CPU 上的所有其他处理，
+如\cref{fig:advsync:CPU Isolation}所示。
+这在 3.10 Linux 内核中通过 \co{CONFIG_NO_HZ_FULL}
+Kconfig 参数实现~\cite{JonCorbet2013NO-HZ-FULL,FredericWeisbecker2013nohz}。
+重要的是要注意，这种方法至少需要一个\emph{管家 CPU}
+来进行后台处理，例如运行内核守护进程。
+然而，当给定的非管家 CPU 上只有一个可运行任务时，
+该 CPU 上的调度时钟中断会被关闭，消除了一个重要的
+干扰源和\emph{操作系统抖动}。
+除少数例外情况外，内核不会强制将其他处理从非管家 CPU 上移除，
+而是在给定 CPU 上只有一个可运行任务时简单地提供更好的性能。
+可以使用任意数量的用户空间工具来强制给定 CPU
+不超过一个可运行任务。
+如果配置得当（这并非易事），\co{CONFIG_NO_HZ_FULL}
+为实时线程提供了接近裸机系统的性能水平~\cite{AbdullahAljuhni2018nohzfull}。
+\ppl{Fr\'{e}d\'{e}ric}{Weisbecker}编写了一份\co{CONFIG_NO_HZ_FULL}
+配置的实用指南~\cite{
 	FredericWeisbecker2022nohzIntro,
 	FredericWeisbecker2022nohzFullDynticksInternals,
 	FredericWeisbecker2022nohzfull,
 	FredericWeisbecker2022HousekeepingTradeoffs,
 	FredericWeisbecker2022practicalExample,
-	FredericWeisbecker2022nohzfullTSC}.
+	FredericWeisbecker2022nohzfullTSC}。
 
-The \co{CONFIG_NO_HZ_FULL} approach focuses primarily on reducing jitter
-from scheduling clock interrupts, which is the major concern for many
-workloads.
-However, ever-increasing CPU counts mean that it is increasingly
-advantageous to run real-time and non-realtime applications on a single
-system at the same time.
-These non-realtime systems are likely to need to remap memory, and worse
-yet the kernel may also need to remap kernel memory on their behalf.
-This will result in TLB-flush IPIs being sent to all CPUs, including
-the \co{nohz_full} CPUs, which will induce undesirable jitter on the
-real-time workload.
+\co{CONFIG_NO_HZ_FULL}方法主要着眼于减少调度时钟中断带来的抖动，
+这是许多工作负载的主要关注点。
+然而，不断增加的CPU数量意味着在单个系统上
+同时运行实时和非实时应用越来越有利。
+这些非实时系统可能需要重新映射内存，
+更糟糕的是，内核可能还需要代替它们重新映射内核内存。
+这将导致TLB刷新IPI被发送到所有CPU，
+包括\co{nohz_full} CPU，这将在实时工作负载上引入不良的抖动。
 
-These TLB-flush IPIs can be avoided on architectures such as ARM and
-PowerPC that provide machine instructions that flush other CPUs'
-TLBs, but even on these architectures, CPUs will still be subject
-to IPIs due to scheduling events, the \co{smp_text_poke()} IPIs supporting
-in-kernel self-modifying code, the Linux-kernel \co{smp_call_function()}
-and \co{irq_queue_work()} primitives, and much else besides.
+这些TLB刷新IPI在ARM和PowerPC等提供刷新其他CPU的TLB的
+机器指令的架构上可以避免，但即使在这些架构上，
+CPU仍然会受到由于调度事件、支持内核内自修改代码的
+\co{smp_text_poke()} IPI、Linux内核的\co{smp_call_function()}
+和\co{irq_queue_work()}原语以及其他许多原因导致的IPI的影响。
 Schneider~\cite{ValentinScheider2025IPIinterference}
-is working on IPIs that do not affect userspace execution, deferring
-them until the next kernel entry.
-This work currently features the \co{smp_text_poke()} IPIs supporting
-in-kernel self-modifying code.
-Work has also started on the more challenging IPIs flushing kernel TLBs,
-which are still needed for systems not providing off-CPU TLB-flush
-machine instructions.
+正在研究不影响用户空间执行的IPI，
+将它们推迟到下一次内核入口。
+该工作目前涵盖了支持内核内自修改代码的\co{smp_text_poke()} IPI。
+更具挑战性的刷新内核TLB的IPI的工作也已开始，
+对于不提供off-CPU TLB刷新机器指令的系统，
+这些IPI仍然是必需的。
 
-However, even when the entire system is dedicated to the real-time
-application, the most aggressive real-time applications would be best
-served by deferring or otherwise preventing \emph{all} IPIs.
-Zhou et al.~\cite{ZhouyiZhou2025deterministicsub05responselinux}
-therefore propose placing yet more housekeeping responsibility onto
-the real-time application.
-In their approach, all IPIs to CPUs running real-time applications are
-deferred until that application reaches a safe point where those IPIs'
-latencies can be tolerated.
-The application then calls into the kernel, which processes those
-deferred IPIs.
+然而，即使整个系统专用于实时应用，
+最激进的实时应用也最好能够推迟或以其他方式防止\emph{所有}IPI。
+Zhou等人~\cite{ZhouyiZhou2025deterministicsub05responselinux}
+因此提议将更多的管家职责放到实时应用上。
+在他们的方法中，所有发往运行实时应用的CPU的IPI
+都被推迟，直到该应用到达一个可以容忍这些IPI延迟的安全点。
+然后应用调用内核，由内核处理这些被推迟的IPI。
 
-This last approach might be criticized as having some serious usability
-issues, but it achieves 0.5-microsecond latencies, which constitutes an
-improvement of more than an order of magnitude over the best latencies
-reported for Linux-kernel real-time systems.
-For some users, this improvement will more than justify the additional
-effort and care required by this approach.
-Other users might wish to contribute to, or at least encourage,
-Schneider's IPI-deferral work.
+最后这种方法可能因为存在一些严重的可用性问题而受到批评，
+但它实现了0.5微秒的延迟，这比Linux内核实时系统
+报告的最佳延迟改善了一个数量级以上。
+对于某些用户来说，这种改善完全值得该方法所要求的
+额外努力和注意。
+其他用户可能希望为Schneider的IPI推迟工作做出贡献，
+或至少给予鼓励。
 
-There has of course been much debate over which of these approaches
-is best for real-time systems, and this debate has been going on for
-quite some
-time~\cite{JonCorbet2004RealTimeLinuxPart1,JonCorbet2004RealTimeLinuxPart2}.
-As usual, the answer seems to be ``It depends,'' as discussed in the
-following sections.
+关于这些方法中哪种最适合实时系统，当然有过很多争论，
+而且这场争论已经持续了相当长的
+时间~\cite{JonCorbet2004RealTimeLinuxPart1,JonCorbet2004RealTimeLinuxPart2}。
+像往常一样，答案似乎是"视情况而定"，
+这将在以下各节中讨论。
 \Cref{sec:advsync:Event-Driven Real-Time Support}
-considers event-driven real-time systems, and
+讨论事件驱动实时系统，
 \cref{sec:advsync:Polling-Loop Real-Time Support}
-considers real-time systems that use a CPU-bound polling loop.
+讨论使用CPU密集型轮询循环的实时系统。
 
-\subsubsection{Event-Driven Real-Time Support}
+\subsubsection{事件驱动实时支持}
 \label{sec:advsync:Event-Driven Real-Time Support}
 
-The operating-system support required for event-driven real-time
-applications is quite extensive, however, this section will focus
-on only a few items, namely
-timers,
-threaded interrupts,
-priority inheritance,
-preemptible RCU,
-and
-preemptible spinlocks.
+事件驱动实时应用所需的操作系统支持相当广泛，
+但本节将仅关注几个方面，即
+定时器、
+线程化中断、
+优先级继承、
+可抢占RCU
+以及
+可抢占自旋锁。
 
-\paragraph{Timers} are clearly critically important for real-time
-operations.
-After all, if you cannot specify that something be done at a specific
-time, how are you going to respond by that time?
-Even in non-real-time systems, large numbers of timers are generated,
-so they must be handled extremely efficiently.
-Example uses include retransmit timers for TCP connections (which are
-almost always canceled before they have a chance to fire),\footnote{
-	At least assuming reasonably low packet-loss rates!}
-timed delays (as in \co{sleep(1)}, which are rarely canceled),
-and timeouts for the \co{poll()} system call (which are often
-canceled before they have a chance to fire).
-A good data structure for such timers would therefore be a priority queue
-whose addition and deletion primitives were fast and $\O{1}$ in the number
-of timers posted.
+\paragraph{定时器}对实时操作显然至关重要。
+毕竟，如果你不能指定在特定时间完成某事，
+你怎么能在那个时间之前做出响应？
+即使在非实时系统中，也会产生大量的定时器，
+因此它们必须被极其高效地处理。
+使用示例包括TCP连接的重传定时器（几乎总是在有机会触发
+之前被取消），\footnote{
+	至少在假设合理低的丢包率的情况下！}
+定时延迟（如\co{sleep(1)}，很少被取消），
+以及\co{poll()}系统调用的超时（通常在有机会触发之前被取消）。
+因此，这种定时器的一个好的数据结构应该是一个优先队列，
+其添加和删除原语在已发布的定时器数量方面是快速且$\O{1}$的。
 
-The classic data structure for this purpose is the \emph{calendar queue},
-which in the Linux kernel is called the \co{timer wheel}.
-This age-old data structure is also heavily used in discrete-event
-simulation.
-The idea is that time is quantized, for example, in the Linux kernel,
-the duration of the time quantum is the period of the scheduling-clock
-interrupt.
-A given time can be represented by an integer, and any attempt to post
-a timer at some non-integral time will be rounded to a convenient nearby
-integral time quantum.
+用于此目的的经典数据结构是\emph{日历队列}，
+在Linux内核中被称为\co{timer wheel}（时间轮）。
+这种历史悠久的数据结构在离散事件仿真中也被大量使用。
+其思想是时间被量化——例如，在Linux内核中，
+时间量子的持续时间是调度时钟中断的周期。
+给定的时间可以用一个整数表示，
+在某个非整数时间发布定时器的任何尝试
+都会被四舍五入到一个方便的附近整数时间量子。
 
-One straightforward implementation would be to allocate a single array,
-indexed by the low-order bits of the time.
-This works in theory, but in practice systems create large numbers of
-long-duration timeouts (for example, the two-hour keepalive timeouts for TCP
-sessions) that are almost always canceled.
-These long-duration timeouts cause problems for small arrays because
-much time is wasted skipping timeouts that have not yet expired.
-On the other hand, an array that is large enough to gracefully accommodate
-a large number of long-duration timeouts would consume too much memory,
-especially given that performance and scalability concerns require one
-such array for each and every CPU\@.
+一种直接的实现方式是分配一个数组，
+以时间的低位比特作为索引。
+这在理论上可行，但在实践中，系统会创建大量
+几乎总是被取消的长时间超时
+（例如，TCP会话的两小时保活超时）。
+这些长时间超时给小数组带来了问题，
+因为会浪费大量时间跳过尚未过期的超时。
+另一方面，足够大以优雅地容纳大量长时间超时的数组
+会消耗过多内存，特别是考虑到性能和可扩展性要求
+每个CPU都需要一个这样的数组。\@
 
 \begin{figure}
 \centering
 \resizebox{2.0in}{!}{\includegraphics{advsync/timerwheel}}
-\caption{Timer Wheel}
+\caption{时间轮}
 \label{fig:advsync:Timer Wheel}
 \end{figure}
 
-A common approach for resolving this conflict is to provide multiple
-arrays in a hierarchy.
-At the lowest level of this hierarchy, each array element represents
-one unit of time.
-At the second level, each array element represents $N$ units of time,
-where $N$ is the number of elements in each array.
-At the third level, each array element represents $N^2$ units of time,
-and so on up the hierarchy.
-This approach allows the individual arrays to be indexed by different
-bits, as illustrated by
-\cref{fig:advsync:Timer Wheel}
-for an unrealistically small eight-bit clock.
-Here, each array has 16 elements, so the low-order four bits of the time
-(currently \co{0xf}) index the low-order (rightmost) array, and the
-next four bits (currently \co{0x1}) index the next level up.
-Thus, we have two arrays each with 16 elements, for a total of 32 elements,
-which, taken together, is much smaller than the 256-element array that
-would be required for a single array.
+解决这一冲突的常见方法是在层次结构中提供多个数组。
+在该层次结构的最低层，每个数组元素代表一个时间单位。
+在第二层，每个数组元素代表$N$个时间单位，
+其中$N$是每个数组中的元素数量。
+在第三层，每个数组元素代表$N^2$个时间单位，
+依此类推向上。
+这种方法允许各个数组由不同的位索引，
+如\cref{fig:advsync:Timer Wheel}
+对一个不切实际的小型八位时钟所示。
+这里每个数组有16个元素，因此时间的低四位
+（当前为\co{0xf}）索引低阶（最右边的）数组，
+接下来的四位（当前为\co{0x1}）索引上一层。
+因此，我们有两个各16个元素的数组，总共32个元素，
+加在一起，比单个数组所需的256个元素小得多。
 
-This approach works extremely well for throughput-based systems.
-Each timer operation is $\O{1}$ with small constant, and each timer
-element is touched at most $m+1$ times, where $m$ is the number of
-levels.
+这种方法对于面向吞吐量的系统效果极好。
+每个定时器操作是常数很小的$\O{1}$，
+每个定时器元素最多被触碰$m+1$次，其中$m$是层数。
 
 \begin{figure}
 \centering
 \resizebox{3.0in}{!}{\includegraphics{cartoons/1kHz}}
-\caption{Timer Wheel at 1\,kHz}
+\caption{1\,kHz时间轮}
 \ContributedBy{fig:advsync:Timer Wheel at 1kHz}{Melissa Broussard}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3.0in}{!}{\includegraphics{cartoons/100kHz}}
-\caption{Timer Wheel at 100\,kHz}
+\caption{100\,kHz时间轮}
 \ContributedBy{fig:advsync:Timer Wheel at 100kHz}{Melissa Broussard}
 \end{figure}
 
-Unfortunately, timer wheels do not work well for real-time systems, and for
-two reasons.
-The first reason is that there is a harsh tradeoff between timer
-accuracy and timer overhead, which is fancifully illustrated by
-\cref{fig:advsync:Timer Wheel at 1kHz,fig:advsync:Timer Wheel at 100kHz}.
-In \cref{fig:advsync:Timer Wheel at 1kHz},
-timer processing happens only once per millisecond, which keeps overhead
-acceptably low for many (but not all!\@) workloads, but which also means
-that timeouts cannot be set for finer than one-millisecond granularities.
-On the other hand, \cref{fig:advsync:Timer Wheel at 100kHz}
-shows timer processing taking place every ten microseconds, which
-provides acceptably fine timer granularity for most (but not all!\@)
-workloads, but which processes timers so frequently that the system
-might well not have time to do anything else.
+不幸的是，时间轮不太适合实时系统，原因有二。
+第一个原因是定时器精度和定时器开销之间存在严酷的权衡，
+如\cref{fig:advsync:Timer Wheel at 1kHz,fig:advsync:Timer Wheel at 100kHz}
+形象地所示。
+在\cref{fig:advsync:Timer Wheel at 1kHz}中，
+定时器处理每毫秒只发生一次，这使得开销对许多（但不是所有！\@）
+工作负载来说保持在可接受的低水平，
+但这也意味着超时无法设置得比一毫秒粒度更细。
+另一方面，\cref{fig:advsync:Timer Wheel at 100kHz}
+显示定时器处理每十微秒发生一次，
+这为大多数（但不是所有！\@）工作负载提供了可接受的精细定时器粒度，
+但处理定时器如此频繁以至于系统可能没有时间做其他任何事情。
 
-The second reason is the need to cascade timers from higher levels to
-lower levels.
-Referring back to \cref{fig:advsync:Timer Wheel},
-we can see that any timers enqueued on element \co{1x} in the upper
-(leftmost) array must be cascaded down to the lower (rightmost)
-array so that may be invoked when their time arrives.
-Unfortunately, there could be a large number of timeouts
-waiting to be cascaded, especially for timer wheels with larger numbers
-of levels.
-The power of statistics causes this cascading to be a non-problem for
-throughput-oriented systems, but cascading can result in problematic
-degradations of latency in real-time systems.
+第二个原因是需要将定时器从高层级联到低层。
+回顾\cref{fig:advsync:Timer Wheel}，
+我们可以看到，在上层（最左边的）数组的元素\co{1x}上
+排队的任何定时器都必须级联到下层（最右边的）数组中，
+以便在它们的时间到达时被调用。
+不幸的是，可能有大量的超时等待被级联，
+特别是对于具有更多层级的时间轮。
+统计学的力量使得这种级联对面向吞吐量的系统来说不是问题，
+但级联可能导致实时系统中延迟的严重退化。
 
 \IfTwoColumn{
 \begin{figure*}
 \centering
 \resizebox{1.4\twocolumnwidth}{!}{\includegraphics{advsync/irq}}
-\caption{Non-Threaded Interrupt Handler}
+\caption{非线程化中断处理程序}
 \label{fig:advsync:Non-Threaded Interrupt Handler}
 \end{figure*}
 }{}
@@ -1039,42 +847,37 @@ degradations of latency in real-time systems.
 \begin{figure*}
 \centering
 \resizebox{1.4\twocolumnwidth}{!}{\includegraphics{advsync/threaded-irq}}
-\caption{Threaded Interrupt Handler}
+\caption{线程化中断处理程序}
 \label{fig:advsync:Threaded Interrupt Handler}
 \end{figure*}
 }{}
 
-Of course, real-time systems could simply choose a different data
-structure, for example, some form of heap or tree, giving up
-$\O{1}$ bounds on insertion and deletion operations to gain $\O{\log n}$
-limits on data-structure-maintenance operations.
-This can be a good choice for special-purpose RTOSes, but is inefficient
-for general-purpose systems such as Linux, which routinely support
-extremely large numbers of timers.
+当然，实时系统可以简单地选择不同的数据结构，
+例如某种形式的堆或树，放弃插入和删除操作的$\O{1}$界限，
+以获得数据结构维护操作的$\O{\log n}$限制。
+对于专用RTOS来说这可能是一个好选择，
+但对于Linux等通常支持极大量定时器的通用系统来说效率不高。
 
-The solution chosen for the Linux kernel's \rt\ patchset is to differentiate
-between timers that schedule later activity and timeouts that schedule
-error handling for low-probability errors such as TCP packet losses.
-One key observation is that error handling is normally not particularly
-time-critical, so that a timer wheel's millisecond-level granularity
-is good and sufficient.
-Another key observation is that error-handling timeouts are normally
-canceled very early, often before they can be cascaded.
-In addition, systems commonly have many more error-handling timeouts
-than they do timer events, so that an $\O{\log n}$ data structure should
-provide acceptable performance for timer events.
+Linux内核\rt\ 补丁集选择的解决方案是区分
+调度后续活动的定时器和调度低概率错误
+（如TCP丢包）的错误处理的超时。
+一个关键观察是，错误处理通常并不特别对时间敏感，
+因此时间轮的毫秒级粒度已经足够好了。
+另一个关键观察是，错误处理超时通常会很早被取消，
+通常在它们能够被级联之前。
+此外，系统通常拥有的错误处理超时远多于定时器事件，
+因此$\O{\log n}$数据结构应该能为定时器事件提供可接受的性能。
 
-However, it is possible to do better, namely by simply refusing to
-cascade timers.
-Instead of cascading, the timers that would otherwise have been cascaded
-all the way down the calendar queue are handled in place.
-This does result in up to a few percent error for the time duration,
-but the few situations where this is a problem can instead use tree-based
-high-resolution timers (hrtimers).
+然而，有可能做得更好，即简单地拒绝级联定时器。
+与其级联，不如将原本要沿日历队列一路级联下来的
+定时器就地处理。
+这确实会导致时间持续时间上高达百分之几的误差，
+但在少数情况下如果这是个问题，
+可以改用基于树的高分辨率定时器（hrtimers）。
 
-In short, the Linux kernel's \rt\ patchset uses timer wheels for
-error-handling timeouts and a tree for timer events, providing each
-category the required quality of service.
+简而言之，Linux内核的\rt\ 补丁集使用时间轮处理
+错误处理超时，使用树处理定时器事件，
+为每个类别提供所需的服务质量。
 
 \IfTwoColumn{}{
 \begin{figure}
@@ -1084,22 +887,19 @@ category the required quality of service.
 }{
 \resizebox{1.4\twocolumnwidth}{!}{\includegraphics{advsync/irq}}
 }
-\caption{Non-Threaded Interrupt Handler}
+\caption{非线程化中断处理程序}
 \label{fig:advsync:Non-Threaded Interrupt Handler}
 \end{figure}
 }
 
-\paragraph{Threaded interrupts}
-are used to address a significant source of degraded real-time latencies,
-namely long-running interrupt handlers,
-as shown in \cref{fig:advsync:Non-Threaded Interrupt Handler}.
-These latencies can be especially problematic for devices that can
-deliver a large number of events with a single interrupt, which means
-that the interrupt handler will run for an extended period of time
-processing all of these events.
-Worse yet are devices that can deliver new events to a still-running
-interrupt handler, as such an interrupt handler might well run
-indefinitely, thus indefinitely degrading real-time latencies.
+\paragraph{线程化中断}
+用于解决实时延迟退化的一个重要来源，即长时间运行的中断处理程序，
+如\cref{fig:advsync:Non-Threaded Interrupt Handler}所示。
+对于能够通过单个中断传递大量事件的设备，这些延迟可能特别成问题，
+这意味着中断处理程序将长时间运行来处理所有这些事件。
+更糟糕的是那些能够向仍在运行的中断处理程序传递新事件的设备，
+因为这样的中断处理程序可能会无限期运行，
+从而无限期地降低实时延迟。
 
 \IfTwoColumn{}{
 \begin{figure}
@@ -1109,201 +909,170 @@ indefinitely, thus indefinitely degrading real-time latencies.
 }{
 \resizebox{1.4\twocolumnwidth}{!}{\includegraphics{advsync/threaded-irq}}
 }
-\caption{Threaded Interrupt Handler}
+\caption{线程化中断处理程序}
 \label{fig:advsync:Threaded Interrupt Handler}
 \end{figure}
 }
 
-One way of addressing this problem is the use of threaded interrupts shown in
-\cref{fig:advsync:Threaded Interrupt Handler}.
-Interrupt handlers run in the context of a preemptible \IXacr{irq} thread,
-which runs at a configurable priority.
-The device interrupt handler then runs for only a short time, just
-long enough to make the \IRQ\ thread aware of the new event.
-As shown in the figure, threaded interrupts can greatly improve
-real-time latencies, in part because interrupt handlers running in
-the context of the \IRQ\ thread may be preempted by high-priority real-time
-threads.
+解决这个问题的一种方法是使用如
+\cref{fig:advsync:Threaded Interrupt Handler}所示的线程化中断。
+中断处理程序在可抢占的\IXacr{irq}线程的上下文中运行，
+该线程以可配置的优先级运行。
+设备中断处理程序只运行很短的时间，
+仅足以让\IRQ\ 线程知道有新事件。
+如图所示，线程化中断可以大大改善实时延迟，
+部分原因是在\IRQ\ 线程上下文中运行的中断处理程序
+可以被高优先级实时线程抢占。
 
-However, there is no such thing as a free lunch, and there are downsides
-to threaded interrupts.
-One downside is increased interrupt latency.
-Instead of immediately running the interrupt handler, the handler's execution
-is deferred until the \IRQ\ thread gets around to running it.
-Of course, this is not a problem unless the device generating the interrupt
-is on the real-time application's critical path.
+然而，天下没有免费的午餐，线程化中断也有缺点。
+一个缺点是中断延迟增加。
+中断处理程序的执行不是立即运行，而是被推迟到\IRQ\ 线程
+轮到运行时才执行。
+当然，除非产生中断的设备在实时应用的关键路径上，
+否则这不是问题。
 
-Another downside is that poorly written high-priority real-time code
-might starve the interrupt handler, for example, preventing networking
-code from running, in turn making it very difficult to debug the problem.
-Developers must therefore take great care when writing high-priority
-real-time code.
-This has been dubbed the \emph{Spiderman principle}:
-With great power comes great responsibility.
+另一个缺点是编写不当的高优先级实时代码可能饿死中断处理程序，
+例如阻止网络代码运行，从而使问题极难调试。
+因此开发者在编写高优先级实时代码时必须格外小心。
+这被称为\emph{蜘蛛侠原则}：
+能力越大，责任越大。
 
-\paragraph{Priority inheritance} is used to handle priority inversion,
-which can be caused by, among other things, locks acquired by
-preemptible interrupt handlers~\cite{LuiSha1990PriorityInheritance}.
-Suppose that a low-priority thread holds a lock, but is preempted by
-a group of medium-priority threads, at least one such thread per CPU\@.
-If an interrupt occurs, a high-priority \IRQ\ thread will preempt one
-of the medium-priority threads, but only until it decides to acquire
-the lock held by the low-priority thread.
-Unfortunately, the low-priority thread cannot release the lock until
-it starts running, which the medium-priority threads prevent it from
-doing.
-So the high-priority \IRQ\ thread cannot acquire the lock until after one
-of the medium-priority threads releases its CPU\@.
-In short, the medium-priority threads are indirectly blocking the
-high-priority \IRQ\ threads, a classic case of priority inversion.
+\paragraph{优先级继承}用于处理priority inversion（优先级反转），
+优先级反转可能由可抢占中断处理程序获取的锁等因素
+引起~\cite{LuiSha1990PriorityInheritance}。
+假设一个低优先级线程持有一个锁，但被一组中等优先级线程抢占，
+每个CPU上至少有一个这样的线程。
+如果发生中断，高优先级的\IRQ\ 线程将抢占一个中等优先级线程，
+但仅持续到它决定获取低优先级线程持有的锁为止。
+不幸的是，低优先级线程在开始运行之前无法释放锁，
+而中等优先级线程阻止了它的运行。
+因此，高优先级的\IRQ\ 线程在某个中等优先级线程释放其CPU之前
+无法获取锁。
+简而言之，中等优先级线程间接地阻塞了高优先级的\IRQ\ 线程，
+这是优先级反转的经典案例。
 
-Note that this priority inversion could not happen with non-threaded
-interrupts because the low-priority thread would have to disable interrupts
-while holding the lock, which would prevent the medium-priority
-threads from preempting it.
+请注意，这种优先级反转在非线程化中断的情况下不会发生，
+因为低优先级线程在持有锁时必须禁用中断，
+这将阻止中等优先级线程抢占它。
 
-In the priority-inheritance solution, the high-priority thread attempting
-to acquire the lock donates its priority to the low-priority thread holding
-the lock until such time as the lock is released, thus preventing long-term
-priority inversion.
+在优先级继承解决方案中，试图获取锁的高优先级线程将其优先级
+捐赠给持有锁的低优先级线程，直到锁被释放，
+从而防止长期优先级反转。
 
 \begin{figure}
 \centering
 \resizebox{3.4in}{!}{\includegraphics{cartoons/Priority_Boost_2}}
-\caption{Priority Inversion and User Input}
+\caption{优先级反转与用户输入}
 \ContributedBy{fig:advsync:Priority Inversion and User Input}{Melissa Broussard}
 \end{figure}
 
-Of course, priority inheritance does have its limitations.
-For example, if you can design your application to avoid priority
-inversion entirely, you will likely obtain somewhat better
-latencies~\cite{VictorYodaiken2004a}.
-This should be no surprise, given that priority inheritance adds
-a pair of context switches to the worst-case latency.
-That said, priority inheritance can convert indefinite postponement
-into a limited increase in latency, and the software-engineering
-benefits of priority inheritance may outweigh its latency costs in
-many applications.
+当然，优先级继承确实有其局限性。
+例如，如果你能设计应用以完全避免优先级反转，
+你可能会获得更好的延迟~\cite{VictorYodaiken2004a}。
+鉴于优先级继承为最坏情况延迟增加了一对上下文切换，
+这并不令人惊讶。
+尽管如此，优先级继承可以将无限期推迟转换为有限的延迟增加，
+而且在许多应用中，优先级继承的软件工程优势
+可能超过其延迟成本。
 
-Another limitation is that it addresses only lock-based priority
-inversions within the context of a given operating system.
-One priority-inversion scenario that it cannot address is a high-priority
-thread waiting on a network socket for a message that is to be written
-by a low-priority process that is preempted by a set of CPU-bound
-medium-priority processes.
-In addition, a potential disadvantage of applying priority inheritance
-to user input is fancifully depicted in
-\cref{fig:advsync:Priority Inversion and User Input}.
+另一个局限性是它仅处理给定操作系统上下文中基于锁的
+优先级反转。
+它无法处理的一个优先级反转场景是：
+一个高优先级线程在网络套接字上等待一条消息，
+而该消息将由一个被一组CPU密集型中等优先级进程抢占的
+低优先级进程写入。
+此外，将优先级继承应用于用户输入的一个潜在缺点在
+\cref{fig:advsync:Priority Inversion and User Input}
+中做了形象的描绘。
 
-A final limitation involves reader-writer locking.
-Suppose that we have a very large number of low-priority threads, perhaps
-even thousands of them, each
-of which read-holds a particular reader-writer lock.
-Suppose that all of these threads are preempted by a set of medium-priority
-threads, with at least one medium-priority thread per CPU\@.
-Finally, suppose that a high-priority thread awakens and attempts to
-write-acquire this same reader-writer lock.
-No matter how vigorously we boost the priority of the threads read-holding
-this lock, it could well be a good long time before the high-priority
-thread can complete its write-acquisition.
+最后一个局限性涉及读写锁。
+假设我们有大量低优先级线程，可能甚至有数千个，
+每个都以读模式持有一个特定的读写锁。
+假设所有这些线程都被一组中等优先级线程抢占，
+每个CPU至少有一个中等优先级线程。
+最后，假设一个高优先级线程被唤醒并尝试以写模式获取
+同一个读写锁。
+无论我们多么积极地提升以读模式持有该锁的线程的优先级，
+高优先级线程完成写获取都可能需要很长时间。
 
-There are a number of possible solutions to this reader-writer lock
-priority-inversion conundrum:
+这个读写锁优先级反转难题有多种可能的解决方案：
 
 \begin{enumerate}
-\item	Only allow one read-acquisition of a given reader-writer lock
-	at a time.
-	(This is the approach traditionally taken by the Linux
-	kernel's \rt\ patchset.)
-\item	Only allow $N$ read-acquisitions of a given reader-writer lock
-	at a time, where $N$ is the number of CPUs.
-\item	Only allow $N$ read-acquisitions of a given reader-writer lock
-	at a time, where $N$ is a number specified somehow by the
-	developer.
-\item	Prohibit high-priority threads from write-acquiring reader-writer
-	locks that are ever read-acquired by threads running at lower
-	priorities.
-	(This is a variant of the \emph{priority ceiling}
-	protocol~\cite{LuiSha1990PriorityInheritance}.)
+\item	同一时间只允许对给定读写锁进行一次读获取。
+	（这是Linux内核\rt\ 补丁集传统上采用的方法。）
+\item	同一时间只允许对给定读写锁进行$N$次读获取，
+	其中$N$是CPU的数量。
+\item	同一时间只允许对给定读写锁进行$N$次读获取，
+	其中$N$是由开发者以某种方式指定的数字。
+\item	禁止高优先级线程对曾被较低优先级线程读获取的
+	读写锁进行写获取。
+	（这是\emph{优先级天花板}（priority ceiling）
+	协议~\cite{LuiSha1990PriorityInheritance}的变体。）
 \end{enumerate}
 
 \QuickQuiz{
-	But if you only allow one reader at a time to read-acquire
-	a reader-writer lock, isn't that the same as an exclusive
-	lock???
+	但如果你同一时间只允许一个读者读获取读写锁，
+	那这不就和排他锁一样了吗？？？
 }\QuickQuizAnswer{
-	Indeed it is, other than the API\@.
-	And the API is important because it allows the Linux kernel
-	to offer real-time capabilities without having the \rt\ patchset
-	grow to ridiculous sizes.
+	确实如此，除了API之外。\@
+	而API很重要，因为它使Linux内核能够在不让\rt\ 补丁集
+	增长到荒谬大小的情况下提供实时功能。
 
-	However, this approach clearly and severely limits read-side
-	scalability.
-	The Linux kernel's \rt\ patchset was long able to live with this
-	limitation for several reasons:
+	然而，这种方法显然严重限制了读端的可扩展性。
+	Linux内核的\rt\ 补丁集长期以来能够接受这种限制，
+	原因有几个：
 	\begin{enumerate*}[(1)]
-	\item Real-time systems have traditionally been relatively small,
-	\item Real-time systems have generally focused on process control,
-	thus being unaffected by scalability limitations in the
-	I/O subsystems, and
-	\item Many of the Linux kernel's reader-writer locks have been
-	converted to RCU\@.
+	\item 实时系统传统上相对较小，
+	\item 实时系统通常专注于过程控制，
+	因此不受I/O子系统可扩展性限制的影响，以及
+	\item Linux内核的许多读写锁已被转换为RCU。\@
 	\end{enumerate*}
 
-	However, the day came when it was absolutely necessary to
-	permit concurrent readers, as described in the text following
-	this quiz.
+	然而，有一天绝对有必要允许并发读者了，
+	如本问答之后的正文所述。
 }\QuickQuizEnd
 
-The no-concurrent-readers restriction eventually became intolerable, so
-the \rt\ developers looked more carefully at how the Linux kernel uses
-reader-writer spinlocks.
-They learned that time-critical code rarely uses those parts of the
-kernel that write-acquire reader-writer locks, so that the prospect
-of writer \IX{starvation} was not a show-stopper.
-They therefore constructed a real-time reader-writer lock in which
-write-side acquisitions use priority inheritance among each other,
-but where read-side acquisitions take absolute priority over
-write-side acquisitions.
-This approach appears to be working well in practice, and is another
-lesson in the importance of clearly understanding what your users
-really need.
+不允许并发读者的限制最终变得无法容忍，
+因此\rt\ 开发者更仔细地研究了Linux内核如何使用读写自旋锁。
+他们发现，对时间敏感的代码很少使用内核中那些
+以写模式获取读写锁的部分，
+因此写者\IX{starvation}（饥饿）的可能性不是致命问题。
+他们因此构建了一种实时读写锁，
+其中写端获取之间使用优先级继承，
+但读端获取对写端获取具有绝对优先权。
+这种方法在实践中似乎运作良好，
+这也是清楚理解用户真正需要什么的重要性的又一课。
 
-One interesting detail of this implementation is that both the
-\co{rt_read_lock()} and the \co{rt_write_lock()} functions enter an RCU
-read-side critical section and both the \co{rt_read_unlock()} and the
-\co{rt_write_unlock()} functions exit that critical section.
-This is necessary because non-realtime kernels' reader-writer locking
-functions disable preemption across their critical sections, and
-there really are reader-writer locking use cases that rely on the fact
-that \co{synchronize_rcu()} will therefore wait for all pre-existing
-reader-writer-lock critical sections to complete.
-Let this be a lesson to you:
-Understanding what your users really need is critically important to
-correct operation, not just to performance.
-Not only that, but what your users really need changes over time.
+此实现的一个有趣细节是\co{rt_read_lock()}和\co{rt_write_lock()}
+函数都会进入一个RCU读端临界区，
+并且\co{rt_read_unlock()}和\co{rt_write_unlock()}函数都会
+退出该临界区。
+这是必要的，因为非实时内核的读写锁函数会在其临界区中
+禁用抢占，而确实有读写锁的使用场景依赖于
+\co{synchronize_rcu()}将因此等待所有先前存在的
+读写锁临界区完成这一事实。
+这给你一个教训：
+理解用户真正需要什么对于正确操作至关重要，
+不仅仅是对性能重要。
+不仅如此，用户真正需要的东西会随时间而变化。
 
-This has the side-effect that all of a \rt\ kernel's reader-writer locking
-critical sections are subject to RCU priority boosting.
-This provides at least a partial solution to the problem of reader-writer
-lock readers being preempted for extended periods of time.
+这有一个副作用，即\rt\ 内核的所有读写锁临界区
+都受到RCU优先级提升的影响。
+这至少提供了读写锁读者被长时间抢占问题的部分解决方案。
 
-It is also possible to avoid reader-writer lock priority inversion by
-converting the reader-writer lock to RCU, as briefly discussed in the
-next section.
+也可以通过将读写锁转换为RCU来避免读写锁优先级反转，
+这将在下一节中简要讨论。
 
-\paragraph{Preemptible RCU}
-can sometimes be used as a replacement for reader-writer
-locking~\cite{PaulEMcKenney2007WhatIsRCUFundamentally,PaulMcKenney2012RCUUsage,PaulEMcKenney2024RCUAPI},
-as was discussed in \cref{sec:defer:Read-Copy Update (RCU)}.
-Where it can be used, it permits readers and updaters to run concurrently,
-which prevents low-priority readers from inflicting any sort of
-priority-inversion scenario on high-priority updaters.
-However, for this to be useful, it is necessary to be able to preempt
-long-running RCU read-side critical
-sections~\cite{DinakarGuniguntala2008IBMSysJ}.
-Otherwise, long RCU read-side critical sections would result in
-excessive real-time latencies.
+\paragraph{可抢占RCU}
+有时可以用作读写锁的替代
+品~\cite{PaulEMcKenney2007WhatIsRCUFundamentally,PaulMcKenney2012RCUUsage,PaulEMcKenney2024RCUAPI}，
+如\cref{sec:defer:Read-Copy Update (RCU)}中所讨论的。
+在可以使用的地方，它允许读者和更新者并发运行，
+这防止了低优先级读者对高优先级更新者造成任何类型的
+优先级反转场景。
+然而，为了使其有用，必须能够抢占长时间运行的
+RCU读端临界区~\cite{DinakarGuniguntala2008IBMSysJ}。
+否则，长的RCU读端临界区将导致过高的实时延迟。
 
 \begin{listing}
 \begin{fcvlabel}[ln:advsync:Preemptible Linux-Kernel RCU]
@@ -1325,314 +1094,274 @@ void __rcu_read_unlock(void)		        \lnlbl[unl:b]
 }						\lnlbl[unl:e]
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Preemptible Linux-Kernel RCU}
+\caption{可抢占的Linux内核RCU}
 \label{lst:advsync:Preemptible Linux-Kernel RCU}
 \end{listing}
 
-A preemptible RCU implementation was therefore added to the Linux kernel.
-This implementation avoids the need to individually track the state of
-each and every task in the kernel by keeping lists of tasks that have
-been preempted within their current RCU read-side critical sections.
-A \IX{grace period} is permitted to end:
+因此，一个可抢占的RCU实现被添加到了Linux内核中。
+该实现通过维护在其当前RCU读端临界区内被抢占的任务列表，
+避免了逐一跟踪内核中每个任务状态的需要。
+一个\IX{grace period}（宽限期）被允许在以下条件满足后结束：
 \begin{enumerate*}[(1)]
-\item Once all CPUs have completed any RCU read-side critical sections
-that were in effect before the start of the current grace period and
-\item Once all tasks that were preempted
-while in one of those pre-existing critical sections have removed
-themselves from their lists.
+\item 所有CPU都已完成了在当前宽限期开始之前
+生效的任何RCU读端临界区，并且
+\item 在这些先前存在的临界区之一中被抢占的所有任务
+都已将自己从列表中移除。
 \end{enumerate*}
-A simplified version of this implementation is shown in
-\cref{lst:advsync:Preemptible Linux-Kernel RCU}.
+该实现的简化版本如
+\cref{lst:advsync:Preemptible Linux-Kernel RCU}所示。
 \begin{fcvref}[ln:advsync:Preemptible Linux-Kernel RCU]
-The \co{__rcu_read_lock()} function spans \clnrefrange{lock:b}{lock:e} and
-the \co{__rcu_read_unlock()} function spans \clnrefrange{unl:b}{unl:e}.
+\co{__rcu_read_lock()}函数跨越\clnrefrange{lock:b}{lock:e}，
+\co{__rcu_read_unlock()}函数跨越\clnrefrange{unl:b}{unl:e}。
 \end{fcvref}
 
 \begin{fcvref}[ln:advsync:Preemptible Linux-Kernel RCU:lock]
-\Clnref{inc} of \co{__rcu_read_lock()} increments a per-task count of the
-number of nested \co{rcu_read_lock()} calls, and
-\clnref{bar} prevents the compiler from reordering the subsequent code in the
-RCU read-side critical section to precede the \co{rcu_read_lock()}.
+\co{__rcu_read_lock()}的\clnref{inc}递增一个每任务计数，
+记录嵌套的\co{rcu_read_lock()}调用次数，
+\clnref{bar}防止编译器将RCU读端临界区中的后续代码
+重排到\co{rcu_read_lock()}之前。
 \end{fcvref}
 
 \begin{fcvref}[ln:advsync:Preemptible Linux-Kernel RCU:unl]
-\Clnref{bar1} of \co{__rcu_read_unlock()} prevents the compiler from
-reordering the code in the critical section with the remainder of
-this function.
-\Clnref{decchk} decrements the nesting count and checks to see if it
-has become zero, in other words, if this corresponds to the outermost
-\co{rcu_read_unlock()} of a nested set.
-If so, \clnref{bar2} prevents the compiler from reordering this nesting
-update with \clnref{chks}'s check for special handling.
-If special handling is required, then the call to
-\co{rcu_read_unlock_special()} on \clnref{unls} carries it out.
+\co{__rcu_read_unlock()}的\clnref{bar1}防止编译器将临界区中的代码
+与该函数的其余部分重排。
+\Clnref{decchk}递减嵌套计数并检查它是否变为零，
+换言之，这是否对应于嵌套集的最外层\co{rcu_read_unlock()}。
+如果是，\clnref{bar2}防止编译器将此嵌套更新与\clnref{chks}的
+特殊处理检查重排。
+如果需要特殊处理，则\clnref{unls}上对
+\co{rcu_read_unlock_special()}的调用会执行它。
 
-There are several types of special handling that can be required, but
-we will focus on that required when the RCU read-side critical section
-has been preempted.
-In this case, the task must remove itself from the list that it was
-added to when it was first preempted within its
-RCU read-side critical section.
-However, it is important to note that these lists are protected by locks,
-which means that \co{rcu_read_unlock()} is no longer lockless.
-However, the highest-priority threads will not be preempted, and therefore,
-for those highest-priority threads, \co{rcu_read_unlock()} will never
-attempt to acquire any locks.
-In addition, if implemented carefully, locking can be used to synchronize
-real-time software~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}.
+有几种类型的特殊处理可能是必要的，
+但我们将重点关注RCU读端临界区被抢占时所需的处理。
+在这种情况下，任务必须将自己从它首次在RCU读端临界区内
+被抢占时被添加到的列表中移除。
+然而，重要的是要注意，这些列表受锁保护，
+这意味着\co{rcu_read_unlock()}不再是无锁的。
+然而，最高优先级的线程不会被抢占，因此，
+对于那些最高优先级的线程，\co{rcu_read_unlock()}
+永远不会尝试获取任何锁。
+此外，如果实现得小心，锁可以用于同步实时
+软件~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:advsync:Preemptible Linux-Kernel RCU:unl]
-	Suppose that preemption occurs just after the load from
-	\co{t->rcu_read_unlock_special.s} on \clnref{chks} of
-	\cref{lst:advsync:Preemptible Linux-Kernel RCU}.
-	Mightn't that result in the task failing to invoke
-	\co{rcu_read_unlock_special()}, thus failing to remove itself
-	from the list of tasks blocking the current grace period,
-	in turn causing that grace period to extend indefinitely?
+	假设在\cref{lst:advsync:Preemptible Linux-Kernel RCU}
+	的\clnref{chks}上从\co{t->rcu_read_unlock_special.s}
+	加载之后恰好发生了抢占。
+	这难道不会导致任务未能调用
+	\co{rcu_read_unlock_special()}，从而未能将自己
+	从阻塞当前宽限期的任务列表中移除，
+	进而导致该宽限期无限期延长吗？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	That is a real problem, and it is solved in RCU's scheduler hook.
-	If that scheduler hook sees that the value of
-	\co{t->rcu_read_lock_nesting} is negative, it invokes
-	\co{rcu_read_unlock_special()} if needed before allowing
-	the context switch to complete.
+	这确实是一个真正的问题，它在RCU的调度器钩子中得到解决。
+	如果该调度器钩子发现\co{t->rcu_read_lock_nesting}
+	的值为负数，它会在允许上下文切换完成之前
+	根据需要调用\co{rcu_read_unlock_special()}。
 }\QuickQuizEnd
 
-Another important real-time feature of RCU, whether preemptible or
-not, is the ability to offload RCU callback execution to a kernel
-thread.
-To use this, your kernel must be built with \co{CONFIG_RCU_NOCB_CPU=y}
-and booted with the \co{rcu_nocbs=} kernel boot parameter specifying
-which CPUs are to be offloaded.
-Alternatively, any CPU specified by the \co{nohz_full=} kernel boot parameter
-described in
-\cref{sec:advsync:Polling-Loop Real-Time Support}
-will also have its RCU callbacks offloaded.
+无论是否可抢占，RCU的另一个重要实时特性是
+能够将RCU回调执行卸载到内核线程。
+要使用此功能，你的内核必须使用\co{CONFIG_RCU_NOCB_CPU=y}
+构建，并使用\co{rcu_nocbs=}内核启动参数启动，
+指定哪些CPU要被卸载。
+或者，由\cref{sec:advsync:Polling-Loop Real-Time Support}
+中描述的\co{nohz_full=}内核启动参数指定的任何CPU
+也会卸载其RCU回调。
 
-In short, this preemptible RCU implementation enables real-time response for
-read-mostly data structures without the delays inherent to priority
-boosting of large numbers of readers, and also without delays due to
-callback invocation.
+简而言之，这种可抢占的RCU实现为以读为主的数据结构提供了
+实时响应能力，避免了对大量读者进行优先级提升
+所固有的延迟，也避免了回调调用导致的延迟。
 
-\paragraph{Preemptible spinlocks}
-are an important part of the \rt\ patchset due to the long-duration
-spinlock-based critical sections in the Linux kernel.
-This functionality has not yet reached mainline:
-Although they are a conceptually simple substitution of sleeplocks
-for spinlocks, they have proven relatively controversial.
-In addition the real-time functionality that is already in the mainline
-Linux kernel suffices for a great many use cases, which slowed the \rt\
-patchset's development rate in the early
-2010s~\cite{JakeEdge2013Future-rtLinux,JakeEdge2014Future-rtLinux}.
-However, preemptible spinlocks are absolutely necessary to the task of
-achieving real-time latencies down in the tens of microseconds.
-Fortunately, Linux Foundation organized an effort to fund moving the
-remaining code from the \rt\ patchset to mainline.
+\paragraph{可抢占自旋锁}
+是\rt\ 补丁集的重要组成部分，因为Linux内核中存在
+长时间的基于自旋锁的临界区。
+该功能尚未进入主线：
+虽然从概念上来说，它只是简单地用睡眠锁替换自旋锁，
+但事实证明它们相对有争议。
+此外，已经在主线Linux内核中的实时功能足以满足
+大量用例，这减缓了\rt\ 补丁集在2010年代初期的
+开发速度~\cite{JakeEdge2013Future-rtLinux,JakeEdge2014Future-rtLinux}。
+然而，可抢占自旋锁对于实现低至几十微秒的实时延迟
+绝对是必要的。
+幸运的是，Linux基金会组织了一项工作，
+资助将\rt\ 补丁集中剩余的代码迁移到主线。
 
-\paragraph{Per-CPU variables}\ are used heavily in the Linux kernel
-for performance reasons.
-Unfortunately for real-time applications, many use cases for per-CPU
-variables require coordinated update of multiple such variables,
-which is normally provided by disabling preemption, which in turn
-degrades real-time latencies.
-Real-time applications clearly need some other way of coordinating
-per-CPU variable updates.
+\paragraph{Per-CPU变量}\ 由于性能原因在Linux内核中被大量使用。
+不幸的是对于实时应用来说，per-CPU变量的许多使用场景
+需要对多个此类变量进行协调更新，
+这通常通过禁用抢占来提供，而这反过来又降低了实时延迟。
+实时应用显然需要其他方式来协调per-CPU变量的更新。
 
-One alternative is to supply per-CPU spinlocks, which as noted above
-are actually sleeplocks, so that their critical sections can be
-preempted and so that priority inheritance is provided.
-In this approach, code updating groups of per-CPU variables must
-acquire the current CPU's spinlock, carry out the update, then
-release whichever lock is acquired, keeping in mind that a preemption
-might have resulted in a migration to some other CPU\@.
-However, this approach introduces both overhead and \IXpl{deadlock}.
+一种替代方案是提供per-CPU自旋锁，
+如上所述，这些实际上是睡眠锁，
+因此它们的临界区可以被抢占并且提供了优先级继承。
+在这种方法中，更新per-CPU变量组的代码必须
+获取当前CPU的自旋锁，执行更新，然后释放所获取的锁，
+同时记住抢占可能已经导致迁移到其他CPU。\@
+然而，这种方法同时引入了开销和\IXpl{deadlock}（死锁）。
 
-Another alternative, which is used in the \rt\ patchset as of early 2021,
-is to convert preemption disabling to migration disabling.
-This ensures that a given kernel thread remains on its CPU through
-the duration of the per-CPU-variable update, but could also allow some
-other kernel thread to intersperse its own update of those same variables,
-courtesy of preemption.
-There are cases such as statistics gathering where this is not a problem.
-In the surprisingly rare case where such mid-update preemption is a problem,
-the use case at hand must properly synchronize the updates, perhaps through
-a set of per-CPU locks specific to that use case.
-Although introducing locks again introduces the possibility of deadlock,
-the per-use-case nature of these locks makes any such deadlocks easier
-to manage and avoid.
+另一种替代方案，在截至2021年初的\rt\ 补丁集中使用的，
+是将禁用抢占转换为禁用迁移。
+这确保了给定的内核线程在per-CPU变量更新期间
+保留在其CPU上，但也可能允许其他内核线程
+由于抢占而穿插其对相同变量的更新。
+在统计信息收集等情况下这不是问题。
+在更新中途被抢占成为问题的出奇罕见的情况下，
+手头的使用场景必须正确同步更新，
+也许通过一组特定于该使用场景的per-CPU锁。
+虽然引入锁又引入了死锁的可能性，
+但这些锁的按使用场景特定的性质使得任何此类死锁
+更容易管理和避免。
 
-\paragraph{Closing event-driven remarks.}
-There are of course any number of other Linux-kernel components that are
-critically important to achieving world-class real-time latencies,
-for example, deadline
-scheduling~\cite{DanielBristot2018deadlinesched-1,DanielBristot2018deadlinesched-2},
-however, those listed in this section give a good feeling for the workings
-of the Linux kernel augmented by the \rt\ patchset.
+\paragraph{事件驱动总结。}
+当然，还有许多其他Linux内核组件对于实现世界级的实时延迟
+至关重要，例如deadline
+scheduling~\cite{DanielBristot2018deadlinesched-1,DanielBristot2018deadlinesched-2}，
+然而，本节列出的这些组件很好地展示了
+由\rt\ 补丁集增强的Linux内核的工作方式。
 
-\subsubsection{Polling-Loop Real-Time Support}
+\subsubsection{轮询循环实时支持}
 \label{sec:advsync:Polling-Loop Real-Time Support}
 
-At first glance, use of a polling loop might seem to avoid all possible
-operating-system interference problems.
-After all, if a given CPU never enters the kernel, the kernel is
-completely out of the picture.
-And the traditional approach to keeping the kernel out of the way is
-simply not to have a kernel, and many real-time applications do
-indeed run on bare metal, particularly those running on eight-bit
-microcontrollers.
+乍一看，使用轮询循环似乎可以避免所有可能的操作系统干扰问题。
+毕竟，如果一个给定的CPU从不进入内核，
+那么内核就完全不在画面中了。
+而让内核不碍事的传统方法就是根本没有内核，
+许多实时应用确实运行在裸机上，
+特别是那些运行在八位微控制器上的。
 
-One might hope to get bare-metal performance on a modern operating-system
-kernel simply by running a single CPU-bound user-mode thread on a
-given CPU, avoiding all causes of interference.
-Although the reality is of course more complex, it is becoming
-possible to do just that,
-courtesy of the \co{NO_HZ_FULL} implementation led by
-Frederic Weisbecker~\cite{JonCorbet2013NO-HZ-FULL,FredericWeisbecker2013nohz}
-that was accepted into version 3.10 of the Linux kernel.
-Nevertheless, considerable care is required to properly set up such
-an environment, as it is necessary to control a number of possible
-sources of OS jitter.
-The discussion below covers the control of several sources of OS
-jitter, including device interrupts, kernel threads and daemons,
-scheduler real-time throttling (this is a feature, not a bug!),
-timers, non-real-time device drivers, in-kernel global synchronization,
-scheduling-clock interrupts, page faults, and finally, non-real-time
-hardware and firmware.
+人们可能希望在现代操作系统内核上获得裸机性能，
+只需在给定CPU上运行一个CPU密集型的用户模式线程，
+避免所有干扰原因。
+虽然现实当然更加复杂，但这正在变得可能，
+这要归功于Frederic Weisbecker领导的
+\co{NO_HZ_FULL}实现~\cite{JonCorbet2013NO-HZ-FULL,FredericWeisbecker2013nohz}，
+该实现被接受进入Linux内核的3.10版本。
+尽管如此，正确设置这样的环境需要相当的谨慎，
+因为需要控制多种可能的OS抖动来源。
+下面的讨论涵盖了对多种OS抖动来源的控制，
+包括设备中断、内核线程和守护进程、
+调度器实时节流（这是一个特性，不是bug！）、
+定时器、非实时设备驱动程序、内核内全局同步、
+调度时钟中断、页错误，以及最后，非实时硬件和固件。
 
-Interrupts are an excellent source of large amounts of OS jitter.
-Unfortunately, in most cases interrupts are absolutely required in order
-for the system to communicate with the outside world.
-One way of resolving this conflict between OS jitter and maintaining
-contact with the outside world is to reserve a small number of
-housekeeping CPUs, and to force all interrupts to these CPUs.
-The \path{Documentation/IRQ-affinity.txt} file in the Linux source tree
-describes how to direct device interrupts to specified CPUs,
-which as of early 2021 involves something like the following:
+中断是大量OS抖动的极好来源。
+不幸的是，在大多数情况下，中断是系统与外部世界
+通信所绝对必需的。
+解决OS抖动与保持外部世界联系之间冲突的一种方法是
+保留少量管家CPU，并将所有中断强制转移到这些CPU。
+Linux源码树中的\path{Documentation/IRQ-affinity.txt}文件
+描述了如何将设备中断定向到指定的CPU，
+截至2021年初，这涉及类似以下内容：
 
 \begin{VerbatimU}
 $ echo 0f > /proc/irq/44/smp_affinity
 \end{VerbatimU}
 
-This command would confine interrupt \#44 to CPUs~0--3.
-Note that scheduling-clock interrupts require special handling, and are
-discussed later in this section.
+此命令将中断\#44限制在CPU~0--3上。
+请注意，调度时钟中断需要特殊处理，将在本节后面讨论。
 
-A second source of OS jitter is due to kernel threads and daemons.
-Individual kernel threads, such as RCU's grace-period kthreads
-(\co{rcu_bh}, \co{rcu_preempt}, and \co{rcu_sched}), may be forced
-onto any desired CPUs using the \co{taskset} command, the
-\co{sched_setaffinity()} system call, or \co{cgroups}.
+OS抖动的第二个来源是内核线程和守护进程。
+单个内核线程，如RCU的宽限期kthread
+（\co{rcu_bh}、\co{rcu_preempt}和\co{rcu_sched}），
+可以使用\co{taskset}命令、\co{sched_setaffinity()}系统调用
+或\co{cgroups}强制分配到任何所需的CPU上。
 
-Per-CPU kthreads are often more challenging, sometimes constraining
-hardware configuration and workload layout.
-Preventing OS jitter from these kthreads requires either that certain
-types of hardware
-not be attached to real-time systems, that all interrupts and I/O
-initiation take place on housekeeping CPUs, that special kernel
-Kconfig or boot parameters be selected in order to direct work away from
-the worker CPUs, or that worker CPUs never enter the kernel.
-Specific per-kthread advice may be found in the Linux kernel source
-\path{Documentation} directory at
-\path{admin-guide/kernel-per-CPU-kthreads.rst}.
+per-CPU kthread通常更具挑战性，有时会约束
+硬件配置和工作负载布局。
+防止这些kthread产生OS抖动要求：要么某些类型的硬件
+不连接到实时系统，要么所有中断和I/O
+启动都在管家CPU上进行，要么选择特殊的内核Kconfig或
+启动参数以将工作从工作CPU上转移，
+要么工作CPU永远不进入内核。
+特定的per-kthread建议可以在Linux内核源码的
+\path{Documentation}目录中
+\path{admin-guide/kernel-per-CPU-kthreads.rst}找到。
 
-A third source of OS jitter in the Linux kernel for CPU-bound threads
-running at real-time priority is the scheduler itself.
-This is an intentional debugging feature, designed to ensure that
-important non-realtime work is allotted at least 50 milliseconds
-out of each second, even if there is an infinite-loop bug in
-your real-time application.
-However, when you are running a polling-loop-style real-time application,
-you will need to disable this debugging feature.
-This can be done as follows:
+对于以实时优先级运行的CPU密集型线程，Linux内核中OS抖动的
+第三个来源是调度器本身。
+这是一个有意设计的调试特性，旨在确保重要的非实时工作
+在每秒中至少分配到50毫秒，
+即使你的实时应用存在无限循环bug。
+然而，当你运行轮询循环风格的实时应用时，
+你需要禁用这个调试特性。
+可以通过以下方式完成：
 
 \begin{VerbatimU}
 $ echo -1 > /proc/sys/kernel/sched_rt_runtime_us
 \end{VerbatimU}
 
-You will of course need to be running as root to execute this command,
-and you will also need to carefully consider the aforementioned Spiderman
-principle.
-One way to minimize the risks is to offload interrupts and
-kernel threads/daemons from all CPUs running CPU-bound real-time
-threads, as described in the paragraphs above.
-In addition, you should carefully read the material in the
-\path{Documentation/scheduler} directory.
-The material in the \path{sched-rt-group.rst} file is particularly
-important, especially if you are using the \co{cgroups} real-time features
-enabled by the \co{CONFIG_RT_GROUP_SCHED} Kconfig parameter.
+你当然需要以root身份运行此命令，
+而且你还需要仔细考虑前面提到的蜘蛛侠原则。
+最小化风险的一种方法是将中断和内核线程/守护进程
+从所有运行CPU密集型实时线程的CPU上卸载，
+如上面的段落所述。
+此外，你应该仔细阅读\path{Documentation/scheduler}目录中的资料。
+\path{sched-rt-group.rst}文件中的资料特别重要，
+尤其是如果你正在使用由\co{CONFIG_RT_GROUP_SCHED}
+Kconfig参数启用的\co{cgroups}实时特性。
 
-A fourth source of OS jitter comes from timers.
-In most cases, keeping a given CPU out of the kernel will prevent
-timers from being scheduled on that CPU\@.
-One important exception are recurring timers, where a given timer
-handler posts a later occurrence of that same timer.
-If such a timer gets started on a given CPU for any reason, that
-timer will continue to run periodically on that CPU, inflicting
-OS jitter indefinitely.
-One crude but effective way to offload recurring timers is to
-use CPU hotplug to offline all worker CPUs that are to run CPU-bound
-real-time application threads, online these same CPUs, then start
-your real-time application.
+OS抖动的第四个来源是定时器。
+在大多数情况下，让给定CPU远离内核将防止
+定时器在该CPU上被调度。\@
+一个重要的例外是循环定时器，即给定的定时器处理程序
+会发布同一定时器的下一次出现。
+如果这样的定时器因任何原因在给定CPU上启动，
+该定时器将继续在该CPU上周期性运行，
+无限期地造成OS抖动。
+卸载循环定时器的一种粗暴但有效的方法是
+使用CPU热插拔将所有要运行CPU密集型实时应用线程的
+工作CPU下线，然后将这些CPU重新上线，再启动你的实时应用。
 
-A fifth source of OS jitter is provided by device drivers that were
-not intended for real-time use.
-For an old canonical example, in 2005, the VGA driver would blank
-the screen by zeroing the frame buffer with interrupts disabled,
-which resulted in tens of milliseconds of OS jitter.
-One way of avoiding device-driver-induced OS jitter is to carefully
-select devices that have been used heavily in real-time systems,
-and which have therefore had their real-time bugs fixed.
-Another way is to confine the device's interrupts and all code using
-that device to designated housekeeping CPUs.
-A third way is to test the device's ability to support real-time
-workloads and fix any real-time bugs.\footnote{
-	If you take this approach, please submit your fixes upstream
-	so that others can benefit.
-	After all, when you need to port your application to
-	a later version of the Linux kernel, \emph{you} will be one of those
-	``others''.}
+OS抖动的第五个来源是不打算用于实时用途的设备驱动程序。
+一个经典的老例子是，在2005年，VGA驱动程序
+在禁用中断的情况下通过清零帧缓冲区来清屏，
+这导致了数十毫秒的OS抖动。
+避免设备驱动程序引起的OS抖动的一种方法是仔细选择
+在实时系统中被大量使用的设备，
+这些设备因此已经修复了其实时bug。
+另一种方法是将设备的中断和使用该设备的所有代码
+限制在指定的管家CPU上。
+第三种方法是测试设备支持实时工作负载的能力
+并修复任何实时bug。\footnote{
+	如果你采用这种方法，请将你的修复提交到上游，
+	以便他人受益。
+	毕竟，当你需要将应用移植到Linux内核的更高版本时，
+	\emph{你}将成为那些"他人"之一。}
 
-A sixth source of OS jitter is provided by some in-kernel
-full-system synchronization algorithms, perhaps most notably
-the global TLB-flush algorithm.
-This can be avoided by avoiding memory-unmapping operations, and especially
-avoiding unmapping operations within the kernel.
-As of early 2021, the way to avoid in-kernel
-unmapping operations is to avoid unloading kernel modules.
+OS抖动的第六个来源是一些内核内的全系统同步算法，
+也许最突出的是全局TLB刷新算法。
+这可以通过避免内存取消映射操作来规避，
+特别是避免内核内的取消映射操作。
+截至2021年初，避免内核内取消映射操作的方法是避免卸载内核模块。
 
-A seventh source of OS jitter is provided by
-scheduling-clock interrrupts and RCU callback invocation.
-These may be avoided by building your kernel with the
-\co{NO_HZ_FULL} Kconfig parameter enabled, and then booting
-with the \co{nohz_full=} parameter specifying the list of
-worker CPUs that are to run real-time threads.
-For example, \co{nohz_full=2-7} would designate CPUs~2, 3, 4, 5, 6, and~7
-as worker CPUs, thus leaving CPUs~0 and~1 as housekeeping CPUs.
-The worker CPUs would not incur scheduling-clock interrupts as long
-as there is no more than one runnable task on each worker CPU,
-and each worker CPU's RCU callbacks would be invoked on one of the
-housekeeping CPUs.
-A CPU that has suppressed scheduling-clock interrupts due to there
-only being one runnable task on that CPU is said to be in
-\emph{adaptive ticks mode} or in \co{nohz_full} mode.
-It is important to ensure that you have designated enough
-housekeeping CPUs to handle the housekeeping load imposed by the
-rest of the system, which requires careful benchmarking and tuning.
+OS抖动的第七个来源是调度时钟中断和RCU回调调用。
+这些可以通过启用\co{NO_HZ_FULL} Kconfig参数构建内核，
+然后使用\co{nohz_full=}参数启动来避免，
+该参数指定要运行实时线程的工作CPU列表。
+例如，\co{nohz_full=2-7}将指定CPU~2、3、4、5、6和~7
+为工作CPU，从而将CPU~0和~1留作管家CPU。
+只要每个工作CPU上可运行的任务不超过一个，
+工作CPU就不会产生调度时钟中断，
+并且每个工作CPU的RCU回调将在其中一个管家CPU上调用。
+因为只有一个可运行任务而抑制了调度时钟中断的CPU
+被称为处于\emph{自适应时钟模式}或\co{nohz_full}模式。
+重要的是确保你指定了足够的管家CPU来处理
+系统其余部分施加的管家负载，这需要仔细的基准测试和调优。
 
-An eighth source of OS jitter is page faults.
-Because most Linux implementations use an MMU for memory protection,
-real-time applications running on these systems can be subject
-to page faults.
-Use the \co{mlock()} and \co{mlockall()} system calls to pin your
-application's pages into memory, thus avoiding major page faults.
-Of course, the Spiderman principle applies, because locking down
-too much memory may prevent the system from getting other work done.
+OS抖动的第八个来源是页错误。
+因为大多数Linux实现使用MMU进行内存保护，
+在这些系统上运行的实时应用可能会受到页错误的影响。
+使用\co{mlock()}和\co{mlockall()}系统调用将应用的页面
+固定在内存中，从而避免主要页错误。
+当然，蜘蛛侠原则适用，因为锁定太多内存
+可能会阻止系统完成其他工作。
 
-A ninth source of OS jitter is unfortunately the hardware and firmware.
-It is therefore important to use systems that have been designed for
-real-time use.
+OS抖动的第九个来源不幸的是硬件和固件。
+因此，使用为实时用途设计的系统非常重要。
 
 \begin{listing}
 \begin{fcvlabel}[ln:advsync:Locating Sources of OS Jitter]
@@ -1644,249 +1373,215 @@ echo function_graph > current_tracer
 cat per_cpu/cpuN/trace			\lnlbl[cat]
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Locating Sources of OS Jitter}
+\caption{定位OS抖动来源}
 \label{lst:advsync:Locating Sources of OS Jitter}
 \end{listing}
 
 \begin{fcvref}[ln:advsync:Locating Sources of OS Jitter]
-Unfortunately, this list of OS-jitter sources can never be complete,
-as it will change with each new version of the kernel.
-This makes it necessary to be able to track down additional sources
-of OS jitter.
-Given a CPU $N$ running a CPU-bound usermode thread, the
-commands shown in
-\cref{lst:advsync:Locating Sources of OS Jitter}
-will produce a list of all the times that this CPU entered the kernel.
-Of course, the \co{N} on \clnref{cat} must be replaced with the
-number of the CPU in question, and the \co{1} on \clnref{echo1} may be
-increased
-to show additional levels of function call within the kernel.
-The resulting trace can help track down the source of the OS jitter.
+不幸的是，这个OS抖动来源列表永远不可能是完整的，
+因为它会随着内核每个新版本而变化。
+这使得有必要能够追踪额外的OS抖动来源。
+给定一个运行CPU密集型用户模式线程的CPU $N$，
+\cref{lst:advsync:Locating Sources of OS Jitter}中显示的命令
+将产生该CPU所有进入内核的时间列表。
+当然，\clnref{cat}上的\co{N}必须替换为
+相关CPU的编号，\clnref{echo1}上的\co{1}可以增加
+以显示内核中更多层级的函数调用。
+生成的跟踪信息可以帮助追踪OS抖动的来源。
 \end{fcvref}
 
-As always, there is no free lunch, and \co{NO_HZ_FULL} is no exception.
-As noted earlier,
-\co{NO_HZ_FULL} makes kernel/user transitions more expensive due to the
-need for delta process accounting and the need to inform kernel subsystems
-(such as RCU) of the transitions.
-As a rough rule of thumb, \co{NO_HZ_FULL} helps with many types of
-real-time and heavy-compute workloads, but hurts other workloads
-that feature high rates of system calls and
-I/O~\cite{AbdullahAljuhni2018nohzfull}.
-Additional limitations, tradeoffs, and configuration advice may be
-found in \path{Documentation/timers/no_hz.rst} file in the Linux source tree.
+像往常一样，天下没有免费的午餐，\co{NO_HZ_FULL}也不例外。
+如前所述，
+\co{NO_HZ_FULL}由于需要进行增量进程记账以及
+需要通知内核子系统（如RCU）状态转换，
+使内核/用户空间转换变得更加昂贵。
+作为一个粗略的经验法则，\co{NO_HZ_FULL}对许多类型的
+实时和重计算工作负载有帮助，但对具有高频系统调用和
+I/O的其他工作负载有害~\cite{AbdullahAljuhni2018nohzfull}。
+更多的限制、权衡和配置建议可以在Linux源码树的
+\path{Documentation/timers/no_hz.rst}文件中找到。
 
-As you can see, obtaining bare-metal performance when running
-CPU-bound real-time threads on a general-purpose OS such as Linux
-requires painstaking attention to detail.
-Automation would of course help, and some automation has been applied,
-but given the relatively small number of users, automation can be
-expected to appear relatively slowly.
-Nevertheless, the ability to gain near-bare-metal performance while
-running a general-purpose operating system promises to ease construction
-of some types of real-time systems.
+如你所见，在Linux等通用操作系统上运行CPU密集型实时线程时
+要获得裸机性能，需要对细节进行精心的关注。
+自动化当然会有帮助，而且已经应用了一些自动化，
+但鉴于用户数量相对较少，自动化预计会比较缓慢地出现。
+尽管如此，在运行通用操作系统的同时获得接近裸机性能的能力
+有望简化某些类型实时系统的构建。
 
-\subsection{Implementing Parallel Real-Time Applications}
+\subsection{实现并行实时应用}
 \label{sec:advsync:Implementing Parallel Real-Time Applications}
 
-Developing real-time applications is a wide-ranging topic, and this
-section can only touch on a few aspects.
-To this end,
+开发实时应用是一个涉及面很广的话题，
+本节只能触及其中几个方面。
+为此，
 \cref{sec:advsync:Real-Time Components}
-looks at a few software components commonly used in real-time applications,
+介绍了实时应用中常用的几个软件组件，
 \cref{sec:advsync:Polling-Loop Applications}
-provides a brief overview of how polling-loop-based applications may
-be implemented,
+简要概述了基于轮询循环的应用如何实现，
 \cref{sec:advsync:Streaming Applications}
-gives a similar overview of streaming applications, and
+给出了流式应用的类似概述，
 \cref{sec:advsync:Event-Driven Applications}
-briefly covers event-based applications.
+简要介绍了基于事件的应用。
 
-\subsubsection{Real-Time Components}
+\subsubsection{实时组件}
 \label{sec:advsync:Real-Time Components}
 
-As in all areas of engineering, a robust set of components is essential
-to \IX{productivity} and \IX{reliability}.
-This section is not a full catalog of real-time software components---such
-a catalog would fill multiple books---but rather a brief overview of the
-types of components available.
+与所有工程领域一样，一套健壮的组件对于
+\IX{productivity}（生产力）和\IX{reliability}（可靠性）至关重要。
+本节不是实时软件组件的完整目录——
+这样的目录可以填满多本书——
+而是对可用组件类型的简要概述。
 
-A natural place to look for real-time software components would be
-algorithms offering wait-free
-synchronization~\cite{Herlihy91}, and in fact lockless
-algorithms are very important to real-time computing.
-However, wait-free synchronization only guarantees forward progress in
-finite time.
-Although a century is finite, this is unhelpful when your deadlines are
-measured in microseconds, let alone milliseconds.
+寻找实时软件组件的自然场所是提供wait-free（无等待）
+同步的算法~\cite{Herlihy91}，事实上无锁算法
+对实时计算非常重要。
+然而，wait-free同步只保证在有限时间内向前推进。
+虽然一个世纪是有限的，但当你的截止时间以微秒甚至毫秒
+衡量时，这是没有帮助的。
 
-Nevertheless, there are some important wait-free algorithms that do
-provide bounded response time, including atomic test and set,
-atomic exchange,
-atomic fetch-and-add,
-single-producer/single-consumer FIFO queues based on circular arrays,
-and numerous per-thread partitioned algorithms.
-In addition, recent research has confirmed the observation that
-algorithms with lock-free guarantees\footnote{
-	Wait-free algorithms guarantee that all threads make progress in
-	finite time, while lock-free algorithms only guarantee that at
-	least one thread will make progress in finite time.
-	See \cref{sec:advsync:Non-Blocking Synchronization} for more details.}
-also provide the same latencies in practice (in the wait-free sense),
-assuming a stochastically fair scheduler and absence of fail-stop
-bugs~\cite{DanAlitarh2013PracticalProgress}.
-This means that many non-wait-free stacks and queues are nevertheless
-appropriate for real-time use.
+尽管如此，有一些重要的wait-free算法确实提供了
+有界响应时间，包括原子测试并设置、
+原子交换、
+原子取并加、
+基于环形数组的单生产者/单消费者FIFO队列，
+以及众多per-thread分区算法。
+此外，最近的研究证实了这样一个观察：具有lock-free保证的
+算法\footnote{
+	Wait-free算法保证所有线程都在有限时间内向前推进，
+	而lock-free算法只保证至少有一个线程在有限时间内
+	向前推进。
+	更多细节参见\cref{sec:advsync:Non-Blocking Synchronization}。}
+在实践中也提供相同的延迟（在wait-free的意义上），
+假设有一个随机公平的调度器且没有故障停止
+bug~\cite{DanAlitarh2013PracticalProgress}。
+这意味着许多非wait-free的栈和队列仍然适用于实时用途。
 
 \QuickQuiz{
-	But isn't correct operation despite fail-stop bugs
-	a valuable fault-tolerance property?
+	但是，即使出现故障停止bug也能正确运行，
+	这难道不是一个有价值的容错属性吗？
 }\QuickQuizAnswer{
-	Yes and no.
+	是也不是。
 
-	Yes in that non-blocking algorithms can provide fault tolerance
-	in the face of fail-stop bugs, but no in that this is grossly
-	insufficient for practical fault tolerance.
-	For example, suppose you had a wait-free queue, and further
-	suppose that a thread has just dequeued an element.
-	If that thread now succumbs to a fail-stop bug, the element
-	it has just dequeued is effectively lost.
-	True fault tolerance requires way more than mere non-blocking
-	properties, and is beyond the scope of this book.
+	是，因为非阻塞算法可以在面对故障停止bug时提供容错，
+	但不是，因为这对于实际的容错来说远远不够。
+	例如，假设你有一个wait-free队列，
+	进一步假设一个线程刚刚出队了一个元素。
+	如果该线程此时因故障停止bug而死亡，
+	它刚刚出队的元素实际上就丢失了。
+	真正的容错需要远不止非阻塞属性，
+	这超出了本书的范围。
 }\QuickQuizEnd
 
-In practice, locking is often used in real-time programs, theoretical
-concerns notwithstanding.
-However, under more severe constraints, lock-based
-algorithms can also provide bounded latencies~\cite{BjoernBrandenburgPhD}.
-These constraints include:
+在实践中，尽管存在理论上的顾虑，锁仍然经常在实时程序中使用。
+然而，在更严格的约束下，基于锁的算法也可以提供
+有界延迟~\cite{BjoernBrandenburgPhD}。
+这些约束包括：
 
 \begin{enumerate}
-\item	Fair scheduler.
-	In the common case of a fixed-priority scheduler, the bounded
-	latencies are provided only to the highest-priority threads.
-\item	Sufficient bandwidth to support the workload.
-	An implementation rule supporting this constraint might be
-	``There will be at least 50\pct\ idle time on all CPUs
-	during normal operation,''
-	or, more formally, ``The offered load will be sufficiently low
-	to allow the workload to be schedulable at all times.''
-\item	No fail-stop bugs.
-\item	FIFO locking primitives with bounded acquisition, handoff,
-	and release latencies.
-	Again, in the common case of a locking primitive that is FIFO
-	within priorities, the bounded latencies are provided only
-	to the highest-priority threads.
-\item	Some way of preventing unbounded priority inversion.
-	The priority-ceiling and priority-inheritance disciplines
-	mentioned earlier in this chapter suffice.
-\item	Bounded nesting of lock acquisitions.
-	We can have an unbounded number of locks, but only as long as a
-	given thread never acquires more than a few of them (ideally only
-	one of them) at a time.
-\item	Bounded number of threads.
-	In combination with the earlier constraints, this constraint means
-	that there will be a bounded number of threads waiting on any
-	given lock.
-\item	Bounded time spent in any given critical section.
-	Given a bounded number of threads waiting on any given lock and
-	a bounded critical-section duration, the wait time will be bounded.
+\item	公平调度器。
+	在常见的固定优先级调度器情况下，有界延迟仅提供给最高优先级的线程。
+\item	足够的带宽来支持工作负载。
+	支持此约束的实现规则可能是
+	``在正常操作期间，所有 CPU 至少有 50\pct\ 的空闲时间''，
+	或者更正式地说，``提供的负载将足够低，
+	以允许工作负载在任何时候都可调度。''
+\item	没有故障停止缺陷。
+\item	具有有界获取、移交和释放延迟的 FIFO 锁原语。
+	同样，在常见的按优先级 FIFO 的锁原语情况下，
+	有界延迟仅提供给最高优先级的线程。
+\item	某种防止无界优先级反转的方法。
+	本章前面提到的优先级天花板和优先级继承机制即可满足要求。
+\item	有界的锁获取嵌套。
+	我们可以有无限数量的锁，但前提是给定线程在任何时候
+	获取的锁不超过少数几个（理想情况下只有一个）。
+\item	有界的线程数量。
+	结合之前的约束，此约束意味着在任何给定锁上等待的线程数量将是有界的。
+\item	在任何给定临界区中花费的时间有界。
+	给定等待任何给定锁的线程数量有界以及临界区持续时间有界，
+	等待时间将是有界的。
 \end{enumerate}
 
 \QuickQuiz{
-	I couldn't help but spot the word ``include'' before this list.
-	Are there other constraints?
+	我不禁注意到在这个列表之前有一个``包括''一词。
+	还有其他约束吗？
 }\QuickQuizAnswer{
-	Indeed there are, and lots of them.
-	However, they tend to be specific to a given situation,
-	and many of them can be thought of as refinements of some of
-	the constraints listed above.
-	For example, the many constraints on choices of data structure
-	will help meeting the ``Bounded time spent in any given critical
-	section'' constraint.
+	确实有，而且很多。
+	然而，它们往往是特定于给定情况的，
+	其中许多可以被认为是上面列出的某些约束的细化。
+	例如，对数据结构选择的许多约束
+	将有助于满足``在任何给定临界区中花费的时间有界''这一约束。
 }\QuickQuizEnd
 
-This result opens a vast cornucopia of algorithms and data structures
-for use in real-time software---and validates long-standing real-time practice.
+这个结果为实时软件中使用的算法和数据结构打开了一个
+巨大的宝库——并验证了长期以来的实时实践。
 
-Of course, a careful and simple application design is also extremely
-important.
-The best real-time components in the world cannot make up for a
-poorly thought-out design.
-For parallel real-time applications, synchronization overheads clearly
-must be a key component of the design.
+当然，仔细而简单的应用设计也极其重要。
+世界上最好的实时组件也无法弥补一个考虑不周的设计。
+对于并行实时应用，同步开销显然必须是设计的关键组成部分。
 
-\subsubsection{Polling-Loop Applications}
+\subsubsection{轮询循环应用}
 \label{sec:advsync:Polling-Loop Applications}
 
-Many real-time applications consist of a single CPU-bound loop that
-reads sensor data, computes a control law, and writes control output.
-If the hardware registers providing sensor data and taking control
-output are mapped into the application's address space, this loop
-might be completely free of system calls.
-But beware of the Spiderman principle:
-With great power comes great responsibility, in this case the
-responsibility to avoid bricking the hardware by making inappropriate
-references to the hardware registers.
+许多实时应用由单个CPU密集型循环组成，
+该循环读取传感器数据、计算控制律并写入控制输出。
+如果提供传感器数据和接受控制输出的硬件寄存器
+被映射到应用的地址空间中，该循环可能完全不需要系统调用。
+但要注意蜘蛛侠原则：
+能力越大，责任越大，在这里指的是要避免通过
+不当引用硬件寄存器而使硬件变砖的责任。
 
-This arrangement is often run on bare metal, without the benefits of
-(or the interference from) an operating system.
-However, increasing hardware capability and increasing levels of
-automation motivates increasing software functionality, for example,
-user interfaces, logging, and reporting, all of which can benefit from
-an operating system.
+这种安排通常在裸机上运行，没有操作系统的好处
+（也没有操作系统的干扰）。
+然而，不断增长的硬件能力和不断提高的自动化水平
+推动了软件功能的增加，例如用户界面、日志记录和报告，
+所有这些都可以从操作系统中受益。
 
-One way of gaining much of the benefit of running on bare metal while
-still having access to the full features and functions of a
-general-purpose operating system is to use the Linux kernel's
-\co{NO_HZ_FULL} capability, described in
-\cref{sec:advsync:Polling-Loop Real-Time Support}.
+在享有裸机运行的大部分好处的同时仍然可以访问
+通用操作系统的全部特性和功能的一种方法是使用
+Linux 内核的 \co{NO_HZ_FULL} 功能，
+在\cref{sec:advsync:Polling-Loop Real-Time Support}中描述。
 
-\subsubsection{Streaming Applications}
+\subsubsection{流式应用}
 \label{sec:advsync:Streaming Applications}
 
-One type of big-data real-time application takes input from numerous
-sources, processes it internally, and outputs alerts and summaries.
-These \emph{streaming applications} are often highly parallel, processing
-different information sources concurrently.
+一种大数据实时应用从众多来源获取输入，在内部处理，
+并输出警报和摘要。
+这些\emph{流式应用}通常是高度并行的，
+同时处理不同的信息来源。
 
-One approach for implementing streaming applications is to use
-dense-array circular FIFOs to connect different processing
-steps~\cite{AdrianSutton2013LCA:Disruptor}.
-Each such FIFO has only a single thread producing into it and a
-(presumably different) single thread consuming from it.
-Fan-in and fan-out points use threads rather than data structures,
-so if the output of several FIFOs needed to be merged, a separate
-thread would input from them and output to another FIFO for which
-this separate thread was the sole producer.
-Similarly, if the output of a given FIFO needed to be split, a separate
-thread would input from this FIFO and output to several FIFOs as needed.
+实现流式应用的一种方法是使用密集数组环形FIFO
+来连接不同的处理步骤~\cite{AdrianSutton2013LCA:Disruptor}。
+每个这样的FIFO只有一个线程向其中生产，
+并且有一个（假定不同的）线程从中消费。
+扇入和扇出点使用线程而非数据结构，
+因此如果需要合并多个FIFO的输出，
+一个单独的线程将从它们输入并输出到另一个FIFO，
+该单独线程是该FIFO的唯一生产者。
+类似地，如果需要拆分给定FIFO的输出，
+一个单独的线程将从该FIFO输入并根据需要输出到多个FIFO。
 
-This discipline might seem restrictive, but it allows communication
-among threads with minimal synchronization overhead, and minimal
-synchronization overhead is important when attempting to meet
-tight latency constraints.
-This is especially true when the amount of processing for each step
-is small, so that the synchronization overhead is significant compared
-to the processing overhead.
+这种规则可能看起来很有限制性，但它允许线程之间
+以最小的同步开销进行通信，而最小的同步开销
+在试图满足严格的延迟约束时非常重要。
+当每个步骤的处理量较小时尤其如此，
+因为此时同步开销相对于处理开销来说是显著的。
 
-The individual threads might be CPU-bound, in which case the advice in
-\cref{sec:advsync:Polling-Loop Applications} applies.
-On the other hand, if the individual threads block waiting for
-data from their input FIFOs, the advice of the next section applies.
+各个线程可能是CPU密集型的，在这种情况下
+\cref{sec:advsync:Polling-Loop Applications}中的建议适用。
+另一方面，如果各个线程阻塞等待来自其输入FIFO的数据，
+则适用下一节的建议。
 
-\subsubsection{Event-Driven Applications}
+\subsubsection{事件驱动应用}
 \label{sec:advsync:Event-Driven Applications}
 
-We will use fuel injection into a mid-sized industrial engine as a
-fanciful example for event-driven applications.
-Under normal operating conditions, this engine requires that the fuel
-be injected within a one-degree interval surrounding top dead center.
-If we assume a 1,500-RPM rotation rate, we have 25 rotations per second,
-or about 9,000 degrees of rotation per second, which translates to
-111 microseconds per degree.
-We therefore need to schedule the fuel injection to within a time
-interval of about 100 microseconds.
+我们将以中型工业发动机的燃油喷射作为事件驱动应用的
+一个生动示例。
+在正常运行条件下，该发动机要求燃油在上止点周围
+一度的区间内喷射。
+如果我们假设转速为1,500 RPM，则每秒有25转，
+即每秒大约9,000度旋转，这相当于每度111微秒。
+因此，我们需要将燃油喷射安排在大约100微秒的
+时间间隔内。
 
 \begin{listing}
 \begin{fcvlabel}[ln:advsync:Timed-Wait Test Program]
@@ -1905,71 +1600,62 @@ if (clock_gettime(CLOCK_REALTIME, &timeend) != 0) {
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Timed-Wait Test Program}
+\caption{定时等待测试程序}
 \label{lst:advsync:Timed-Wait Test Program}
 \end{listing}
 
-Suppose that a timed wait was to be used to initiate fuel injection,
-although if you are building an engine, I hope you supply a rotation
-sensor.
-We need to test the timed-wait functionality, perhaps using the test program
-shown in
-\cref{lst:advsync:Timed-Wait Test Program}.
-Unfortunately, if we run this program, we can get unacceptable timer
-jitter, even in a \rt\ kernel.
+假设要使用定时等待来启动燃油喷射，
+当然如果你正在构建发动机，我希望你提供一个旋转传感器。
+我们需要测试定时等待功能，也许使用
+\cref{lst:advsync:Timed-Wait Test Program}中显示的测试程序。
+不幸的是，如果我们运行此程序，
+即使在\rt\ 内核中也可能得到不可接受的定时器抖动。
 
-One problem is that POSIX \co{CLOCK_REALTIME} is, oddly enough, not intended
-for real-time use.
-Instead, it means ``realtime'' as opposed to the amount of CPU time
-consumed by a process or thread.
-For real-time use, you should instead use \co{CLOCK_MONOTONIC}.
-However, even with this change, results are still unacceptable.
+一个问题是POSIX \co{CLOCK_REALTIME}奇怪的是并不打算用于
+实时用途。
+相反，它的意思是"实际时间"，以区别于进程或线程
+消耗的CPU时间。
+对于实时用途，你应该改用\co{CLOCK_MONOTONIC}。
+然而，即使做了这个更改，结果仍然不可接受。
 
-Another problem is that the thread must be raised to a real-time
-priority by using the \co{sched_setscheduler()} system call.
-But even this change is insufficient, because we can still see
-page faults.
-We also need to use the \co{mlockall()} system call to pin the
-application's memory, preventing page faults.
-With all of these changes, results might finally be acceptable.
+另一个问题是必须使用\co{sched_setscheduler()}系统调用
+将线程提升到实时优先级。
+但即使这个更改也不够，因为我们仍然可以看到页错误。
+我们还需要使用\co{mlockall()}系统调用来固定
+应用的内存，防止页错误。
+在做了所有这些更改之后，结果可能终于可以接受了。
 
-In other situations, further adjustments might be needed.
-It might be necessary to affinity time-critical threads onto their
-own CPUs, and it might also be necessary to affinity interrupts
-away from those CPUs.
-It might be necessary to carefully select hardware and drivers,
-and it will very likely be necessary to carefully select kernel
-configuration.
+在其他情况下，可能需要进一步的调整。
+可能需要将对时间敏感的线程绑定到其专用CPU上，
+也可能需要将中断从这些CPU上移开。
+可能需要仔细选择硬件和驱动程序，
+而且很可能需要仔细选择内核配置。
 
-As can be seen from this example, real-time computing can be quite
-unforgiving.
+从这个例子可以看出，实时计算可以是相当不容宽恕的。
 
-\subsubsection{The Role of RCU}
+\subsubsection{RCU的角色}
 \label{sec:advsync:The Role of RCU}
 
-Suppose that you are writing a parallel real-time application that needs
-to access
-data that is subject to gradual change, perhaps due to changes in
-temperature, humidity, and barometric pressure.
-The real-time response constraints on this program are so severe that
-it is not permissible to spin or block, thus ruling out locking,
-nor is it permissible to use a retry loop, thus ruling out sequence locks
-and \IXpl{hazard pointer}.
-Fortunately, the temperature and pressure are normally controlled,
-so that a default hard-coded set of data is usually sufficient.
+假设你正在编写一个并行实时应用，需要访问
+随时间逐渐变化的数据，也许是由于温度、湿度和气压的变化。
+该程序的实时响应约束非常严格，
+不允许自旋或阻塞，从而排除了锁，
+也不允许使用重试循环，从而排除了序列锁
+和\IXpl{hazard pointer}。
+幸运的是，温度和压力通常是受控的，
+因此默认的硬编码数据集通常就足够了。
 
-However, the temperature, humidity, and pressure occasionally deviate too far
-from the defaults, and in such situations it is necessary to provide
-data that replaces the defaults.
-Because the temperature, humidity, and pressure change gradually,
-providing the updated values is not a matter of urgency, though
-it must happen within a few minutes.
-The program is to use a global pointer imaginatively named \co{cur_cal}
-that normally references \co{default_cal}, which is a statically allocated
-and initialized structure that contains the default calibration values
-in fields imaginatively named \co{a}, \co{b}, and \co{c}.
-Otherwise, \co{cur_cal} points to a dynamically allocated
-structure providing the current calibration values.
+然而，温度、湿度和压力偶尔会偏离默认值太远，
+在这种情况下需要提供替换默认值的数据。
+由于温度、湿度和压力是逐渐变化的，
+提供更新后的值不是紧急事项，
+但必须在几分钟内完成。
+该程序使用一个富有想象力地命名为\co{cur_cal}的全局指针，
+它通常引用\co{default_cal}——一个静态分配和初始化的结构，
+其中包含富有想象力地命名为\co{a}、\co{b}和\co{c}的字段中的
+默认校准值。
+否则，\co{cur_cal}指向一个动态分配的
+提供当前校准值的结构。
 
 \begin{listing}
 \begin{fcvlabel}[ln:advsync:Real-Time Calibration Using RCU]
@@ -2011,92 +1697,87 @@ bool update_cal(short a, short b, short c)		\lnlbl[upd:b]
 }							\lnlbl[upd:e]
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Real-Time Calibration Using RCU}
+\caption{使用RCU的实时校准}
 \label{lst:advsync:Real-Time Calibration Using RCU}
 \end{listing}
 
 \begin{fcvref}[ln:advsync:Real-Time Calibration Using RCU]
 \Cref{lst:advsync:Real-Time Calibration Using RCU}
-shows how RCU can be used to solve this problem.
-Lookups are deterministic, as shown in \co{calc_control()}
-on \clnrefrange{calc:b}{calc:e}, consistent with real-time requirements.
-Updates are more complex, as shown by \co{update_cal()}
-on \clnrefrange{upd:b}{upd:e}.
+展示了如何使用RCU来解决这个问题。
+查找是确定性的，如\clnrefrange{calc:b}{calc:e}上的
+\co{calc_control()}所示，符合实时要求。
+更新更加复杂，如\clnrefrange{upd:b}{upd:e}上的
+\co{update_cal()}所示。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Given that real-time systems are often used for safety-critical
-	applications, and given that runtime memory allocation is
-	forbidden in many safety-critical situations, what is with
-	the call to \co{malloc()}???
+	鉴于实时系统通常用于安全关键应用，
+	而且在许多安全关键情况下禁止运行时内存分配，
+	为什么还要调用\co{malloc()}？？？
 }\QuickQuizAnswerB{
-	In early 2016, projects forbidding runtime memory allocation
-	were also not at all interested in multithreaded computing.
-	So the runtime memory allocation is not an additional
-	obstacle to safety criticality.
+	在2016年初，禁止运行时内存分配的项目
+	对多线程计算也完全不感兴趣。
+	因此，运行时内存分配不是安全关键性的额外障碍。
 
-	However, by 2020 runtime memory allocation in multi-core
-	real-time systems was gaining some traction.
+	然而，到2020年，多核实时系统中的运行时内存分配
+	开始获得一些关注。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Don't you need some kind of synchronization to protect
-	\co{update_cal()}?
+	你不需要某种同步来保护 \co{update_cal()} 吗？
 }\QuickQuizAnswerE{
-	Indeed you do, and you could use any of a number of techniques
-	discussed earlier in this book.
-	One of those techniques is use of a single updater thread,
-	which would result in exactly the code shown in \co{update_cal()}
-	in \cref{lst:advsync:Real-Time Calibration Using RCU}.
+	确实需要，你可以使用本书前面讨论的多种技术中的任何一种。
+	其中一种技术是使用单一更新者线程，
+	这将产生与\cref{lst:advsync:Real-Time Calibration Using RCU}
+	中 \co{update_cal()} 所示完全相同的代码。
 }\QuickQuizEndE
 }
 
-This example shows how RCU can provide deterministic read-side
-data-structure access to real-time programs.
+此示例展示了 RCU 如何为实时程序提供确定性的读端数据结构访问。
 
-\subsection{Real Time vs.~Real Fast:
-				     How to Choose?}
+\subsection{实时 vs.~极速：
+				     如何选择？}
 \label{sec:advsync:Real Time vs. Real Fast: How to Choose?}
 
-The choice between real-time and real-fast computing can be a difficult one.
-Because real-time systems often inflict a throughput penalty on
-non-real-time computing, using real-time when it is not required is
-unwise, as fancifully depicted by
-\cref{fig:advsync:The Dark Side of Real-Time Computing}.
+在实时和极速计算之间做出选择可能是一个困难的决定。
+由于实时系统通常会对非实时计算造成吞吐量损失，
+在不需要实时时使用它是不明智的，
+如\cref{fig:advsync:The Dark Side of Real-Time Computing}
+所形象描绘的那样。
 
 \begin{figure}
 \centering
 \resizebox{3.2in}{!}{\includegraphics{cartoons/RealTimeNotRealFast}}
-\caption{The Dark Side of Real-Time Computing}
+\caption{实时计算的阴暗面}
 \ContributedBy{fig:advsync:The Dark Side of Real-Time Computing}{Sarah McKenney}
 \end{figure}
 
-On the other hand, failing to use real-time when it \emph{is} required
-can also cause problems, as fancifully depicted by
-\cref{fig:advsync:The Dark Side of Real-Fast Computing}.
-It is almost enough to make you feel sorry for the boss!
+另一方面，在\emph{需要}实时时未能使用它也会导致问题，
+如\cref{fig:advsync:The Dark Side of Real-Fast Computing}
+所形象描绘的那样。
+这几乎让人同情老板了！
 
 \begin{figure}
 \centering
 \resizebox{3.2in}{!}{\includegraphics{cartoons/RealFastNotRealTime}}
-\caption{The Dark Side of Real-Fast Computing}
+\caption{极速计算的阴暗面}
 \ContributedBy{fig:advsync:The Dark Side of Real-Fast Computing}{Sarah McKenney}
 \end{figure}
 
-One rule of thumb uses the following four questions to help you choose:
+一个经验法则使用以下四个问题来帮助你做出选择：
 
 \begin{enumerate}
-\item	Is average long-term throughput the only goal?
-\item	Is it permissible for heavy loads to degrade response times?
-\item	Is there high memory pressure, ruling out use of
-	the \co{mlockall()} system call?
-\item	Does the basic work item of your application take more than
-	100 milliseconds to complete?
+\item	平均长期吞吐量是唯一的目标吗？
+\item	是否允许重负载降低响应时间？
+\item	是否存在高内存压力，从而排除使用
+	\co{mlockall()} 系统调用？
+\item	你的应用的基本工作项是否需要超过
+	100 毫秒才能完成？
 \end{enumerate}
 
-If the answer to any of these questions is ``yes'', you should choose
-real-fast over real-time, otherwise, real-time might be for you.
+如果这些问题中任何一个的答案是``是''，你应该选择极速而非实时，
+否则，实时可能适合你。
 
-Choose wisely, and if you do choose real-time, make sure that your
-hardware, firmware, and operating system are up to the job!
+明智地选择，如果你确实选择了实时，
+请确保你的硬件、固件和操作系统能够胜任！

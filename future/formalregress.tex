@@ -2,239 +2,200 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Formal Regression Testing?}
+\section{形式化回归测试？}
 \label{sec:future:Formal Regression Testing?}
 %
-\epigraph{Theory without experiments:
-	  Have we gone too far?}
+\epigraph{没有实验的理论：
+	  我们走得太远了吗？}
 	 {Michael Mitzenmacher}
 
-Formal verification has long proven useful in a number of production
-environments~\cite{JamesRLarus2004RightingSoftware,AlBessey2010BillionLoCLater,ByronCook2018FormalAmazon,CaitlinSadowski2018staticAnalysisGoogle,DinoDistefano2019FBstaticAnalysis}.
-However, it is an open question as to whether hard-core formal verification
-will ever be included in the automated regression-test suites used for
-continuous integration within complex concurrent codebases, such as the
-Linux kernel.
-Although there is already a proof of concept for Linux-kernel
-SRCU~\cite{LanceRoy2017CBMC-SRCU}, this test is for a small portion
-of one of the simplest RCU implementations, and has proven difficult
-to keep it current with the ever-changing Linux kernel.
-It is therefore worth asking what would be required to incorporate
-formal verification as first-class members of the Linux kernel's
-regression tests.
+形式化验证长期以来在许多生产环境中证明了其
+有用性~\cite{JamesRLarus2004RightingSoftware,AlBessey2010BillionLoCLater,ByronCook2018FormalAmazon,CaitlinSadowski2018staticAnalysisGoogle,DinoDistefano2019FBstaticAnalysis}。
+然而，硬核形式化验证是否能被纳入复杂并发代码库（如Linux内核）
+的持续集成中所使用的自动化回归测试套件，仍是一个悬而未决的问题。
+虽然已经有了Linux内核SRCU的概念验证~\cite{LanceRoy2017CBMC-SRCU}，
+但该测试针对的是最简单的RCU实现之一的一小部分，
+而且已经证明很难使其跟上不断变化的Linux内核。
+因此，值得探讨将形式化验证作为Linux内核回归测试的一等成员
+所需的条件。
 
-The following list is a good
-start~\cite[slide 34]{PaulEMcKenney2015DagstuhlVerification}:
+以下列表是一个好的
+起点~\cite[slide 34]{PaulEMcKenney2015DagstuhlVerification}：
 
 \begin{enumerate}
-\item	Any required translation must be automated.
-\item	The environment (including memory ordering) must be correctly
-	handled.
-\item	The memory and CPU overhead must be acceptably modest.
-\item	Specific information leading to the location of the bug
-	must be provided.
-\item	Information beyond the source code and inputs must be
-	modest in scope.
-\item	The bugs located must be relevant to the code's users.
+\item	任何所需的转换必须是自动化的。
+\item	环境（包括内存排序）必须被正确处理。
+\item	内存和CPU开销必须在可接受的适度范围内。
+\item	必须提供指向bug位置的具体信息。
+\item	除源代码和输入之外的信息范围必须适度。
+\item	所定位的bug必须与代码用户相关。
 \end{enumerate}
 
-This list builds on, but is somewhat more modest than, Richard Bornat's
-dictum:
-``Formal-verification researchers should verify the code that
-developers write, in the language they write it in, running in the
-environment that it runs in, as they write it.''
-The following sections discuss each of the above requirements, followed
-by a section presenting a scorecard of how well a few tools stack up
-against these requirements.
+这个列表基于但比Richard Bornat的格言更为温和：
+``形式化验证研究人员应该验证开发人员编写的代码，
+使用他们编写时所用的语言，在代码运行的环境中运行，
+在他们编写时就进行验证。''
+以下各节讨论上述每项要求，
+然后有一节展示几个工具在这些要求方面表现的记分卡。
 
 \QuickQuiz{
-	This list is ridiculously utopian!
-	Why not stick to the current state of the formal-verification art?
+	这个列表太乌托邦了！
+	为什么不坚持形式化验证的现有技术水平？
 }\QuickQuizAnswer{
-	You are welcome to your opinion on what is and is not utopian,
-	but I will be paying more attention to people actually making
-	progress on the items in that list than to anyone who might be
-	objecting to them.
-	This might have something to do with my long experience with
-	people attempting to talk me out of specific things that their
-	favorite tools cannot handle.
+	你有权对什么是乌托邦、什么不是乌托邦发表意见，
+	但比起任何可能反对这些条目的人，
+	我会更关注那些真正在这些条目上取得进展的人。
+	这可能与我长期以来的经验有关，
+	即有人试图说服我放弃其所偏爱的工具无法处理的特定事项。
 
-	In the meantime, please feel free to read the papers written by
-	the people who are actually making progress, for example, this
-	one~\cite{DinoDistefano2019FBstaticAnalysis}.
+	与此同时，请随意阅读那些真正取得进展的人所写的论文，
+	例如这篇~\cite{DinoDistefano2019FBstaticAnalysis}。
 }\QuickQuizEnd
 
-\subsection{Automatic Translation}
+\subsection{自动转换}
 \label{sec:future:Automatic Translation}
 
-Although Promela and \co{spin}
-are invaluable design aids, if you need to formally regression-test
-your C-language program, you must hand-translate to Promela each time
-you would like to re-verify your code.
-If your code happens to be in the Linux kernel, which releases every
-60--90 days, you will need to hand-translate from four to six times
-each year.
-Over time, human error will creep in, which means that the verification
-won't match the source code, rendering the verification useless.
-Repeated verification clearly requires either that the formal-verification
-tooling input your code directly, or that there be bug-free automatic
-translation of your code to the form required for verification.
+虽然Promela和\co{spin}是无价的设计辅助工具，
+但如果你需要对C语言程序进行形式化回归测试，
+你必须在每次想要重新验证代码时手动将其翻译为Promela。
+如果你的代码恰好在Linux内核中（每60--90天发布一次），
+你将需要每年手动翻译四到六次。
+随着时间推移，人为错误将悄然出现，
+这意味着验证将不再与源代码匹配，使验证变得毫无用处。
+重复验证显然要求形式化验证工具直接输入你的代码，
+或者存在无bug的自动转换将你的代码转换为验证所需的形式。
 
-PPCMEM and \co{herd} can in theory directly input assembly language
-and C++ code, but these tools work only on very small litmus tests,
-which normally means that you must extract the core of your
-mechanism---by hand.
-As with Promela and \co{spin}, both PPCMEM and \co{herd} are
-extremely useful, but they are not well-suited for regression suites.
+PPCMEM和\co{herd}理论上可以直接输入汇编语言和C++代码，
+但这些工具只能处理非常小的litmus测试，
+这通常意味着你必须手动提取你的机制的核心部分。
+与Promela和\co{spin}一样，PPCMEM和\co{herd}都极为有用，
+但它们不太适合回归测试套件。
 
-In contrast, \IXaltacr{\co{cbmc}}{cbmc} and \IX{Nidhugg} can input
-C programs of reasonable
-(though still quite limited) size, and if their capabilities continue
-to grow, could well become excellent additions to regression suites.
-The Coverity static-analysis tool also inputs C programs, and of very
-large size, including the Linux kernel.
-Of course, Coverity's static analysis is quite simple compared to that
-of \co{cbmc} and Nidhugg.
-On the other hand, Coverity had an all-encompassing definition of
-``C program'' that posed special challenges~\cite{AlBessey2010BillionLoCLater}.
-Amazon Web Services uses a variety of formal-verification tools,
-including \co{cbmc}, and applies some of these tools to regression
-testing~\cite{ByronCook2018FormalAmazon}.
-Google uses a number of relatively simple static analysis tools directly
-on large Java code bases, which are arguably less diverse than C code
-bases~\cite{CaitlinSadowski2018staticAnalysisGoogle}.
-Facebook uses more aggressive forms of formal verification against its
-code bases, including analysis of concurrency~\cite{DinoDistefano2019FBstaticAnalysis,PeterWOHearn2019incorrectnessLogic},
-though not yet on the Linux kernel.
-Finally, Microsoft has long used static analysis on its code
-bases~\cite{JamesRLarus2004RightingSoftware}.
+相比之下，\IXaltacr{\co{cbmc}}{cbmc}和\IX{Nidhugg}可以输入
+合理大小（虽然仍然相当有限）的C程序，
+如果它们的能力继续增长，完全可以成为回归测试套件的出色补充。
+Coverity静态分析工具也输入C程序，而且可以处理非常大的程序，
+包括Linux内核。
+当然，Coverity的静态分析与\co{cbmc}和Nidhugg相比要简单得多。
+另一方面，Coverity拥有一个包罗万象的``C程序''定义，
+这带来了特殊的挑战~\cite{AlBessey2010BillionLoCLater}。
+Amazon Web Services使用各种形式化验证工具，
+包括\co{cbmc}，并将其中一些工具应用于
+回归测试~\cite{ByronCook2018FormalAmazon}。
+Google在大型Java代码库上直接使用许多相对简单的静态分析工具，
+这些代码库可以说比C代码库更为同质~\cite{CaitlinSadowski2018staticAnalysisGoogle}。
+Facebook对其代码库使用更激进的形式化验证形式，
+包括并发分析~\cite{DinoDistefano2019FBstaticAnalysis,PeterWOHearn2019incorrectnessLogic}，
+尽管尚未应用于Linux内核。
+最后，Microsoft长期以来一直对其代码库使用
+静态分析~\cite{JamesRLarus2004RightingSoftware}。
 
-Given this list, it is clearly possible to create sophisticated
-formal-verification tools that directly consume production-quality
-source code.
+鉴于这份清单，显然可以创建直接消费生产级别源代码的
+复杂形式化验证工具。
 
-However, one shortcoming of taking C code as input is that it assumes
-that the compiler is correct.
-An alternative approach is to take the binary produced by the C compiler
-as input, thereby accounting for any relevant compiler bugs.
-This approach has been used in a number of verification efforts,
-perhaps most notably by the seL4
-project~\cite{ThomasSewell2013L4binaryVerification}.
+然而，以C代码作为输入的一个不足之处在于它假设编译器是正确的。
+另一种方法是将C编译器生成的二进制文件作为输入，
+从而考虑到任何相关的编译器bug。
+这种方法已在许多验证工作中使用，
+最著名的可能是seL4项目~\cite{ThomasSewell2013L4binaryVerification}。
 
 \QuickQuiz{
-	Given the groundbreaking nature of the various verifiers used
-	in the seL4 project, why doesn't this chapter cover them in
-	more depth?
+	鉴于seL4项目中使用的各种验证器的开创性，
+	为什么本章不更深入地介绍它们？
 }\QuickQuizAnswer{
-	There can be no doubt that the verifiers used by the seL4
-	project are quite capable.
-	However, seL4 started as a single-CPU project.
-	And although seL4 has gained multi-processor
-	capabilities, it is currently using very coarse-grained
-	locking that is similar to the Linux kernel's old
-	Big Kernel Lock (BKL)\@.
-	There will hopefully come a day when it makes sense to add
-	seL4's verifiers to a book on parallel programming, but
-	this is not yet that day.
+	毫无疑问，seL4项目使用的验证器能力相当强。
+	然而，seL4最初是一个单CPU项目。
+	虽然seL4已经获得了多处理器能力，
+	但它目前使用的是非常粗粒度的锁，
+	类似于Linux内核的旧Big Kernel Lock (BKL)\@。
+	希望有一天将seL4的验证器添加到一本关于并行编程的书中
+	是有意义的，但现在还不是时候。
 }\QuickQuizEnd
 
-However, verifying directly from either the source or binary both have the
-advantage of eliminating human translation errors, which is critically
-important for reliable regression testing.
+然而，直接从源代码或二进制文件进行验证都具有
+消除人工翻译错误的优势，
+这对于可靠的回归测试至关重要。
 
-This is not to say that tools with special-purpose languages are useless.
-On the contrary, they can be quite helpful for design-time verification,
-as was discussed in
-\cref{chp:Formal Verification}.
-However, such tools are not particularly helpful for automated regression
-testing, which is in fact the topic of this section.
+这并不是说具有专用语言的工具是无用的。
+相反，它们对于设计时验证非常有帮助，
+正如在\cref{chp:Formal Verification}中讨论的那样。
+然而，这类工具对于自动化回归测试并不特别有帮助，
+而这事实上正是本节的主题。
 
-\subsection{Environment}
+\subsection{环境}
 \label{sec:future:Environment}
 
-It is critically important that formal-verification tools correctly
-model their environment.
-One all-too-common omission is the \IX{memory model}, where a great
-many formal-verification tools, including Promela/\co{spin}, are
-restricted to \IXalth{sequential consistency}{sequential}{memory consistency}.
-The QRCU experience related in
-\cref{sec:formal:Is QRCU Really Correct?}
-is an important cautionary tale.
+形式化验证工具正确建模其环境至关重要。
+一个常见的遗漏是\IX{memory model}，
+其中大量形式化验证工具（包括Promela/\co{spin}）
+被限制为\IXalth{sequential consistency}{sequential}{memory consistency}。
+\cref{sec:formal:Is QRCU Really Correct?}中叙述的QRCU经历
+是一个重要的警示故事。
 
-Promela and \co{spin} assume sequential consistency, which is not a
-good match for modern computer systems, as was seen in
-\cref{chp:Advanced Synchronization: Memory Ordering}.
-In contrast, one of the great strengths of PPCMEM and \co{herd}
-is their detailed modeling of various CPU families memory models,
-including x86, \ARM, Power, and, in the case of \co{herd},
-a Linux-kernel memory model~\cite{Alglave:2018:FSC:3173162.3177156},
-which was accepted into Linux-kernel version v4.17.
+Promela和\co{spin}假设顺序一致性，
+这与现代计算机系统不太匹配，
+正如在\cref{chp:Advanced Synchronization: Memory Ordering}中所见。
+相比之下，PPCMEM和\co{herd}的一大优势是
+它们对各种CPU家族内存模型的详细建模，
+包括x86、\ARM、Power，以及在\co{herd}的情况下，
+还有Linux内核内存模型~\cite{Alglave:2018:FSC:3173162.3177156}，
+该模型已被接受进入Linux内核v4.17版本。
 
-The \co{cbmc} and Nidhugg tools provide some ability to select
-memory models, but do not provide the variety that PPCMEM and
-\co{herd} do.
-However, it is likely that the larger-scale tools will adopt
-a greater variety of memory models as time goes on.
+\co{cbmc}和Nidhugg工具提供了一些选择内存模型的能力，
+但没有提供PPCMEM和\co{herd}那样的多样性。
+然而，随着时间推移，更大规模的工具可能会采用更多种类的内存模型。
 
-In the longer term, it would be helpful for formal-verification
-tools to include I/O~\cite{PaulEMcKenney2016LinuxKernelMMIO},
-but it may be some time before this comes to pass.
+从更长远来看，如果形式化验证工具能够包含
+I/O~\cite{PaulEMcKenney2016LinuxKernelMMIO}会很有帮助，
+但这可能还需要一段时间才能实现。
 
-Nevertheless, tools that fail to match the environment can still
-be useful.
-For example, a great many concurrency bugs would still be bugs on
-a mythical sequentially consistent system, and these bugs could
-be located by a tool that over-approximates the system's memory model
-with sequential consistency.
-Nevertheless, these tools will fail to find bugs involving missing
-memory-ordering directives, as noted in the aforementioned
-cautionary tale of
-\cref{sec:formal:Is QRCU Really Correct?}.
+尽管如此，无法匹配环境的工具仍然可以是有用的。
+例如，许多并发bug在神话般的顺序一致系统上仍然是bug，
+这些bug可以被用顺序一致性过度近似系统内存模型的
+工具所发现。
+然而，这些工具将无法找到涉及缺少内存排序指令的bug，
+正如前述\cref{sec:formal:Is QRCU Really Correct?}
+的警示故事中所指出的那样。
 
-\subsection{Overhead}
+\subsection{开销}
 \label{sec:future:Overhead}
 
-Almost all hard-core formal-verification tools are exponential
-in nature, which might seem discouraging until you consider that
-many of the most interesting software questions are in fact undecidable.
-However, there are differences in degree, even among exponentials.
+几乎所有硬核形式化验证工具本质上都是指数级的，
+这可能看起来令人沮丧，直到你考虑到许多最有趣的
+软件问题实际上是不可判定的。
+然而，即使在指数级之间也存在程度差异。
 
-PPCMEM by design is unoptimized, in order to provide greater assurance
-that the memory models of interest are accurately represented.
-The \co{herd} tool optimizes more aggressively, as described in
-\cref{sec:formal:Axiomatic Approaches}, and is thus orders of magnitude
-faster than PPCMEM\@.
-Nevertheless, both PPCMEM and \co{herd} target very small litmus tests
-rather than larger bodies of code.
+PPCMEM在设计上是未优化的，
+以便更好地保证所关注的内存模型被准确表示。
+\co{herd}工具则更激进地优化，
+如\cref{sec:formal:Axiomatic Approaches}中所述，
+因此比PPCMEM快了数个数量级。
+然而，PPCMEM和\co{herd}都针对的是非常小的litmus测试，
+而不是较大的代码体。
 
-In contrast, Promela/\co{spin}, \co{cbmc}, and Nidhugg are designed for
-(somewhat) larger bodies of code.
-Promela/\co{spin} was used to verify the Curiosity rover's
-filesystem~\cite{DBLP:journals/amai/GroceHHJX14} and, as noted earlier,
-both \co{cbmc} and Nidhugg were appled to Linux-kernel RCU\@.
+相比之下，Promela/\co{spin}、\co{cbmc}和Nidhugg是为
+（某种程度上）更大的代码体设计的。
+Promela/\co{spin}被用于验证好奇号火星车的
+文件系统~\cite{DBLP:journals/amai/GroceHHJX14}，
+如前所述，\co{cbmc}和Nidhugg都被应用于Linux内核RCU\@。
 
-If advances in heuristics continue at the rate of the past three
-decades, we can look forward to large reductions in overhead for
-formal verification.
-That said, combinatorial explosion is still combinatorial explosion,
-which would be expected to sharply limit the size of programs that
-could be verified, with or without continued improvements in
-heuristics.
+如果启发式方法的进步继续保持过去三十年的速度，
+我们可以期待形式化验证的开销大幅减少。
+也就是说，组合爆炸仍然是组合爆炸，
+这将预期会严格限制可以被验证的程序的大小，
+无论启发式方法是否继续改进。
 
-However, the flip side of combinatorial explosion is Philip II of
-Macedon's timeless advice:
-``Divide and rule.''
-If a large program can be divided and the pieces verified, the result
-can be combinatorial \emph{implosion}~\cite{PaulEMcKenney2011Verico}.
-One natural place to divide is on API boundaries, for example, those
-of locking primitives.
-One verification pass can then verify that the locking implementation
-is correct, and additional verification passes can verify correct
-use of the locking APIs.
+然而，组合爆炸的另一面是马其顿的腓力二世的
+永恒建议：``分而治之。''
+如果一个大程序可以被分割并验证各个部分，
+结果可以是组合\emph{内爆}~\cite{PaulEMcKenney2011Verico}。
+一个自然的分割点是在API边界上，例如锁原语的边界。
+一次验证通过可以验证锁实现是正确的，
+额外的验证通过可以验证锁API的正确使用。
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+l-o-o-u+l-o-o-u-C@whole.fcv}
-\caption{Emulating Locking with \tco{cmpxchg_acquire()}}
+\caption{用\tco{cmpxchg_acquire()}模拟锁}
 \label{lst:future:Emulating Locking with cmpxchg}
 \end{listing}
 
@@ -245,7 +206,7 @@ use of the locking APIs.
 \centering
 \begin{tabular}{S[table-format=1.0]S[table-format=1.3]S[table-format=2.3]}
 	\toprule
-	\multicolumn{1}{c}{\# Threads} & \multicolumn{1}{c}{Locking} &
+	\multicolumn{1}{c}{\# 线程数} & \multicolumn{1}{c}{锁} &
 			\multicolumn{1}{c}{\tco{cmpxchg_acquire}} \\
 	\midrule
 	2 & 0.004 &  0.022 \\
@@ -254,39 +215,35 @@ use of the locking APIs.
 	5 & 4.905 &        \\
 	\bottomrule
 \end{tabular}
-\caption{Emulating Locking:
-			    Performance (s)}
+\caption{模拟锁：
+			    性能（秒）}
 \label{tab:future:Emulating Locking: Performance (s)}
 \end{table}
 
-The performance benefits of this approach can be demonstrated using
-the Linux-kernel memory
-model~\cite{Alglave:2018:FSC:3173162.3177156}.
-This model provides \co{spin_lock()} and \co{spin_unlock()}
-primitives, but these primitives can also be emulated using
-\co{cmpxchg_acquire()} and \co{smp_store_release()}, as shown in
-\cref{lst:future:Emulating Locking with cmpxchg}
-(\path{C-SB+l-o-o-u+l-o-o-*u.litmus} and \path{C-SB+l-o-o-u+l-o-o-u*-C.litmus}).
+这种方法的性能优势可以使用Linux内核
+内存模型~\cite{Alglave:2018:FSC:3173162.3177156}来演示。
+该模型提供了\co{spin_lock()}和\co{spin_unlock()}原语，
+但这些原语也可以使用\co{cmpxchg_acquire()}和
+\co{smp_store_release()}来模拟，
+如\cref{lst:future:Emulating Locking with cmpxchg}所示
+（\path{C-SB+l-o-o-u+l-o-o-*u.litmus}和\path{C-SB+l-o-o-u+l-o-o-u*-C.litmus}）。
 \Cref{tab:future:Emulating Locking: Performance (s)}
-compares the performance and scalability of using the model's
-\co{spin_lock()} and \co{spin_unlock()} against emulating these
-primitives as shown in the listing.
-The difference is not insignificant:
-At four processes, the model is more than two orders of magnitude
-faster than emulation!
+比较了使用模型的\co{spin_lock()}和\co{spin_unlock()}
+与列表中所示的模拟这些原语的性能和可扩展性。
+差异是显著的：
+在四个进程时，模型比模拟快两个数量级以上！
 
 \QuickQuiz{
 \begin{fcvref}[ln:future:formalregress:C-SB+l-o-o-u+l-o-o-u-C:whole]
-	Why bother with a separate \co{filter} command on \clnref{filter_} of
-	\cref{lst:future:Emulating Locking with cmpxchg}
-	instead of just adding the condition to the \co{exists} clause?
-	And wouldn't it be simpler to use \co{xchg_acquire()} instead
-	of \co{cmpxchg_acquire()}?
+	为什么要在\cref{lst:future:Emulating Locking with cmpxchg}的
+	\clnref{filter_}上使用单独的\co{filter}命令，
+	而不是直接将条件添加到\co{exists}子句中？
+	而且使用\co{xchg_acquire()}代替\co{cmpxchg_acquire()}
+	不是更简单吗？
 \end{fcvref}
 }\QuickQuizAnswer{
-	The \co{filter} clause causes the \co{herd} tool to discard
-	executions at an earlier stage of processing than does
-	the \co{exists} clause, which provides significant speedups.
+	\co{filter}子句使得\co{herd}工具在比\co{exists}子句
+	更早的处理阶段丢弃执行，这提供了显著的加速。
 
 \begin{table}
 \rowcolors{7}{lightgray}{}
@@ -299,7 +256,7 @@ faster than emulation!
 	& & \multicolumn{2}{c}{\tco{cmpxchg_acquire()}}
 		& \multicolumn{2}{c}{\tco{xchg_acquire()}} \\
 	\cmidrule(l){3-4} \cmidrule(l){5-6}
-	\multicolumn{1}{c}{\#} & \multicolumn{1}{c}{Lock}
+	\multicolumn{1}{c}{\#} & \multicolumn{1}{c}{锁}
 		& \multicolumn{1}{c}{\tco{filter}}
 			& \multicolumn{1}{c}{\tco{exists}}
 				& \multicolumn{1}{c}{\tco{filter}}
@@ -311,255 +268,213 @@ faster than emulation!
 	5 & 4.905 &        &         &        &        \\
 	\bottomrule
 \end{tabular}
-\caption{Emulating Locking:
-			    Performance Comparison (s)}
+\caption{模拟锁：
+			    性能比较（秒）}
 \label{tab:future:Emulating Locking: Performance Comparison (s)}
 \end{table}
 
-	As for \co{xchg_acquire()}, this atomic operation will do a
-	write whether or not lock acquisition succeeds, which means
-	that a model using \co{xchg_acquire()} will have more operations
-	than one using \co{cmpxchg_acquire()}, which won't do a write
-	in the failed-acquisition case.
-	More writes means more combinatorial to explode, as shown in
-	\cref{tab:future:Emulating Locking: Performance Comparison (s)}
-	(\path{C-SB+l-o-o-u+l-o-o-*u.litmus},
-	\path{C-SB+l-o-o-u+l-o-o-u*-C.litmus},
-	\path{C-SB+l-o-o-u+l-o-o-u*-CE.litmus},
-	\path{C-SB+l-o-o-u+l-o-o-u*-X.litmus}, and
-	\path{C-SB+l-o-o-u+l-o-o-u*-XE.litmus}).
-	This table clearly shows that \co{cmpxchg_acquire()}
-	outperforms \co{xchg_acquire()} and that use of the
-	\co{filter} clause outperforms use of the \co{exists} clause.
+	至于\co{xchg_acquire()}，这个原子操作无论锁获取是否成功
+	都会执行写操作，这意味着使用\co{xchg_acquire()}的模型
+	将比使用\co{cmpxchg_acquire()}的模型有更多操作，
+	后者在获取失败的情况下不会执行写操作。
+	更多的写操作意味着更多的组合爆炸，
+	如\cref{tab:future:Emulating Locking: Performance Comparison (s)}所示
+	（\path{C-SB+l-o-o-u+l-o-o-*u.litmus}、
+	\path{C-SB+l-o-o-u+l-o-o-u*-C.litmus}、
+	\path{C-SB+l-o-o-u+l-o-o-u*-CE.litmus}、
+	\path{C-SB+l-o-o-u+l-o-o-u*-X.litmus}和
+	\path{C-SB+l-o-o-u+l-o-o-u*-XE.litmus}）。
+	该表清楚地表明\co{cmpxchg_acquire()}
+	优于\co{xchg_acquire()}，
+	而使用\co{filter}子句优于使用\co{exists}子句。
 }\QuickQuizEnd
 
-It would of course be quite useful for tools to automatically divide
-up large programs, verify the pieces, and then verify the combinations
-of pieces.
-In the meantime, verification of large programs will require significant
-manual intervention.
-This intervention will preferably mediated by scripting, the better to
-reliably carry out repeated verifications on each release, and
-preferably eventually in a manner well-suited for continuous integration.
-And Facebook's Infer tool has taken important steps towards doing just
-that, via compositionality and
-abstraction~\cite{SamBlackshear2018RacerD,DinoDistefano2019FBstaticAnalysis}.
+如果工具能够自动将大程序分割、验证各个部分，
+然后验证部分的组合，那当然是非常有用的。
+在此之前，大程序的验证将需要大量的人工干预。
+这种干预最好通过脚本来中介，
+以便更可靠地在每个版本发布时进行重复验证，
+最好最终以适合持续集成的方式进行。
+而Facebook的Infer工具已经朝着这个方向迈出了重要步伐，
+通过组合性和抽象化~\cite{SamBlackshear2018RacerD,DinoDistefano2019FBstaticAnalysis}。
 
-In any case, we can expect formal-verification capabilities to continue
-to increase over time, and any such increases will in turn increase
-the applicability of formal verification to regression testing.
+无论如何，我们可以期待形式化验证能力随时间继续增强，
+任何这样的增强都将反过来提高形式化验证对回归测试的适用性。
 
-\subsection{Locate Bugs}
+\subsection{定位Bug}
 \label{sec:future:Locate Bugs}
 
-Any software artifact of any size contains bugs.
-Therefore, a formal-verification tool that reports only the
-presence or absence of bugs is not particularly useful.
-What is needed is a tool that gives at least \emph{some} information
-as to where the bug is located and the nature of that bug.
+任何有一定规模的软件工件都包含bug。
+因此，一个只报告bug存在与否的形式化验证工具并不特别有用。
+需要的是一个至少提供\emph{一些}关于bug位置和性质信息的工具。
 
-The \co{cbmc} output includes a traceback mapping back to the source
-code, similar to Promela/\co{spin}'s, as does Nidhugg.
-Of course, these tracebacks can be quite long, and analyzing them
-can be quite tedious.
-However, doing so is usually quite a bit faster
-and more pleasant than locating bugs the old-fashioned way.
+\co{cbmc}的输出包含映射回源代码的回溯信息，
+类似于Promela/\co{spin}的回溯，Nidhugg也是如此。
+当然，这些回溯可能相当长，分析它们可能相当乏味。
+然而，这样做通常比用传统方式定位bug要快得多、愉快得多。
 
-In addition, one of the simplest tests of formal-verification tools is
-bug injection.
-After all, not only could any of us write
-\co{printf("VERIFIED\\n")}, but the plain fact is that
-developers of formal-verification tools are just as bug-prone as
-are the rest of us.
-Therefore, formal-verification tools that just proclaim that a
-bug exists are fundamentally less trustworthy because it is
-more difficult to verify them on real-world code.
+此外，形式化验证工具的最简单测试之一是bug注入。
+毕竟，不仅我们中的任何人都可以写
+\co{printf("VERIFIED\\n")}，而且事实是
+形式化验证工具的开发人员和我们其他人一样容易犯错。
+因此，仅仅宣称存在bug的形式化验证工具从根本上来说
+不太值得信赖，因为更难在实际代码上对其进行验证。
 
-All that aside, people writing formal-verification tools are
-permitted to leverage existing tools.
-For example, a tool designed to determine only the presence
-or absence of a serious but rare bug might leverage bisection.
-If an old version of the program under test did not contain the bug,
-but a new version did, then bisection could be used to quickly
-locate the commit that inserted the bug, which might be
-sufficient information to find and fix the bug.
-Of course, this sort of strategy would not work well for common
-bugs because in this case bisection would fail due to all commits
-having at least one instance of the common bug.
+撇开这些不谈，编写形式化验证工具的人可以利用现有工具。
+例如，一个旨在仅确定严重但罕见的bug是否存在的工具
+可以利用二分法。
+如果被测程序的旧版本不包含该bug，
+但新版本包含，那么可以使用二分法快速定位引入bug的提交，
+这可能是找到并修复bug的足够信息。
+当然，这种策略对于常见bug不太有效，
+因为在这种情况下二分法会失败，
+因为所有提交都至少有一个常见bug的实例。
 
-Therefore, the execution traces provided
-by many formal-verification tools will continue to be valuable,
-particularly for complex and difficult-to-understand bugs.
-In addition, recent work applies \emph{incorrectness-logic}
-formalism reminiscent of the traditional Hoare logic used for
-full-up correctness proofs, but with the sole purpose of finding
-bugs~\cite{PeterWOHearn2019incorrectnessLogic}.
+因此，许多形式化验证工具提供的执行跟踪将继续是有价值的，
+特别是对于复杂且难以理解的bug。
+此外，最近的工作应用了\emph{不正确性逻辑}形式化方法，
+类似于用于完整正确性证明的传统Hoare逻辑，
+但其唯一目的是查找bug~\cite{PeterWOHearn2019incorrectnessLogic}。
 
-\subsection{Minimal Scaffolding}
+\subsection{最小脚手架}
 \label{sec:future:Minimal Scaffolding}
 
-In the old days, formal-verification researchers demanded a full
-specification against which the software would be verified.
-Unfortunately, a mathematically rigorous specification might well
-be larger than the actual code, and each line of specification
-is just as likely to contain bugs as is each line of code.
-A formal verification effort proving that the code faithfully implemented
-the specification would be a proof of bug-for-bug compatibility between
-the two, which might not be all that helpful.
+在过去，形式化验证研究人员要求提供完整的规范，
+软件将根据该规范进行验证。
+不幸的是，一个数学上严格的规范可能比实际代码还要大，
+规范的每一行与代码的每一行一样可能包含bug。
+一项证明代码忠实实现了规范的形式化验证工作
+将是两者之间bug对bug兼容性的证明，
+这可能不太有帮助。
 
-Worse yet, the requirements for a number of software artifacts,
-including Linux-kernel RCU, are empirical in
-nature~\cite{PaulEMcKenney2015RCUreqts1,PaulEMcKenney2015RCUreqts2,PaulEMcKenney2015RCUreqts3}.\footnote{
-	Or, in formal-verification parlance, Linux-kernel RCU has an
-	\emph{incomplete specification}.}
-For this common type of software, a complete specification is a
-polite fiction.
-Nor are complete specifications any less fictional for hardware,
-as was made clear by the late-2017 Meltdown and Spectre side-channel
-attacks~\cite{JannHorn2018MeltdownSpectre}.
+更糟糕的是，许多软件工件的需求本质上是经验性的，
+包括Linux内核的RCU~\cite{PaulEMcKenney2015RCUreqts1,PaulEMcKenney2015RCUreqts2,PaulEMcKenney2015RCUreqts3}。\footnote{
+	或者，用形式化验证的术语来说，Linux内核的RCU具有
+	\emph{不完整的规范}。}
+对于这种常见类型的软件，完整的规范是一种礼貌的虚构。
+完整的规范对于硬件同样是虚构的，
+这一点在2017年末的Meltdown和Spectre侧信道攻击
+中得到了充分证明~\cite{JannHorn2018MeltdownSpectre}。
 
-This situation might cause one to give up all hope of formal verification
-of real-world software and hardware artifacts, but it turns out that there is
-quite a bit that can be done.
-For example, design and coding rules can act as a partial specification,
-as can assertions contained in the code.
-And in fact formal-verification tools such as \co{cbmc} and Nidhugg
-both check for assertions that can be triggered, implicitly treating
-these assertions as part of the specification.
-However, the assertions are also part of the code, which makes it less
-likely that they will become obsolete, especially if the code is
-also subjected to stress tests.\footnote{
-	And you \emph{do} stress-test your code, don't you?}
-The \co{cbmc} tool also checks for array-out-of-bound references,
-thus implicitly adding them to the specification.
-The aforementioned incorrectness logic can also be thought of as using
-an implicit bugs-not-present
-specification~\cite{PeterWOHearn2019incorrectnessLogic}.
+这种情况可能会让人对实际软件和硬件工件的形式化验证
+完全丧失希望，但事实证明可以做很多事情。
+例如，设计和编码规则可以作为部分规范，
+代码中包含的断言也是如此。
+事实上，\co{cbmc}和Nidhugg等形式化验证工具都会检查
+可以触发的断言，隐式地将这些断言作为规范的一部分。
+然而，断言也是代码的一部分，这使得它们不太可能变得过时，
+特别是如果代码也经过了压力测试。\footnote{
+	你\emph{确实}对你的代码进行压力测试，对吧？}
+\co{cbmc}工具还检查数组越界引用，
+从而隐式地将其添加到规范中。
+前述的不正确性逻辑也可以被认为使用了一个隐式的
+无bug存在的规范~\cite{PeterWOHearn2019incorrectnessLogic}。
 
-This implicit-specification approach makes quite a bit of sense, particularly
-if you look at formal verification not as a full proof of correctness,
-but rather an alternative form of validation with a different set of
-strengths and weaknesses than the common case, that is, testing.
-From this viewpoint, software will always have bugs, and therefore any
-tool of any kind that helps to find those bugs is a very good thing
-indeed.
+这种隐式规范方法很有道理，特别是如果你将形式化验证
+不是视为完整的正确性证明，
+而是视为一种具有与常见情况（即测试）不同优势和劣势的
+替代验证形式。
+从这个角度来看，软件总会有bug，因此任何有助于
+找到这些bug的任何种类的工具都是非常好的。
 
-\subsection{Relevant Bugs}
+\subsection{相关的Bug}
 \label{sec:future:Relevant Bugs}
 
-Finding bugs---and fixing them---is of course the whole point of any
-type of validation effort.
-Clearly, false positives are to be avoided.
-But even in the absence of false positives, there are bugs and there are bugs.
+找到bug并修复它们当然是任何类型验证工作的全部意义。
+显然，应避免误报。
+但即使没有误报，bug和bug也是不同的。
 
-For example, suppose that a software artifact had exactly 100 remaining
-bugs, each of which manifested on average once every million years
-of runtime.
-Suppose further that an omniscient formal-verification tool located
-all 100 bugs, which the developers duly fixed.
-What happens to the reliability of this software artifact?
+例如，假设一个软件工件恰好有100个剩余bug，
+每个bug平均每一百万年的运行时间才会出现一次。
+进一步假设一个全知的形式化验证工具定位了所有100个bug，
+开发人员勤勉地修复了它们。
+这个软件工件的可靠性会发生什么变化？
 
-The answer is that the reliability \emph{decreases}.
+答案是可靠性\emph{降低}了。
 
-To see this, keep in mind that historical experience indicates that
-about 7\pct\ of fixes introduce a new bug~\cite{RexBlack2012SQA}.
-Therefore, fixing the 100 bugs, which had a combined mean time to failure
-(MTBF) of about 10,000 years, will introduce seven more bugs.
-Historical statistics indicate that each new bug will have an MTBF
-much less than 70,000 years.
-This in turn suggests that the combined MTBF of these seven new bugs
-will most likely be much less than 10,000 years, which in turn means
-that the well-intentioned fixing of the original 100 bugs actually
-decreased the reliability of the overall software.
+要理解这一点，请记住历史经验表明大约7\pct{}的修复
+会引入新的bug~\cite{RexBlack2012SQA}。
+因此，修复这100个bug（其组合平均故障间隔时间（MTBF）约为10,000年）
+将引入另外七个bug。
+历史统计表明每个新bug的MTBF远小于70,000年。
+这反过来表明这七个新bug的组合MTBF
+很可能远小于10,000年，
+这又意味着善意修复原来100个bug的行为实际上降低了
+整体软件的可靠性。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How do we know that the MTBFs of known bugs is a good estimate
-	of the MTBFs of bugs that have not yet been located?
+	我们怎么知道已知bug的MTBF是对尚未发现的bug的
+	MTBF的良好估计？
 }\QuickQuizAnswerB{
-	We don't, but it does not matter.
+	我们不知道，但这并不重要。
 
-	To see this, note that the 7\pct\ figure only applies to injected
-	bugs that were subsequently located:
-	It necessarily ignores any injected bugs that were never found.
-	Therefore, the MTBF statistics of known bugs is likely to be
-	a good approximation of that of the injected bugs that are
-	subsequently located.
+	要理解这一点，请注意7\pct{}的数字仅适用于
+	随后被发现的注入bug：
+	它必然忽略了任何从未被发现的注入bug。
+	因此，已知bug的MTBF统计可能是随后被发现的注入bug的
+	良好近似。
 
-	A key point in this whole section is that we should be more
-	concerned about bugs that inconvenience users than about
-	other bugs that never actually manifest.
-	This of course is \emph{not} to say that we should completely
-	ignore bugs that have not yet inconvenienced users, just that
-	we should properly prioritize our efforts so as to fix the
-	most important and urgent bugs first.
+	本节的一个关键点是，我们应该更关心那些给用户带来不便的bug，
+	而不是那些从未实际出现的其他bug。
+	当然，这\emph{并非}说我们应该完全忽略尚未给用户带来
+	不便的bug，只是我们应该适当地确定优先级，
+	以便首先修复最重要和最紧急的bug。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But the formal-verification tools should immediately find all the
-	bugs introduced by the fixes, so why is this a problem?
+	但形式化验证工具应该立即找到修复引入的所有bug，
+	那么这为什么是个问题？
 }\QuickQuizAnswerE{
-	It is a problem because real-world formal-verification tools
-	(as opposed to those that exist only in the imaginations of
-	the more vociferous proponents of formal verification) are
-	not omniscient, and thus are only able to locate certain types
-	of bugs.
-	For but one example, formal-verification tools are unlikely to
-	spot a bug corresponding to an omitted assertion or, equivalently,
-	a bug corresponding to an undiscovered portion of the specification.
+	这是个问题，因为现实世界的形式化验证工具
+	（与那些仅存在于形式化验证更激进倡导者的想象中的工具不同）
+	不是全知的，因此只能定位某些类型的bug。
+	仅举一个例子，形式化验证工具不太可能发现
+	与遗漏断言对应的bug，或者等价地，
+	与规范中未发现部分对应的bug。
 }\QuickQuizEndE
 }
 
-Worse yet, imagine another software artifact with one bug that fails
-once every day on average and 99 more that fail every million years
-each.
-Suppose that a formal-verification tool located the 99 million-year
-bugs, but failed to find the one-day bug.
-Fixing the 99 bugs located will take time and effort, decrease
-reliability, and do nothing at all about the pressing each-day failure
-that is likely causing embarrassment and perhaps much worse besides.
+更糟糕的是，想象另一个软件工件有一个bug平均每天失败一次，
+还有99个每百万年失败一次的bug。
+假设一个形式化验证工具定位了99个百万年的bug，
+但未能找到那个一天一次的bug。
+修复定位到的99个bug将花费时间和精力，降低可靠性，
+而对那个可能正在造成尴尬甚至更糟糕后果的每天失败
+毫无帮助。
 
-Therefore, it would be best to have a validation tool that
-preferentially located the most troublesome bugs.
-However, as noted in
-\cref{sec:future:Locate Bugs},
-it is permissible to leverage additional tools.
-One powerful tool is none other than plain old testing.
-Given knowledge of the bug, it should be possible to construct
-specific tests for it, possibly also using some of the techniques
-described in
-\cref{sec:debugging:Hunting Heisenbugs}
-to increase the probability of the bug manifesting.
-These techniques should allow calculation of a rough estimate of the
-bug's raw failure rate, which could in turn be used to prioritize
-bug-fix efforts.
+因此，最好有一个能优先定位最麻烦bug的验证工具。
+然而，如\cref{sec:future:Locate Bugs}中所述，
+可以利用额外的工具。
+一个强大的工具就是普通的测试。
+了解了bug之后，应该可以为其构建特定的测试，
+也可能使用\cref{sec:debugging:Hunting Heisenbugs}中描述的
+一些技术来增加bug出现的概率。
+这些技术应该允许计算bug原始故障率的粗略估计，
+这反过来可以用于确定bug修复工作的优先级。
 
 \QuickQuiz{
-	But many formal-verification tools can only find one bug at
-	a time, so that each bug must be fixed before the tool can
-	locate the next.
-	How can bug-fix efforts be prioritized given such a tool?
+	但许多形式化验证工具一次只能找到一个bug，
+	因此必须在工具能定位下一个bug之前修复每个bug。
+	在这样的工具下如何确定bug修复工作的优先级？
 }\QuickQuizAnswer{
-	One approach is to provide a simple fix that might not be
-	suitable for a production environment, but which allows
-	the tool to locate the next bug.
-	Another approach is to restrict configuration or inputs
-	so that the bugs located thus far cannot occur.
-	There are a number of similar approaches, but the common theme
-	is that fixing the bug from the tool's viewpoint is usually much
-	easier than constructing and validating a production-quality fix,
-	and the key point is to prioritize the larger efforts required
-	to construct and validate the production-quality fixes.
+	一种方法是提供一个可能不适合生产环境的简单修复，
+	但允许工具定位下一个bug。
+	另一种方法是限制配置或输入，
+	使得到目前为止定位的bug不会发生。
+	有许多类似的方法，但共同的主题是
+	从工具的角度修复bug通常比构建和验证生产级别修复
+	容易得多，关键是要优先考虑构建和验证
+	生产级别修复所需的更大工作量。
 }\QuickQuizEnd
 
-There has been some recent formal-verification work that prioritizes
-executions having fewer preemptions, under that reasonable assumption
-that smaller numbers of preemptions are more likely.
+最近有一些形式化验证工作优先考虑具有较少抢占的执行，
+基于较少的抢占次数更可能发生的合理假设。
 
-Identifying relevant bugs might sound like too much to ask, but it is what
-is really required if we are to actually increase software reliability.
+识别相关bug可能听起来要求太高了，
+但如果我们要真正提高软件可靠性，这正是所需要的。
 
-\subsection{Formal Regression Scorecard}
+\subsection{形式化回归记分卡}
 \label{sec:future:Formal Regression Scorecard}
 
 \begin{table*}
@@ -572,42 +487,42 @@ is really required if we are to actually increase software reliability.
 	\toprule
 	& & Promela & & PPCMEM & & \tco{herd} & & \tco{cbmc} & & Nidhugg \\
 	\midrule
-	(1) Automated &
+	(1) 自动化 &
 		& \cellcolor{red!50} &
 			& \cellcolor{orange!50} &
 				& \cellcolor{orange!50} &
 					& \cellcolor{blue!50} &
 						& \cellcolor{blue!50} \\
 	\addlinespace[3pt]
-	(2) Environment &
+	(2) 环境 &
 		& \cellcolor{red!50} (MM) &
 			& \cellcolor{green!50} &
 				& \cellcolor{blue!50} &
 					& \cellcolor{yellow!50} (MM) &
 						& \cellcolor{orange!50} (MM) \\
 	\addlinespace[3pt]
-	(3) Overhead &
+	(3) 开销 &
 		& \cellcolor{yellow!50} &
 			& \cellcolor{red!50} &
 				& \cellcolor{yellow!50} &
 					& \cellcolor{yellow!50} (SAT) &
 						& \cellcolor{green!50} \\
 	\addlinespace[3pt]
-	(4) Locate Bugs &
+	(4) 定位Bug &
 		& \cellcolor{yellow!50} &
 			& \cellcolor{yellow!50} &
 				& \cellcolor{yellow!50} &
 					& \cellcolor{green!50} &
 						& \cellcolor{green!50} \\
 	\addlinespace[3pt]
-	(5) Minimal Scaffolding &
+	(5) 最小脚手架 &
 		& \cellcolor{green!50} &
 			& \cellcolor{yellow!50} &
 				& \cellcolor{yellow!50} &
 					& \cellcolor{blue!50} &
 						& \cellcolor{blue!50} \\
 	\addlinespace[3pt]
-	(6) Relevant Bugs &
+	(6) 相关Bug &
 		& \cellcolor{yellow!50} ??? &
 			& \cellcolor{yellow!50} ??? &
 				& \cellcolor{yellow!50} ??? &
@@ -615,121 +530,113 @@ is really required if we are to actually increase software reliability.
 						& \cellcolor{yellow!50} ??? \\
 	\bottomrule
 \end{tabular}
-\caption{Formal Regression Scorecard}
+\caption{形式化回归记分卡}
 \label{tab:future:Formal Regression Scorecard}
 \end{table*}
 
 \Cref{tab:future:Formal Regression Scorecard}
-shows a rough-and-ready scorecard for the formal-verification tools
-covered in this chapter.
-Shorter wavelengths are better than longer wavelengths.
+显示了本章涵盖的形式化验证工具的粗略记分卡。
+波长越短越好。
 
-Promela requires hand translation and supports only
-\IXalth{sequential consistency}{sequential}{memory consistency},
-so its first two cells are red.
-It has reasonable overhead (for formal verification, anyway)
-and provides a traceback, so its next two cells are yellow.
-Despite requiring hand translation, Promela handles assertions
-in a natural way, so its fifth cell is green.
+Promela需要手动翻译且仅支持
+\IXalth{sequential consistency}{sequential}{memory consistency}，
+因此其前两个单元格为红色。
+它有合理的开销（就形式化验证而言）
+且提供回溯信息，因此其接下来两个单元格为黄色。
+尽管需要手动翻译，Promela以自然的方式处理断言，
+因此其第五个单元格为绿色。
 
-PPCMEM usually requires hand translation due to the small size of litmus
-tests that it supports, so its first cell is orange.
-It handles several \IX{memory model}s, so its second cell is green.
-Its overhead is quite high, so its third cell is red.
-It provides a graphical display of relations among operations, which
-is not as helpful as a traceback, but is still quite useful, so its
-fourth cell is yellow.
-It requires constructing an \co{exists} clause and cannot take
-intra-process assertions, so its fifth cell is also yellow.
+PPCMEM通常需要手动翻译，因为它支持的litmus测试规模很小，
+因此其第一个单元格为橙色。
+它处理多种\IX{memory model}，因此其第二个单元格为绿色。
+它的开销相当高，因此其第三个单元格为红色。
+它提供操作之间关系的图形显示，
+虽不如回溯信息有帮助，但仍然相当有用，
+因此其第四个单元格为黄色。
+它需要构造\co{exists}子句且不能进行进程内断言，
+因此其第五个单元格也是黄色。
 
-The \co{herd} tool has size restrictions similar to those of PPCMEM,
-so \co{herd}'s first cell is also orange.
-It supports a wide variety of memory models, so its second cell is blue.
-It has reasonable overhead, so its third cell is yellow.
-Its bug-location and assertion capabilities are quite similar to those
-of PPCMEM, so \co{herd} also gets yellow for the next two cells.
+\co{herd}工具具有与PPCMEM类似的大小限制，
+因此\co{herd}的第一个单元格也是橙色。
+它支持多种内存模型，因此其第二个单元格为蓝色。
+它有合理的开销，因此其第三个单元格为黄色。
+它的bug定位和断言能力与PPCMEM非常相似，
+因此\co{herd}接下来两个单元格也是黄色。
 
-The \co{cbmc} tool inputs C code directly, so its first cell is blue.
-It supports a few memory models, so its second cell is yellow.
-It has reasonable overhead, so its third cell is also yellow, however,
-perhaps SAT-solver performance will continue improving.
-It provides a traceback, so its fourth cell is green.
-It takes assertions directly from the C code, so its fifth cell is blue.
+\co{cbmc}工具直接输入C代码，因此其第一个单元格为蓝色。
+它支持几种内存模型，因此其第二个单元格为黄色。
+它有合理的开销，因此其第三个单元格也是黄色，
+不过也许SAT求解器的性能将继续改善。
+它提供回溯信息，因此其第四个单元格为绿色。
+它直接从C代码中获取断言，因此其第五个单元格为蓝色。
 
-Nidhugg also inputs C code directly, so its first cell is also blue.
-It supports only a couple of memory models, so its second cell is orange.
-Its overhead is quite low (for formal-verification), so its
-third cell is green.
-It provides a traceback, so its fourth cell is green.
-It takes assertions directly from the C code, so its fifth cell is blue.
+Nidhugg也直接输入C代码，因此其第一个单元格也是蓝色。
+它只支持几种内存模型，因此其第二个单元格为橙色。
+它的开销相当低（就形式化验证而言），
+因此其第三个单元格为绿色。
+它提供回溯信息，因此其第四个单元格为绿色。
+它直接从C代码中获取断言，因此其第五个单元格为蓝色。
 
-So what about the sixth and final row?
-It is too early to tell how any of the tools do at finding the right bugs,
-so they are all yellow with question marks.
+那么第六行也就是最后一行呢？
+现在判断这些工具在找到正确bug方面表现如何还为时过早，
+因此它们都是带问号的黄色。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How would testing stack up in the scorecard shown in
-	\cref{tab:future:Formal Regression Scorecard}?
+	在\cref{tab:future:Formal Regression Scorecard}
+	所示的记分卡中，测试会如何表现？
 }\QuickQuizAnswerB{
-	It would be blue all the way down, with the possible
-	exception of the third row (overhead) which might well
-	be marked down for testing's difficulty finding
-	improbable bugs.
+	它将一路蓝色到底，
+	可能的例外是第三行（开销），
+	可能会因为测试难以找到不太可能出现的bug而被扣分。
 
-	On the other hand, improbable bugs are often also
-	irrelevant bugs, so your mileage may vary.
+	另一方面，不太可能出现的bug通常也是不相关的bug，
+	因此你的结果可能会有所不同。
 
-	Much depends on the size of your installed base.
-	If your code is only ever going to run on (say) 10,000
-	systems, Murphy can actually be a really nice guy.
-	Everything that can go wrong, will.
-	Eventually.
-	Perhaps in geologic time.
+	很大程度上取决于你的安装基础的大小。
+	如果你的代码只会在（比如说）10,000个系统上运行，
+	Murphy实际上可以是一个非常好的人。
+	所有可能出错的事情都会出错。
+	最终。
+	也许在地质时间尺度上。
 
-	But if your code is running on 20~billion systems,
-	like the Linux kernel was said to be by late 2017,
-	Murphy can be a real jerk!
-	Everything that can go wrong, will, and it can go wrong
-	really quickly!!!
+	但如果你的代码运行在200亿个系统上，
+	就像据说2017年底Linux内核那样，
+	Murphy可以是一个真正的混蛋！
+	所有可能出错的事情都会出错，
+	而且可能出错得非常快！！！
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But aren't there a great many more formal-verification systems
-	than are shown in
-	\cref{tab:future:Formal Regression Scorecard}?
+	难道不是有比\cref{tab:future:Formal Regression Scorecard}
+	中显示的更多的形式化验证系统吗？
 }\QuickQuizAnswerE{
-	Indeed there are!
-	This table focuses on those that Paul has used, but others are
-	proving to be useful.
-	Formal verification has been heavily used in the seL4
-	project~\cite{ThomasSewell2013L4binaryVerification},
-	and its tools can now handle modest levels of concurrency.
-	More recently, Catalin Marinas used Lamport's
-	TLA tool~\cite{Lamport:2002:SST:579617} to locate some
-	forward-progress bugs in the Linux kernel's queued spinlock
-	implementation.
-	Will Deacon fixed these bugs~\cite{WillDeacon2018qspinlock},
-	and Catalin verified Will's
-	fixes~\cite{CatalinMarinas2018qspinlockTLA}.
+	确实如此！
+	该表关注的是Paul使用过的那些，但其他一些也在证明其有用性。
+	形式化验证在seL4项目中得到了大量
+	使用~\cite{ThomasSewell2013L4binaryVerification}，
+	其工具现在可以处理适度水平的并发。
+	最近，Catalin Marinas使用Lamport的
+	TLA工具~\cite{Lamport:2002:SST:579617}定位了Linux内核
+	排队自旋锁实现中的一些前向进展bug。
+	Will Deacon修复了这些bug~\cite{WillDeacon2018qspinlock}，
+	而Catalin验证了Will的
+	修复~\cite{CatalinMarinas2018qspinlockTLA}。
 
-	Lighter-weight formal verification tools have been used heavily
-	in production~\cite{JamesRLarus2004RightingSoftware,AlBessey2010BillionLoCLater,ByronCook2018FormalAmazon,CaitlinSadowski2018staticAnalysisGoogle,DinoDistefano2019FBstaticAnalysis}.
+	较轻量级的形式化验证工具已在生产中得到大量
+	使用~\cite{JamesRLarus2004RightingSoftware,AlBessey2010BillionLoCLater,ByronCook2018FormalAmazon,CaitlinSadowski2018staticAnalysisGoogle,DinoDistefano2019FBstaticAnalysis}。
 }\QuickQuizEndE
 }
 
-Once again, please note that this table rates these tools for use in
-regression testing.
-Just because many of them are a poor fit for regression testing does
-not at all mean that they are useless, in fact,
-many of them have proven their worth many times over.\footnote{
-	For but one example, Promela was used to verify the file system
-	of none other than the Curiosity Rover.
-	Was \emph{your} formal verification tool used on software that
-	currently runs on Mars???}
-Just not for regression testing.
+再次请注意，该表对这些工具在回归测试中的使用进行评分。
+仅仅因为它们中的许多不适合回归测试，
+并不意味着它们是无用的，事实上，
+它们中的许多已经多次证明了自己的价值。\footnote{
+	仅举一个例子，Promela被用于验证好奇号火星车的文件系统。
+	\emph{你的}形式化验证工具是否被用于目前在火星上运行的软件？？？}
+只是不适合回归测试。
 
-However, this might well change.
-After all, formal verification tools made impressive strides in the 2010s.
-If that progress continues, formal verification might well become an
-indispensable tool in the parallel programmer's validation toolbox.
+然而，这可能会改变。
+毕竟，形式化验证工具在2010年代取得了令人印象深刻的进步。
+如果这种进步继续下去，形式化验证可能会成为
+并行程序员验证工具箱中不可或缺的工具。

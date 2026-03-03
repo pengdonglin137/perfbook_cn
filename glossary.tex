@@ -2,848 +2,699 @@
 % mainfile: perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\chapter{Glossary}
+\chapter{术语表}
 %
-\Epigraph{Dictionaries are inherently circular in nature.}
+\Epigraph{词典本质上是循环定义的。}
 	 {\emph{Self Reference in word definitions},
 	        David~Levary~et~al.}
 
 \begin{description}
 \item[\IXG{Acquire Load}:]
-	A read from memory that has acquire semantics.
-	Normal use cases pair an acquire load with a release store,
-	in which case if the load returns the value stored, then all
-	code executed by the loading CPU after that acquire load will
-	see the effects of all memory-reference instructions executed
-	by the storing CPU prior to that release store.
-	Acquiring a lock provides similar memory-ordering semantics,
-	hence the ``acquire'' in ``acquire load''.
-	(See also ``memory barrier'' and ``release store''.)
+	具有获取语义的内存读取操作。
+	通常的用法是将获取加载与释放存储配对使用，
+	在这种情况下，如果加载返回了所存储的值，则执行加载的
+	CPU 在该获取加载之后执行的所有代码都将看到执行存储的
+	CPU 在该释放存储之前执行的所有内存引用指令的效果。
+	获取锁提供了类似的内存排序语义，
+	因此"获取加载"中有"获取"二字。
+	（另见"memory barrier"和"release store"。）
 \item[\IXGh{Address}{dependency}:]
-	The value returned by a load instruction is used to compute
-	a later memory-reference instruction's address.
-	Address dependencies provide weak memory ordering as described
-	in \cref{sec:memorder:Address Dependencies}.
-	However, because compilers do not understand them, address
-	dependencies are fragile, so please pay close attention to the
-	potential difficulties discussed in
-	\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
+	加载指令返回的值被用于计算后续内存引用指令的地址。
+	地址依赖提供了弱内存排序，如
+	\cref{sec:memorder:Address Dependencies}
+	中所述。
+	然而，由于编译器不理解地址依赖，它们是脆弱的，
+	因此请密切关注
+	\cref{sec:memorder:Address- and Data-Dependency Difficulties}
+	中讨论的潜在困难。
 \item[\IXGr{Amdahl's Law}:]
-	If sufficient numbers of CPUs are used to run a job that has both
-	a sequential portion and a concurrent portion, performance and
-	scalability will be limited by the overhead of the sequential
-	portion.
+	如果使用足够多的 CPU 来运行一个既有串行部分又有并发部分的任务，
+	那么性能和可扩展性将受到串行部分开销的限制。
 \item[\IXGalt{Associativity}{Cache associativity}:]
-	The number of cache lines that can be held simultaneously in
-	a given cache, when all of these cache lines hash identically
-	in that cache.
-	A cache that could hold four cache lines for each possible
-	hash value would be termed a ``four-way set-associative'' cache,
-	while a cache that could hold only one cache line for each
-	possible hash value would be termed a ``direct-mapped'' cache.
-	A cache whose associativity was equal to its capacity would
-	be termed a ``fully associative'' cache.
-	Fully associative caches have the advantage of eliminating
-	associativity misses, but, due to hardware limitations,
-	fully associative caches are normally quite limited in size.
-	The associativity of the large caches found on modern microprocessors
-	typically range from two-way to eight-way.
+	在一个给定的缓存中，当所有缓存行在该缓存中哈希值相同时，
+	能够同时容纳的缓存行数量。
+	一个每个可能的哈希值能容纳四个缓存行的缓存被称为
+	"四路组相联"缓存，
+	而一个每个可能的哈希值只能容纳一个缓存行的缓存被称为
+	"直接映射"缓存。
+	一个相联度等于其容量的缓存被称为"全相联"缓存。
+	全相联缓存的优点是消除了相联度缺失，
+	但由于硬件限制，全相联缓存通常容量非常有限。
+	现代微处理器上大型缓存的相联度通常在二路到八路之间。
 \item[\IXGalth{Associativity Miss}{associativity}{cache miss}:]
-	A cache miss incurred because the corresponding CPU has recently
-	accessed more data hashing to a given set of the cache than will
-	fit in that set.
-	Fully associative caches are not subject to associativity misses
-	(or, equivalently, in fully associative caches, associativity
-	and capacity misses are identical).
+	由于相应的 CPU 最近访问了过多哈希到缓存某个组的数据，
+	超出了该组的容量而导致的缓存缺失。
+	全相联缓存不会发生相联度缺失
+	（或者等价地说，在全相联缓存中，
+	相联度缺失和容量缺失是同一回事）。
 \item[\IXG{Atomic}:]
-	An operation is considered ``atomic'' if it is not possible to
-	observe any intermediate state.
-	For example, on most CPUs, a store to a properly aligned pointer
-	is atomic, because other CPUs will see either the old value or
-	the new value, but are guaranteed not to see some mixed value
-	containing some pieces of the new and old values.
+	如果一个操作不可能被观察到任何中间状态，
+	则认为该操作是"原子的"。
+	例如，在大多数 CPU 上，对正确对齐的指针的存储是原子的，
+	因为其他 CPU 要么看到旧值，要么看到新值，
+	但保证不会看到包含新旧值混合片段的值。
 \item[\IXG{Atomic Read-Modify-Write Operation}:]
-	An atomic operation that both reads and writes memory is
-	considered an atomic read-modify-write operation, or atomic RMW
-	operation for short.
-	Although the value written usually depends on the value read,
-	\co{atomic_xchg()} is the exception that proves this rule.
+	同时读写内存的原子操作被称为原子读-改-写操作，
+	简称原子 RMW 操作。
+	虽然写入的值通常取决于读取的值，
+	但 \co{atomic_xchg()} 是证明这一规则的例外。
 \item[\IXGh{Bounded}{Wait Free}:]
-	A forward-progress guarantee in which every thread makes
-	progress within a specific finite period of time, the specific
-	time being the bound.
+	一种前进保证，其中每个线程都在特定的有限时间段内取得进展，
+	该特定时间即为界限。
 \item[\IXGh{Bounded Population-Oblivious}{Wait Free}:]
-	A forward-progress guarantee in which every thread makes
-	progress within a specific finite period of time, the specific
-	time being the bound, where this bound is independent of the
-	number of threads.
+	一种前进保证，其中每个线程都在特定的有限时间段内取得进展，
+	该特定时间即为界限，且此界限与线程数量无关。
 \item[\IXG{Cache}:]
-	In modern computer systems, CPUs have caches in which to hold
-	frequently used data.
-	These caches can be thought of as hardware hash tables with very
-	simple hash functions,
-	but in which each hash bucket (termed a ``set'' by hardware types)
-	can hold only a limited number of data items.
-	The number of data items that can be held by each of a cache's hash
-	buckets is termed the cache's ``associativity''.
-	These data items are normally called ``cache lines'', which
-	can be thought of a fixed-length blocks of data that circulate
-	among the CPUs and memory.
+	在现代计算机系统中，CPU 拥有用于保存常用数据的缓存。
+	这些缓存可以被看作是具有非常简单哈希函数的硬件哈希表，
+	但其中每个哈希桶（硬件术语称为"组"）
+	只能容纳有限数量的数据项。
+	每个缓存哈希桶能容纳的数据项数量被称为缓存的"相联度"。
+	这些数据项通常被称为"缓存行"，
+	可以将其视为在 CPU 和内存之间流通的固定长度数据块。
 \item[\IXG{Cache Coherence}:]
-	A property of most modern SMP machines where all CPUs will
-	observe a sequence of values for a given variable that is
-	consistent with at least one global order of values for
-	that variable.
-	Cache coherence also guarantees that at the end of a group
-	of stores to a given variable, all CPUs will agree
-	on the final value for that variable.
-	Note that cache coherence applies only to the series of values
-	taken on by a single variable.
-	In contrast, the memory consistency model for a given machine
-	describes the order in which loads and stores to groups of
-	variables will appear to occur.
-	See \cref{sec:memorder:Cache Coherence}
-	for more information.
+	大多数现代 SMP 机器的一个特性，即所有 CPU 将观察到
+	给定变量的一系列值，该序列与该变量值的至少一个全局顺序一致。
+	缓存一致性还保证在对给定变量的一组存储操作结束时，
+	所有 CPU 将就该变量的最终值达成一致。
+	请注意，缓存一致性仅适用于单个变量所经历的一系列值。
+	相比之下，给定机器的内存一致性模型描述了
+	对多组变量的加载和存储将以何种顺序出现。
+	更多信息请参见 \cref{sec:memorder:Cache Coherence}。
 \item[\IXG{Cache-Coherence Protocol}:]
-	A communications protocol, normally implemented in hardware,
-	that enforces memory consistency and ordering, preventing
-	different CPUs from seeing inconsistent views of data held
-	in their caches.
+	一种通常在硬件中实现的通信协议，
+	用于强制执行内存一致性和排序，
+	防止不同的 CPU 看到其缓存中数据的不一致视图。
 \item[\IXG{Cache Geometry}:]
-	The size and associativity of a cache is termed its geometry.
-	Each cache may be thought of as a two-dimensional array,
-	with rows of cache lines (``sets'') that have the same hash
-	value, and columns of cache lines (``ways'') in which every
-	cache line has a different hash value.
-	The associativity of a given cache is its number of
-	columns (hence the name ``way''---a two-way set-associative
-	cache has two ``ways''), and the size of the cache is its
-	number of rows multiplied by its number of columns.
+	缓存的大小和相联度被称为其几何参数。
+	每个缓存可以被看作一个二维数组，
+	行是具有相同哈希值的缓存行（"组"），
+	列是每个缓存行具有不同哈希值的缓存行（"路"）。
+	给定缓存的相联度是其列数
+	（因此得名"路"——一个二路组相联缓存有两个"路"），
+	缓存的大小是其行数乘以列数。
 \item[\IXG{Cache Line}:]
-	(1) The unit of data that circulates among the CPUs and memory,
-	usually a moderate power of two in size.
-	Typical cache-line sizes range from 16 to 256 bytes. \\
-	(2) A physical location in a CPU cache capable of holding
-	one cache-line unit of data. \\
-	(3) A physical location in memory capable of holding one
-	cache-line unit of data, but that it also aligned
-	on a cache-line boundary.
-	For example, the address of the first word of a cache line
-	in memory will end in 0x00 on systems with 256-byte cache lines.
+	(1) 在 CPU 和内存之间流通的数据单元，
+	通常大小为中等的 2 的幂次方。
+	典型的缓存行大小范围从 16 到 256 字节。 \\
+	(2) CPU 缓存中能够容纳一个缓存行单元数据的物理位置。 \\
+	(3) 内存中能够容纳一个缓存行单元数据并且在缓存行边界对齐的物理位置。
+	例如，在具有 256 字节缓存行的系统上，
+	内存中缓存行第一个字的地址将以 0x00 结尾。
 \item[\IXG{Cache Miss}:]
-	A cache miss occurs when data needed by the CPU is not in
-	that CPU's cache.
-	The data might be missing because of a number of reasons,
-	including:
+	当 CPU 需要的数据不在该 CPU 的缓存中时，就会发生缓存缺失。
+	数据缺失可能有多种原因，包括：
 	\begin{enumerate*}[(1)]
-	\item This CPU has never accessed the data before
-	(``warm-up'' miss),
-	\item This CPU has recently accessed more
-	data than would fit in its cache, so that some of the older
-	data had to be removed (``capacity'' miss),
-	\item This CPU
-	has recently accessed more data in a given set\footnote{
-		In hardware-cache terminology, the word ``set''
-		is used in the same way that the word ``bucket''
-		is used when discussing software caches.}
-	than that set could hold (``associativity'' miss),
-	\item Some other CPU has written to the data (or some other
-	data in the same cache line) since this CPU has accessed it
-	(``communication'' miss), or
-	\item This CPU attempted to write to a cache line that is
-	currently read-only, possibly due to that line being replicated
-	in other CPUs' caches (``write'' miss).
+	\item 该 CPU 之前从未访问过该数据
+	（"预热"缺失），
+	\item 该 CPU 最近访问的数据超出了其缓存容量，
+	因此一些较旧的数据不得不被移除（"容量"缺失），
+	\item 该 CPU 最近访问了超出给定组\footnote{
+		在硬件缓存术语中，"组"一词的用法
+		与讨论软件缓存时"桶"一词的用法相同。}
+	容量的数据（"相联度"缺失），
+	\item 自该 CPU 上次访问以来，其他 CPU 已写入该数据
+	（或同一缓存行中的其他数据）
+	（"通信"缺失），或者
+	\item 该 CPU 试图写入一个当前为只读的缓存行，
+	可能是因为该行在其他 CPU 的缓存中有副本
+	（"写"缺失）。
 	\end{enumerate*}
-	Note that cache misses can be split into multiple partially
-	overlapping categories, for example, read misses vs.\@ write misses
-	as opposed to the above categorization.
+	请注意，缓存缺失可以被分为多个部分重叠的类别，
+	例如，读缺失与写缺失的分类方式就不同于上述分类方式。
 \item[\IXGalth{Capacity Miss}{capacity}{cache miss}:]
-	A cache miss incurred because the corresponding CPU has recently
-	accessed more data than will fit into the cache.
+	由于相应的 CPU 最近访问的数据超出了缓存容量而导致的缓存缺失。
 \item[CAS:]\glsuseriii{cas}
-	Compare-and-swap operation, which is an atomic operation that
-	takes a pointer, and old value, and a new value.
-	If the pointed-to value is equal to the old value, it is atomically
-	replaced with the new value.
-	There is some variety in CAS API\@.
-	One variation returns the actual pointed-to value, so that the
-	caller compares the CAS return value to the specified old value,
-	with equality indicating a successful CAS operation.
-	Another variation returns a boolean success indication, in which
-	case a pointer to the old value may be passed in, and if so,
-	the old value is updated in the CAS failure case.
+	比较并交换操作，这是一种原子操作，
+	接受一个指针、一个旧值和一个新值。
+	如果指针所指向的值等于旧值，
+	则原子地将其替换为新值。
+	CAS API\@ 有一些变体。
+	一种变体返回实际的指针所指值，
+	由调用者将 CAS 返回值与指定的旧值进行比较，
+	相等则表示 CAS 操作成功。
+	另一种变体返回布尔类型的成功指示，
+	此时可以传入旧值的指针，
+	如果传入了，在 CAS 失败时旧值会被更新。
 \item[\IXG{Clash Free}:]
-	A forward-progress guarantee in which, in the absence of
-	contention, at least one thread makes progress within a finite
-	period of time.
+	一种前进保证，在没有竞争的情况下，
+	至少一个线程在有限时间段内取得进展。
 \item[\IXGalth{Code Locking}{code}{locking}:]
-	A simple locking design in which a ``global lock'' is used to protect
-	a set of critical sections, so that access by a given thread
-	to that set is
-	granted or denied based only on the set of threads currently
-	occupying the set of critical sections, not based on what
-	data the thread intends to access.
-	The scalability of a code-locked program is limited by the code;
-	increasing the size of the data set will normally not increase
-	scalability (in fact, will typically \emph{decrease} scalability
-	by increasing ``lock contention'').
-	Contrast with ``data locking''.
+	一种简单的加锁设计，使用"全局锁"来保护一组临界区，
+	使得给定线程对该组临界区的访问权限仅基于当前占用
+	该组临界区的线程集合，
+	而不基于该线程打算访问的数据。
+	代码锁定程序的可扩展性受到代码的限制；
+	增加数据集的大小通常不会提高可扩展性
+	（实际上，通常会因增加"锁竞争"而\emph{降低}可扩展性）。
+	与"data locking"对比。
 \item[\IXG{Combinatorial Explosion}:]
-	Denotes the exponential increase in executions that
-	formal-verification tools must analyze as problem size increases.
+	表示随着问题规模增大，形式化验证工具必须分析的
+	执行数量呈指数增长。
 \item[\IXG{Combinatorial Implosion}:]
-	Denotes the exponential decrease in executions that
-	formal-verification tools must analyze when a given
-	code fragment is partitioned.
+	表示当给定的代码片段被分割时，形式化验证工具
+	必须分析的执行数量呈指数减少。
 \item[\IXGalth{Communication Miss}{communication}{cache miss}:]
-	A cache miss incurred because some other CPU has written to
-	the cache line since the last time this CPU accessed it.
+	由于自该 CPU 上次访问以来其他 CPU 已写入该缓存行
+	而导致的缓存缺失。
 \item[\IXG{Concurrent}:]
-	In this book, a synonym of parallel.
-	Please see \cref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
-	on \cpageref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
-	for a discussion of the recent distinction between these two
-	terms.
+	在本书中，是 parallel 的同义词。
+	请参见
+	\cref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
+	（\cpageref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?} 页）
+	中关于这两个术语近年来区别的讨论。
 \item[\IXGh{Control}{dependency}:]
-	The value returned by a load instruction is used to determine
-	whether or not a later store instruction is executed.
-	Control dependencies provide weak memory ordering as described
-	in \cref{sec:memorder:Control Dependencies}.
-	However, because compilers do not understand them, control
-	dependencies are exceedingly fragile, so please avoid using them.
-	If severe performance requirements mean that you absolutely must
-	use control dependencies, please carefully consider the potential
-	calamities discussed in
-	\cref{sec:memorder:Control-Dependency Calamities}.
-	Also, please think carefully about alternative approaches that
-	might permit you to meet your performance requirements without
-	use of control dependencies.
+	加载指令返回的值被用于决定后续存储指令是否执行。
+	控制依赖提供了弱内存排序，如
+	\cref{sec:memorder:Control Dependencies}
+	中所述。
+	然而，由于编译器不理解控制依赖，它们极其脆弱，
+	因此请避免使用。
+	如果严格的性能要求意味着你绝对必须使用控制依赖，
+	请仔细考虑
+	\cref{sec:memorder:Control-Dependency Calamities}
+	中讨论的潜在灾难。
+	此外，请仔细考虑替代方法，
+	看看能否在不使用控制依赖的情况下满足你的性能要求。
 \item[\IXG{Critical Section}:]
-	A section of code guarded by some synchronization mechanism,
-	so that its execution constrained by that primitive.
-	For example, if a set of critical sections are guarded by
-	the same global lock, then only one of those critical sections
-	may be executing at a given time.
-	If a thread is executing in one such critical section,
-	any other threads must wait until the first thread completes
-	before executing any of the critical sections in the set.
+	由某种同步机制保护的代码段，
+	其执行受该原语的约束。
+	例如，如果一组临界区由同一全局锁保护，
+	则在给定时间只有一个临界区可以执行。
+	如果一个线程正在其中一个临界区中执行，
+	其他线程必须等待第一个线程完成后
+	才能执行该组中的任何临界区。
 \item[\IXGh{Data}{dependency}:]
-	The value returned by a load instruction is used to compute
-	the value stored by a later store instruction.
-	Data dependencies provide weak memory ordering as described
-	in \cref{sec:memorder:Data Dependencies}.
-	However, because compilers do not understand them, data
-	dependencies are fragile, so please pay close attention to the
-	potential difficulties discussed in
-	\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
+	加载指令返回的值被用于计算后续存储指令所存储的值。
+	数据依赖提供了弱内存排序，如
+	\cref{sec:memorder:Data Dependencies}
+	中所述。
+	然而，由于编译器不理解数据依赖，它们是脆弱的，
+	因此请密切关注
+	\cref{sec:memorder:Address- and Data-Dependency Difficulties}
+	中讨论的潜在困难。
 \item[\IXGh{Data}{Locking}:]
-	A scalable locking design in which each instance of a given
-	data structure has its own lock.
-	If each thread is using a different instance of the
-	data structure, then all of the threads may be executing in
-	the set of critical sections simultaneously.
-	Data locking has the advantage of automatically scaling to
-	increasing numbers of CPUs as the number of instances of
-	data grows.
-	Contrast with ``code locking''.
+	一种可扩展的加锁设计，其中给定数据结构的每个实例
+	都有自己的锁。
+	如果每个线程使用的是数据结构的不同实例，
+	则所有线程可以同时执行在该组临界区中。
+	数据锁定的优点是随着数据实例数量的增长，
+	可以自动扩展到更多的 CPU。
+	与"code locking"对比。
 \item[\IXG{Data Race}:]
-	A race condition in which several CPUs or threads access
-	a variable concurrently, and in which at least one of those
-	accesses is a store and at least one of those accesses
-	is a plain access.
-	It is important to note that while the presence of data races
-	often indicates the presence of bugs, the absence of data races
-	in no way implies the absence of bugs.
-	(See ``Plain access'' and ``Race condition''.)
+	一种竞态条件，其中多个 CPU 或线程并发访问一个变量，
+	且其中至少一个访问是存储操作，
+	至少一个访问是普通访问。
+	需要注意的是，虽然数据竞争的存在通常表明存在错误，
+	但数据竞争的不存在绝不意味着没有错误。
+	（参见"Plain access"和"Race condition"。）
 \item[\IXG{Deadlock}:]
-	A failure mode in which each of several threads is unable to
-	make progress until some other thread makes progress.
-	For example, if two threads acquire a pair of locks in opposite
-	orders, deadlock can result.
-	More information is provided in
-	\cref{sec:locking:Deadlock}.
+	一种故障模式，其中若干线程中的每一个都无法取得进展，
+	直到其他线程取得进展。
+	例如，如果两个线程以相反的顺序获取一对锁，
+	就可能导致死锁。
+	更多信息请参见
+	\cref{sec:locking:Deadlock}。
 \item[\IXG{Deadlock Free}:]
-	A forward-progress guarantee in which, in the absence of
-	failures, at least one thread makes progress within a finite
-	period of time.
+	一种前进保证，在没有故障的情况下，
+	至少一个线程在有限时间段内取得进展。
 \item[\IXGh{Direct-Mapped}{Cache}:]
-	A cache with only one way, so that it may hold only one cache
-	line with a given hash value.
+	只有一路的缓存，因此对于给定的哈希值只能容纳一个缓存行。
 \item[\IXG{Efficiency}:]
-	A measure of effectiveness normally expressed as a ratio
-	of some metric actually achieved to some maximum value.
-	The maximum value might be a theoretical maximum, but in
-	parallel programming is often based on the corresponding
-	measured single-threaded metric.
+	有效性的度量，通常表示为实际达到的某个指标
+	与某个最大值之间的比率。
+	最大值可能是理论最大值，但在并行编程中通常基于
+	相应的单线程测量指标。
 \item[\IXG{Embarrassingly Parallel}:]
-	A problem or algorithm where adding threads does not significantly
-	increase the overall cost of the computation, resulting in
-	linear speedups as threads are added (assuming sufficient
-	CPUs are available).
+	一种问题或算法，增加线程不会显著增加计算的总体成本，
+	从而在添加线程时获得线性加速比
+	（假设有足够的 CPU 可用）。
 \item[\IXGalth{Energy Efficiency}{energy}{efficiency}:]
-	Shorthand for ``energy-efficient use'' in which the goal is to
-	carry out a given computation with reduced energy consumption.
-	Sublinear scalability can be an obstacle to energy-efficient use
-	of a multicore system.
+	"节能使用"的简称，其目标是以更低的能耗完成给定的计算。
+	亚线性可扩展性可能成为多核系统节能使用的障碍。
 \item[Epoch-Based Reclamation (EBR):]\glsuseriii{ebr}
-	An \acr{rcu} implementation style put forward by
-	\ppl{Keir}{Fraser}~\cite{KeirAnthonyFraserPhD,UCAM-CL-TR-579,KeirFraser2007withoutLocks}.
+	一种由 \ppl{Keir}{Fraser} 提出的 \acr{rcu} 实现风格~\cite{KeirAnthonyFraserPhD,UCAM-CL-TR-579,KeirFraser2007withoutLocks}。
 \item[\IXG{Existence Guarantee}:]
-	An existence guarantee is provided by a synchronization mechanism
-	that prevents a given dynamically allocated object from being
-	freed for the duration of that guarantee.
-	For example, \acr{rcu} provides existence guarantees for the duration
-	of \acr{rcu} read-side critical sections.
-	A similar but strictly weaker guarantee is provided by
-	type-safe memory.
+	存在性保证由一种同步机制提供，
+	该机制在保证持续期间防止给定的动态分配对象被释放。
+	例如，\acr{rcu} 在 \acr{rcu} 读侧临界区持续期间
+	提供存在性保证。
+	类型安全内存提供了类似但严格更弱的保证。
 \item[\IXGh{Exclusive}{Lock}:]
-	An exclusive lock is a mutual-exclusion mechanism that
-	permits only one thread at a time into the
-	set of critical sections guarded by that lock.
+	排他锁是一种互斥机制，
+	在受该锁保护的临界区集合中一次只允许一个线程进入。
 \item[\IXG{False Sharing}:]
-	If two CPUs each frequently write to one of a pair of data items,
-	but the pair of data items are located in the same cache line,
-	this cache line will be repeatedly invalidated, ``ping-ponging''
-	back and forth between the two CPUs' caches.
-	This is a common cause of ``cache thrashing'', also called
-	``cacheline bouncing'' (the latter most commonly in the Linux
-	community).
-	False sharing can dramatically reduce both performance and
-	scalability.
+	如果两个 CPU 各自频繁写入一对数据项中的一个，
+	但这对数据项位于同一缓存行中，
+	该缓存行将被反复无效化，
+	在两个 CPU 的缓存之间来回"乒乓"。
+	这是"缓存颠簸"的常见原因，
+	也称为"缓存行弹跳"（后者在 Linux 社区中最为常用）。
+	伪共享可以极大地降低性能和可扩展性。
 \item[\IXG{Forward-Progress Guarantee}:]
-	Algorithms or programs that guarantee that execution will
-	progress at some rate under specified conditions.
-	Academic forward-progress guarantees are grouped into a
-	formal hierarchy shown in
-	\cref{sec:advsync:Non-Blocking Synchronization}.
-	A wide variety of practical forward-progress guarantees are
-	provided by real-time systems, as discussed in
-	\cref{sec:advsync:Parallel Real-Time Computing}.
+	保证在指定条件下执行将以一定速率前进的算法或程序。
+	学术前进保证被分为一个正式的层次结构，如
+	\cref{sec:advsync:Non-Blocking Synchronization}
+	所示。
+	实际的前进保证广泛由实时系统提供，如
+	\cref{sec:advsync:Parallel Real-Time Computing}
+	中所述。
 \item[\IXG{Fragmentation}:]
-	A memory pool that has a large amount of unused memory, but
-	not laid out to permit satisfying a relatively small request
-	is said to be fragmented.
-	External fragmentation occurs when the space is divided up
-	into small fragments lying between allocated blocks of memory,
-	while internal fragmentation occurs when specific requests or
-	types of requests have been allotted more memory than they
-	actually requested.
+	一个内存池如果拥有大量未使用的内存，
+	但其布局不允许满足一个相对较小的请求，
+	则称该内存池是碎片化的。
+	外部碎片发生在空间被分割为分布在已分配内存块之间的小片段时，
+	而内部碎片发生在特定请求或类型的请求被分配了
+	超过其实际请求的内存时。
 \item[\IXGh{Fully Associative}{Cache}:]
-	A fully associative cache contains only
-	one set, so that it can hold any subset of
-	memory that fits within its capacity.
+	全相联缓存只包含一个组，
+	因此它可以容纳适合其容量的任意内存子集。
 \item[\IXG{Grace Period}:]
-	A grace period is any contiguous time interval such that
-	any \acr{rcu} read-side critical section that began before the
-	start of that interval has
-	completed before the end of that same interval.
-	Many \acr{rcu} implementations define a grace period to be a
-	time interval during which each thread has passed through at
-	least one quiescent state.
-	Since \acr{rcu} read-side critical sections by definition cannot
-	contain quiescent states, these two definitions are almost
-	always interchangeable.
+	宽限期是任意连续的时间间隔，在此期间，
+	任何在该间隔开始之前开始的 \acr{rcu} 读侧临界区
+	都已在该间隔结束之前完成。
+	许多 \acr{rcu} 实现将宽限期定义为一个时间间隔，
+	在此期间每个线程至少经过了一个静默状态。
+	由于 \acr{rcu} 读侧临界区按定义不能包含静默状态，
+	这两个定义几乎总是可以互换的。
 \item[Hardware Transactional Memory (HTM):]\glsuseriii{htm}
-	A transactional-memory system based on hardware instructions
-	provided for this purpose, as discussed in
-	\cref{sec:future:Hardware Transactional Memory}.
-	(See ``Transactional memory''.)
+	基于为此目的提供的硬件指令的事务内存系统，
+	如 \cref{sec:future:Hardware Transactional Memory}
+	中所述。
+	（参见"Transactional memory"。）
 \item[\IXG{Hazard Pointer}:]
-	A scalable counterpart to a reference counter in which an
-	object's reference count is represented implicitly by a count
-	of the number of special hazard pointers referencing that object.
+	引用计数的可扩展对应物，其中对象的引用计数
+	由引用该对象的特殊危险指针的数量隐式表示。
 \item[\IXG{Heisenbug}:]
-	A timing-sensitive bug that disappears from sight when you
-	add print statements or tracing in an attempt to track it
-	down.
+	一种对时序敏感的错误，当你添加打印语句或跟踪代码
+	试图追踪它时，它就消失了。
 \item[\IXG{Hot Spot}:]
-	Data structure that is very heavily used, resulting in high
-	levels of contention on the corresponding lock.
-	One example of this situation would be a hash table with
-	a poorly chosen hash function.
+	被非常频繁使用的数据结构，
+	导致相应锁上的竞争程度很高。
+	这种情况的一个例子是哈希函数选择不当的哈希表。
 \item[\IXG{Humiliatingly Parallel}:]
-	A problem or algorithm where adding threads significantly
-	\emph{decreases} the overall cost of the computation, resulting in
-	large superlinear speedups as threads are added (assuming sufficient
-	CPUs are available).
+	一种问题或算法，增加线程显著\emph{降低}了计算的总体成本，
+	从而在添加线程时获得巨大的超线性加速比
+	（假设有足够的 CPU 可用）。
 \item[\IXG{Immutable}:]
-	In this book, a synonym for read-mostly.
+	在本书中，是 read-mostly 的同义词。
 \item[\IXG{Invalidation}:]
-	When a CPU wishes to write to a data item, it must first ensure
-	that this data item is not present in any other CPUs' cache.
-	If necessary, the item is removed from the other CPUs' caches
-	via ``invalidation'' messages from the writing CPUs to any
-	CPUs having a copy in their caches.
+	当 CPU 希望写入一个数据项时，
+	它必须首先确保该数据项不存在于任何其他 CPU 的缓存中。
+	如有必要，通过写入 CPU 向拥有副本的其他 CPU
+	发送"无效化"消息来将该项从其他 CPU 的缓存中移除。
 \item[IPI:]\glsuseriii{ipi}
-	Inter-processor interrupt, which is an
-	interrupt sent from one CPU to another.
-	IPIs are used heavily in the Linux kernel, for example, within
-	the scheduler to alert CPUs that a high-priority process is now
-	runnable.
+	处理器间中断（Inter-processor interrupt），
+	即从一个 CPU 发送到另一个 CPU 的中断。
+	IPI 在 Linux 内核中被大量使用，例如，
+	调度器使用 IPI 来通知 CPU 一个高优先级进程现在可以运行了。
 \item[IRQ:]\glsuseriii{irq}
-	Interrupt request, often used as an abbreviation for ``interrupt''
-	within the Linux kernel community, as in ``irq handler''.
+	中断请求（Interrupt request），在 Linux 内核社区中
+	常被用作"中断"的缩写，如"irq handler"。
 \item[\IXG{Latency}:]
-	The wall-clock time required for a given operation to complete.
+	给定操作完成所需的挂钟时间。
 \item[\IXG{Linearizable}:]
-	A sequence of operations is ``linearizable'' if there is at
-	least one global ordering of the sequence that is consistent
-	with the observations of all CPUs and/or threads.
-	Linearizability is much prized by many researchers, but less
-	useful in practice than one might
-	expect~\cite{AndreasHaas2012FIFOisnt}.
+	如果一个操作序列存在至少一个全局排序，
+	且该排序与所有 CPU 和/或线程的观察结果一致，
+	则该操作序列是"可线性化的"。
+	可线性化性受到许多研究人员的高度重视，
+	但在实践中的用处不如人们所期望的那么大~\cite{AndreasHaas2012FIFOisnt}。
 \item[\IXG{Livelock}:]
-	A failure mode in which each of several threads is able to
-	execute, but in which a repeating series of failed operations
-	prevents any of the threads from making any useful forward progress.
-	For example, incorrect use of conditional locking
-	(for example, \co{spin_trylock()} in the Linux kernel)
-	can result in livelock.
-	More information is provided in
-	\cref{sec:locking:Livelock and Starvation}.
+	一种故障模式，其中若干线程中的每一个都能执行，
+	但一系列反复失败的操作阻止了任何线程取得有用的前进进展。
+	例如，不正确地使用条件锁定
+	（例如 Linux 内核中的 \co{spin_trylock()}）
+	可能导致活锁。
+	更多信息请参见
+	\cref{sec:locking:Livelock and Starvation}。
 \item[\IXG{Lock}:]
-	A software abstraction that can be used to guard critical sections,
-	as such, an example of a ``mutual exclusion mechanism''.
-	An ``exclusive lock'' permits only one thread at a time into the
-	set of critical sections guarded by that lock, while a
-	``reader-writer lock'' permits any number of reading
-	threads, or but one writing thread, into the set of critical
-	sections guarded by that lock.
-	(Just to be clear, the presence	of a writer thread in any of
-	a given reader-writer lock's critical sections will prevent
-	any reader from entering any of that lock's critical sections
-	and vice versa.)
+	一种可用于保护临界区的软件抽象，
+	因此是"互斥机制"的一个例子。
+	"排他锁"在受该锁保护的临界区集合中一次只允许一个线程进入，
+	而"读写锁"允许任意数量的读线程，
+	或仅一个写线程进入受该锁保护的临界区集合。
+	（需要明确的是，如果有一个写线程在给定读写锁的
+	任何一个临界区中，则会阻止任何读者进入该锁的
+	任何临界区，反之亦然。）
 \item[\IXG{Lock Contention}:]
-	A lock is said to be suffering contention when it is being
-	used so heavily that there is often a CPU waiting on it.
-	Reducing lock contention is often a concern when designing
-	parallel algorithms and when implementing parallel programs.
+	当一个锁被使用得非常频繁，以至于经常有 CPU 在等待它时，
+	就称该锁正在遭受竞争。
+	减少锁竞争通常是设计并行算法和
+	实现并行程序时需要关注的问题。
 \item[\IXG{Lock Free}:]
-	A forward-progress guarantee in which at least one thread makes
-	progress within a finite period of time.
+	一种前进保证，其中至少一个线程在有限时间段内取得进展。
 \item[\IXG{Marked Access}:]
-	A source-code memory access that uses a special function or
-	macro, such as \co{READ_ONCE()}, \co{WRITE_ONCE()},
-	\co{atomic_inc()}, and so on, in order to protect that access
-	from compiler and/or hardware optimizations.
-	In contrast, a plain access simply mentions the name of
-	the object being accessed, so that in the following, line~2
-	is the plain-access equivalent of line~1:
+	使用特殊函数或宏的源代码内存访问，
+	例如 \co{READ_ONCE()}、\co{WRITE_ONCE()}、
+	\co{atomic_inc()} 等，
+	以保护该访问免受编译器和/或硬件优化的影响。
+	相反，普通访问只是简单地提及被访问对象的名称，
+	因此在以下代码中，第 2 行是第 1 行的普通访问等价形式：
 	\begin{VerbatimN}
 	WRITE_ONCE(a, READ_ONCE(b) + READ_ONCE(c));
 	a = b + c;
 	\end{VerbatimN}
 \item[\IXG{Memory}:]
-	From the viewpoint of memory models, the main memory,
-	caches, and store buffers in which values might be stored.
-	However, this term is often used to denote the main memory
-	itself, excluding caches and store buffers.
+	从内存模型的角度来看，是指可能存储值的
+	主存、缓存和存储缓冲区。
+	然而，该术语通常用于指代主存本身，
+	不包括缓存和存储缓冲区。
 \item[\IXG{Memory Barrier}:]
-	A compiler directive that might also include a special
-	memory-barrier instruction.
-	The purpose of a memory barrier is to order memory-reference
-	instructions that executed before the memory barrier to precede
-	those that will execute following that memory barrier.
-	(See also ``read memory barrier'' and ``write memory barrier''.)
+	一种编译器指令，可能还包含特殊的内存屏障指令。
+	内存屏障的目的是将在内存屏障之前执行的内存引用指令
+	排序到在内存屏障之后执行的指令之前。
+	（另见"read memory barrier"和"write memory barrier"。）
 \item[\IXG{Memory Consistency}:]
-	A set of properties that impose constraints on the order in
-	which accesses to groups of variables appear to occur.
-	Memory consistency models range from sequential consistency,
-	a very constraining model popular in academic circles, through
-	process consistency, release consistency, and weak consistency.
+	一组属性，对多组变量的访问看起来发生的顺序施加约束。
+	内存一致性模型的范围从顺序一致性
+	（一种在学术界流行的约束性很强的模型）
+	到过程一致性、释放一致性和弱一致性。
 \item[\IXGaltr{MESI Protocol}{MESI protocol}:]
-	The
-	cache-coherence protocol featuring
-	modified, exclusive, shared, and invalid (MESI) states,
-	so that this protocol is named after the states that the
-	cache lines in a given cache can take on.
-	A modified line has been recently written to by this CPU,
-	and is the sole representative of the current value of
-	the corresponding memory location.
-	An exclusive cache line has not been written to, but this
-	CPU has the right to write to it at any time, as the line
-	is guaranteed not to be replicated into any other CPU's cache
-	(though the corresponding location in main memory is up to date).
-	A shared cache line is (or might be) replicated in some other
-	CPUs' cache, meaning that this CPU must interact with those other
-	CPUs before writing to this cache line.
-	An invalid cache line contains no value, instead representing
-	``empty space'' in the cache into which data from memory might
-	be loaded.
+	具有已修改（modified）、独占（exclusive）、
+	共享（shared）和无效（invalid）（MESI）状态的
+	缓存一致性协议，
+	因此该协议以给定缓存中缓存行可以采取的状态命名。
+	已修改的行最近被该 CPU 写入，
+	并且是对应内存位置当前值的唯一代表。
+	独占缓存行未被写入，但该 CPU 有权随时写入它，
+	因为该行保证不会被复制到任何其他 CPU 的缓存中
+	（尽管主存中的对应位置是最新的）。
+	共享缓存行（可能）在某些其他 CPU 的缓存中有副本，
+	这意味着该 CPU 在写入此缓存行之前必须与其他 CPU 交互。
+	无效缓存行不包含任何值，
+	而是代表缓存中的"空位"，
+	可以从内存中加载数据到其中。
 \item[\IXGaltr{Moore's Law}{Moore's Law}:]
-	A 1965 empirical projection by Gordon Moore that
-	transistor density increases exponentially over
-	time~\cite{GordonMoore1965MooresLaw}.
+	Gordon Moore 在 1965 年提出的经验预测，
+	即晶体管密度随时间呈指数增长~\cite{GordonMoore1965MooresLaw}。
 \item[\IXG{Multi-Copy Atomic}:]
-	A memory-consistency model in which all writes to memory appear
-	to occur in an order consistent with a single global order.
-	A read of a given location does not return a given value written
-	until that value has propagated throughout the system.
-	Note that this means that if a CPU does a write to a given
-	location followed immediately by a read from that same location,
-	it might take significant time for that read to complete.
-	Sometimes called ``full(y) multi-copy atomic'' for distinction.
-	(See also ``other-multi-copy atomic'' and ``non-multi-copy atomic''.)
+	一种内存一致性模型，其中所有对内存的写入
+	看起来以与单个全局顺序一致的顺序发生。
+	对给定位置的读取在该值传播到整个系统之前不会返回该写入值。
+	请注意，这意味着如果一个 CPU 对给定位置进行写入后
+	立即从同一位置读取，
+	该读取可能需要相当长的时间才能完成。
+	有时为了区分而称为"完全多副本原子"。
+	（另见"other-multi-copy atomic"和"non-multi-copy atomic"。）
 \item[\IXG{Mutual-Exclusion Mechanism}:]
-	A software abstraction that regulates threads' access to
-	``critical sections'' and corresponding data.
+	一种软件抽象，用于调节线程对"临界区"
+	及相应数据的访问。
 \item[NMI:]\glsuseriii{nmi}
-	Non-maskable interrupt.
-	As the name indicates, this is an extremely high-priority
-	interrupt that cannot be masked.
-	These are used for hardware-specific purposes such as profiling.
-	The advantage of using NMIs for profiling is that it allows you
-	to profile code that runs with interrupts disabled.
+	不可屏蔽中断（Non-maskable interrupt）。
+	顾名思义，这是一种极高优先级的中断，不可被屏蔽。
+	它们用于硬件特定用途，如性能分析。
+	使用 NMI 进行性能分析的优势在于
+	它允许你对禁用中断运行的代码进行分析。
 \item[\IXG{Non-Blocking}:]
-	A group of academic forward-progress guarantees that includes
-	bounded population-oblivious wait free,
-	bounded wait free,
-	wait free,
-	lock free,
-	obstruction free,
-	clash free,
-	starvation free, and
-	deadlock free.
-	See \cref{sec:advsync:Non-Blocking Synchronization}
-	for more information.
+	一组学术前进保证，包括
+	有界人口无关无等待、
+	有界无等待、
+	无等待、
+	无锁、
+	无阻碍、
+	无冲突、
+	无饥饿和
+	无死锁。
+	更多信息请参见 \cref{sec:advsync:Non-Blocking Synchronization}。
 \item[Non-Blocking Synchronization (NBS):]\glsuseriii{nbs}
-	The use of algorithms, mechanisms, or techniques that provide
-	non-blocking forward-progress guarantees.
-	NBS is often used in a more restrictive sense of providing one
-	of the stronger forward-progress guarantees, usually wait free or
-	lock free, but sometimes also obstruction free.
-	(See ``Non-blocking''.)
+	使用提供非阻塞前进保证的算法、机制或技术。
+	NBS 通常在更严格的意义上使用，
+	即提供较强的前进保证之一，
+	通常是无等待或无锁，但有时也包括无阻碍。
+	（参见"Non-blocking"。）
 \item[\IXGhy{Non-}{Multi-Copy Atomic}:]
-	A memory-consistency model in which, in the absence of explicit
-	memory-ordering instructions, writes to memory may appear to
-	occur in different orders from the perspective of different CPUs.
-	(See also ``multi-copy atomic'' and ``other-multi-copy atomic''.)
+	一种内存一致性模型，在没有显式内存排序指令的情况下，
+	从不同 CPU 的角度来看，
+	对内存的写入可能以不同的顺序出现。
+	（另见"multi-copy atomic"和"other-multi-copy atomic"。）
 \item[NUCA:]\glsuseriii{nuca}
-	Non-uniform cache architecture, where groups of CPUs share
-	caches and/or store buffers.
-	CPUs in a group can therefore exchange cache lines with each
-	other much more quickly than they can with CPUs in other groups.
-	Systems comprised of CPUs with hardware threads will generally
-	have a NUCA architecture.
+	非统一缓存架构（Non-uniform cache architecture），
+	其中多组 CPU 共享缓存和/或存储缓冲区。
+	因此，同一组中的 CPU 之间交换缓存行的速度
+	比与其他组中的 CPU 交换要快得多。
+	由具有硬件线程的 CPU 组成的系统通常具有 NUCA 架构。
 \item[NUMA:]\glsuseriii{numa}
-	Non-uniform memory architecture, where memory is split into
-	banks and each such bank is ``close'' to a group of CPUs,
-	the group being termed a ``NUMA node''.
-	An example NUMA machine is Sequent's NUMA-Q system, where
-	each group of four CPUs had a bank of memory nearby.
-	The CPUs in a given group can access their memory much
-	more quickly than another group's memory.
+	非统一内存架构（Non-uniform memory architecture），
+	其中内存被分为多个 bank，
+	每个 bank "靠近"一组 CPU，
+	该组被称为"NUMA 节点"。
+	一个 NUMA 机器的例子是 Sequent 的 NUMA-Q 系统，
+	其中每组四个 CPU 附近有一个内存 bank。
+	给定组中的 CPU 访问自己的内存比访问另一组的内存要快得多。
 \item[\IXGaltr{NUMA Node}{NUMA node}:]
-	A group of closely placed CPUs and associated memory within
-	a larger NUMA machines.
+	较大 NUMA 机器中一组紧密放置的 CPU 及其相关内存。
 \item[\IXG{Obstruction Free}:]
-	A forward-progress guarantee in which, in the absence of
-	contention, every thread makes progress within a finite
-	period of time.
+	一种前进保证，在没有竞争的情况下，
+	每个线程都在有限时间段内取得进展。
 \item[\IXGhy{Other-}{Multi-Copy Atomic}:]
-	A memory-consistency model in which a given set of writes to
-	memory appear to occur in an order consistent with a single
-	global order, but only from the perspective of CPUs that did
-	not execute any of the writes in that set.
-	Note that this means that if a CPU does a write to a given
-	location followed immediately by a read from that same location,
-	that read can immediately return the value written.
-	(See also ``multi-copy atomic'' and ``non-multi-copy atomic''.)
+	一种内存一致性模型，其中一组给定的内存写入
+	从未执行该组中任何写入的 CPU 的角度来看，
+	以与单个全局顺序一致的顺序出现。
+	请注意，这意味着如果一个 CPU 对给定位置进行写入后
+	立即从同一位置读取，
+	该读取可以立即返回所写入的值。
+	（另见"multi-copy atomic"和"non-multi-copy atomic"。）
 \item[\IXG{Overhead}:]
-	Operations that must be executed, but which do not contribute
-	directly to the work that must be accomplished.
-	For example, lock acquisition and release is normally considered
-	to be overhead, and specifically to be synchronization overhead.
+	必须执行但不直接有助于必须完成的工作的操作。
+	例如，锁的获取和释放通常被认为是开销，
+	具体来说是同步开销。
 \item[\IXG{Parallel}:]
-	In this book, a synonym of concurrent.
-	Please see \cref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
-	on \cpageref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
-	for a discussion of the recent distinction between these two
-	terms.
+	在本书中，是 concurrent 的同义词。
+	请参见
+	\cref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?}
+	（\cpageref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?} 页）
+	中关于这两个术语近年来区别的讨论。
 \item[\IXG{Performance}:]
-	Rate at which work is done, expressed as work per unit time.
-	If this work is fully serialized, then the performance will
-	be the reciprocal of the mean latency of the work items.
+	工作完成的速率，以每单位时间完成的工作量来表示。
+	如果工作是完全串行化的，
+	则性能将是工作项平均延迟的倒数。
 \item[\IXGr{Pipelined CPU}:]
-	A CPU with a pipeline, which is
-	an internal flow of instructions internal to the CPU that
-	is in some way similar to an assembly line, with many of
-	the same advantages and disadvantages.
-	In the 1960s through the early 1980s, pipelined CPUs were the
-	province of supercomputers, but started appearing in microprocessors
-	(such as the 80486) in the late 1980s.
+	具有流水线的 CPU，即 CPU 内部的一种指令流，
+	在某种程度上类似于装配线，
+	具有许多相同的优点和缺点。
+	从 1960 年代到 1980 年代初期，流水线 CPU 是超级计算机的专利，
+	但在 1980 年代末期开始出现在微处理器
+	（如 80486）中。
 \item[\IXG{Plain Access}:]
-	A source-code memory access that simply mentions the name of
-	the object being accessed.
-	(See ``Marked access''.)
+	一种源代码内存访问，只是简单地提及被访问对象的名称。
+	（参见"Marked access"。）
 \item[\IXGalth{Process Consistency}{process}{memory consistency}:]
-	A memory-consistency model in which each CPU's stores appear to
-	occur in program order, but in which different CPUs might see
-	accesses from more than one CPU as occurring in different orders.
+	一种内存一致性模型，其中每个 CPU 的存储操作
+	看起来按程序顺序发生，
+	但不同的 CPU 可能看到来自多个 CPU 的访问以不同的顺序发生。
 \item[\IXG{Program Order}:]
-	The order in which a given thread's instructions
-	would be executed by a now-mythical ``in-order'' CPU that
-	completely executed each instruction before proceeding to
-	the next instruction.
-	(The reason such CPUs are now the stuff of ancient myths
-	and legends is that they were extremely slow.
-	These dinosaurs were one of the many victims of
-	Moore's-Law-driven increases in CPU clock frequency.
-	Some claim that these beasts will roam the earth once again,
-	others vehemently disagree.)
+	给定线程的指令被一个现在已是传说中的"顺序执行"CPU
+	执行的顺序，该 CPU 在进入下一条指令之前会完全执行每条指令。
+	（这种 CPU 如今已成为古老神话和传说的素材，
+	原因是它们极其缓慢。
+	这些恐龙是摩尔定律驱动的 CPU 时钟频率提升的众多牺牲品之一。
+	有人声称这些巨兽将再次漫步地球，
+	也有人强烈反对。）
 \item[\IXG{Quiescent State}:]
-	In \acr{rcu}, a point in the code where there can be no references held
-	to \acr{rcu}-protected data structures, which is normally any point
-	outside of an \acr{rcu} read-side critical section.
-	Any interval of time during which all threads pass through at
-	least one quiescent state each is termed a ``grace period''.
+	在 \acr{rcu} 中，代码中不可能持有对 \acr{rcu} 保护数据结构的引用的点，
+	通常是 \acr{rcu} 读侧临界区之外的任何点。
+	所有线程都至少各经过一个静默状态的任何时间间隔
+	被称为"宽限期"。
 \item[Quiescent-State-Based Reclamation (QSBR):]\glsuseriii{qsbr}
-	An \acr{rcu} implementation style characterized by explicit quiescent
-	states.
-	In \acr{qsbr} implementations, read-side markers
-	(\co{rcu_read_lock()} and \co{rcu_read_unlock()} in the Linux
-	kernel) are no-ops~\cite{McKenney98,Slingwine95}.
-	Hooks in other parts of the software (for example, the Linux-kernel
-	scheduler) provide the quiescent states.
+	一种以显式静默状态为特征的 \acr{rcu} 实现风格。
+	在 \acr{qsbr} 实现中，读侧标记
+	（Linux 内核中的 \co{rcu_read_lock()} 和 \co{rcu_read_unlock()}）
+	是空操作~\cite{McKenney98,Slingwine95}。
+	软件其他部分的钩子（例如 Linux 内核调度器）
+	提供静默状态。
 \item[\IXG{Race Condition}:]
-	Any situation where multiple CPUs or threads can interact,
-	though this term is often used in cases where such interaction
-	is undesirable.
-	(See ``Data race''.)
+	多个 CPU 或线程可以交互的任何情况，
+	尽管该术语通常在此类交互不希望发生的情况下使用。
+	（参见"Data race"。）
 \item[\IXGaltr{RCU-Protected Data}{RCU-protected data}:]
-	A block of dynamically allocated memory whose freeing will be
-	deferred such that an \acr{rcu} grace period will elapse between the
-	time that there were no longer any \acr{rcu}-reader-accessible pointers
-	to that block and the time that that block is freed.
-	This ensures that no \acr{rcu} readers will have access to that block at
-	the time that it is freed.
+	一块动态分配的内存，其释放将被延迟，
+	使得从不再有任何 \acr{rcu} 读者可访问的指向该块的指针的时刻
+	到该块被释放的时刻之间会经过一个 \acr{rcu} 宽限期。
+	这确保在该块被释放时没有 \acr{rcu} 读者能够访问它。
 \item[\IXGaltr{RCU-Protected Pointer}{RCU-protected pointer}:]
-	A pointer to \acr{rcu}-protected data.
-	Such pointers must be handled carefully, for example, any reader
-	that intends to dereference an \acr{rcu}-protected pointer must
-	use \co{rcu_dereference()} (or stronger) to load that pointer,
-	and any updater must use \co{rcu_assign_pointer()} (or stronger)
-	to store to that pointer.
-	More information is provided in
-	\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
+	指向 \acr{rcu} 保护数据的指针。
+	这些指针必须被小心处理，例如，
+	任何打算解引用 \acr{rcu} 保护指针的读者
+	必须使用 \co{rcu_dereference()}（或更强的操作）来加载该指针，
+	而任何更新者必须使用 \co{rcu_assign_pointer()}（或更强的操作）
+	来存储到该指针。
+	更多信息请参见
+	\cref{sec:memorder:Address- and Data-Dependency Difficulties}。
 \item[\IXGalthmr{RCU Read-Side Critical Section}{RCU read-side}{critical section}:]
-	A section of code protected by \acr{rcu}, for example, beginning with
-	\co{rcu_read_lock()} and ending with \co{rcu_read_unlock()}.
-	(See ``Read-side critical section''.)
+	受 \acr{rcu} 保护的代码段，例如以
+	\co{rcu_read_lock()} 开始并以 \co{rcu_read_unlock()} 结束。
+	（参见"Read-side critical section"。）
 \item[Read-Copy Update (RCU):]\glsuseriii{rcu}
-	A synchronization mechanism that can be thought of as a replacement
-	for reader-writer locking or reference counting.
-	RCU provides extremely low-overhead access for readers, while
-	writers incur additional overhead maintaining old versions
-	for the benefit of pre-existing readers.
-	Readers neither block nor spin, and thus cannot participate in
-	deadlocks, however, they also can see stale data and can
-	run concurrently with updates.
-	RCU is thus best-suited for read-mostly situations where
-	stale data can either be tolerated (as in routing tables)
-	or avoided (as in the Linux kernel's System V IPC implementation).
+	一种同步机制，可以被视为读写锁或引用计数的替代品。
+	RCU 为读者提供极低的开销访问，
+	而写者则承担额外的开销来为预先存在的读者维护旧版本。
+	读者既不阻塞也不自旋，因此不会参与死锁，
+	但它们也可能看到过时的数据，
+	并可能与更新操作并发运行。
+	因此，RCU 最适合读多的场景，
+	在这些场景中过时数据要么可以容忍（如路由表），
+	要么可以避免（如 Linux 内核的 System V IPC 实现）。
 \item[\IXGh{Read}{Memory Barrier}:]
-	A memory barrier that is only guaranteed to affect the ordering
-	of load instructions, that is, reads from memory.
-	(See also ``memory barrier'' and ``write memory barrier''.)
+	仅保证影响加载指令排序的内存屏障，即从内存的读取。
+	（另见"memory barrier"和"write memory barrier"。）
 \item[\IXGalth{Read Miss}{read}{cache miss}:]
-	A cache miss incurred because the corresponding CPU attempted
-	to either read from or write to a cache line that is absent
-	from its cache.
-	Note that cache lines are normally larger than machine words,
-	so a store instruction must read an entire cache line in order
-	to be able to write to a portion of it.
+	由于相应的 CPU 试图读取或写入其缓存中不存在的缓存行
+	而导致的缓存缺失。
+	请注意，缓存行通常大于机器字，
+	因此存储指令必须读取整个缓存行才能写入其中的一部分。
 \item[\IXG{Read Mostly}:]
-	Read-mostly data is (again, as the name implies) rarely updated.
-	However, it might be updated at any time.
+	读多数据（顾名思义）很少被更新。
+	然而，它可能在任何时候被更新。
 \item[\IXG{Read Only}:]
-	Read-only data is, as the name implies, never updated except
-	by beginning-of-time initialization.
-	In this book, a synonym for immutable.
+	只读数据（顾名思义）除了初始化时间之外从不更新。
+	在本书中，是 immutable 的同义词。
 \item[\IXGh{Read-Side}{Critical Section}:]
-	A section of code guarded by read-acquisition of
-	some reader-writer synchronization mechanism.
-	For example, if one set of critical sections are guarded by
-	read-acquisition of
-	a given global reader-writer lock, while a second set of critical
-	section are guarded by write-acquisition of that same reader-writer
-	lock, then the first set of critical sections will be the
-	read-side critical sections for that lock.
-	Any number of threads may concurrently execute the read-side
-	critical sections, but only if no thread is executing one of
-	the write-side critical sections.
-	(See also ``RCU read-side critical section''.)
+	由某种读写同步机制以读方式获取保护的代码段。
+	例如，如果一组临界区由给定全局读写锁的读获取保护，
+	而另一组临界区由同一读写锁的写获取保护，
+	则第一组临界区将是该锁的读侧临界区。
+	任意数量的线程可以同时执行读侧临界区，
+	但前提是没有线程正在执行写侧临界区中的任何一个。
+	（另见"RCU read-side critical section"。）
 \item[\IXGh{Reader-Writer}{Lock}:]
-	A reader-writer lock is a mutual-exclusion mechanism that
-	permits any number of reading
-	threads, or but one writing thread, into the set of critical
-	sections guarded by that lock.
-	Threads attempting to write must wait until all pre-existing
-	reading threads release the lock, and, similarly, if there
-	is a pre-existing writer, any threads attempting to write must
-	wait for the writer to release the lock.
-	A key concern for reader-writer locks is ``fairness'':
-	Can an unending stream of readers starve a writer or vice versa?
+	读写锁是一种互斥机制，
+	允许任意数量的读线程或仅一个写线程
+	进入受该锁保护的临界区集合。
+	试图写入的线程必须等待所有预先存在的读线程释放锁，
+	类似地，如果存在预先存在的写者，
+	任何试图写入的线程必须等待写者释放锁。
+	读写锁的一个关键关注点是"公平性"：
+	源源不断的读者流是否会使写者饿死，反之亦然？
 \item[\IXG{Real Time}:]
-	A situation in which getting the correct result is not sufficient,
-	but where this result must also be obtained within a given amount
-	of time.
+	仅获得正确结果还不够，
+	还必须在给定的时间内获得该结果的情况。
 \item[\IXG{Reference Count}:]
-	A counter that tracks the number of users of a given object or
-	entity.
-	Reference counters provide existence guarantees and are sometimes
-	used to implement garbage collectors.
+	跟踪给定对象或实体的用户数量的计数器。
+	引用计数提供存在性保证，有时用于实现垃圾收集器。
 \item[\IXG{Release Store}:]
-	A write to memory that has release semantics.
-	Normal use cases pair an acquire load with a release store,
-	in which case if the load returns the value stored, then all
-	code executed by the loading CPU after that acquire load will
-	see the effects of all memory-reference instructions executed
-	by the storing CPU prior to that release store.
-	Releasing a lock provides similar memory-ordering semantics,
-	hence the ``release'' in ``release store''.
-	(See also ``acquire load'' and ``memory barrier''.)
+	具有释放语义的内存写入操作。
+	通常的用法是将获取加载与释放存储配对使用，
+	在这种情况下，如果加载返回了所存储的值，则执行加载的
+	CPU 在该获取加载之后执行的所有代码都将看到执行存储的
+	CPU 在该释放存储之前执行的所有内存引用指令的效果。
+	释放锁提供了类似的内存排序语义，
+	因此"释放存储"中有"释放"二字。
+	（另见"acquire load"和"memory barrier"。）
 \item[\IXG{Scalability}:]
-	A measure of how effectively a given system is able to utilize
-	additional resources.
-	For parallel computing, the additional resources are usually
-	additional CPUs.
+	衡量给定系统能够多有效地利用额外资源的指标。
+	对于并行计算，额外的资源通常是额外的 CPU。
 \item[\IXGh{Sequence}{Lock}:]
-	A reader-writer synchronization mechanism in which readers
-	retry their operations if a writer was present.
+	一种读写同步机制，如果有写者存在，读者会重试其操作。
 \item[\IXGalth{Sequential Consistency}{sequential}{memory consistency}:]
-	A memory-consistency model where all memory references appear to occur
-	in an order consistent with
-	a single global order, and where each CPU's memory references
-	appear to all CPUs to occur in program order.
+	一种内存一致性模型，其中所有内存引用看起来以
+	与单个全局顺序一致的顺序发生，
+	并且每个 CPU 的内存引用在所有 CPU 看来都按程序顺序发生。
 \item[Software Transactional Memory (HTM):]\glsuseriii{stm}
-	A transactional-memory system capable running on computer systems
-	without special hardware support.
-	(See ``Transactional memory''.)
+	一种能够在没有特殊硬件支持的计算机系统上运行的
+	事务内存系统。
+	（参见"Transactional memory"。）
 \item[\IXG{Starvation}:]
-	A condition where at least one CPU or thread is unable to make
-	progress due to an unfortunate series of resource-allocation
-	decisions, as discussed in
-	\cref{sec:locking:Livelock and Starvation}.
-	For example, in a multisocket system, CPUs on one socket having
-	privileged access to the data structure implementing a given lock
-	could prevent CPUs on other sockets from ever acquiring that lock.
+	至少一个 CPU 或线程由于一系列不幸的资源分配决策
+	而无法取得进展的状态，如
+	\cref{sec:locking:Livelock and Starvation}
+	中所述。
+	例如，在多插槽系统中，一个插槽上的 CPU 对实现给定锁的
+	数据结构具有特权访问，可能会阻止其他插槽上的 CPU 获取该锁。
 \item[\IXG{Starvation Free}:]
-	A forward-progress guarantee in which, in the absence of
-	failures, every thread makes progress within a finite
-	period of time.
+	一种前进保证，在没有故障的情况下，
+	每个线程都在有限时间段内取得进展。
 \item[\IXG{Store Buffer}:]
-	A small set of internal registers used by a given CPU
-	to record pending stores
-	while the corresponding cache lines are making their
-	way to that CPU\@.
-	Also called ``store queue''.
+	给定 CPU 使用的一小组内部寄存器，
+	用于在对应的缓存行正在传输到该 CPU\@ 时
+	记录待处理的存储操作。
+	也称为"存储队列"。
 \item[\IXG{Store Forwarding}:]
-	An arrangement where a given CPU refers to its store buffer
-	as well as its cache so as to ensure that the software sees
-	the memory operations performed by this CPU as if they
-	were carried out in program order.
+	一种安排，使给定的 CPU 同时参考其存储缓冲区和缓存，
+	以确保软件看到该 CPU 执行的内存操作
+	就好像它们是按程序顺序执行的。
 \item[\IXGr{Superscalar CPU}:]
-	A scalar (non-vector) CPU capable of executing multiple instructions
-	concurrently.
-	This is a step up from a pipelined CPU that executes multiple
-	instructions in an assembly-line fashion---in a superscalar
-	CPU, each stage of the pipeline would be capable of handling
-	more than one instruction.
-	For example, if the conditions were exactly right,
-	the Intel Pentium Pro CPU from the mid-1990s could
-	execute two (and sometimes three) instructions per clock cycle.
-	Thus, a 200\,MHz Pentium Pro CPU could ``retire'', or complete the
-	execution of, up to 400 million instructions per second.
+	能够同时执行多条指令的标量（非向量）CPU。
+	这是在流水线 CPU 基础上的一个进步——
+	流水线 CPU 以装配线方式执行多条指令——
+	在超标量 CPU 中，流水线的每个阶段都能够处理多条指令。
+	例如，在条件恰好合适时，
+	1990 年代中期的 Intel Pentium Pro CPU
+	每个时钟周期可以执行两条（有时三条）指令。
+	因此，一个 200\,MHz 的 Pentium Pro CPU 每秒可以
+	"退休"（即完成执行）多达 4 亿条指令。
 \item[\IXG{Synchronization}:]
-	Means for avoiding destructive interactions among CPUs or threads.
-	Synchronization mechanisms include atomic RMW operations, memory
-	barriers, locking, reference counting, hazard pointers, sequence
-	locking, RCU, non-blocking synchronization, and transactional
-	memory.
+	避免 CPU 或线程之间破坏性交互的手段。
+	同步机制包括原子 RMW 操作、内存屏障、
+	锁、引用计数、危险指针、序列锁、
+	RCU、非阻塞同步和事务内存。
 \item[\IXG{Teachable}:]
-	A topic, concept, method, or mechanism that teachers believe that
-	they understand completely and are therefore comfortable teaching.
+	教师认为自己完全理解并因此乐于教授的
+	主题、概念、方法或机制。
 \item[\IXG{Throughput}:]
-	A performance metric featuring work items completed per unit time.
+	以每单位时间完成的工作项为特征的性能指标。
 \item[Transactional Lock Elision (TLE):]\glsuseriii{tle}
-	The use of transactional memory to emulate locking.
-	Synchronization is instead carried out by conflicting accesses
-	to the data to be protected by the lock.
-	In some cases, this can increase performance because TLE
-	avoids contention on the lock
-	word~\cite{MartinPohlack2011HTM2TLE,Kleen:2014:SEL:2566590.2576793,PascalFelber2016rwlockElision,SeongJaePark2020HTMRCUlock}.
+	使用事务内存来模拟锁定。
+	同步改为通过对要由锁保护的数据的冲突访问来进行。
+	在某些情况下，这可以提高性能，
+	因为 TLE 避免了对锁字的
+	竞争~\cite{MartinPohlack2011HTM2TLE,Kleen:2014:SEL:2566590.2576793,PascalFelber2016rwlockElision,SeongJaePark2020HTMRCUlock}。
 \item[Transactional Memory (TM):]\glsuseriii{tm}
-	A synchronization mechanism that gathers groups of memory
-	accesses so as to execute them atomically from the viewpoint
-	of transactions on other CPUs or threads, discussed in
-	\cref{sec:future:Transactional Memory,sec:future:Hardware Transactional Memory}.
+	一种同步机制，将一组内存访问集中在一起，
+	使其从其他 CPU 或线程上的事务角度来看是原子执行的，
+	如 \cref{sec:future:Transactional Memory,sec:future:Hardware Transactional Memory}
+	中所述。
 \item[\IXG{Type-Safe Memory}:]
-	Type-safe memory~\cite{Cheriton96a} is provided by a
-	synchronization mechanism that prevents a given dynamically
-	allocated object from changing to an incompatible type.
-	Note that the object might well be freed and then reallocated, but
-	the reallocated object is guaranteed to be of a compatible type.
-	Within the Linux kernel, type-safe memory is provided within
-	RCU read-side critical sections for memory allocated from slabs
-	marked with the \co{SLAB_TYPESAFE_BY_RCU} flag.
-	The strictly stronger existence guarantee also prevents freeing
-	of the protected object.
+	类型安全内存~\cite{Cheriton96a}由一种同步机制提供，
+	该机制防止给定的动态分配对象更改为不兼容的类型。
+	请注意，该对象完全可能被释放然后重新分配，
+	但重新分配的对象保证是兼容类型的。
+	在 Linux 内核中，类型安全内存在 \acr{rcu} 读侧临界区内
+	为从标有 \co{SLAB_TYPESAFE_BY_RCU} 标志的 slab 分配的内存提供。
+	严格更强的存在性保证还防止受保护对象被释放。
 \item[Unbounded Transactional Memory (UTM):]\glsuseriii{utm}
-	A transactional-memory system based on hardware instructions
-	provided for this purpose, but with special hardware or
-	software capabilities that allow a given transaction to
-	have a very large memory footprint.
-	Such a system would at least partially avoid
-	HTM's transaction-size limitations called out in
-	\cref{sec:future:Transaction-Size Limitations}.
-	(See ``Hardware transactional memory''.)
+	基于为此目的提供的硬件指令的事务内存系统，
+	但具有特殊的硬件或软件能力，
+	允许给定事务具有非常大的内存占用。
+	这样的系统至少可以部分避免
+	\cref{sec:future:Transaction-Size Limitations}
+	中指出的 HTM 事务大小限制。
+	（参见"Hardware transactional memory"。）
 \item[\IXG{Unfairness}:]
-	A condition where the progress of at least one CPU or thread
-	is impeded by an unfortunate series of resource-allocation
-	decisions, as discussed in
-	\cref{sec:locking:Livelock and Starvation}.
-	Extreme levels of unfairness are termed ``starvation''.
+	至少一个 CPU 或线程的进展因一系列不幸的资源分配决策
+	而受到阻碍的状态，如
+	\cref{sec:locking:Livelock and Starvation}
+	中所述。
+	极端程度的不公平被称为"饥饿"。
 \item[\IXG{Unteachable}:]
-	A topic, concept, method, or mechanism that the teacher does
-	not understand well is therefore uncomfortable teaching.
+	教师不太理解因此不愿教授的
+	主题、概念、方法或机制。
 \item[\IXGr{Vector CPU}:]
-	A CPU that can apply a single instruction to multiple items of
-	data concurrently.
-	In the 1960s through the 1980s, only supercomputers had vector
-	capabilities, but the advent of MMX in x86 CPUs and VMX in
-	PowerPC CPUs brought vector processing to the masses.
+	能够同时将单条指令应用于多个数据项的 CPU。
+	从 1960 年代到 1980 年代，只有超级计算机具有向量能力，
+	但 x86 CPU 中 MMX 和 PowerPC CPU 中 VMX 的出现
+	将向量处理带给了大众。
 \item[\IXG{Wait Free}:]
-	A forward-progress guarantee in which every thread makes
-	progress within a finite period of time.
+	一种前进保证，其中每个线程都在有限时间段内取得进展。
 \item[\IXGalth{Warm-up Miss}{warm-up}{cache miss}:]
-	A cache miss incurred because the corresponding cache line
-	never was in the corresponding CPU's cache.
-	In a benchmark, warm-up misses can be avoided during
-	the measurement phase by warming the cache with a few
-	pre-measurement-phase iterations of the benchmark.
+	由于对应的缓存行从未在对应 CPU 的缓存中存在过
+	而导致的缓存缺失。
+	在基准测试中，可以通过在测量阶段之前
+	用几次预测量阶段的基准测试迭代来预热缓存，
+	从而避免预热缺失。
 \item[\IXGh{Write}{Memory Barrier}:]
-	A memory barrier that is only guaranteed to affect the ordering
-	of store instructions, that is, writes to memory.
-	(See also ``memory barrier'' and ``read memory barrier''.)
+	仅保证影响存储指令排序的内存屏障，即对内存的写入。
+	（另见"memory barrier"和"read memory barrier"。）
 \item[\IXGalth{Write Miss}{write}{cache miss}:]
-	A cache miss incurred because the corresponding CPU attempted
-	to write to a cache line that is read-only, for example, due
-	to that cache line being replicated in other CPUs' caches.
+	由于相应的 CPU 试图写入一个只读缓存行而导致的缓存缺失，
+	例如由于该缓存行在其他 CPU 的缓存中有副本。
 \item[\IXG{Write Mostly}:]
-	Write-mostly data is (yet again, as the name implies) frequently
-	updated.
+	写多数据（再次顾名思义）被频繁更新。
 \item[\IXGh{Write-Side}{Critical Section}:]
-	A section of code guarded by write-acquisition of
-	some reader-writer synchronization mechanism.
-	For example, if one set of critical sections are guarded by
-	write-acquisition of
-	a given global reader-writer lock, while a second set of critical
-	section are guarded by read-acquisition of that same reader-writer
-	lock, then the first set of critical sections will be the
-	write-side critical sections for that lock.
-	Only one thread may execute in the write-side critical section
-	at a time, and even then only if there are no threads are
-	executing concurrently in any of the corresponding read-side
-	critical sections.
+	由某种读写同步机制以写方式获取保护的代码段。
+	例如，如果一组临界区由给定全局读写锁的写获取保护，
+	而另一组临界区由同一读写锁的读获取保护，
+	则第一组临界区将是该锁的写侧临界区。
+	同一时间只能有一个线程执行在写侧临界区中，
+	而且仅当没有线程在对应的任何读侧临界区中
+	并发执行时才可以。
 \end{description}

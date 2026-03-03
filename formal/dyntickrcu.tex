@@ -9,135 +9,120 @@
 \setlength{\lnlblraise}{0pt}
 }{}
 
-\subsection{Promela Parable:
-			     {dynticks} and Preemptible RCU}
+\subsection{Promela寓言：
+			     {dynticks}与可抢占RCU}
 \label{sec:formal:Promela Parable: dynticks and Preemptible RCU}
 
-In early 2008, a preemptible variant of RCU was accepted into
-mainline Linux in support of real-time workloads,
-a variant similar to the RCU implementations in
-the \rt\ patchset~\cite{IngoMolnar05a}
-since August 2005.
-Preemptible RCU is needed for real-time workloads because older
-RCU implementations disable preemption across RCU read-side
-critical sections, resulting in excessive real-time latencies.
+2008年初，一种可抢占的RCU变体被接受进入Linux主线内核，
+以支持实时工作负载。
+该变体类似于自2005年8月以来
+\rt\ 补丁集~\cite{IngoMolnar05a}中的RCU实现。
+实时工作负载需要可抢占RCU，因为早期的RCU实现在RCU
+读侧临界区内禁用抢占，导致过高的实时延迟。
 
-However, one disadvantage of the older \rt\ implementation
-was that each \IX{grace period}
-requires work to be done on each CPU, even if that CPU is in a low-power
-``dynticks-idle'' state,
-and thus incapable of executing RCU read-side critical sections.
-The idea behind the dynticks-idle state is that idle CPUs
-should be physically powered down in order to conserve energy.
-In short, preemptible RCU can disable a valuable energy-conservation
-feature of recent Linux kernels.
-Although Josh Triplett and Paul McKenney
-had discussed some approaches for allowing
-CPUs to remain in low-power state throughout an RCU grace period
-(thus preserving the Linux kernel's ability to conserve energy), matters
-did not come to a head until Steve Rostedt integrated a new dyntick
-implementation with preemptible RCU in the \rt\ patchset.
+然而，早期\rt\ 实现的一个缺点是每个\IX{grace period}
+都需要在每个CPU上执行工作，即使该CPU处于低功耗的
+``dynticks-idle''状态，
+因而无法执行RCU读侧临界区。
+dynticks-idle状态背后的理念是，空闲的CPU应当被物理断电以
+节省能源。
+简而言之，可抢占RCU可能会禁用近期Linux内核中一项
+有价值的节能特性。
+尽管Josh Triplett和Paul McKenney曾讨论过一些方法，
+允许CPU在整个RCU宽限期内保持低功耗状态
+（从而保留Linux内核的节能能力），但直到Steve Rostedt
+在\rt\ 补丁集中将一个新的dyntick实现与可抢占RCU集成后，
+事情才到了必须解决的地步。
 
-This combination caused one of Steve's systems to hang on boot, so in
-October, Paul coded up a dynticks-friendly modification to preemptible RCU's
-grace-period processing.
-Steve coded up \co{rcu_irq_enter()} and \co{rcu_irq_exit()}
-interfaces called from the
-\co{irq_enter()} and \co{irq_exit()} interrupt
-entry/exit functions.
-These \co{rcu_irq_enter()} and \co{rcu_irq_exit()}
-functions are needed to allow RCU to reliably handle situations where
-a dynticks-idle CPU is momentarily powered up for an interrupt
-handler containing RCU read-side critical sections.
-With these changes in place, Steve's system booted reliably,
-but Paul continued inspecting the code periodically on the assumption
-that we could not possibly have gotten the code right on the first try.
+这种组合导致Steve的一台系统在启动时挂起，因此在十月份，
+Paul编写了一个对可抢占RCU宽限期处理的dynticks友好修改。
+Steve编写了\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
+接口，从\co{irq_enter()}和\co{irq_exit()}中断
+入口/出口函数中调用。
+这些\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
+函数是必需的，以允许RCU可靠地处理dynticks-idle CPU
+被瞬间唤醒以执行包含RCU读侧临界区的中断处理程序的情况。
+有了这些修改，Steve的系统能够可靠启动，
+但Paul继续定期检查代码，因为他认为我们不可能在第一次
+就把代码写对了。
 
-Paul reviewed the code repeatedly from October 2007 to February 2008,
-and almost always found at least one bug.
-In one case, Paul even coded and tested a fix before realizing that the
-bug was illusory, and in fact in all cases, the ``bug'' turned out to be
-illusory.
+Paul从2007年10月到2008年2月反复审查代码，
+几乎每次都能发现至少一个bug。
+有一次，Paul甚至在编写并测试了修复程序之后才意识到
+该bug是虚幻的，实际上在所有情况下，这些``bug''都被证明
+是虚幻的。
 
-Near the end of February, Paul grew tired of this game.
-He therefore decided to enlist the aid of
-Promela and Spin.
-The following presents a series of seven increasingly realistic
-Promela models, the last of which passes, consuming about
-40\,GB of main memory for the state space.
+二月底时，Paul对这个游戏感到厌倦了。
+因此他决定借助Promela和Spin的帮助。
+以下内容呈现了一系列七个逐步增加复杂度的Promela模型，
+最后一个通过了验证，状态空间消耗了约40\,GB的主内存。
 
-More important, Promela and Spin did find a very subtle bug for me!
+更重要的是，Promela和Spin确实为我找到了一个非常微妙的bug！
 
 \QuickQuiz{
-	Yeah, that's just great!
-	Now, just what am I supposed to do if I don't happen to have a
-	machine with 40\,GB of main memory???
+	好吧，那真是太好了！
+	现在，如果我碰巧没有一台配备40\,GB主内存的机器，
+	我该怎么办？？？
 }\QuickQuizAnswer{
-	Relax, there are a number of lawful answers to
-	this question:
+	别急，这个问题有不少合法的答案：
 	\begin{enumerate}
-	\item	Try compiler flags \co{-DCOLLAPSE} and \co{-DMA=N}
-		to reduce memory consumption.
-		See \cref{sec:formal:Running the QRCU Example}.
-	\item	Further optimize the model, reducing its memory consumption.
-	\item	Work out a pencil-and-paper proof, perhaps starting with the
-		comments in the code in the Linux kernel.
-	\item	Devise careful torture tests, which, though they cannot prove
-		the code correct, can find hidden bugs.
-	\item	There is some movement towards tools that do model
-		checking on clusters of smaller machines.
-		However, please note that we have not actually used such
-		tools myself, courtesy of some large machines that Paul has
-		occasional access to.
-	\item	Wait for memory sizes of affordable systems to expand
-		to fit your problem.
-	\item	Use one of a number of cloud-computing services to rent
-		a large system for a short time period.
+	\item	尝试编译器标志\co{-DCOLLAPSE}和\co{-DMA=N}
+		以减少内存消耗。
+		参见\cref{sec:formal:Running the QRCU Example}。
+	\item	进一步优化模型，减少其内存消耗。
+	\item	进行纸笔证明，也许可以从Linux内核代码中的
+		注释开始。
+	\item	设计细致的压力测试，虽然它们不能证明代码正确，
+		但可以发现隐藏的bug。
+	\item	目前有一些趋势是开发能在较小机器集群上进行
+		模型检查的工具。
+		但请注意，由于Paul偶尔能使用一些大型机器，
+		我们实际上并没有使用过这类工具。
+	\item	等待经济适用系统的内存容量扩展到能适应你
+		的问题。
+	\item	使用云计算服务之一来短期租用一台大型系统。
 	\end{enumerate}
 }\QuickQuizEnd
 
-Still better would be to come up with a simpler and faster algorithm
-that has a smaller state space.
-Even better would be an algorithm so simple that its correctness was
-obvious to the casual observer!
+更好的做法是设计出一个更简单、更快速且状态空间更小的算法。
+最好的情况是算法简单到其正确性对于一般观察者来说是
+显而易见的！
 
 \Crefrange{sec:formal:Introduction to Preemptible RCU and dynticks}
 {sec:formal:Grace-Period Interface}
-give an overview of preemptible RCU's dynticks interface,
-followed by
-\cref{sec:formal:Validating Preemptible RCU and dynticks}'s
-discussion of the validation of the interface.
+概述了可抢占RCU的dynticks接口，
+随后
+\cref{sec:formal:Validating Preemptible RCU and dynticks}
+讨论了该接口的验证。
 
-\subsubsection{Introduction to Preemptible RCU and dynticks}
+\subsubsection{可抢占RCU与dynticks简介}
 \label{sec:formal:Introduction to Preemptible RCU and dynticks}
 
-The per-CPU \co{dynticks_progress_counter} variable is
-central to the interface between dynticks and preemptible RCU\@.
-This variable has an even value whenever the corresponding CPU
-is in dynticks-idle mode, and an odd value otherwise.
-A CPU exits dynticks-idle mode for the following three reasons:
+每CPU变量\co{dynticks_progress_counter}是dynticks与
+可抢占RCU之间接口的核心。
+当对应的CPU处于dynticks-idle模式时，该变量的值为偶数，
+否则为奇数。
+CPU退出dynticks-idle模式有以下三个原因：
 
 \begin{enumerate}
-\item	To start running a task,
-\item	When entering the outermost of a possibly nested set of interrupt
-	handlers, and
-\item	When entering an \IXacr{nmi} handler.
+\item	开始运行一个任务，
+\item	进入可能嵌套的一组中断处理程序的最外层时，以及
+\item	进入\IXacr{nmi}处理程序时。
 \end{enumerate}
 
-Preemptible RCU's grace-period machinery samples the value of
-the \co{dynticks_progress_counter} variable in order to
-determine when a dynticks-idle CPU may safely be ignored.
+可抢占RCU的宽限期机制对\co{dynticks_progress_counter}
+变量的值进行采样，以确定何时可以安全地忽略处于
+dynticks-idle状态的CPU。
 
-The following three sections give an overview of the task
-interface, the interrupt/NMI interface, and the use of
-the \co{dynticks_progress_counter} variable by the
-grace-period machinery as of Linux kernel v2.6.25-rc4.
+以下三节概述了任务接口、中断/NMI接口，
+以及Linux内核v2.6.25-rc4中宽限期机制对
+\co{dynticks_progress_counter}变量的使用。
 
-\subsubsection{Task Interface}
+\subsubsection{任务接口}
 \label{sec:formal:Task Interface}
 
-When a given CPU enters dynticks-idle mode because it has no more
-tasks to run, it invokes \co{rcu_enter_nohz()}:
+当某个CPU因为没有更多任务可运行而进入dynticks-idle模式时，
+它会调用\co{rcu_enter_nohz()}：
 
 \begin{VerbatimN}
 static inline void rcu_enter_nohz(void)
@@ -149,15 +134,13 @@ static inline void rcu_enter_nohz(void)
 }
 \end{VerbatimN}
 
-This function simply increments \co{dynticks_progress_counter} and
-checks that the result is even, but first executing a memory barrier
-to ensure that any other CPU that sees the new value of
-\co{dynticks_progress_counter} will also see the completion
-of any prior RCU read-side critical sections.
+这个函数简单地递增\co{dynticks_progress_counter}并检查结果
+是否为偶数，但在此之前先执行一个内存屏障，以确保任何其他
+CPU在看到\co{dynticks_progress_counter}的新值时，也能看到
+之前所有RCU读侧临界区的完成。
 
-Similarly, when a CPU that is in dynticks-idle mode prepares to
-start executing a newly runnable task, it invokes
-\co{rcu_exit_nohz()}:
+类似地，当处于dynticks-idle模式的CPU准备开始执行一个
+新的可运行任务时，它会调用\co{rcu_exit_nohz()}：
 
 \begin{VerbatimN}
 static inline void rcu_exit_nohz(void)
@@ -169,34 +152,30 @@ static inline void rcu_exit_nohz(void)
 }
 \end{VerbatimN}
 
-This function again increments \co{dynticks_progress_counter},
-but follows it with a memory barrier to ensure that if any other CPU
-sees the result of any subsequent RCU read-side critical section,
-then that other CPU will also see the incremented value of
-\co{dynticks_progress_counter}.
-Finally, \co{rcu_exit_nohz()} checks that the result of the
-increment is an odd value.
+这个函数同样递增\co{dynticks_progress_counter}，
+但在其后跟随一个内存屏障，以确保如果任何其他CPU
+看到后续RCU读侧临界区的结果，那么该CPU也将看到
+\co{dynticks_progress_counter}递增后的值。
+最后，\co{rcu_exit_nohz()}检查递增的结果是否为奇数值。
 
-The \co{rcu_enter_nohz()} and \co{rcu_exit_nohz()}
-functions handle the case where a CPU enters and exits dynticks-idle
-mode due to task execution, but does not handle interrupts, which are
-covered in the following section.
+\co{rcu_enter_nohz()}和\co{rcu_exit_nohz()}
+函数处理CPU因任务执行而进入和退出dynticks-idle模式的情况，
+但不处理中断，中断将在下一节中介绍。
 
-\subsubsection{Interrupt Interface}
+\subsubsection{中断接口}
 \label{sec:formal:Interrupt Interface}
 
-The \co{rcu_irq_enter()} and \co{rcu_irq_exit()}
-functions handle interrupt/NMI entry and exit, respectively.
-Of course, nested interrupts must also be properly accounted for.
-The possibility of nested interrupts is handled by a second per-CPU
-variable, \co{rcu_update_flag}, which is incremented upon
-entry to an interrupt or NMI handler (in \co{rcu_irq_enter()})
-and is decremented upon exit (in \co{rcu_irq_exit()}).
-In addition, the pre-existing \co{in_interrupt()} primitive is
-used to distinguish between an outermost or a nested interrupt/NMI\@.
+\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
+函数分别处理中断/NMI的进入和退出。
+当然，嵌套中断也必须被正确处理。
+嵌套中断的可能性通过第二个每CPU变量\co{rcu_update_flag}
+来处理，该变量在进入中断或NMI处理程序时（在
+\co{rcu_irq_enter()}中）递增，
+在退出时（在\co{rcu_irq_exit()}中）递减。
+此外，已有的\co{in_interrupt()}原语用于区分最外层
+中断和嵌套中断/NMI\@。
 
-Interrupt entry is handled by the \co{rcu_irq_enter()}
-shown below:
+中断进入由如下所示的\co{rcu_irq_enter()}处理：
 
 \begin{fcvlabel}[ln:formal:dyntickrcu:rcu_irq_enter]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -218,61 +197,54 @@ void rcu_irq_enter(void)
 \end{fcvlabel}
 
 \begin{fcvref}[ln:formal:dyntickrcu:rcu_irq_enter]
-\Clnref{fetch} fetches the current CPU's number, while \clnref{inc:b,inc:e}
-increment the \co{rcu_update_flag} nesting counter if it
-is already non-zero.
-\Clnrefrange{chk_lv:b}{chk_lv:e} check to see whether we are
-the outermost level of
-interrupt, and, if so, whether \co{dynticks_progress_counter}
-needs to be incremented.
-If so, \clnref{inc_cnt} increments \co{dynticks_progress_counter},
-\clnref{mb} executes a memory barrier, and \clnref{inc_flg} increments
-\co{rcu_update_flag}.
-As with \co{rcu_exit_nohz()}, the memory barrier ensures that
-any other CPU that sees the effects of an RCU read-side critical section
-in the interrupt handler (following the \co{rcu_irq_enter()}
-invocation) will also see the increment of
-\co{dynticks_progress_counter}.
+\Clnref{fetch}获取当前CPU的编号，而\clnref{inc:b,inc:e}
+在\co{rcu_update_flag}嵌套计数器已经非零时将其递增。
+\Clnrefrange{chk_lv:b}{chk_lv:e}检查我们是否处于中断的
+最外层，如果是，还检查\co{dynticks_progress_counter}
+是否需要递增。
+如果需要，\clnref{inc_cnt}递增\co{dynticks_progress_counter}，
+\clnref{mb}执行内存屏障，\clnref{inc_flg}递增
+\co{rcu_update_flag}。
+与\co{rcu_exit_nohz()}一样，内存屏障确保任何其他CPU
+在看到中断处理程序中RCU读侧临界区的效果时（在
+\co{rcu_irq_enter()}调用之后），也能看到
+\co{dynticks_progress_counter}的递增。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why not simply increment \co{rcu_update_flag}, and then only
-	increment \co{dynticks_progress_counter} if the old value
-	of \co{rcu_update_flag} was zero???
+	为什么不简单地递增\co{rcu_update_flag}，然后仅在
+	\co{rcu_update_flag}的旧值为零时才递增
+	\co{dynticks_progress_counter}？？？
 }\QuickQuizAnswerB{
-	This fails in presence of NMIs.
-	To see this, suppose an NMI was received just after
-	\co{rcu_irq_enter()} incremented \co{rcu_update_flag},
-	but before it incremented \co{dynticks_progress_counter}.
-	The instance of \co{rcu_irq_enter()} invoked by the NMI
-	would see that the original value of \co{rcu_update_flag}
-	was non-zero, and would therefore refrain from incrementing
-	\co{dynticks_progress_counter}.
-	This would leave the RCU grace-period machinery no clue that the
-	NMI handler was executing on this CPU, so that any RCU read-side
-	critical sections in the NMI handler would lose their RCU protection.
+	这在存在NMI的情况下会失败。
+	要理解这一点，假设在\co{rcu_irq_enter()}递增了
+	\co{rcu_update_flag}之后、但在递增
+	\co{dynticks_progress_counter}之前收到了一个NMI。
+	由NMI调用的\co{rcu_irq_enter()}实例将看到
+	\co{rcu_update_flag}的原始值为非零，因此会放弃递增
+	\co{dynticks_progress_counter}。
+	这将使RCU宽限期机制无法知道NMI处理程序正在该CPU上
+	执行，导致NMI处理程序中的任何RCU读侧临界区失去RCU保护。
 
-	The possibility of NMI handlers, which, by definition cannot
-	be masked, does complicate this code.
+	NMI处理程序的存在——按定义不可被屏蔽——确实使这段
+	代码变得复杂。
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:formal:dyntickrcu:rcu_irq_enter]
-	But if \clnref{chk_lv:b} finds that we are the outermost interrupt,
-	wouldn't we \emph{always} need to increment
-	\co{dynticks_progress_counter}?
+	但是如果\clnref{chk_lv:b}发现我们处于最外层中断，
+	我们不是\emph{总是}需要递增
+	\co{dynticks_progress_counter}吗？
 	\end{fcvref}
 }\QuickQuizAnswerE{
-	Not if we interrupted a running task!
-	In that case, \co{dynticks_progress_counter} would
-	have already been incremented by \co{rcu_exit_nohz()},
-	and there would be no need to increment it again.
+	如果我们中断的是一个正在运行的任务则不需要！
+	在那种情况下，\co{dynticks_progress_counter}已经被
+	\co{rcu_exit_nohz()}递增过了，不需要再次递增。
 }\QuickQuizEndE
 }
 
-Interrupt exit is handled similarly by
-\co{rcu_irq_exit()}:
+中断退出由\co{rcu_irq_exit()}以类似方式处理：
 
 \begin{fcvlabel}[ln:formal:dyntickrcu:rcu_irq_exit]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -294,58 +266,49 @@ void rcu_irq_exit(void)
 \end{fcvlabel}
 
 \begin{fcvref}[ln:formal:dyntickrcu:rcu_irq_exit]
-\Clnref{fetch} fetches the current CPU's number, as before.
-\Clnref{chk_flg} checks to see if the \co{rcu_update_flag} is
-non-zero, returning immediately (via falling off the end of the
-function) if not.
-Otherwise, \clnrefthro{dec_flg}{vrf_even:e} come into play.
-\Clnref{dec_flg} decrements \co{rcu_update_flag}, returning
-if the result is not zero.
-\Clnref{verify} verifies that we are indeed leaving the outermost
-level of nested interrupts, \clnref{mb} executes a memory barrier,
-\clnref{inc_cnt} increments \co{dynticks_progress_counter},
-and \clnref{vrf_even:b,vrf_even:e} verify that this
-variable is now even.
-As with \co{rcu_enter_nohz()}, the memory barrier ensures that
-any other CPU that sees the increment of
-\co{dynticks_progress_counter}
-will also see the effects of an RCU read-side critical section
-in the interrupt handler (preceding the \co{rcu_irq_exit()}
-invocation).
+\Clnref{fetch}与之前一样获取当前CPU的编号。
+\Clnref{chk_flg}检查\co{rcu_update_flag}是否非零，
+如果为零则立即返回（通过从函数末尾落出）。
+否则，\clnrefthro{dec_flg}{vrf_even:e}开始发挥作用。
+\Clnref{dec_flg}递减\co{rcu_update_flag}，如果结果不为零
+则返回。
+\Clnref{verify}验证我们确实正在离开嵌套中断的最外层，
+\clnref{mb}执行内存屏障，
+\clnref{inc_cnt}递增\co{dynticks_progress_counter}，
+\clnref{vrf_even:b,vrf_even:e}验证该变量现在是偶数。
+与\co{rcu_enter_nohz()}一样，内存屏障确保任何其他CPU
+在看到\co{dynticks_progress_counter}的递增时，
+也能看到中断处理程序中RCU读侧临界区的效果
+（在\co{rcu_irq_exit()}调用之前）。
 \end{fcvref}
 
-These two sections have described how the
-\co{dynticks_progress_counter} variable is maintained during
-entry to and exit from dynticks-idle mode, both by tasks and by
-interrupts and NMIs.
-The following section describes how this variable is used by
-preemptible RCU's grace-period machinery.
+以上两节描述了在任务、中断和NMI进入和退出dynticks-idle
+模式期间，\co{dynticks_progress_counter}变量是如何维护的。
+下一节描述可抢占RCU的宽限期机制如何使用该变量。
 
-\subsubsection{Grace-Period Interface}
+\subsubsection{宽限期接口}
 \label{sec:formal:Grace-Period Interface}
 
-Of the four preemptible RCU grace-period states shown in
-\cref{fig:formal:Preemptible RCU State Machine},
-only the \co{rcu_try_flip_waitack_state}
-and \co{rcu_try_flip_waitmb_state} states need to wait
-for other CPUs to respond.
+在\cref{fig:formal:Preemptible RCU State Machine}所示的
+四个可抢占RCU宽限期状态中，
+只有\co{rcu_try_flip_waitack_state}
+和\co{rcu_try_flip_waitmb_state}状态需要等待
+其他CPU响应。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{formal/RCUpreemptStates}}
-\caption{Preemptible RCU State Machine}
+\caption{可抢占RCU状态机}
 \label{fig:formal:Preemptible RCU State Machine}
 \end{figure}
 
-Of course, if a given CPU is in dynticks-idle state, we shouldn't
-wait for it.
-Therefore, just before entering one of these two states,
-the preceding state takes a snapshot of each CPU's
-\co{dynticks_progress_counter} variable, placing the
-snapshot in another per-CPU variable,
-\co{rcu_dyntick_snapshot}.
-This is accomplished by invoking
-\co{dyntick_save_progress_counter()}, shown below:
+当然，如果给定的CPU处于dynticks-idle状态，我们不应该
+等待它。
+因此，在进入这两个状态之一之前，前一个状态会对每个CPU的
+\co{dynticks_progress_counter}变量进行快照，并将快照
+存放在另一个每CPU变量\co{rcu_dyntick_snapshot}中。
+这通过调用如下所示的
+\co{dyntick_save_progress_counter()}来完成：
 
 \begin{VerbatimN}
 static void dyntick_save_progress_counter(int cpu)
@@ -355,8 +318,8 @@ static void dyntick_save_progress_counter(int cpu)
 }
 \end{VerbatimN}
 
-The \co{rcu_try_flip_waitack_state} state invokes
-\co{rcu_try_flip_waitack_needed()}, shown below:
+\co{rcu_try_flip_waitack_state}状态调用如下所示的
+\co{rcu_try_flip_waitack_needed()}：
 
 \begin{fcvlabel}[ln:formal:dyntickrcu:rcu_try_flip_waitack_needed]
 \begin{VerbatimN}[samepage=true,commandchars=\\\[\]]
@@ -379,27 +342,24 @@ rcu_try_flip_waitack_needed(int cpu)
 \end{fcvlabel}
 
 \begin{fcvref}[ln:formal:dyntickrcu:rcu_try_flip_waitack_needed]
-\Clnref{curr,snap} pick up current and snapshot versions of
-\co{dynticks_progress_counter}, respectively.
-The memory barrier on \clnref{mb} ensures that the counter checks
-in the later \co{rcu_try_flip_waitzero_state} follow
-the fetches of these counters.
-\Clnref{chk_remain,ret_0_r} return zero
-(meaning no communication with the
-specified CPU is required) if that CPU has remained in dynticks-idle
-state since the time that the snapshot was taken.
-Similarly, \clnref{chk_idle,ret_0_i} return zero
-if that CPU was initially
-in dynticks-idle state or if it has completely passed through a
-dynticks-idle state.
-In both these cases, there is no way that the CPU could have retained
-the old value of the grace-period counter.
-If neither of these conditions hold, \clnref{ret_1} returns one, meaning
-that the CPU needs to explicitly respond.
+\Clnref{curr,snap}分别获取\co{dynticks_progress_counter}的
+当前版本和快照版本。
+\clnref{mb}上的内存屏障确保后续
+\co{rcu_try_flip_waitzero_state}中的计数器检查
+在这些计数器获取之后执行。
+\Clnref{chk_remain,ret_0_r}在该CPU自快照获取以来一直
+保持在dynticks-idle状态时返回零（意味着不需要与
+指定CPU通信）。
+类似地，\clnref{chk_idle,ret_0_i}在该CPU最初处于
+dynticks-idle状态或已经完整地经历了一次
+dynticks-idle状态时返回零。
+在这两种情况下，CPU不可能保留宽限期计数器的旧值。
+如果这两个条件都不满足，\clnref{ret_1}返回一，
+意味着该CPU需要显式响应。
 \end{fcvref}
 
-For its part, the \co{rcu_try_flip_waitmb_state} state
-invokes \co{rcu_try_flip_waitmb_needed()}, shown below:
+对于\co{rcu_try_flip_waitmb_state}状态，它调用如下所示的
+\co{rcu_try_flip_waitmb_needed()}：
 
 \begin{fcvlabel}[ln:formal:dyntickrcu:rcu_try_flip_waitmb_needed]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -422,343 +382,303 @@ rcu_try_flip_waitmb_needed(int cpu)
 \end{fcvlabel}
 
 \begin{fcvref}[ln:formal:dyntickrcu:rcu_try_flip_waitmb_needed]
-This is quite similar to \co{rcu_try_flip_waitack_needed()},
-the difference being in \clnref{chk_to_from,ret_0}, because any transition
-either to or from dynticks-idle state executes the memory barrier
-needed by the \co{rcu_try_flip_waitmb_state} state.
+这与\co{rcu_try_flip_waitack_needed()}非常相似，
+不同之处在于\clnref{chk_to_from,ret_0}，因为任何进入或
+离开dynticks-idle状态的转换都会执行
+\co{rcu_try_flip_waitmb_state}状态所需的内存屏障。
 \end{fcvref}
 
-We now have seen all the code involved in the interface between
-RCU and the dynticks-idle state.
-The next section builds up the Promela model used to verify this
-code.
+我们现在已经看到了RCU与dynticks-idle状态之间接口涉及的
+所有代码。
+下一节将构建用于验证这些代码的Promela模型。
 
 \QuickQuiz{
-	Can you spot any bugs in any of the code in this section?
+	你能在本节的代码中发现任何bug吗？
 }\QuickQuizAnswer{
-	Read the next section to see if you were correct.
+	阅读下一节来看看你是否正确。
 }\QuickQuizEnd
 
-\subsection{Validating Preemptible RCU and dynticks}
+\subsection{验证可抢占RCU和dynticks}
 \label{sec:formal:Validating Preemptible RCU and dynticks}
 
-This section develops a Promela model for the interface between
-dynticks and RCU step by step, with each of
+本节逐步开发dynticks与RCU之间接口的Promela模型，
 \crefrange{sec:formal:Basic Model}{sec:formal:Validating NMI Handlers}
-illustrating one step, starting with the process-level code,
-adding assertions, interrupts, and finally NMIs.
+中的每一节都展示了一个步骤，从进程级代码开始，
+逐步添加断言、中断，最后是NMI。
 
-\Cref{sec:formal:Lessons (Re)Learned} lists
-lessons (re)learned during this effort, and
+\Cref{sec:formal:Lessons (Re)Learned}列出了
+在这一过程中（重新）学到的经验教训，
 \crefrange{sec:formal:Simplicity Avoids Formal Verification}{sec:formal:Discussion}
-present a simpler solution to RCU's dynticks problem.
+则展示了一个更简单的RCU dynticks问题解决方案。
 
-\subsubsection{Basic Model}
+\subsubsection{基本模型}
 \label{sec:formal:Basic Model}
 
-This section translates the process-level dynticks entry/exit
-code and the grace-period processing into
-Promela~\cite{Holzmann03a}.
-We start with \co{rcu_exit_nohz()} and
-\co{rcu_enter_nohz()}
-from the 2.6.25-rc4 kernel, placing these in a single Promela
-process that models exiting and entering dynticks-idle mode in
-a loop as follows:
+本节将进程级的dynticks进入/退出代码和宽限期处理翻译为
+Promela~\cite{Holzmann03a}。
+我们从2.6.25-rc4内核的\co{rcu_exit_nohz()}和
+\co{rcu_enter_nohz()}开始，
+将它们放入一个Promela进程中，以循环方式建模退出和
+进入dynticks-idle模式，如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base@dyntick_nohz.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base:dyntick_nohz]
-\Clnref{do,od} define a loop.
-\Clnref{break} exits the loop once the loop counter~\co{i}
-has exceeded the limit \co{MAX_DYNTICK_LOOP_NOHZ}.
-\Clnref{kick_loop} tells the loop construct to execute
-\clnrefrange{ex_inc:b}{inc_i}
-for each pass through the loop.
-Because the conditionals on \clnref{break,kick_loop}
-are exclusive of
-each other, the normal Promela random selection of true conditions
-is disabled.
-\Clnref{ex_inc:b,ex_inc:e} model
-\co{rcu_exit_nohz()}'s non-atomic
-increment of \co{dynticks_progress_counter}, while
-\clnref{ex_assert} models the \co{WARN_ON()}.
-The \co{atomic} construct simply reduces the Promela state space,
-given that the \co{WARN_ON()} is not strictly speaking part
-of the algorithm.
-\Clnrefrange{ent_inc:b}{ent_inc:e} similarly model the increment and
-\co{WARN_ON()} for \co{rcu_enter_nohz()}.
-Finally, \clnref{inc_i} increments the loop counter.
+\Clnref{do,od}定义了一个循环。
+\Clnref{break}在循环计数器~\co{i}超过限制
+\co{MAX_DYNTICK_LOOP_NOHZ}时退出循环。
+\Clnref{kick_loop}告诉循环构造在每次循环迭代中执行
+\clnrefrange{ex_inc:b}{inc_i}。
+因为\clnref{break,kick_loop}上的条件是互斥的，
+Promela通常的随机选择真条件的行为被禁用。
+\Clnref{ex_inc:b,ex_inc:e}建模了\co{rcu_exit_nohz()}对
+\co{dynticks_progress_counter}的非原子递增，而
+\clnref{ex_assert}建模了\co{WARN_ON()}。
+\co{atomic}构造只是为了减少Promela的状态空间，
+因为\co{WARN_ON()}严格来说不是算法的一部分。
+\Clnrefrange{ent_inc:b}{ent_inc:e}类似地建模了
+\co{rcu_enter_nohz()}的递增和\co{WARN_ON()}。
+最后，\clnref{inc_i}递增循环计数器。
 \end{fcvref}
 
-Each pass through the loop therefore models a CPU exiting
-dynticks-idle mode (for example, starting to execute a task), then
-re-entering dynticks-idle mode (for example, that same task blocking).
+因此，循环的每次迭代建模了一个CPU退出dynticks-idle模式
+（例如，开始执行一个任务），然后重新进入dynticks-idle模式
+（例如，该任务阻塞）。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why isn't the memory barrier in \co{rcu_exit_nohz()}
-	and \co{rcu_enter_nohz()} modeled in Promela?
+	为什么在Promela中不对\co{rcu_exit_nohz()}和
+	\co{rcu_enter_nohz()}中的内存屏障进行建模？
 }\QuickQuizAnswerB{
-	Promela assumes sequential consistency, so
-	it is not necessary to model memory barriers.
-	In fact, one must instead explicitly model lack of memory barriers,
-	for example, as shown in
-	\cref{lst:formal:QRCU Unordered Summation} on
-	\cpageref{lst:formal:QRCU Unordered Summation}.
+	Promela假设顺序一致性，因此没有必要对内存屏障建模。
+	实际上，人们反而必须显式地对缺少内存屏障的情况建模，
+	例如，如
+	\cref{lst:formal:QRCU Unordered Summation}
+	（\cpageref{lst:formal:QRCU Unordered Summation}）
+	所示。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Isn't it a bit strange to model \co{rcu_exit_nohz()}
-	followed by \co{rcu_enter_nohz()}?
-	Wouldn't it be more natural to instead model entry before exit?
+	先建模\co{rcu_exit_nohz()}再建模
+	\co{rcu_enter_nohz()}是不是有点奇怪？
+	先建模进入再建模退出不是更自然吗？
 }\QuickQuizAnswerE{
-	It probably would be more natural, but we will need
-	this particular order for the liveness checks that we will add later.
+	那样可能确实更自然，但我们在后面要添加的活性检查中
+	需要这种特定的顺序。
 }\QuickQuizEndE
 }
 
-The next step is to model the interface to RCU's grace-period
-processing.
-For this, we need to model
-\co{dyntick_save_progress_counter()},
-\co{rcu_try_flip_waitack_needed()},
-\co{rcu_try_flip_waitmb_needed()},
-as well as portions of
-\co{rcu_try_flip_waitack()} and
-\co{rcu_try_flip_waitmb()}, all from the 2.6.25-rc4 kernel.
-The following \co{grace_period()} Promela process models
-these functions as they would be invoked during a single pass
-through preemptible RCU's grace-period processing.
+下一步是建模RCU宽限期处理的接口。
+为此，我们需要建模
+\co{dyntick_save_progress_counter()}、
+\co{rcu_try_flip_waitack_needed()}、
+\co{rcu_try_flip_waitmb_needed()}，
+以及\co{rcu_try_flip_waitack()}和
+\co{rcu_try_flip_waitmb()}的部分内容，
+均来自2.6.25-rc4内核。
+下面的\co{grace_period()} Promela进程建模了这些函数
+在可抢占RCU宽限期处理的单次遍历中的调用方式。
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base@grace_period.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base:grace_period]
-\Clnrefrange{print:b}{print:e} print out the loop limit
-(but only into the ``.trail'' file
-in case of error) and models a line of code
-from \co{rcu_try_flip_idle()} and its call to
-\co{dyntick_save_progress_counter()}, which takes a
-snapshot of the current CPU's \co{dynticks_progress_counter}
-variable.
-These two lines are executed atomically to reduce state space.
+\Clnrefrange{print:b}{print:e}打印循环限制
+（但只在出错时打印到``.trail''文件中），
+并建模了\co{rcu_try_flip_idle()}中的一行代码及其对
+\co{dyntick_save_progress_counter()}的调用，
+该调用对当前CPU的\co{dynticks_progress_counter}变量
+进行快照。
+这两行原子地执行以减少状态空间。
 
-\Clnrefrange{do1}{od1} model the relevant code in
-\co{rcu_try_flip_waitack()} and its call to
-\co{rcu_try_flip_waitack_needed()}.
-This loop is modeling the grace-period state machine waiting for
-a counter-flip acknowledgement from each CPU, but only that part
-that interacts with dynticks-idle CPUs.
+\Clnrefrange{do1}{od1}建模了\co{rcu_try_flip_waitack()}
+中的相关代码及其对
+\co{rcu_try_flip_waitack_needed()}的调用。
+该循环建模了宽限期状态机等待每个CPU的计数器翻转确认，
+但仅涉及与dynticks-idle CPU交互的部分。
 
-\Clnref{snap} models a line from \co{rcu_try_flip_waitzero()}
-and its call to \co{dyntick_save_progress_counter()}, again
-taking a snapshot of the CPU's \co{dynticks_progress_counter}
-variable.
+\Clnref{snap}建模了\co{rcu_try_flip_waitzero()}中的
+一行及其对\co{dyntick_save_progress_counter()}的调用，
+再次对CPU的\co{dynticks_progress_counter}变量进行快照。
 
-Finally, \clnrefrange{do2}{od2} model the relevant code in
-\co{rcu_try_flip_waitack()} and its call to
-\co{rcu_try_flip_waitack_needed()}.
-This loop is modeling the grace-period state-machine waiting for
-each CPU to execute a memory barrier, but again only that part
-that interacts with dynticks-idle CPUs.
+最后，\clnrefrange{do2}{od2}建模了
+\co{rcu_try_flip_waitack()}中的相关代码及其对
+\co{rcu_try_flip_waitack_needed()}的调用。
+该循环建模了宽限期状态机等待每个CPU执行内存屏障，
+但同样仅涉及与dynticks-idle CPU交互的部分。
 \end{fcvref}
 
 \QuickQuiz{
-	Wait a minute!
-	In the Linux kernel, both \co{dynticks_progress_counter} and
-	\co{rcu_dyntick_snapshot} are per-CPU variables.
-	So why are they instead being modeled as single global variables?
+	等一下！
+	在Linux内核中，\co{dynticks_progress_counter}和
+	\co{rcu_dyntick_snapshot}都是每CPU变量。
+	那为什么它们在这里被建模为单个全局变量？
 }\QuickQuizAnswer{
-	Because the grace-period code processes each
-	CPU's \co{dynticks_progress_counter} and
-	\co{rcu_dyntick_snapshot} variables separately,
-	we can collapse the state onto a single CPU\@.
-	If the grace-period code were instead to do something special
-	given specific values on specific CPUs, then we would indeed need
-	to model multiple CPUs.
-	But fortunately, we can safely confine ourselves to two CPUs, the
-	one running the grace-period processing and the one entering and
-	leaving dynticks-idle mode.
+	因为宽限期代码分别处理每个CPU的
+	\co{dynticks_progress_counter}和
+	\co{rcu_dyntick_snapshot}变量，
+	我们可以将状态压缩到单个CPU上。
+	如果宽限期代码在特定CPU上针对特定值做特殊处理，
+	那么我们确实需要建模多个CPU。
+	但幸运的是，我们可以安全地限制在两个CPU上：
+	一个运行宽限期处理，另一个进入和离开dynticks-idle模式。
 }\QuickQuizEnd
 
-The resulting model (\path{dyntickRCU-base.spin}),
-when run with the
-\path{runspin.sh} script,
-generates 691 states and
-passes without errors, which is not at all surprising given that
-it completely lacks the assertions that could find failures.
-The next section therefore adds safety assertions.
+得到的模型（\path{dyntickRCU-base.spin}），
+使用\path{runspin.sh}脚本运行时，
+生成了691个状态并且无错误通过，
+鉴于该模型完全缺少能够发现故障的断言，
+这一点丝毫不令人意外。
+因此，下一节添加安全性断言。
 
-\subsubsection{Validating Safety}
+\subsubsection{验证安全性}
 \label{sec:formal:Validating Safety}
 
-A safe RCU implementation must never permit a grace period to
-complete before the completion of any RCU readers that started
-before the start of the grace period.
-This is modeled by a \co{grace_period_state} variable that
-can take on three states as follows:
+一个安全的RCU实现绝不能允许宽限期在任何在宽限期开始
+之前启动的RCU读者完成之前结束。
+这通过一个\co{grace_period_state}变量来建模，
+该变量可以取以下三种状态：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base-s@grace_period_state.fcv}
 
-The \co{grace_period()} process sets this variable as it
-progresses through the grace-period phases, as shown below:
+\co{grace_period()}进程在经过宽限期各阶段时设置该变量，
+如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base-s@grace_period.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base-s:grace_period]
 \Clnref{upd_gps1,upd_gps2,upd_gps3,upd_gps4,upd_gps5,upd_gps6}
-update this variable (combining
-atomically with algorithmic operations where feasible) to
-allow the \co{dyntick_nohz()} process to verify the basic
-RCU safety property.
-The form of this verification is to assert that the value of the
-\co{grace_period_state} variable cannot jump from
-\co{GP_IDLE} to \co{GP_DONE} during a time period
-over which RCU readers could plausibly persist.
+更新该变量（在可行的地方与算法操作原子地组合），
+以允许\co{dyntick_nohz()}进程验证基本的RCU安全性属性。
+此验证的形式是断言\co{grace_period_state}变量的值
+不能在RCU读者可能持续存在的时间段内从
+\co{GP_IDLE}跳到\co{GP_DONE}。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base-s:grace_period]
-	Given there are a pair of back-to-back changes to
-	\co{grace_period_state} on \clnref{upd_gps3,upd_gps4},
-	how can we be sure that \clnref{upd_gps3}'s changes won't be lost?
+	既然在\clnref{upd_gps3,upd_gps4}上有一对背靠背的
+	\co{grace_period_state}修改，
+	我们如何确保\clnref{upd_gps3}的修改不会丢失？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	Recall that Promela and Spin trace out
-	every possible sequence of state changes.
-	Therefore, timing is irrelevant:
-	Promela/Spin will be quite happy to jam the entire rest of
-	the model between those two statements unless some state
-	variable specifically prohibits doing so.
+	回想一下Promela和Spin会追踪每一种可能的状态变化序列。
+	因此，时序是无关紧要的：
+	Promela/Spin会很乐意在这两条语句之间插入模型的
+	所有剩余部分，除非某个状态变量明确禁止这样做。
 }\QuickQuizEnd
 
-The \co{dyntick_nohz()} Promela process implements
-this verification as shown below:
+\co{dyntick_nohz()} Promela进程实现此验证如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base-s@dyntick_nohz.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base-s:dyntick_nohz]
-\Clnref{new_flg} sets a new \co{old_gp_idle} flag if the
-value of the \co{grace_period_state} variable is
-\co{GP_IDLE} at the beginning of task execution,
-and the assertion at \clnref{assert:b,assert:e}
-fire if the \co{grace_period_state}
-variable has advanced to \co{GP_DONE} during task execution,
-which would be illegal given that a single RCU read-side critical
-section could span the entire intervening time period.
+\Clnref{new_flg}在任务执行开始时如果
+\co{grace_period_state}变量的值为\co{GP_IDLE}，
+则设置一个新的\co{old_gp_idle}标志，
+而\clnref{assert:b,assert:e}处的断言在
+\co{grace_period_state}变量在任务执行期间
+推进到\co{GP_DONE}时触发，
+这是非法的，因为单个RCU读侧临界区可能跨越整个
+中间时间段。
 \end{fcvref}
 
-The resulting
-model (\path{dyntickRCU-base-s.spin}),
-when run with the \path{runspin.sh} script,
-generates 964 states and passes without errors, which is reassuring.
-That said, although safety is critically important, it is also quite
-important to avoid indefinitely stalling grace periods.
-The next section therefore covers verifying liveness.
+得到的模型（\path{dyntickRCU-base-s.spin}），
+使用\path{runspin.sh}脚本运行时，
+生成了964个状态并无错误通过，这令人放心。
+尽管如此，虽然安全性至关重要，避免宽限期无限停滞也同样
+重要。因此下一节将介绍活性验证。
 
-\subsubsection{Validating Liveness}
+\subsubsection{验证活性}
 \label{sec:formal:Validating Liveness}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base-sl-busted:dyntick_nohz]
-Although liveness can be difficult to prove, there is a simple
-trick that applies here.
-The first step is to make \co{dyntick_nohz()} indicate that
-it is done via a \co{dyntick_nohz_done} variable, as shown on
-\clnref{done} of the following:
+虽然活性可能很难证明，但这里有一个简单的技巧适用。
+第一步是让\co{dyntick_nohz()}通过一个
+\co{dyntick_nohz_done}变量来指示它已完成，
+如下面的\clnref{done}所示：
 \end{fcvref}
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base-sl-busted@dyntick_nohz.fcv}
 
-With this variable in place, we can add assertions to
-\co{grace_period()} to check for unnecessary blockage
-as follows:
+有了这个变量，我们可以在\co{grace_period()}中添加断言
+来检查是否存在不必要的阻塞，如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-base-sl-busted@grace_period.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-base-sl-busted:grace_period]
-We have added the \co{shouldexit} variable on \clnref{shex},
-which we initialize to zero on \clnref{init_shex}.
-\Clnref{assert_shex} asserts that \co{shouldexit} is not set, while
-\clnref{set_shex} sets \co{shouldexit} to the \co{dyntick_nohz_done}
-variable maintained by \co{dyntick_nohz()}.
-This assertion will therefore trigger if we attempt to take more than
-one pass through the wait-for-counter-flip-acknowledgement
-loop after \co{dyntick_nohz()} has completed
-execution.
-After all, if \co{dyntick_nohz()} is done, then there cannot be
-any more state changes to force us out of the loop, so going through twice
-in this state means an infinite loop, which in turn means no end to the
-grace period.
+我们在\clnref{shex}添加了\co{shouldexit}变量，
+在\clnref{init_shex}将其初始化为零。
+\Clnref{assert_shex}断言\co{shouldexit}未被设置，
+而\clnref{set_shex}将\co{shouldexit}设置为
+\co{dyntick_nohz()}维护的\co{dyntick_nohz_done}变量。
+因此，如果我们在\co{dyntick_nohz()}执行完成后
+尝试在等待计数器翻转确认的循环中再次迭代，
+该断言就会触发。
+毕竟，如果\co{dyntick_nohz()}已完成，就不会再有状态
+变化来强制我们退出循环，因此在这种状态下迭代两次
+意味着无限循环，进而意味着宽限期永远不会结束。
 
-\Clnref{init_shex2,assert_shex2,set_shex2} operate in a similar manner
-for the second (memory-barrier) loop.
+\Clnref{init_shex2,assert_shex2,set_shex2}对第二个
+（内存屏障）循环以类似方式操作。
 
-However, running this
-model (\path{dyntickRCU-base-sl-busted.spin})
-results in failure, as \clnref{chk_2} is checking that
-the wrong variable
-is even.
-Upon failure, \co{spin} writes out a
-``trail'' file
-(\path{dyntickRCU-base-sl-busted.spin.trail}),
-which records the sequence of states that lead to the failure.
-Use the ``\co{spin -t -p -g -l\ }%
+然而，运行该模型（\path{dyntickRCU-base-sl-busted.spin}）
+会导致失败，因为\clnref{chk_2}检查了错误的变量
+是否为偶数。
+失败时，\co{spin}会写出一个``trail''文件
+（\path{dyntickRCU-base-sl-busted.spin.trail}），
+记录导致失败的状态序列。
+使用``\co{spin -t -p -g -l\ }%
 \path{dyntickRCU-base-sl-busted.spin}''
-command to cause \co{spin} to retrace this sequence of states,
-printing the statements executed and the values of variables
-(\path{dyntickRCU-base-sl-busted.spin.trail.txt}).
-Note that the line numbers do not match the listing above due to
-the fact that \co{spin} takes both functions in a single file.
-However, the line numbers \emph{do} match the full
-model (\path{dyntickRCU-base-sl-busted.spin}).
+命令可以让\co{spin}重新追踪这个状态序列，
+打印执行的语句和变量的值
+（\path{dyntickRCU-base-sl-busted.spin.trail.txt}）。
+请注意，由于\co{spin}将两个函数放在单个文件中，
+行号与上面的清单不匹配。
+但是，行号\emph{确实}与完整模型
+（\path{dyntickRCU-base-sl-busted.spin}）匹配。
 
-We see that the \co{dyntick_nohz()} process completed
-at step 34 (search for ``34:''), but that the
-\co{grace_period()} process nonetheless failed to exit the loop.
-The value of \co{curr} is \co{6} (see step 35)
-and that the value of \co{snap} is \co{5} (see step 17).
-Therefore the first condition on \clnref{chk_1} above
-does not hold because
-\qco{curr != snap}, and the second condition on \clnref{chk_2}
-does not hold either because \co{snap} is odd and because
-\co{curr} is only one greater than \co{snap}.
+我们看到\co{dyntick_nohz()}进程在步骤34完成
+（搜索``34:''），但\co{grace_period()}进程仍然
+未能退出循环。
+\co{curr}的值为\co{6}（见步骤35），
+\co{snap}的值为\co{5}（见步骤17）。
+因此\clnref{chk_1}上的第一个条件不成立，因为
+\qco{curr != snap}，而\clnref{chk_2}上的第二个条件
+也不成立，因为\co{snap}是奇数且\co{curr}仅比
+\co{snap}大一。
 \end{fcvref}
 
-So one of these two conditions has to be incorrect.
-Referring to the comment block in \co{rcu_try_flip_waitack_needed()}
-for the first condition:
+所以这两个条件中必有一个是不正确的。
+参考\co{rcu_try_flip_waitack_needed()}中
+第一个条件的注释块：
 
 \begin{quote}
-	If the CPU remained in dynticks mode for the entire time
-	and didn't take any interrupts, NMIs, SMIs, or whatever,
-	then it cannot be in the middle of an \co{rcu_read_lock()}, so
-	the next \co{rcu_read_lock()} it executes must use the new value
-	of the counter.
-	So we can safely pretend that this CPU already acknowledged
-	the counter.
+	如果CPU在整个期间保持在dynticks模式且没有接收任何
+	中断、NMI、SMI或其他，那么它不可能处于
+	\co{rcu_read_lock()}的中间，所以它执行的下一个
+	\co{rcu_read_lock()}必须使用计数器的新值。
+	因此我们可以安全地假装该CPU已经确认了计数器。
 \end{quote}
 
-The first condition does match this, because if \qco{curr == snap}
-and if \co{curr} is even, then the corresponding CPU has been
-in dynticks-idle mode the entire time, as required.
-So let's look at the comment block for the second condition:
+第一个条件确实与此匹配，因为如果\qco{curr == snap}
+且\co{curr}为偶数，那么对应的CPU在整个期间一直处于
+dynticks-idle模式，符合要求。
+那么我们来看看第二个条件的注释块：
 
 \begin{quote}
-	If the CPU passed through or entered a dynticks idle phase with
-	no active irq handlers, then, as above, we can safely pretend
-	that this CPU already acknowledged the counter.
+	如果CPU在没有活跃irq处理程序的情况下经历了或进入了
+	dynticks空闲阶段，那么如上所述，我们可以安全地假装
+	该CPU已经确认了计数器。
 \end{quote}
 
-The first part of the condition is correct, because if \co{curr}
-and \co{snap} differ by two, there will be at least one even
-number in between, corresponding to having passed completely through
-a dynticks-idle phase.
-However, the second part of the condition corresponds to having
-\emph{started} in dynticks-idle mode, not having \emph{finished}
-in this mode.
-We therefore need to be testing \co{curr} rather than
-\co{snap} for being an even number.
+条件的第一部分是正确的，因为如果\co{curr}和\co{snap}
+相差二，则中间至少有一个偶数，对应于完整地经历了一个
+dynticks-idle阶段。
+然而，条件的第二部分对应的是\emph{开始}于dynticks-idle
+模式，而不是\emph{结束}于该模式。
+因此我们需要测试的是\co{curr}而非\co{snap}是否为偶数。
 
-The corrected C code is as follows:
+修正后的C代码如下：
 
 \begin{fcvlabel}[ln:formal:dyntickrcu:rcu_try_flip_waitack_needed_fixed]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -781,10 +701,9 @@ rcu_try_flip_waitack_needed(int cpu)
 \end{fcvlabel}
 
 \begin{fcvref}[ln:formal:dyntickrcu:rcu_try_flip_waitack_needed_fixed]
-\Clnrefrange{if:b}{if:e} can now be combined and simplified,
-resulting in the following.
-A similar simplification can be applied to
-\co{rcu_try_flip_waitmb_needed()}.
+\Clnrefrange{if:b}{if:e}现在可以合并和简化，
+得到如下结果。
+类似的简化也可以应用于\co{rcu_try_flip_waitmb_needed()}。
 \end{fcvref}
 
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -803,49 +722,43 @@ rcu_try_flip_waitack_needed(int cpu)
 }
 \end{VerbatimN}
 
-Making the corresponding correction in the
-model (\path{dyntickRCU-base-sl.spin})
-results in a correct verification with 661 states that passes without
-errors.
-However, it is worth noting that the first version of the liveness
-verification failed to catch this bug, due to a bug in the liveness
-verification itself.
-This liveness-verification bug was located by inserting an infinite
-loop in the \co{grace_period()} process, and noting that
-the liveness-verification code failed to detect this problem!
+在模型（\path{dyntickRCU-base-sl.spin}）中进行相应修正后，
+得到一个包含661个状态的正确验证，无错误通过。
+然而，值得注意的是，活性验证的第一个版本未能捕获这个bug，
+原因是活性验证本身存在一个bug。
+这个活性验证bug是通过在\co{grace_period()}进程中
+插入一个无限循环，并注意到活性验证代码未能检测到
+该问题而定位的！
 
-We have now successfully verified both safety and liveness
-conditions, but only for processes running and blocking.
-We also need to handle interrupts, a task taken up in the next section.
+我们现在已经成功验证了安全性和活性条件，但仅限于进程运行
+和阻塞的情况。
+我们还需要处理中断，这是下一节要讨论的任务。
 
-\subsubsection{Interrupts}
+\subsubsection{中断}
 \label{sec:formal:Interrupts}
 
-There are a couple of ways to model interrupts in Promela:
+在Promela中有两种方式来建模中断：
 \begin{enumerate}
-\item	Using C-preprocessor tricks to insert the interrupt handler
-	between each and every statement of the \co{dynticks_nohz()}
-	process, or
-\item	Modeling the interrupt handler with a separate process.
+\item	使用C预处理器技巧在\co{dynticks_nohz()}进程的
+	每对相邻语句之间插入中断处理程序，或者
+\item	用一个单独的进程来建模中断处理程序。
 \end{enumerate}
 
-A bit of thought indicated that the second approach would have a
-smaller state space, though it requires that the interrupt handler
-somehow run atomically with respect to the \co{dynticks_nohz()}
-process, but not with respect to the \co{grace_period()}
-process.
+经过一番思考，第二种方法的状态空间会更小，
+尽管它要求中断处理程序相对于\co{dynticks_nohz()}进程
+原子执行，但不需要相对于\co{grace_period()}进程
+原子执行。
 
-Fortunately, it turns out that Promela permits you to branch
-out of atomic statements.
-This trick allows us to have the interrupt handler set a flag, and
-recode \co{dynticks_nohz()} to atomically check this flag
-and execute only when the flag is not set.
-This can be accomplished with a C-preprocessor macro that takes
-a label and a Promela statement as follows:
+幸运的是，Promela允许从原子语句中分支跳出。
+这个技巧允许我们让中断处理程序设置一个标志，
+并重新编写\co{dynticks_nohz()}以原子地检查该标志，
+仅在标志未设置时才执行。
+这可以通过一个接受标签和Promela语句的C预处理器宏来实现，
+如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irqnn-ssl@EXECUTE_MAINLINE.fcv}
 
-One might use this macro as follows:
+可以如下使用该宏：
 
 \begin{VerbatimU}
 EXECUTE_MAINLINE(stmt1,
@@ -853,50 +766,45 @@ EXECUTE_MAINLINE(stmt1,
 \end{VerbatimU}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:EXECUTE_MAINLINE]
-\Clnref{label} of the macro creates the specified statement label.
-\Clnrefrange{atm:b}{atm:e} are an atomic block that tests
-the \co{in_dyntick_irq}
-variable, and if this variable is set (indicating that the interrupt
-handler is active), branches out of the atomic block back to the
-label.
-Otherwise, \clnref{else} executes the specified statement.
-The overall effect is that mainline execution stalls any time an interrupt
-is active, as required.
+宏的\clnref{label}创建指定的语句标签。
+\Clnrefrange{atm:b}{atm:e}是一个原子块，测试
+\co{in_dyntick_irq}变量，如果该变量被设置
+（表示中断处理程序处于活动状态），则从原子块跳出
+回到标签处。
+否则，\clnref{else}执行指定的语句。
+总体效果是，主线执行在中断活动时暂停，这正是所需要的。
 \end{fcvref}
 
-\subsubsection{Validating Interrupt Handlers}
+\subsubsection{验证中断处理程序}
 \label{sec:formal:Validating Interrupt Handlers}
 
-The first step is to convert \co{dyntick_nohz()} to
-\co{EXECUTE_MAINLINE()} form, as follows:
+第一步是将\co{dyntick_nohz()}转换为
+\co{EXECUTE_MAINLINE()}形式，如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irqnn-ssl@dyntick_nohz.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:dyntick_nohz]
-It is important to note that when a group of statements is passed
-to \co{EXECUTE_MAINLINE()}, as in \clnrefrange{stmt2:b}{stmt2:e}, all
-statements in that group execute atomically.
+需要注意的是，当一组语句被传递给\co{EXECUTE_MAINLINE()}时，
+如\clnrefrange{stmt2:b}{stmt2:e}，该组中的所有语句都原子地执行。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	But what would you do if you needed the statements in a single
-	\co{EXECUTE_MAINLINE()} group to execute non-atomically?
+	但是如果你需要单个\co{EXECUTE_MAINLINE()}组中的
+	语句非原子地执行，你会怎么做？
 }\QuickQuizAnswerB{
-	The easiest thing to do would be to put
-	each such statement in its own \co{EXECUTE_MAINLINE()}
-	statement.
+	最简单的做法是将每个这样的语句放入自己的
+	\co{EXECUTE_MAINLINE()}语句中。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But what if the \co{dynticks_nohz()} process had
-	\qco{if} or \qco{do} statements with conditions,
-	where the statement bodies of these constructs
-	needed to execute non-atomically?
+	但是如果\co{dynticks_nohz()}进程有带条件的
+	\qco{if}或\qco{do}语句，而这些构造的语句体
+	需要非原子地执行呢？
 }\QuickQuizAnswerE{
-	One approach, as we will see in a later section,
-	is to use explicit labels and \qco{goto} statements.
-	For example, the construct:
+	一种方法，正如我们将在后面的章节中看到的，
+	是使用显式标签和\qco{goto}语句。
+	例如，以下构造：
 
 \begin{VerbatimU}
 	if
@@ -905,7 +813,7 @@ statements in that group execute atomically.
 	fi;
 \end{VerbatimU}
 %
-	could be modeled as something like:
+	可以建模为类似如下的形式：
 
 \begin{VerbatimU}
 	EXECUTE_MAINLINE(stmt1,
@@ -920,219 +828,197 @@ statements in that group execute atomically.
 	stmt1_end: skip;
 \end{VerbatimU}
 
-	However, it is not clear that the macro is helping much in the case
-	of the \qco{if} statement, so these sorts of situations will
-	be open-coded in the following sections.
+	然而，在\qco{if}语句的情况下，该宏的帮助并不明显，
+	因此这类情况将在以下各节中直接展开编写。
 }\QuickQuizEndE
 }
 
-The next step is to write a \co{dyntick_irq()} process
-to model an interrupt handler:
+下一步是编写\co{dyntick_irq()}进程来建模中断处理程序：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irqnn-ssl@dyntick_irq.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:dyntick_irq]
-The loop from \clnrefrange{do}{od} models up to \co{MAX_DYNTICK_LOOP_IRQ}
-interrupts, with \clnref{cond1,cond2} forming the loop condition and
-\clnref{inc_i} incrementing the control variable.
-\Clnref{in_irq} tells \co{dyntick_nohz()} that an interrupt handler
-is running, and \clnref{clr_in_irq} tells \co{dyntick_nohz()} that this
-handler has completed.
-\Clnref{irq_done} is used for liveness verification, just like the corresponding
-line of \co{dyntick_nohz()}.
+\clnrefrange{do}{od}的循环建模了最多\co{MAX_DYNTICK_LOOP_IRQ}
+次中断，\clnref{cond1,cond2}构成循环条件，
+\clnref{inc_i}递增控制变量。
+\Clnref{in_irq}告诉\co{dyntick_nohz()}中断处理程序正在
+运行，\clnref{clr_in_irq}告诉\co{dyntick_nohz()}该处理
+程序已完成。
+\Clnref{irq_done}用于活性验证，与\co{dyntick_nohz()}中
+对应的行相同。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:dyntick_irq]
-	Why are \clnref{clr_in_irq,inc_i} (the \qtco{in_dyntick_irq = 0;}
-	and the \qco{i++;}) executed atomically?
+	为什么\clnref{clr_in_irq,inc_i}（\qtco{in_dyntick_irq = 0;}
+	和\qco{i++;}）是原子执行的？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	These lines of code pertain to controlling the
-	model, not to the code being modeled, so there is no reason to
-	model them non-atomically.
-	The motivation for modeling them atomically is to reduce the size
-	of the state space.
+	这些代码行属于控制模型，而不是被建模的代码，
+	因此没有理由对它们进行非原子建模。
+	将它们原子化建模的动机是减少状态空间的大小。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:dyntick_irq]
-\Clnrefrange{enter:b}{enter:e} model \co{rcu_irq_enter()}, and
-\clnref{add_prmt_cnt:b,add_prmt_cnt:e} model the relevant snippet
-of \co{__irq_enter()}.
-\Clnrefrange{vrf_safe:b}{vrf_safe:e} verify safety in much the same manner
-as do the corresponding lines of \co{dynticks_nohz()}.
-\Clnref{irq_exit:b,irq_exit:e} model the relevant snippet of \co{__irq_exit()},
-and finally \clnrefrange{exit:b}{exit:e} model \co{rcu_irq_exit()}.
+\Clnrefrange{enter:b}{enter:e}建模\co{rcu_irq_enter()}，
+\clnref{add_prmt_cnt:b,add_prmt_cnt:e}建模\co{__irq_enter()}
+的相关片段。
+\Clnrefrange{vrf_safe:b}{vrf_safe:e}以与\co{dynticks_nohz()}
+中对应行相同的方式验证安全性。
+\Clnref{irq_exit:b,irq_exit:e}建模\co{__irq_exit()}的
+相关片段，最后\clnrefrange{exit:b}{exit:e}建模
+\co{rcu_irq_exit()}。
 \end{fcvref}
 
 \QuickQuiz{
-	What property of interrupts is this \co{dynticks_irq()}
-	process unable to model?
+	这个\co{dynticks_irq()}进程无法建模中断的
+	哪个属性？
 }\QuickQuizAnswer{
-	One such property is nested interrupts,
-	which are handled in the following section.
+	一个这样的属性是嵌套中断，
+	下一节将处理这个问题。
 }\QuickQuizEnd
 
-The \co{grace_period()} process then becomes as follows:
+\co{grace_period()}进程变为如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irqnn-ssl@grace_period.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irqnn-ssl:grace_period]
-The implementation of \co{grace_period()} is very similar
-to the earlier one.
-The only changes are the addition of \clnref{MDLI} to add the new
-interrupt-count parameter, changes to
-\clnref{edit1,edit3} to add the new \co{dyntick_irq_done} variable
-to the liveness checks, and of course the optimizations on \clnref{edit2,edit4}.
+\co{grace_period()} 的实现与之前的非常相似。
+唯一的变化是在 \clnref{MDLI} 上添加了新的中断计数参数，
+在 \clnref{edit1,edit3} 上将新的 \co{dyntick_irq_done}
+变量添加到活性检查中，当然还有 \clnref{edit2,edit4} 上的优化。
 \end{fcvref}
 
-This model (\path{dyntickRCU-irqnn-ssl.spin})
-results in a correct verification with roughly half a million
-states, passing without errors.
-However, this version of the model does not handle nested
-interrupts.
-This topic is taken up in the next section.
+此模型（\path{dyntickRCU-irqnn-ssl.spin}）
+以大约五十万个状态产生了正确的验证，无错误通过。
+然而，此版本的模型不处理嵌套中断。
+这个主题将在下一节中讨论。
 
-\subsubsection{Validating Nested Interrupt Handlers}
+\subsubsection{验证嵌套中断处理程序}
 \label{sec:formal:Validating Nested Interrupt Handlers}
 
-Nested interrupt handlers may be modeled by splitting the body of
-the loop in \co{dyntick_irq()} as follows:
+嵌套中断处理程序可以通过拆分 \co{dyntick_irq()} 中循环的
+主体来建模，如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-ssl@dyntick_irq.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irq-ssl:dyntick_irq]
-This is similar to the earlier \co{dynticks_irq()} process.
-It adds a second counter variable~\co{j} on \clnref{j}, so that
-\co{i}~counts entries to interrupt handlers and \co{j}~counts
-exits.
-The \co{outermost} variable on \clnref{om} helps determine
-when the \co{grace_period_state} variable needs to be sampled
-for the safety checks.
-The loop-exit check on \clnref{chk_ex:b,chk_ex:e} is updated to require that the
-specified number of interrupt handlers are exited as well as entered,
-and the increment of~\co{i} is moved to \clnref{inc_i}, which is
-the end of the interrupt-entry model.
-\Clnrefrange{atm1:b}{atm1:e} set the \co{outermost} variable to indicate
-whether this is the outermost of a set of nested interrupts and to
-set the \co{in_dyntick_irq} variable that is used by the
-\co{dyntick_nohz()} process.
-\Clnrefrange{atm2:b}{atm2:e} capture the state of the \co{grace_period_state}
-variable, but only when in the outermost interrupt handler.
+这与之前的 \co{dynticks_irq()} 进程类似。
+它在 \clnref{j} 上添加了第二个计数器变量 \co{j}，使得
+\co{i} 计数中断处理程序的进入次数，\co{j} 计数退出次数。
+\clnref{om} 上的 \co{outermost} 变量帮助确定何时需要
+为安全检查采样 \co{grace_period_state} 变量。
+\clnref{chk_ex:b,chk_ex:e} 上的循环退出检查被更新为要求
+指定数量的中断处理程序既被进入也被退出，
+\co{i} 的递增被移到 \clnref{inc_i}，即中断进入模型的末尾。
+\Clnrefrange{atm1:b}{atm1:e} 设置 \co{outermost} 变量以指示
+这是否是一组嵌套中断中最外层的，
+并设置 \co{dyntick_nohz()} 进程使用的
+\co{in_dyntick_irq} 变量。
+\Clnrefrange{atm2:b}{atm2:e} 捕获 \co{grace_period_state}
+变量的状态，但仅在最外层中断处理程序中执行。
 
-\Clnref{cnd_ex} has the do-loop conditional for interrupt-exit modeling:
-As long as we have exited fewer interrupts than we have entered, it is
-legal to exit another interrupt.
+\Clnref{cnd_ex} 有中断退出建模的 do 循环条件：
+只要我们退出的中断比进入的少，就可以退出另一个中断。
 \Clnrefrange{atm3:b}{atm3:e}
-check the safety criterion, but only if we are exiting
-from the outermost interrupt level.
-Finally, \clnrefrange{atm4:b}{atm4:e} increment the interrupt-exit count~\co{j}
-and, if this is the outermost interrupt level, clears
-\co{in_dyntick_irq}.
+检查安全准则，但仅在从最外层中断级别退出时执行。
+最后，\clnrefrange{atm4:b}{atm4:e} 递增中断退出计数 \co{j}，
+如果这是最外层中断级别，则清除 \co{in_dyntick_irq}。
 \end{fcvref}
 
-This model (\path{dyntickRCU-irq-ssl.spin})
-results in a correct verification with a bit more than half a million
-states, passing without errors.
-However, this version of the model does not handle NMIs,
-which are taken up in the next section.
+此模型（\path{dyntickRCU-irq-ssl.spin}）
+以略多于五十万个状态产生了正确的验证，无错误通过。
+然而，此版本的模型不处理 NMI，
+这将在下一节中讨论。
 
-\subsubsection{Validating NMI Handlers}
+\subsubsection{验证 NMI 处理程序}
 \label{sec:formal:Validating NMI Handlers}
 
-We take the same general approach for NMIs as we do for interrupts,
-keeping in mind that NMIs do not nest.
-This results in a \co{dyntick_nmi()} process as follows:
+我们对 NMI 采取与中断相同的一般方法，
+但要记住 NMI 不会嵌套。
+这导致了如下所示的 \co{dyntick_nmi()} 进程：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-nmi-ssl@dyntick_nmi.fcv}
 
-Of course, the fact that we have NMIs requires adjustments in
-the other components.
-For example, the \co{EXECUTE_MAINLINE()} macro now needs to
-pay attention to the NMI handler (\co{in_dyntick_nmi}) as well
-as the interrupt handler (\co{in_dyntick_irq}) by checking
-the \co{dyntick_nmi_done} variable as follows:
+当然，NMI 的存在要求对其他组件进行调整。
+例如，\co{EXECUTE_MAINLINE()} 宏现在需要通过检查
+\co{dyntick_nmi_done} 变量来同时关注 NMI 处理程序
+（\co{in_dyntick_nmi}）和中断处理程序
+（\co{in_dyntick_irq}），如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-nmi-ssl@EXECUTE_MAINLINE.fcv}
 
-We will also need to introduce an \co{EXECUTE_IRQ()}
-macro that checks \co{in_dyntick_nmi} in order to allow
-\co{dyntick_irq()} to exclude \co{dyntick_nmi()}:
+我们还需要引入一个 \co{EXECUTE_IRQ()} 宏，
+该宏检查 \co{in_dyntick_nmi} 以允许
+\co{dyntick_irq()} 排除 \co{dyntick_nmi()}：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-nmi-ssl@EXECUTE_IRQ.fcv}
 
-It is further necessary to convert \co{dyntick_irq()}
-to \co{EXECUTE_IRQ()} as follows:
+还需要将 \co{dyntick_irq()} 转换为
+\co{EXECUTE_IRQ()}，如下所示：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-nmi-ssl@dyntick_irq.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irq-nmi-ssl:dyntick_irq]
-Note that we have open-coded the \qco{if} statements
-(for example, \clnrefrange{stmt1:b}{stmt1:e}).
-In addition, statements that process strictly local state
-(such as \clnref{inc_i}) need not exclude \co{dyntick_nmi()}.
+请注意，我们已将 \qco{if} 语句直接展开编写
+（例如，\clnrefrange{stmt1:b}{stmt1:e}）。
+此外，处理严格局部状态的语句
+（如 \clnref{inc_i}）不需要排除 \co{dyntick_nmi()}。
 \end{fcvref}
 
-Finally, \co{grace_period()} requires only a few changes:
+最后，\co{grace_period()} 只需要少量更改：
 
 \input{CodeSamples/formal/promela/dyntick/dyntickRCU-irq-nmi-ssl@grace_period.fcv}
 
 \begin{fcvref}[ln:formal:promela:dyntick:dyntickRCU-irq-nmi-ssl:grace_period]
-We have added the \co{printf()} for the new
-\co{MAX_DYNTICK_LOOP_NMI} parameter on \clnref{MDL_NMI} and
-added \co{dyntick_nmi_done} to the \co{shouldexit}
-assignments on \clnref{nmi_done1,nmi_done2}.
+我们在 \clnref{MDL_NMI} 上为新的 \co{MAX_DYNTICK_LOOP_NMI}
+参数添加了 \co{printf()}，并在 \clnref{nmi_done1,nmi_done2}
+上将 \co{dyntick_nmi_done} 添加到 \co{shouldexit} 赋值中。
 \end{fcvref}
 
-The model (\path{dyntickRCU-irq-nmi-ssl.spin})
-results in a correct verification with several hundred million
-states, passing without errors.
+此模型（\path{dyntickRCU-irq-nmi-ssl.spin}）
+以数亿个状态产生了正确的验证，无错误通过。
 
 \QuickQuiz{
-	Does Paul \emph{always} write his code in this painfully incremental
-	manner?
+	Paul \emph{总是}以这种痛苦的增量方式编写代码吗？
 }\QuickQuizAnswer{
-	Not always, but more and more frequently.
-	In this case, Paul started with the smallest slice of code that
-	included an interrupt handler, because he was not sure how best
-	to model interrupts in Promela.
-	Once he got that working, he added other features.
-	(But if he was doing it again, he would start with a ``toy'' handler.
-	For example, he might have the handler increment a variable twice and
-	have the mainline code verify that the value was always even.)
+	不总是，但越来越频繁。
+	在这个案例中，Paul 从包含中断处理程序的最小代码片段开始，
+	因为他不确定如何最好地在 Promela 中建模中断。
+	一旦让它运行起来，他就添加了其他特性。
+	（但如果再做一次，他会从一个``玩具''处理程序开始。
+	例如，他可能让处理程序将一个变量递增两次，
+	并让主线代码验证该值始终为偶数。）
 
-	Why the incremental approach?
-	Consider the following, attributed to Brian W. Kernighan:
+	为什么要用增量方法？
+	请考虑以下这段话，出自Brian W. Kernighan：
 
 	\begin{quote}
-		Debugging is twice as hard as writing the code in the first
-		place.
-		Therefore, if you write the code as cleverly as possible,
-		you are, by definition, not smart enough to debug it.
+		调试的难度是编写代码的两倍。
+		因此，如果你尽可能巧妙地编写代码，
+		那么按定义，你就不够聪明来调试它。
 	\end{quote}
 
-	This means that any attempt to optimize the production of code should
-	place at least 66\pct\ of its emphasis on optimizing the debugging process,
-	even at the expense of increasing the time and effort spent coding.
-	Incremental coding and testing is one way to optimize the debugging
-	process, at the expense of some increase in coding effort.
-	Paul uses this approach because he rarely has the luxury of
-	devoting full days (let alone weeks) to coding and debugging.
+	这意味着任何优化代码生产的尝试都应该将至少66\pct\ 的
+	重点放在优化调试过程上，即使这会增加编码所花费的时间和
+	精力。增量编码和测试是优化调试过程的一种方式，代价是
+	编码工作量有所增加。
+	Paul使用这种方法是因为他很少有奢侈的条件可以将整天
+	（更不用说整周）用于编码和调试。
 }\QuickQuizEnd
 
-\subsubsection{Lessons (Re)Learned}
+\subsubsection{（重新）学到的经验}
 \label{sec:formal:Lessons (Re)Learned}
 
-This effort provided some lessons (re)learned:
+这次工作提供了一些（重新）学到的经验教训：
 
 \begin{enumerate}
-\item	{\bf Promela and Spin can verify interrupt\slash NMI\-/handler
-	interactions.}
-\item	{\bf Documenting code can help locate bugs.}
-	In this case, the documentation effort located
-	a misplaced memory barrier in
-	\co{rcu_enter_nohz()} and \co{rcu_exit_nohz()},
-	as shown by the following patch~\cite{PaulEMcKenney2008commit:ae66be9b71b1}.
+\item	{\bf Promela 和 Spin 可以验证中断/NMI 处理程序的交互。}
+\item	{\bf 为代码编写文档可以帮助定位缺陷。}
+	在本例中，文档编写工作定位了
+	\co{rcu_enter_nohz()} 和 \co{rcu_exit_nohz()} 中
+	一个放错位置的内存屏障，
+	如以下补丁所示~\cite{PaulEMcKenney2008commit:ae66be9b71b1}。
 
 \begin{VerbatimU}
  static inline void rcu_enter_nohz(void)
@@ -1150,66 +1036,56 @@ This effort provided some lessons (re)learned:
  }
 \end{VerbatimU}
 
-\item	{\bf Validate your code early, often, and up to the point
-	of destruction.}
-	This effort located one subtle bug in
-	\co{rcu_try_flip_waitack_needed()}
-	that would have been quite difficult to test or debug, as
-	shown by the following patch~\cite{PaulEMcKenney2008commit:d7c0651390b6}.
+\item	{\bf 尽早、经常、彻底地验证你的代码。}
+	这次工作定位了 \co{rcu_try_flip_waitack_needed()} 中
+	一个非常微妙的缺陷，该缺陷很难通过测试或调试来发现，
+	如以下补丁所示~\cite{PaulEMcKenney2008commit:d7c0651390b6}。
 
 \begin{VerbatimU}
 -       if ((curr - snap) > 2 || (snap & 0x1) == 0)
 +       if ((curr - snap) > 2 || (curr & 0x1) == 0)
 \end{VerbatimU}
 
-\item	{\bf Always verify your verification code.}
-	The usual way to do this is to insert a deliberate bug
-	and verify that the verification code catches it.
-	Of course, if the verification code fails to catch this bug,
-	you may also need to verify the bug itself, and so on,
-	recursing infinitely.
-	However, if you find yourself in this position,
-	getting a good night's sleep
-	can be an extremely effective debugging technique.
-	You will then see that the obvious verify-the-verification
-	technique is to deliberately insert bugs in the code being
-	verified.
-	If the verification fails to find them, the verification clearly
-	is buggy.
-\item	{\bf Use of atomic instructions can simplify verification.}
-	Unfortunately, use of the \co{cmpxchg} atomic instruction
-	would also slow down the critical \IXacr{irq} fastpath, so they
-	are not appropriate in this case.
-\item	{\bf The need for complex formal verification often indicates
-	a need to re-think your design.}
+\item	{\bf 始终验证你的验证代码。}
+	通常的做法是故意插入一个缺陷，
+	并验证验证代码能够捕获它。
+	当然，如果验证代码未能捕获这个缺陷，
+	你可能还需要验证缺陷本身，依此类推，
+	无限递归。
+	然而，如果你发现自己处于这种境地，
+	好好睡一觉可能是一种极其有效的调试技术。
+	然后你就会看到，验证验证代码的明显技术是
+	在被验证的代码中故意插入缺陷。
+	如果验证未能发现它们，那么验证代码显然有问题。
+\item	{\bf 使用原子指令可以简化验证。}
+	不幸的是，使用 \co{cmpxchg} 原子指令也会减慢
+	关键的 \IXacr{irq} 快速路径，因此在本例中不适用。
+\item	{\bf 需要复杂的形式验证通常表明需要重新思考你的设计。}
 \end{enumerate}
 
-To this last point, it turns out that there is a much simpler solution to
-the dynticks problem, which is presented in the next section.
+关于最后一点，事实证明 dynticks 问题有一个简单得多的解决方案，
+将在下一节中介绍。
 
-\subsubsection{Simplicity Avoids Formal Verification}
+\subsubsection{简单性避免了形式验证}
 \label{sec:formal:Simplicity Avoids Formal Verification}
 
-The complexity of the dynticks interface for preemptible RCU is primarily
-due to the fact that both \IRQ s and NMIs use the same code path and the
-same state variables.
-This leads to the notion of providing separate code paths and variables
-for \IRQ s and NMIs, as has been done for
-hierarchical RCU~\cite{PaulEMcKenney2008HierarchicalRCU}
-as indirectly suggested by
-Manfred Spraul~\cite{ManfredSpraul2008StateMachineRCU}.
-This work was pulled into mainline kernel during the v2.6.29
-development cycle~\cite{PaulEMcKenney2008commit:64db4cfff99c}.
+可抢占 RCU 的 dynticks 接口的复杂性主要是由于
+\IRQ 和 NMI 使用相同的代码路径和相同的状态变量。
+这引出了为 \IRQ 和 NMI 提供单独代码路径和变量的想法，
+正如分层 RCU~\cite{PaulEMcKenney2008HierarchicalRCU}
+所做的那样，这是由
+Manfred Spraul~\cite{ManfredSpraul2008StateMachineRCU}
+间接建议的。
+这项工作在 v2.6.29 开发周期中被合入主线内核~\cite{PaulEMcKenney2008commit:64db4cfff99c}。
 
-\subsubsection{State Variables for Simplified Dynticks Interface}
+\subsubsection{简化 Dynticks 接口的状态变量}
 \label{sec:formal:State Variables for Simplified Dynticks Interface}
 
 \Cref{lst:formal:Variables for Simple Dynticks Interface}
-shows the new per-CPU state variables.
-These variables are grouped into structs to allow multiple independent
-RCU implementations (e.g., \co{rcu} and \co{rcu_bh}) to conveniently
-and efficiently share dynticks state.
-In what follows, they can be thought of as independent per-CPU variables.
+显示了新的每 CPU 状态变量。
+这些变量被分组到结构体中，以允许多个独立的 RCU 实现
+（例如，\co{rcu} 和 \co{rcu_bh}）方便且高效地共享 dynticks 状态。
+在以下内容中，它们可以被视为独立的每 CPU 变量。
 
 \begin{listing}
 \begin{VerbatimL}
@@ -1226,70 +1102,63 @@ struct rcu_data {
 	...
 };
 \end{VerbatimL}
-\caption{Variables for Simple Dynticks Interface}
+\caption{简单 Dynticks 接口的变量}
 \label{lst:formal:Variables for Simple Dynticks Interface}
 \end{listing}
 
-The \co{dynticks_nesting}, \co{dynticks}, and \co{dynticks_snap} variables
-are for the \IRQ\ code paths, and the \co{dynticks_nmi} and
-\co{dynticks_nmi_snap} variables are for the NMI code paths, although
-the NMI code path will also reference (but not modify) the
-\co{dynticks_nesting} variable.
-These variables are used as follows:
+\co{dynticks_nesting}、\co{dynticks} 和 \co{dynticks_snap} 变量
+用于 \IRQ\ 代码路径，\co{dynticks_nmi} 和
+\co{dynticks_nmi_snap} 变量用于 NMI 代码路径，
+尽管 NMI 代码路径也会引用（但不修改）
+\co{dynticks_nesting} 变量。
+这些变量的使用方式如下：
 
 \begin{description}[style=nextline]
 \item	[\tco{dynticks_nesting}]
-	This counts the number of reasons that the corresponding
-	CPU should be monitored for RCU read-side critical sections.
-	If the CPU is in dynticks-idle mode, then this counts the
-	\IRQ\ nesting level, otherwise it is one greater than the
-	\IRQ\ nesting level.
+	这个变量计数对应 CPU 应被监视 RCU 读端临界区的原因数量。
+	如果 CPU 处于 dynticks-idle 模式，则它计数
+	\IRQ\ 嵌套级别，否则比 \IRQ\ 嵌套级别大一。
 \item	[\tco{dynticks}]
-	This counter's value is even if the corresponding CPU is
-	in dynticks-idle mode and there are no \IRQ\ handlers currently
-	running on that CPU, otherwise the counter's value is odd.
-	In other words, if this counter's value is odd, then the
-	corresponding CPU might be in an RCU read-side critical section.
+	如果对应 CPU 处于 dynticks-idle 模式且该 CPU 上
+	没有正在运行的 \IRQ\ 处理程序，则该计数器的值为偶数，
+	否则为奇数。
+	换句话说，如果该计数器的值为奇数，
+	则对应 CPU 可能处于 RCU 读端临界区中。
 \item	[\tco{dynticks_nmi}]
-	This counter's value is odd if the corresponding CPU is
-	in an NMI handler, but only if the NMI arrived while this
-	CPU was in dyntick-idle mode with no \IRQ\ handlers running.
-	Otherwise, the counter's value will be even.
+	如果对应 CPU 处于 NMI 处理程序中，则该计数器的值为奇数，
+	但仅当 NMI 到达时该 CPU 处于 dyntick-idle 模式
+	且没有 \IRQ\ 处理程序在运行时才如此。
+	否则，该计数器的值将为偶数。
 \item	[\tco{dynticks_snap}]
-	This will be a snapshot of the \co{dynticks} counter, but
-	only if the current RCU grace period has extended for too
-	long a duration.
+	这将是 \co{dynticks} 计数器的快照，
+	但仅当当前 RCU 宽限期已经延续了过长的时间时才如此。
 \item	[\tco{dynticks_nmi_snap}]
-	This will be a snapshot of the \co{dynticks_nmi} counter, but
-	again only if the current RCU grace period has extended for too
-	long a duration.
+	这将是 \co{dynticks_nmi} 计数器的快照，
+	但同样仅当当前 RCU 宽限期已经延续了过长的时间时才如此。
 \end{description}
 
-If both \co{dynticks} and \co{dynticks_nmi} have taken on an even
-value during a given time interval, then the corresponding CPU has
-passed through a \IX{quiescent state} during that interval.
+如果 \co{dynticks} 和 \co{dynticks_nmi} 在给定时间间隔内
+都取过偶数值，则对应 CPU 在该间隔内经历了一个\IX{quiescent state}。
 
 \QuickQuiz{
-	But what happens if an NMI handler starts running before
-	an \IRQ\ handler completes, and if that NMI handler continues
-	running until a second \IRQ\ handler starts?
+	但如果一个 NMI 处理程序在一个 \IRQ\ 处理程序完成之前
+	开始运行，并且该 NMI 处理程序一直运行到第二个
+	\IRQ\ 处理程序开始，会怎样？
 }\QuickQuizAnswer{
-	This cannot happen within the confines of a single CPU\@.
-	The first \IRQ\ handler cannot complete until the NMI handler
-	returns.
-	Therefore, if each of the \co{dynticks} and \co{dynticks_nmi}
-	variables have taken on an even value during a given time
-	interval, the corresponding CPU really was in a quiescent
-	state at some time during that interval.
+	这在单个 CPU 的范围内不可能发生。
+	第一个 \IRQ\ 处理程序在 NMI 处理程序返回之前无法完成。
+	因此，如果 \co{dynticks} 和 \co{dynticks_nmi}
+	变量在给定时间间隔内都取过偶数值，
+	则对应 CPU 确实在该间隔内的某个时刻处于静止状态。
 }\QuickQuizEnd
 
-\subsubsection{Entering and Leaving Dynticks-Idle Mode}
+\subsubsection{进入和离开 Dynticks-Idle 模式}
 \label{sec:formal:Entering and Leaving Dynticks-Idle Mode}
 
 \Cref{lst:formal:Entering and Exiting Dynticks-Idle Mode}
-shows the \co{rcu_enter_nohz()} and \co{rcu_exit_nohz()},
-which enter and exit dynticks-idle mode, also known as ``nohz'' mode.
-These two functions are invoked from process context.
+显示了 \co{rcu_enter_nohz()} 和 \co{rcu_exit_nohz()}，
+它们进入和退出 dynticks-idle 模式，也称为``nohz''模式。
+这两个函数从进程上下文中调用。
 
 \begin{listing}
 \begin{fcvlabel}[ln:formal:Entering and Exiting Dynticks-Idle Mode]
@@ -1323,46 +1192,43 @@ void rcu_exit_nohz(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Entering and Exiting Dynticks-Idle Mode}
+\caption{进入和退出 Dynticks-Idle 模式}
 \label{lst:formal:Entering and Exiting Dynticks-Idle Mode}
 \end{listing}
 
 \begin{fcvref}[ln:formal:Entering and Exiting Dynticks-Idle Mode]
-\Clnref{mb} ensures that any prior memory accesses (which might
-include accesses from RCU read-side critical sections) are seen
-by other CPUs before those marking entry to dynticks-idle mode.
-\Clnref{irq_sv,irq_rs} disable and reenable \IRQ s.
-\Clnref{get_ptr} acquires a pointer to the current CPU's \co{rcu_dynticks}
-structure, and
-\clnref{inc_cnt} increments the current CPU's \co{dynticks} counter, which
-should now be even, given that we are entering dynticks-idle mode
-in process context.
-Finally, \clnref{dec_nst} decrements \co{dynticks_nesting},
-which should now be zero.
+\Clnref{mb} 确保任何先前的内存访问（可能包括来自 RCU
+读端临界区的访问）在标记进入 dynticks-idle 模式之前被其他 CPU 看到。
+\Clnref{irq_sv,irq_rs} 禁用和重新启用 \IRQ。
+\Clnref{get_ptr} 获取指向当前 CPU 的 \co{rcu_dynticks}
+结构的指针，
+\clnref{inc_cnt} 递增当前 CPU 的 \co{dynticks} 计数器，
+鉴于我们在进程上下文中进入 dynticks-idle 模式，
+该计数器现在应该是偶数。
+最后，\clnref{dec_nst} 递减 \co{dynticks_nesting}，
+现在应该为零。
 \end{fcvref}
 
-The \co{rcu_exit_nohz()} function is quite similar, but increments
-\co{dynticks_nesting} rather than decrementing it and checks for
-the opposite \co{dynticks} polarity.
+\co{rcu_exit_nohz()} 函数非常相似，但递增 \co{dynticks_nesting}
+而非递减，并检查相反的 \co{dynticks} 极性。
 
-\subsubsection{NMIs From Dynticks-Idle Mode}
+\subsubsection{来自 Dynticks-Idle 模式的 NMI}
 \label{sec:formal:NMIs From Dynticks-Idle Mode}
 
 \begin{fcvref}[ln:formal:NMIs From Dynticks-Idle Mode]
 \Cref{lst:formal:NMIs From Dynticks-Idle Mode}
-shows the \co{rcu_nmi_enter()} and \co{rcu_nmi_exit()} functions,
-which inform RCU of NMI entry and exit, respectively, from dynticks-idle
-mode.
-However, if the NMI arrives during an \IRQ\ handler, then RCU will already
-be on the lookout for RCU read-side critical sections from this CPU,
-so \clnref{chk_ext1,ret1} of \co{rcu_nmi_enter()} and \clnref{chk_ext2,ret2}
-of \co{rcu_nmi_exit()} silently return if \co{dynticks} is odd.
-Otherwise, the two functions increment \co{dynticks_nmi}, with
-\co{rcu_nmi_enter()} leaving it with an odd value and \co{rcu_nmi_exit()}
-leaving it with an even value.
-Both functions execute memory barriers between this increment
-and possible RCU read-side critical sections on \clnref{mb1,mb2},
-respectively.
+显示了 \co{rcu_nmi_enter()} 和 \co{rcu_nmi_exit()} 函数，
+它们分别通知 RCU 从 dynticks-idle 模式进入和退出 NMI。
+然而，如果 NMI 在 \IRQ\ 处理程序期间到达，
+那么 RCU 已经在监视来自该 CPU 的 RCU 读端临界区，
+因此如果 \co{dynticks} 为奇数，\co{rcu_nmi_enter()} 的
+\clnref{chk_ext1,ret1} 和 \co{rcu_nmi_exit()} 的
+\clnref{chk_ext2,ret2} 会静默返回。
+否则，两个函数递增 \co{dynticks_nmi}，
+\co{rcu_nmi_enter()} 使其保持奇数值，
+\co{rcu_nmi_exit()} 使其保持偶数值。
+两个函数分别在 \clnref{mb1,mb2} 上在此递增和可能的 RCU
+读端临界区之间执行内存屏障。
 \end{fcvref}
 
 \begin{listing}
@@ -1393,27 +1259,25 @@ void rcu_nmi_exit(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{NMIs From Dynticks-Idle Mode}
+\caption{来自 Dynticks-Idle 模式的 NMI}
 \label{lst:formal:NMIs From Dynticks-Idle Mode}
 \end{listing}
 
-\subsubsection{Interrupts From Dynticks-Idle Mode}
+\subsubsection{来自 Dynticks-Idle 模式的中断}
 \label{sec:formal:Interrupts From Dynticks-Idle Mode}
 
 \begin{fcvref}[ln:formal:Interrupts From Dynticks-Idle Mode]
 \Cref{lst:formal:Interrupts From Dynticks-Idle Mode}
-shows \co{rcu_irq_enter()} and \co{rcu_irq_exit()}, which
-inform RCU of entry to and exit from, respectively, \IRQ\ context.
-\Clnref{inc_nst} of \co{rcu_irq_enter()} increments \co{dynticks_nesting},
-and if this variable was already non-zero, \clnref{ret1} silently returns.
-Otherwise, \clnref{inc_dynt1} increments \co{dynticks},
-which will then have
-an odd value, consistent with the fact that this CPU can now
-execute RCU read-side critical sections.
-\Clnref{mb1} therefore executes a memory barrier to ensure that
-the increment of \co{dynticks} is seen before any
-RCU read-side critical sections that the subsequent \IRQ\ handler
-might execute.
+显示了 \co{rcu_irq_enter()} 和 \co{rcu_irq_exit()}，
+它们分别通知 RCU 进入和退出 \IRQ\ 上下文。
+\co{rcu_irq_enter()} 的 \clnref{inc_nst} 递增 \co{dynticks_nesting}，
+如果该变量已经非零，\clnref{ret1} 会静默返回。
+否则，\clnref{inc_dynt1} 递增 \co{dynticks}，
+该计数器随后将具有奇数值，与该 CPU 现在可以执行
+RCU 读端临界区的事实一致。
+因此 \clnref{mb1} 执行一个内存屏障以确保
+\co{dynticks} 的递增在后续 \IRQ\ 处理程序可能执行的
+任何 RCU 读端临界区之前被看到。
 
 \begin{listing}
 \begin{fcvlabel}[ln:formal:Interrupts From Dynticks-Idle Mode]
@@ -1446,45 +1310,42 @@ void rcu_irq_exit(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Interrupts From Dynticks-Idle Mode}
+\caption{来自 Dynticks-Idle 模式的中断}
 \label{lst:formal:Interrupts From Dynticks-Idle Mode}
 \end{listing}
 
-\Clnref{dec_nst} of \co{rcu_irq_exit()} decrements
-\co{dynticks_nesting}, and
-if the result is non-zero, \clnref{ret2} silently returns.
-Otherwise, \clnref{mb2} executes a memory barrier to ensure that the
-increment of \co{dynticks} on \clnref{inc_dynt2} is seen after any RCU
-read-side critical sections that the prior \IRQ\ handler might have executed.
-\Clnref{chk_even} verifies that \co{dynticks} is now even, consistent with
-the fact that no RCU read-side critical sections may appear in
-dynticks-idle mode.
-\Clnrefrange{chk_cb:b}{chk_cb:e} check to see
-if the prior \IRQ\ handlers enqueued any
-RCU callbacks, forcing this CPU out of dynticks-idle mode via
-a reschedule API if so.
+\co{rcu_irq_exit()} 的 \clnref{dec_nst} 递减 \co{dynticks_nesting}，
+如果结果非零，\clnref{ret2} 静默返回。
+否则，\clnref{mb2} 执行内存屏障以确保
+\clnref{inc_dynt2} 上 \co{dynticks} 的递增在先前
+\IRQ\ 处理程序可能执行的任何 RCU 读端临界区之后被看到。
+\Clnref{chk_even} 验证 \co{dynticks} 现在为偶数，
+与 dynticks-idle 模式中不能出现 RCU 读端临界区的事实一致。
+\Clnrefrange{chk_cb:b}{chk_cb:e} 检查先前的 \IRQ\ 处理程序
+是否排入了任何 RCU 回调，如果是则通过重调度 API
+强制此 CPU 退出 dynticks-idle 模式。
 \end{fcvref}
 
-\subsubsection{Checking For Dynticks Quiescent States}
+\subsubsection{检查 Dynticks 静止状态}
 \label{sec:formal:Checking For Dynticks Quiescent States}
 
 \begin{fcvref}[ln:formal:Saving Dyntick Progress Counters]
 \Cref{lst:formal:Saving Dyntick Progress Counters}
-shows \co{dyntick_save_progress_counter()}, which takes a snapshot
-of the specified CPU's \co{dynticks} and \co{dynticks_nmi}
-counters.
-\Clnref{snap,snapn} snapshot these two variables to locals, \clnref{mb}
-executes a memory barrier to pair with the memory barriers in the functions in
+显示了 \co{dyntick_save_progress_counter()}，它获取
+指定 CPU 的 \co{dynticks} 和 \co{dynticks_nmi} 计数器的快照。
+\Clnref{snap,snapn} 将这两个变量快照到局部变量中，
+\clnref{mb} 执行内存屏障以与
 \cref{lst:formal:Entering and Exiting Dynticks-Idle Mode,%
 lst:formal:NMIs From Dynticks-Idle Mode,%
-lst:formal:Interrupts From Dynticks-Idle Mode}.
-\Clnref{rec_snap,rec_snapn} record the snapshots for later calls to
-\co{rcu_implicit_dynticks_qs()},
-and \clnref{chk_prgs} checks to see if the CPU is in dynticks-idle mode with
-neither \IRQ s nor NMIs in progress (in other words, both snapshots
-have even values), hence in an extended quiescent state.
-If so, \clnref{cnt:b,cnt:e} count this event, and \clnref{ret} returns
-true if the CPU was in a quiescent state.
+lst:formal:Interrupts From Dynticks-Idle Mode}
+中函数的内存屏障配对。
+\Clnref{rec_snap,rec_snapn} 记录快照以供后续调用
+\co{rcu_implicit_dynticks_qs()} 使用，
+\clnref{chk_prgs} 检查 CPU 是否处于 dynticks-idle 模式且
+没有正在进行的 \IRQ 或 NMI（换句话说，两个快照都是偶数值），
+因此处于扩展静止状态。
+如果是，\clnref{cnt:b,cnt:e} 计数此事件，
+\clnref{ret} 在 CPU 处于静止状态时返回 true。
 \end{fcvref}
 
 \begin{listing}
@@ -1509,37 +1370,34 @@ dyntick_save_progress_counter(struct rcu_data *rdp)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Saving Dyntick Progress Counters}
+\caption{保存 Dyntick 进度计数器}
 \label{lst:formal:Saving Dyntick Progress Counters}
 \end{listing}
 
 \begin{fcvref}[ln:formal:Checking Dyntick Progress Counters]
 \Cref{lst:formal:Checking Dyntick Progress Counters}
-shows \co{rcu_implicit_dynticks_qs()}, which is called to check
-whether a CPU has entered dyntick-idle mode subsequent to a call
-to \co{dynticks_save_progress_counter()}.
-\Clnref{curr,currn} take new snapshots of the corresponding CPU's
-\co{dynticks} and \co{dynticks_nmi} variables, while
-\clnref{snap,snapn} retrieve the snapshots saved earlier by
-\co{dynticks_save_progress_counter()}.
-\Clnref{mb} then
-executes a memory barrier to pair with the memory barriers in
-the functions in
+显示了 \co{rcu_implicit_dynticks_qs()}，它被调用以检查
+CPU 是否在调用 \co{dynticks_save_progress_counter()} 之后
+进入了 dyntick-idle 模式。
+\Clnref{curr,currn} 获取对应 CPU 的 \co{dynticks} 和
+\co{dynticks_nmi} 变量的新快照，
+而 \clnref{snap,snapn} 检索之前由
+\co{dynticks_save_progress_counter()} 保存的快照。
+\Clnref{mb} 然后执行内存屏障以与
 \cref{lst:formal:Entering and Exiting Dynticks-Idle Mode,%
 lst:formal:NMIs From Dynticks-Idle Mode,%
-lst:formal:Interrupts From Dynticks-Idle Mode}.
-\Clnrefrange{chk_q:b}{chk_q:e}
-then check to see if the CPU is either currently in
-a quiescent state (\co{curr} and \co{curr_nmi} having even values) or
-has passed through a quiescent state since the last call to
-\co{dynticks_save_progress_counter()} (the values of
-\co{dynticks} and \co{dynticks_nmi} having changed).
-If these checks confirm that the CPU has passed through a dyntick-idle
-quiescent state, then \clnref{cnt} counts that fact and
-\clnref{ret_1} returns an indication of this fact.
-Either way, \clnref{chk_race}
-checks for race conditions that can result in RCU
-waiting for a CPU that is offline.
+lst:formal:Interrupts From Dynticks-Idle Mode}
+中函数的内存屏障配对。
+\Clnrefrange{chk_q:b}{chk_q:e} 然后检查 CPU 是否当前
+处于静止状态（\co{curr} 和 \co{curr_nmi} 具有偶数值），
+或者自上次调用 \co{dynticks_save_progress_counter()}
+以来是否经历了静止状态（\co{dynticks} 和 \co{dynticks_nmi}
+的值已改变）。
+如果这些检查确认 CPU 已经经历了 dyntick-idle 静止状态，
+则 \clnref{cnt} 计数该事实，
+\clnref{ret_1} 返回该事实的指示。
+无论如何，\clnref{chk_race} 检查可能导致 RCU
+等待已离线 CPU 的竞态条件。
 \end{fcvref}
 
 \begin{listing}
@@ -1567,50 +1425,44 @@ rcu_implicit_dynticks_qs(struct rcu_data *rdp)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Checking Dyntick Progress Counters}
+\caption{检查 Dyntick 进度计数器}
 \label{lst:formal:Checking Dyntick Progress Counters}
 \end{listing}
 
 \QuickQuiz{
-	This is still pretty complicated.
-	Why not just have a \co{cpumask_t} with per-CPU bits, clearing
-	the bit when entering an \IRQ\ or NMI handler, and setting it
-	upon exit?
+	这仍然相当复杂。
+	为什么不直接使用一个带有每 CPU 位的 \co{cpumask_t}，
+	在进入 \IRQ\ 或 NMI 处理程序时清除该位，
+	在退出时设置它？
 }\QuickQuizAnswer{
-	Although this approach would be functionally correct, it
-	would result in excessive \IRQ\ entry/exit overhead on
-	large machines.
-	In contrast, the approach laid out in this section allows
-	each CPU to touch only per-CPU data on \IRQ\ and NMI entry/exit,
-	resulting in much lower \IRQ\ entry/exit overhead, especially
-	on large machines.
+	虽然这种方法在功能上是正确的，但它会导致
+	在大型机器上产生过多的 \IRQ\ 进入/退出开销。
+	相比之下，本节中阐述的方法允许每个 CPU 在
+	\IRQ\ 和 NMI 进入/退出时只触碰每 CPU 数据，
+	从而产生更低的 \IRQ\ 进入/退出开销，
+	尤其是在大型机器上。
 }\QuickQuizEnd
 
-Linux-kernel RCU's dyntick-idle code has since been rewritten yet again
-based on a suggestion from
-Andy Lutomirski~\cite{PaulMcKenney2015dyntickAndyNMI},
-but it is time to sum up and move on to other topics.
+Linux 内核 RCU 的 dyntick-idle 代码后来又基于
+Andy Lutomirski~\cite{PaulMcKenney2015dyntickAndyNMI}
+的建议被重写了一次，
+但现在是时候总结并继续讨论其他主题了。
 
-\subsubsection{Discussion}
+\subsubsection{讨论}
 \label{sec:formal:Discussion}
 
-A slight shift in viewpoint resulted in a substantial simplification
-of the dynticks interface for RCU\@.
-The key change leading to this simplification was minimizing of
-sharing between \IRQ\ and NMI contexts.
-The only sharing in this simplified interface is references from NMI
-context to \IRQ\ variables (the \co{dynticks} variable).
-This type of sharing is benign, because the NMI functions never update
-this variable, so that its value remains constant through the lifetime
-of the NMI handler.
-This limitation of sharing allows the individual functions to be
-understood one at a time, in happy contrast to the situation
-described in
-\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU},
-where an NMI might change shared state at any point during execution of
-the \IRQ\ functions.
+观点的轻微转变导致了 RCU dynticks 接口的大幅简化。
+导致这种简化的关键变化是最小化 \IRQ\ 和 NMI 上下文之间的共享。
+在这个简化接口中，唯一的共享是 NMI 上下文对
+\IRQ\ 变量（\co{dynticks} 变量）的引用。
+这种类型的共享是良性的，因为 NMI 函数从不更新该变量，
+因此其值在 NMI 处理程序的整个生命周期中保持不变。
+这种共享的限制使得各个函数可以逐个理解，
+与\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
+中描述的情况形成鲜明对比——在那里，NMI 可能在
+\IRQ\ 函数执行期间的任何时刻更改共享状态。
 
-Verification can be a good thing, but simplicity is even better.
+验证是好事，但简单性更好。
 
 % Restore frame around VerbatimN in two-column layout
 \IfTwoColumn{

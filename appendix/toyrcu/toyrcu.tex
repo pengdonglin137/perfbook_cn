@@ -2,90 +2,70 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:app:``Toy'' RCU Implementations}{``Toy'' RCU Implementations}{qqztoyrcu}
+\QuickQuizChapter{chp:app:``Toy'' RCU Implementations}{"玩具"RCU实现}{qqztoyrcu}
 %
-\Epigraph{The only difference between men and boys is the price of their toys.}
+\Epigraph{男人和男孩的唯一区别是玩具的价格。}
 	 {M. H\'ebert}
 % https://www.ncbi.nlm.nih.gov/pubmed/11548147
 
-This appendix provides a series of RCU implementations in order of
-increasing sophistication, from the viewpoint of solving the
-existence-guarantee problem.
-\Cref{sec:app:toyrcu:Lock-Based RCU} presents a rudimentary
-RCU implementation based on simple locking, while
+本附录提供了一系列RCU实现，按照解决存在保证问题的复杂程度递增排列。
+\Cref{sec:app:toyrcu:Lock-Based RCU} 介绍了一个基于简单锁的基本RCU实现，而
 \crefthro{sec:app:toyrcu:Per-Thread Lock-Based RCU}
 {sec:app:toyrcu:RCU Based on Quiescent States}
-present a series of
-simple RCU implementations based on locking,
+则介绍了一系列基于锁的简单RCU实现、
 \IXalt{reference counters}{reference count},
-and free-running counters.
-Finally, \cref{sec:app:toyrcu:Summary of Toy RCU Implementations}
-provides a summary and a list of desirable RCU properties.
+和自由运行计数器。
+最后， \cref{sec:app:toyrcu:Summary of Toy RCU Implementations}
+提供了总结和期望的RCU属性列表。
 
-The toy RCU implementations in this appendix are designed not for
-high performance, practicality, or any kind of production use,\footnote{
-	However, production-quality user-level RCU implementations
-	are available~\cite{MathieuDesnoyers2009URCU,MathieuDesnoyers2012URCU}.}
-but rather for clarity and for instructional purposes.
-Nevertheless, you will need a thorough understanding of
+本附录中的玩具RCU实现不是为了高性能、实用性或任何类型的生产用途而设计的，\footnote{
+	然而，生产级的用户级RCU实现已经可用~\cite{MathieuDesnoyers2009URCU,MathieuDesnoyers2012URCU}.}
+而是为了清晰性和教学目的。
+尽管如此，即使是这些玩具RCU实现也需要对
 \cref{chp:Introduction,%
 chp:Hardware and its Habits,%
 chp:Tools of the Trade,%
 chp:Partitioning and Synchronization Design,%
 chp:Deferred Processing}
-for even these toy RCU implementations to be easily understood.
+有透彻的理解才能轻松理解。
 
-\section{Lock-Based RCU}
+\section{基于锁的RCU}
 \label{sec:app:toyrcu:Lock-Based RCU}
 
-Perhaps the simplest RCU implementation leverages locking, as
-shown in
+也许最简单的RCU实现利用了锁，如
 \cref{lst:app:toyrcu:Lock-Based RCU Implementation}
 (\path{rcu_lock.h} and \path{rcu_lock.c}).
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_lock@lock_unlock.fcv}\vspace*{-11pt}\fvset{firstnumber=last}
 \input{CodeSamples/defer/rcu_lock@synchronize.fcv}\fvset{firstnumber=auto}
-\caption{Lock-Based RCU Implementation}
+\caption{基于锁的RCU实现}
 \label{lst:app:toyrcu:Lock-Based RCU Implementation}
 \end{listing}
 
-In this implementation, \co{rcu_read_lock()} acquires a global
-spinlock, \co{rcu_read_unlock()} releases it, and
-\co{synchronize_rcu()} acquires it then immediately releases it.
+在这个实现中，\co{rcu_read_lock()}获取一个全局自旋锁，\co{rcu_read_unlock()}释放它，\co{synchronize_rcu()}获取后立即释放它。
 
-Because \co{synchronize_rcu()} does not return until it has acquired
-(and released) the lock, it cannot return until all prior RCU read-side
-critical sections have completed, thus faithfully implementing
-RCU semantics.
-Of course, only one RCU reader may be in its read-side critical section
-at a time, which almost entirely defeats the purpose of RCU\@.
-In addition, the lock operations in \co{rcu_read_lock()} and
-\co{rcu_read_unlock()} are extremely heavyweight,
-with read-side overhead ranging from about 100~nanoseconds on a single \Power{5}
-CPU up to more than 17~\emph{microseconds} on a 64-CPU system.
-Worse yet,
-these same lock operations permit \co{rcu_read_lock()}
-to participate in \IXpl{deadlock cycle}.
-Furthermore, in absence of recursive locks,
-RCU read-side critical sections cannot be nested, and, finally,
-although concurrent RCU updates could in principle be satisfied by
-a common \IX{grace period}, this implementation serializes grace periods,
-preventing grace-period sharing.
+因为\co{synchronize_rcu()}在获取（并释放）锁之前不会返回，所以它不能在所有先前的RCU读端临界区完成之前返回，从而忠实地实现了RCU语义。
+当然，一次只能有一个RCU读者处于其读端临界区中，这几乎完全违背了RCU的目的\@。
+此外，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的锁操作开销极大，
+读端开销从单个\Power{5} CPU上的约100纳秒到64-CPU系统上的超过17\emph{微秒}不等。
+更糟糕的是，这些锁操作使得\co{rcu_read_lock()}可能参与\IXpl{deadlock cycle}。
+此外，在没有递归锁的情况下，RCU读端临界区不能嵌套，最后，
+尽管并发的RCU更新原则上可以由一个共同的\IX{grace period}来满足，
+但这个实现将宽限期串行化了，阻止了宽限期共享。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why wouldn't any deadlock in the RCU implementation in
+	为什么
 	\cref{lst:app:toyrcu:Lock-Based RCU Implementation}
-	also be a deadlock in any other RCU implementation?
+	中RCU实现的死锁不会在任何其他RCU实现中也是死锁？
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:app:toyrcu:Deadlock in Lock-Based RCU Implementation]
-	Suppose the functions \co{foo()} and \co{bar()} in
+	假设
 	\cref{lst:app:toyrcu:Deadlock in Lock-Based RCU Implementation}
-	are invoked concurrently from different CPUs.
-	Then \co{foo()} will acquire \co{my_lock()} on \clnref{foo:acq},
-	while \co{bar()} will acquire \co{rcu_gp_lock} on
-	\clnref{bar:rrl}.
+	中的函数\co{foo()}和\co{bar()}从不同的CPU并发调用。
+	那么\co{foo()}将在\clnref{foo:acq}获取\co{my_lock()}，
+	而\co{bar()}将在\clnref{bar:rrl}获取\co{rcu_gp_lock}。
 	\end{fcvref}
 
 \begin{listing}
@@ -112,1643 +92,1293 @@ void bar(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Deadlock in Lock-Based RCU Implementation}
+\caption{基于锁的RCU实现中的死锁}
 \label{lst:app:toyrcu:Deadlock in Lock-Based RCU Implementation}
 \end{listing}
 
 	\begin{fcvref}[ln:app:toyrcu:Deadlock in Lock-Based RCU Implementation]
-	When \co{foo()} advances to \clnref{foo:rrl}, it will attempt to
-	acquire \co{rcu_gp_lock}, which is held by \co{bar()}.
-	Then when \co{bar()} advances to \clnref{bar:acq}, it will attempt
-	to acquire \co{my_lock}, which is held by \co{foo()}.
+	当\co{foo()}执行到\clnref{foo:rrl}时，它将尝试获取\co{rcu_gp_lock}，
+	而该锁被\co{bar()}持有。
+	然后当\co{bar()}执行到\clnref{bar:acq}时，它将尝试获取\co{my_lock}，
+	而该锁被\co{foo()}持有。
 	\end{fcvref}
 
-	Each function is then waiting for a lock that the other
-	holds, a classic deadlock.
+	每个函数都在等待对方持有的锁，这就是经典的死锁。
 
-	Other RCU implementations neither spin nor block in
-	\co{rcu_read_lock()}, hence avoiding deadlocks.
+	其他RCU实现在\co{rcu_read_lock()}中既不自旋也不阻塞，因此避免了死锁。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why not simply use reader-writer locks in the RCU implementation
-	in
+	为什么不简单地在
 	\cref{lst:app:toyrcu:Lock-Based RCU Implementation}
-	in order to allow RCU readers to proceed in parallel?
+	的RCU实现中使用读写锁，以允许RCU读者并行执行？
 }\QuickQuizAnswerE{
-	One could in fact use reader-writer locks in this manner.
-	However, textbook reader-writer locks suffer from memory
-	contention, so that the RCU read-side critical sections would
-	need to be quite long to actually permit parallel
-	execution~\cite{McKenney03a}.
+	事实上确实可以以这种方式使用读写锁。
+	然而，教科书上的读写锁存在内存竞争问题，
+	因此RCU读端临界区需要相当长才能真正允许并行
+	执行~\cite{McKenney03a}。
 
-	On the other hand, use of a reader-writer lock that is
-	read-acquired in \co{rcu_read_lock()} would avoid the
-	deadlock condition noted above.
+	另一方面，使用在\co{rcu_read_lock()}中以读方式获取的读写锁
+	将避免上面提到的死锁条件。
 }\QuickQuizEndE
 }
 
-It is hard to imagine this implementation being useful
-in a production setting, though it does have the virtue
-of being implementable in almost any user-level application.
-Furthermore, similar implementations having one lock per CPU
-or using reader-writer locks have been used in production
-in the 2.4 Linux kernel.
+很难想象这个实现在生产环境中有用，尽管它确实具有几乎可以在任何用户级应用程序中实现的优点。此外，每个CPU一个锁或使用读写锁的类似实现已经在2.4 Linux内核中用于生产。
 
-A modified version of this one-lock-per-CPU approach, but instead using
-one lock per thread, is described
-in the next section.
+这种每CPU一锁方法的修改版本，但改为每线程一锁，将在下一节中描述。
 
-\section{Per-Thread Lock-Based RCU}
+\section{每线程基于锁的RCU}
 \label{sec:app:toyrcu:Per-Thread Lock-Based RCU}
 
 \Cref{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}
 (\path{rcu_lock_percpu.h} and \path{rcu_lock_percpu.c})
-shows an implementation based on one lock per thread.
-The \co{rcu_read_lock()} and \co{rcu_read_unlock()} functions
-acquire and release, respectively, the current thread's lock.
-The \co{synchronize_rcu()} function acquires and releases each thread's
-lock in turn.
-Therefore, all RCU read-side critical sections running
-when \co{synchronize_rcu()} starts must have completed before
-\co{synchronize_rcu()} can return.
+展示了基于每线程一个锁的实现。
+\co{rcu_read_lock()}和\co{rcu_read_unlock()}函数分别获取和释放当前线程的锁。
+\co{synchronize_rcu()}函数依次获取和释放每个线程的锁。
+因此，当\co{synchronize_rcu()}开始时正在运行的所有RCU读端临界区
+必须在\co{synchronize_rcu()}返回之前完成。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_lock_percpu@lock_unlock.fcv}\vspace*{-11pt}\fvset{firstnumber=last}
 \input{CodeSamples/defer/rcu_lock_percpu@sync.fcv}\fvset{firstnumber=auto}
-\caption{Per-Thread Lock-Based RCU Implementation}
+\caption{每线程基于锁的RCU实现}
 \label{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}
 \end{listing}
 
-This implementation does have the virtue of permitting concurrent
-RCU readers, and does avoid the deadlock condition that can arise
-with a single global lock.
-Furthermore, the read-side overhead, though high at roughly 140 nanoseconds,
-remains at about 140 nanoseconds regardless of the number of CPUs.
-However, the update-side overhead ranges from about 600 nanoseconds
-on a single \Power{5} CPU
-up to more than 100 \emph{microseconds} on 64 CPUs.
+这个实现确实具有允许并发RCU读者的优点，也避免了单个全局锁可能出现的死锁条件。
+此外，读端开销虽然在大约140纳秒时较高，
+但无论CPU数量如何都保持在约140纳秒。
+然而，更新端开销从单个\Power{5} CPU上的约600纳秒
+到64个CPU上的超过100\emph{微秒}不等。
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:defer:rcu_lock_percpu:sync:loop]
-	Wouldn't it be cleaner to acquire all the locks, and then
-	release them all in the loop from \clnrefrange{b}{e} of
-	\cref{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}?
-	After all, with this change, there would be a point in time
-	when there were no readers, simplifying things greatly.
+	在
+	\cref{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}
+	的\clnrefrange{b}{e}循环中，先获取所有锁，然后再全部释放，
+	这样不是更简洁吗？
+	毕竟，经过这一更改，将会有一个时间点不存在任何读者，
+	从而大大简化了事情。
 	\end{fcvref}
 }\QuickQuizAnswerB{
-	Making this change would re-introduce the deadlock, so
-	no, it would not be cleaner.
+	进行这一更改将重新引入死锁，所以不，这样做并不更简洁。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	Is the implementation shown in
 	\cref{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}
-	free from deadlocks?
-	Why or why not?
+	中所示的实现是否不会发生死锁？
+	为什么会或为什么不会？
 }\QuickQuizAnswerM{
-	One deadlock is where a lock is
-	held across \co{synchronize_rcu()}, and that same lock is
-	acquired within an RCU read-side critical section.
-	However, this situation could deadlock any correctly designed
-	RCU implementation.
-	After all, the \co{synchronize_rcu()} primitive must wait for all
-	pre-existing RCU read-side critical sections to complete,
-	but if one of those critical sections is spinning on a lock
-	held by the thread executing the \co{synchronize_rcu()},
-	we have a deadlock inherent in the definition of RCU\@.
+	一种死锁情况是在\co{synchronize_rcu()}期间持有一个锁，
+	而在RCU读端临界区内又获取同一个锁。
+	然而，这种情况在任何正确设计的RCU实现中都可能导致死锁。
+	毕竟，\co{synchronize_rcu()}原语必须等待所有
+	先前存在的RCU读端临界区完成，
+	但如果其中一个临界区正在自旋等待
+	执行\co{synchronize_rcu()}的线程所持有的锁，
+	我们就有了RCU定义中固有的死锁\@。
 
-	Another deadlock happens when attempting to nest RCU read-side
-	critical sections.
-	This deadlock is peculiar to this implementation, and might
-	be avoided by using recursive locks, or by using reader-writer
-	locks that are read-acquired by \co{rcu_read_lock()} and
-	write-acquired by \co{synchronize_rcu()}.
+	另一种死锁发生在尝试嵌套RCU读端临界区时。
+	这种死锁是此实现特有的，可以通过使用递归锁来避免，
+	或者使用由\co{rcu_read_lock()}以读方式获取、
+	由\co{synchronize_rcu()}以写方式获取的读写锁来避免。
 
-	However, if we exclude the above two cases,
-	this implementation of RCU does not introduce any deadlock
-	situations.
-	This is because only time some other thread's lock is acquired is when
-	executing \co{synchronize_rcu()}, and in that case, the lock
-	is immediately released, prohibiting a deadlock cycle that
-	does not involve a lock held across the \co{synchronize_rcu()}
-	which is the first case above.
+	然而，如果排除上述两种情况，
+	这个RCU实现不会引入任何死锁情况。
+	这是因为只有在执行\co{synchronize_rcu()}时才会获取其他线程的锁，
+	而在这种情况下，锁会立即释放，
+	这就阻止了不涉及跨\co{synchronize_rcu()}持有的锁的死锁环，
+	而那正是上面的第一种情况。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	Isn't one advantage of the RCU algorithm shown in
 	\cref{lst:app:toyrcu:Per-Thread Lock-Based RCU Implementation}
-	that it uses only primitives that are widely available,
-	for example, in POSIX pthreads?
+	中所示RCU算法的一个优点不就是它只使用广泛可用的原语吗，
+	例如POSIX pthreads中的原语？
 }\QuickQuizAnswerE{
-	This is indeed an advantage, but do not forget that
-	\co{rcu_dereference()} and \co{rcu_assign_pointer()}
-	are still required, which means \co{volatile} manipulation
-	for \co{rcu_dereference()} and memory barriers for
-	\co{rcu_assign_pointer()}.
-	Of course, many Alpha CPUs require memory barriers for both
-	primitives.
+	这确实是一个优点，但不要忘记仍然需要
+	\co{rcu_dereference()}和\co{rcu_assign_pointer()}，
+	这意味着\co{rcu_dereference()}需要\co{volatile}操作，
+	\co{rcu_assign_pointer()}需要内存屏障。
+	当然，许多Alpha CPU对这两个原语都需要内存屏障。
 }\QuickQuizEndE
 }
 
-This approach could be useful in some situations, given that a similar
-approach was used in the
+这种方法在某些情况下可能有用，因为类似的方法在
 Linux 2.4 kernel~\cite{Molnar00a}.
 
-The counter-based RCU implementation described next overcomes some of
-the shortcomings of the lock-based implementation.
+接下来描述的基于计数器的RCU实现克服了基于锁的实现的一些缺点。
 
-\section{Simple Counter-Based RCU}
+\section{简单的基于计数器的RCU}
 \label{sec:app:toyrcu:Simple Counter-Based RCU}
 
-A slightly more sophisticated RCU implementation is shown in
+一个稍微复杂一些的RCU实现如
 \cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
 (\path{rcu_rcg.h} and \path{rcu_rcg.c}).
 \begin{fcvref}[ln:defer:rcu_rcg]
-This implementation makes use of a global reference counter
-\co{rcu_refcnt} defined on \clnref{lock_unlock:grc}.
-The \co{rcu_read_lock()} primitive atomically increments this
-counter, then executes a memory barrier to ensure that the
-RCU read-side critical section is ordered after the atomic
-increment.
-Similarly, \co{rcu_read_unlock()} executes a memory barrier to
-confine the RCU read-side critical section, then atomically
-decrements the counter.
-The \co{synchronize_rcu()} primitive spins waiting for the reference
-counter to reach zero, surrounded by \IXpl{memory barrier}.
-The \co{poll()} on \clnref{sync:poll} merely provides pure delay, and from
-a pure RCU-semantics point of view could be omitted.
-Again, once \co{synchronize_rcu()} returns, all prior
-RCU read-side critical sections are guaranteed to have completed.
+这个实现使用了在\clnref{lock_unlock:grc}定义的全局引用计数器\co{rcu_refcnt}。
+\co{rcu_read_lock()}原语原子地递增这个计数器，
+然后执行内存屏障以确保RCU读端临界区排在原子递增之后。
+类似地，\co{rcu_read_unlock()}执行内存屏障来限定RCU读端临界区，
+然后原子地递减计数器。
+\co{synchronize_rcu()}原语自旋等待引用计数器达到零，
+前后都有\IXpl{memory barrier}。
+\clnref{sync:poll}上的\co{poll()}仅提供纯粹的延迟，
+从纯RCU语义的角度来看可以省略。
+同样，一旦\co{synchronize_rcu()}返回，
+所有先前的RCU读端临界区都保证已经完成。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcg@lock_unlock.fcv}\vspace*{-11pt}\fvset{firstnumber=last}
 \input{CodeSamples/defer/rcu_rcg@sync.fcv}\fvset{firstnumber=auto}
-\caption{RCU Implementation Using Single Global Reference Counter}
+\caption{使用单个全局引用计数器的RCU实现}
 \label{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
 \end{listing}
 
-In happy contrast to the lock-based implementation shown in
-\cref{sec:app:toyrcu:Lock-Based RCU}, this implementation
-allows parallel execution of RCU read-side critical sections.
-In happy contrast to the per-thread lock-based implementation shown in
-\cref{sec:app:toyrcu:Per-Thread Lock-Based RCU},
-it also allows them to be nested.
-In addition, the \co{rcu_read_lock()} primitive cannot possibly
-participate in \IXpl{deadlock cycle}, as it never spins nor blocks.
+与\cref{sec:app:toyrcu:Lock-Based RCU}中所示的基于锁的实现形成愉快对比的是，
+这个实现允许RCU读端临界区的并行执行。
+与\cref{sec:app:toyrcu:Per-Thread Lock-Based RCU}中所示的
+每线程基于锁的实现形成愉快对比的是，
+它还允许嵌套。
+此外，\co{rcu_read_lock()}原语不可能参与\IXpl{deadlock cycle}，
+因为它既不自旋也不阻塞。
 
 \QuickQuiz{
-	But what if you hold a lock across a call to
-	\co{synchronize_rcu()}, and then acquire that same lock within
-	an RCU read-side critical section?
+	但如果你在调用\co{synchronize_rcu()}期间持有一个锁，
+	然后在RCU读端临界区内获取同一个锁呢？
 }\QuickQuizAnswer{
-	Indeed, this would deadlock any legal RCU implementation.
-	But is \co{rcu_read_lock()} \emph{really} participating in
-	the deadlock cycle?
-	If you believe that it is, then please
-	ask yourself this same question when looking at the
-	RCU implementation in
-	\cref{sec:app:toyrcu:RCU Based on Quiescent States}.
+	确实，这会使任何合法的RCU实现都死锁。
+	但\co{rcu_read_lock()}\emph{真的}参与了死锁环吗？
+	如果你认为它参与了，那么请在查看
+	\cref{sec:app:toyrcu:RCU Based on Quiescent States}
+	中的RCU实现时再问自己同样的问题。
 }\QuickQuizEnd
 
-However, this implementation still has some serious shortcomings.
-First, the atomic operations in \co{rcu_read_lock()} and
-\co{rcu_read_unlock()} are still quite  heavyweight,
-with read-side overhead ranging from about 100~nanoseconds on
-a single \Power{5} CPU up to almost 40~\emph{microseconds}
-on a 64-CPU system.
-This means that the RCU read-side critical sections
-have to be extremely long in order to get any real
-read-side parallelism.
-On the other hand, in the absence of readers, grace periods elapse
-in about 40~\emph{nanoseconds}, many orders of magnitude faster
-than production-quality implementations in the Linux kernel.
+然而，这个实现仍然有一些严重的缺点。
+首先，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的原子操作仍然相当重，
+读端开销从单个\Power{5} CPU上的约100纳秒到64-CPU系统上的
+接近40\emph{微秒}不等。
+这意味着RCU读端临界区必须非常长，才能获得任何真正的读端并行性。
+另一方面，在没有读者的情况下，宽限期在大约40\emph{纳秒}内结束，
+比Linux内核中的生产级实现快了好几个数量级。
 
 \QuickQuiz{
-	How can the grace period possibly elapse in 40 nanoseconds when
-	\co{synchronize_rcu()} contains a 10-millisecond delay?
+	当\co{synchronize_rcu()}包含10毫秒的延迟时，
+	宽限期怎么可能在40纳秒内结束？
 }\QuickQuizAnswer{
-	The update-side test was run in absence of readers, so the
-	\co{poll()} system call was never invoked.
-	In addition, the actual code has this \co{poll()}
-	system call commented out, the better to evaluate the
-	true overhead of the update-side code.
-	Any production uses of this code would be better served by
-	using the \co{poll()} system call, but then again,
-	production uses would be even better served by other implementations
-	shown later in this section.
+	更新端测试在没有读者的情况下运行，
+	所以\co{poll()}系统调用从未被调用。
+	此外，实际代码中这个\co{poll()}系统调用被注释掉了，
+	以便更好地评估更新端代码的真实开销。
+	任何生产用途的代码使用\co{poll()}系统调用会更好，
+	但话说回来，生产用途使用本节稍后展示的其他实现会更好。
 }\QuickQuizEnd
 
-Second, if there are many concurrent \co{rcu_read_lock()}
-and \co{rcu_read_unlock()} operations, there will
-be extreme memory contention on \co{rcu_refcnt},
-resulting in expensive cache misses.
-Both of these first two shortcomings largely defeat a major purpose of
-RCU, namely to provide low-overhead read-side synchronization primitives.
+其次，如果有许多并发的\co{rcu_read_lock()}和\co{rcu_read_unlock()}操作，
+\co{rcu_refcnt}上将会有极端的内存竞争，
+导致昂贵的缓存未命中。
+这前两个缺点在很大程度上违背了RCU的一个主要目的，
+即提供低开销的读端同步原语。
 
-Finally, a large number of RCU readers with long read-side
-critical sections could prevent \co{synchronize_rcu()}
-from ever completing, as the global counter might
-never reach zero.
-This could result in \IX{starvation} of RCU updates, which
-is of course unacceptable in production settings.
+最后，大量具有长读端临界区的RCU读者可能会阻止\co{synchronize_rcu()}完成，
+因为全局计数器可能永远不会达到零。
+这可能导致RCU更新的\IX{starvation}，
+这在生产环境中当然是不可接受的。
 
 \QuickQuiz{
-	Why not simply make \co{rcu_read_lock()} wait when a concurrent
-	\co{synchronize_rcu()} has been waiting too long in
-	the RCU implementation in
-	\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}?
-	Wouldn't that prevent \co{synchronize_rcu()} from starving?
+	在\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
+	的RCU实现中，为什么不简单地让\co{rcu_read_lock()}在并发的
+	\co{synchronize_rcu()}等待过长时也等待？
+	这样不就能防止\co{synchronize_rcu()}被饿死吗？
 }\QuickQuizAnswer{
-	Although this would in fact eliminate the starvation, it would
-	also mean that \co{rcu_read_lock()} would spin or block waiting
-	for the writer, which is in turn waiting on readers.
-	If one of these readers is attempting to acquire a lock that
-	the spinning/blocking \co{rcu_read_lock()} holds, we again
-	have deadlock.
+	虽然这确实会消除饥饿，但也意味着\co{rcu_read_lock()}会自旋或阻塞
+	等待写者，而写者又在等待读者。
+	如果这些读者中的一个正在尝试获取自旋/阻塞的\co{rcu_read_lock()}
+	所持有的锁，我们又会遇到死锁。
 
-	In short, the cure is worse than the disease.
-	See \cref{sec:app:toyrcu:Starvation-Free Counter-Based RCU}
-	for a proper cure.
+	简而言之，这个治疗比疾病更糟糕。
+	请参阅\cref{sec:app:toyrcu:Starvation-Free Counter-Based RCU}
+	获取正确的解决方案。
 }\QuickQuizEnd
 
-Therefore, it is still hard to imagine this implementation being useful
-in a production setting, though it has a bit more potential
-than the lock-based mechanism, for example, as an RCU implementation
-suitable for a high-stress debugging environment.
-The next section describes a variation on the reference-counting
-scheme that is more favorable to writers.
+因此，仍然很难想象这个实现在生产环境中有用，尽管它比基于锁的机制有更多的潜力，例如作为适用于高压调试环境的RCU实现。下一节描述了一种对写者更友好的引用计数方案的变体。
 
-\section{Starvation-Free Counter-Based RCU}
+\section{无饥饿的基于计数器的RCU}
 \label{sec:app:toyrcu:Starvation-Free Counter-Based RCU}
 
 \Cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
 (\path{rcu_rcpg.h})
-shows the read-side primitives of an RCU implementation that uses a pair
-of reference counters (\co{rcu_refcnt[]}),
-along with a global index that
-selects one counter out of the pair (\co{rcu_idx}),
-a per-thread nesting counter (\co{rcu_nesting}),
-a per-thread snapshot of the global index (\co{rcu_read_idx}),
-and a global lock (\co{rcu_gp_lock}),
-which are themselves shown in
-\cref{lst:app:toyrcu:RCU Global Reference-Count Pair Data}.
+展示了一个RCU实现的读端原语，该实现使用了一对引用计数器（\co{rcu_refcnt[]}），
+以及一个从该对中选择一个计数器的全局索引（\co{rcu_idx}）、
+一个每线程嵌套计数器（\co{rcu_nesting}）、
+一个每线程的全局索引快照（\co{rcu_read_idx}）
+和一个全局锁（\co{rcu_gp_lock}），
+它们本身展示在
+\cref{lst:app:toyrcu:RCU Global Reference-Count Pair Data}中。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpg@define.fcv}
-\caption{RCU Global Reference-Count Pair Data}
+\caption{RCU全局引用计数对数据}
 \label{lst:app:toyrcu:RCU Global Reference-Count Pair Data}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpg@r.fcv}
-\caption{RCU Read-Side Using Global Reference-Count Pair}
+\caption{使用全局引用计数对的RCU读端}
 \label{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
 \end{listing}
 
-\paragraph{Design}
+\paragraph{设计}
 
-It is the two-element \co{rcu_refcnt[]} array that provides the freedom
-from starvation.
-The key point is that \co{synchronize_rcu()} is only required to wait
-for pre-existing readers.
-If a new reader starts after a given instance of \co{synchronize_rcu()}
-has already begun execution, then that instance of \co{synchronize_rcu()}
-need not wait on that new reader.
-At any given time, when a given reader enters its RCU read-side critical
-section via \co{rcu_read_lock()},
-it increments the element of the \co{rcu_refcnt[]} array indicated by
-the \co{rcu_idx} variable.
-When that same reader exits its RCU read-side critical section via
-\co{rcu_read_unlock()}, it decrements whichever element it incremented,
-ignoring any possible subsequent changes to the \co{rcu_idx} value.
+正是双元素\co{rcu_refcnt[]}数组提供了免于饥饿的能力。
+关键点在于\co{synchronize_rcu()}只需要等待先前存在的读者。
+如果一个新读者在给定的\co{synchronize_rcu()}实例已经开始执行之后启动，
+那么该\co{synchronize_rcu()}实例不需要等待那个新读者。
+在任何给定时刻，当一个读者通过\co{rcu_read_lock()}进入其RCU读端临界区时，
+它递增\co{rcu_refcnt[]}数组中由\co{rcu_idx}变量指示的元素。
+当同一个读者通过\co{rcu_read_unlock()}退出其RCU读端临界区时，
+它递减之前递增的那个元素，忽略\co{rcu_idx}值的任何后续变化。
 
-This arrangement means that \co{synchronize_rcu()} can avoid starvation
-by complementing the value of \co{rcu_idx}, as in \co{rcu_idx = !rcu_idx}.
-Suppose that the old value of \co{rcu_idx} was zero, so that the new
-value is one.
-New readers that arrive after the complement operation will increment
-\co{rcu_refcnt[1]}, while the old readers that previously incremented
-\co{rcu_refcnt[0]} will decrement \co{rcu_refcnt[0]} when they exit their
-RCU read-side critical sections.
-This means that the value of \co{rcu_refcnt[0]} will no longer be incremented,
-and thus will be monotonically decreasing.\footnote{
-	There is a \IX{race condition} that this ``monotonically decreasing''
-	statement ignores.
-	This race condition will be dealt with by the code for
-	\co{synchronize_rcu()}.
-	In the meantime, I suggest suspending disbelief.}
-This means that all that \co{synchronize_rcu()} need do is wait for the
-value of \co{rcu_refcnt[0]} to reach zero.
+这种安排意味着\co{synchronize_rcu()}可以通过对\co{rcu_idx}的值取补来避免饥饿，
+如\co{rcu_idx = !rcu_idx}。
+假设\co{rcu_idx}的旧值为零，那么新值为一。
+在取补操作之后到达的新读者将递增\co{rcu_refcnt[1]}，
+而之前递增了\co{rcu_refcnt[0]}的旧读者在退出其RCU读端临界区时
+将递减\co{rcu_refcnt[0]}。
+这意味着\co{rcu_refcnt[0]}的值将不再被递增，
+因此将单调递减。\footnote{
+	这个"单调递减"的说法忽略了一个\IX{race condition}。
+	这个竞争条件将由\co{synchronize_rcu()}的代码来处理。
+	在此期间，我建议暂时搁置怀疑。}
+这意味着\co{synchronize_rcu()}所需做的就是等待\co{rcu_refcnt[0]}的值达到零。
 
-With the background, we are ready to look at the implementation of the
-actual primitives.
+有了这些背景，我们准备好来看实际原语的实现了。
 
-\paragraph{Implementation}
+\paragraph{实现}
 
-The \co{rcu_read_lock()} primitive atomically increments the member of the
-\co{rcu_refcnt[]} pair indexed by \co{rcu_idx}, and keeps a
-snapshot of this index in the per-thread variable \co{rcu_read_idx}.
-The \co{rcu_read_unlock()} primitive then atomically decrements
-whichever counter of the pair that the corresponding \co{rcu_read_lock()}
-incremented.
-However, because only one value of \co{rcu_idx} is remembered per thread,
-additional measures must be taken to permit nesting.
-These additional measures use the per-thread \co{rcu_nesting} variable
-to track nesting.
+\co{rcu_read_lock()}原语原子地递增\co{rcu_refcnt[]}对中
+由\co{rcu_idx}索引的成员，并在每线程变量\co{rcu_read_idx}中保存该索引的快照。
+\co{rcu_read_unlock()}原语然后原子地递减该对中
+对应\co{rcu_read_lock()}所递增的那个计数器。
+然而，由于每个线程只记住一个\co{rcu_idx}的值，
+必须采取额外的措施来允许嵌套。
+这些额外措施使用每线程\co{rcu_nesting}变量来跟踪嵌套。
 
 \begin{fcvref}[ln:defer:rcu_rcpg:r:lock]
-To make all this work, \clnref{pick} of \co{rcu_read_lock()} in
+为了使这一切工作，
 \cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
-picks up the
-current thread's instance of \co{rcu_nesting}, and if \clnref{if} finds
-that this is the outermost \co{rcu_read_lock()},
-then \clnrefrange{cur:b}{cur:e} pick up the current value of
-\co{rcu_idx}, save it in this thread's instance of \co{rcu_read_idx},
-and atomically increment the selected element of \co{rcu_refcnt}.
-Regardless of the value of \co{rcu_nesting}, \clnref{inc} increments it.
-\Clnref{mb} executes a memory barrier to ensure that the RCU read-side
-critical section does not bleed out before the \co{rcu_read_lock()} code.
+中\co{rcu_read_lock()}的\clnref{pick}获取当前线程的\co{rcu_nesting}实例，
+如果\clnref{if}发现这是最外层的\co{rcu_read_lock()}，
+则\clnrefrange{cur:b}{cur:e}获取\co{rcu_idx}的当前值，
+将其保存在该线程的\co{rcu_read_idx}实例中，
+并原子地递增所选的\co{rcu_refcnt}元素。
+无论\co{rcu_nesting}的值是什么，\clnref{inc}都会递增它。
+\Clnref{mb}执行内存屏障，以确保RCU读端临界区
+不会泄漏到\co{rcu_read_lock()}代码之前。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:rcu_rcpg:r:unlock]
-Similarly, the \co{rcu_read_unlock()} function executes a memory barrier
-at \clnref{mb}
-to ensure that the RCU read-side critical section does not bleed out
-after the \co{rcu_read_unlock()} code.
-\Clnref{nest} picks up this thread's instance of \co{rcu_nesting}, and if
-\clnref{if} finds that this is the outermost \co{rcu_read_unlock()},
-then \clnref{idx,atmdec} pick up this thread's instance of \co{rcu_read_idx}
-(saved by the outermost \co{rcu_read_lock()}) and atomically decrements
-the selected element of \co{rcu_refcnt}.
-Regardless of the nesting level, \clnref{decnest} decrements this thread's
-instance of \co{rcu_nesting}.
+类似地，\co{rcu_read_unlock()}函数在\clnref{mb}处执行内存屏障，
+以确保RCU读端临界区不会泄漏到\co{rcu_read_unlock()}代码之后。
+\Clnref{nest}获取该线程的\co{rcu_nesting}实例，
+如果\clnref{if}发现这是最外层的\co{rcu_read_unlock()}，
+则\clnref{idx,atmdec}获取该线程的\co{rcu_read_idx}实例
+（由最外层的\co{rcu_read_lock()}保存）并原子地递减
+所选的\co{rcu_refcnt}元素。
+无论嵌套级别如何，\clnref{decnest}都会递减该线程的\co{rcu_nesting}实例。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpg@sync.fcv}
-\caption{RCU Update Using Global Reference-Count Pair}
+\caption{使用全局引用计数对的RCU更新}
 \label{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
 \end{listing}
 
 \begin{fcvref}[ln:defer:rcu_rcpg:sync]
 \Cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
 (\path{rcu_rcpg.c})
-shows the corresponding \co{synchronize_rcu()} implementation.
-\Clnref{acq,rel} acquire and release \co{rcu_gp_lock} in order to
-prevent more than one concurrent instance of \co{synchronize_rcu()}.
-\Clnref{pick,compl} pick up the value of \co{rcu_idx} and complement it,
-respectively, so that subsequent instances of \co{rcu_read_lock()}
-will use a different element of \co{rcu_refcnt} than did preceding
-instances.
+展示了对应的\co{synchronize_rcu()}实现。
+\Clnref{acq,rel}获取和释放\co{rcu_gp_lock}，
+以防止多于一个并发的\co{synchronize_rcu()}实例。
+\Clnref{pick,compl}分别获取\co{rcu_idx}的值并对其取补，
+使得后续的\co{rcu_read_lock()}实例将使用\co{rcu_refcnt}的
+不同元素而不是之前实例使用的那个。
 \Clnrefrange{while:b}{while:e}
-then wait for the prior element of \co{rcu_refcnt} to
-reach zero, with the memory barrier on \clnref{mb2} ensuring that the check
-of \co{rcu_refcnt} is not reordered to precede the complementing of
-\co{rcu_idx}.
-\Clnrefrange{mb3}{while2:e} repeat this process, and
-\clnref{mb5} ensures that any
-subsequent reclamation operations are not reordered to precede the
-checking of \co{rcu_refcnt}.
+然后等待\co{rcu_refcnt}的先前元素达到零，
+\clnref{mb2}上的内存屏障确保对\co{rcu_refcnt}的检查
+不会被重排序到\co{rcu_idx}取补之前。
+\Clnrefrange{mb3}{while2:e}重复这个过程，
+\clnref{mb5}确保任何后续的回收操作不会被重排序到
+\co{rcu_refcnt}检查之前。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:defer:rcu_rcpg:sync]
-	Why the memory barrier on \clnref{mb1} of \co{synchronize_rcu()} in
-	\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
-	given that there is a spin-lock acquisition immediately after?
+	在\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
+	的\co{synchronize_rcu()}中，
+	既然紧接着就有一个自旋锁获取，
+	为什么还需要\clnref{mb1}上的内存屏障？
 	\end{fcvref}
 }\QuickQuizAnswerB{
-	The spin-lock acquisition only guarantees that the spin-lock's
-	critical section will not ``bleed out'' to precede the
-	acquisition.
-	It in no way guarantees that code preceding the spin-lock
-	acquisition won't be reordered into the critical section.
-	Such reordering could cause a removal from an RCU-protected
-	list to be reordered to follow the complementing of
-	\co{rcu_idx}, which could allow a newly starting RCU
-	read-side critical section to see the recently removed
-	data element.
+	自旋锁获取只保证自旋锁的临界区不会"泄漏"到获取之前。
+	它绝不保证自旋锁获取之前的代码不会被重排序到临界区中。
+	这种重排序可能导致从RCU保护的链表中的移除操作
+	被重排序到\co{rcu_idx}取补之后，
+	这可能允许新启动的RCU读端临界区看到最近被移除的数据元素。
 
-	Exercise for the reader:
-	Use a tool such as Promela/\co{spin} to determine which (if any) of
-	the memory barriers in
+	留给读者的练习：
+	使用Promela/\co{spin}等工具来确定
 	\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
-	are really needed.
-	See \cref{chp:Formal Verification}
-	for information on using these tools.
-	The first correct and complete response will be credited.
+	中的哪些内存屏障（如果有的话）确实是需要的。
+	参见\cref{chp:Formal Verification}了解使用这些工具的信息。
+	第一个正确完整的回答将获得致谢。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why is the counter flipped twice in
-	\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}?
-	Shouldn't a single flip-and-wait cycle be sufficient?
+	为什么在
+	\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
+	中计数器要翻转两次？
+	单次翻转-等待循环不够吗？
 }\QuickQuizAnswerE{
 	\begin{fcvref}[ln:defer:rcu_rcpg]
-	Both flips are absolutely required.
-	To see this, consider the following sequence of events:
+	两次翻转都是绝对必要的。
+	要理解这一点，考虑以下事件序列：
 	\begin{sequence}
-	\item	\Clnref{r:lock:cur:b} of \co{rcu_read_lock()} in
-		\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
-		picks up \co{rcu_idx}, finding its value to be zero.
-	\item	\Clnref{sync:compl} of \co{synchronize_rcu()} in
-		\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
-		complements the value of \co{rcu_idx}, setting its
-		value to one.
-	\item	\Clnrefrange{sync:while:b}{sync:while:e}
-		of \co{synchronize_rcu()} find that the
-		value of \co{rcu_refcnt[0]} is zero, and thus
-		returns.
-		(Recall that the question is asking what happens if
-		\clnrefrange{sync:mb3}{sync:mb5} are omitted.)
-	\item	\Clnref{r:lock:set,r:lock:cur:e}
-		of \co{rcu_read_lock()} store the
-		value zero to this thread's instance of \co{rcu_read_idx}
-		and increments \co{rcu_refcnt[0]}, respectively.
-		Execution then proceeds into the RCU read-side critical
-		section.
+	\item	\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
+		中\co{rcu_read_lock()}的\clnref{r:lock:cur:b}获取\co{rcu_idx}，
+		发现其值为零。
+	\item	\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}
+		中\co{synchronize_rcu()}的\clnref{sync:compl}
+		对\co{rcu_idx}的值取补，将其设置为一。
+	\item	\co{synchronize_rcu()}的\clnrefrange{sync:while:b}{sync:while:e}
+		发现\co{rcu_refcnt[0]}的值为零，因此返回。
+		（回忆一下，问题是在问如果省略
+		\clnrefrange{sync:mb3}{sync:mb5}会发生什么。）
+	\item	\co{rcu_read_lock()}的\clnref{r:lock:set,r:lock:cur:e}
+		将值零存储到该线程的\co{rcu_read_idx}实例中，
+		并分别递增\co{rcu_refcnt[0]}。
+		然后执行进入RCU读端临界区。
 		\label{sec:app:toyrcu:rcu_rcgp:RCU Read Side Start}
-	\item	Another instance of \co{synchronize_rcu()} again complements
-		\co{rcu_idx}, this time setting its value to zero.
-		Because \co{rcu_refcnt[1]} is zero, \co{synchronize_rcu()}
-		returns immediately.
-		(Recall that \co{rcu_read_lock()} incremented
-		\co{rcu_refcnt[0]}, not \co{rcu_refcnt[1]}!)
+	\item	另一个\co{synchronize_rcu()}实例再次对\co{rcu_idx}取补，
+		这次将其值设置为零。
+		因为\co{rcu_refcnt[1]}为零，\co{synchronize_rcu()}立即返回。
+		（回忆一下\co{rcu_read_lock()}递增的是
+		\co{rcu_refcnt[0]}，而不是\co{rcu_refcnt[1]}！）
 		\label{sec:app:toyrcu:rcu_rcgp:RCU Grace Period Start}
-	\item	The grace period that started in
-		\cref{sec:app:toyrcu:rcu_rcgp:RCU Grace Period Start}
-		has been allowed to end, despite
-		the fact that the RCU read-side critical section
-		that started beforehand in
-		\cref{sec:app:toyrcu:rcu_rcgp:RCU Read Side Start}
-		has not completed.
-		This violates RCU semantics, and could allow the update
-		to free a data element that the RCU read-side critical
-		section was still referencing.
+	\item	在\cref{sec:app:toyrcu:rcu_rcgp:RCU Grace Period Start}
+		中开始的宽限期被允许结束了，
+		尽管在\cref{sec:app:toyrcu:rcu_rcgp:RCU Read Side Start}
+		中先前开始的RCU读端临界区尚未完成。
+		这违反了RCU语义，可能允许更新释放
+		RCU读端临界区仍在引用的数据元素。
 	\end{sequence}
 
-	Exercise for the reader:
-	What happens if \co{rcu_read_lock()} is preempted for a very long
-	time (hours!\@) just after \clnref{r:lock:cur:b}?
-	Does this implementation operate correctly in that case?
-	Why or why not?
-	The first correct and complete response will be credited.
+	留给读者的练习：
+	如果\co{rcu_read_lock()}在\clnref{r:lock:cur:b}之后
+	被抢占了很长时间（几个小时！\@）会发生什么？
+	在这种情况下，这个实现能正确运行吗？
+	为什么能或为什么不能？
+	第一个正确完整的回答将获得致谢。
 	\end{fcvref}
 }\QuickQuizEndE
 }
 
-This implementation avoids the update-starvation issues that could
-occur in the single-counter implementation shown in
+这个实现避免了可能出现在所示的单计数器实现中的更新饥饿问题
 \cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}.
 
-\paragraph{Discussion}
+\paragraph{讨论}
 
-There are still some serious shortcomings.
-First, the atomic operations in \co{rcu_read_lock()}
-and \co{rcu_read_unlock()}
-are still quite heavyweight.
-In fact, they are more complex than those
-of the single-counter variant shown in
-\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter},
-with the read-side primitives consuming about 150~nanoseconds on a single
-\Power{5} CPU and almost 40~\emph{microseconds} on a 64-CPU system.
-The update-side \co{synchronize_rcu()} primitive is more costly as
-well, ranging from about 200~nanoseconds on a single \Power{5} CPU to
-more than 40~\emph{microseconds} on a 64-CPU system.
-This means that the RCU read-side critical sections
-have to be extremely long in order to get any real
-read-side parallelism.
+仍然存在一些严重的缺点。
+首先，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的原子操作仍然相当重。
+事实上，它们比
+\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
+中所示的单计数器变体更复杂，
+读端原语在单个\Power{5} CPU上消耗约150纳秒，
+在64-CPU系统上几乎40\emph{微秒}。
+更新端\co{synchronize_rcu()}原语的开销也更大，
+从单个\Power{5} CPU上的约200纳秒到64-CPU系统上的
+超过40\emph{微秒}不等。
+这意味着RCU读端临界区必须非常长，才能获得任何真正的读端并行性。
 
-Second, if there are many concurrent \co{rcu_read_lock()}
-and \co{rcu_read_unlock()} operations, there will
-be extreme memory contention on the \co{rcu_refcnt}
-elements, resulting in expensive cache misses.
-This further extends the RCU read-side critical-section
-duration required to provide parallel read-side access.
-These first two shortcomings defeat the purpose of RCU in most
-situations.
+其次，如果有许多并发的\co{rcu_read_lock()}和\co{rcu_read_unlock()}操作，
+\co{rcu_refcnt}元素上将会有极端的内存竞争，
+导致昂贵的缓存未命中。
+这进一步延长了提供并行读端访问所需的RCU读端临界区持续时间。
+这前两个缺点在大多数情况下违背了RCU的目的。
 
-Third, the need to flip \co{rcu_idx} twice imposes substantial
-overhead on updates, especially if there are large
-numbers of threads.
+第三，需要翻转\co{rcu_idx}两次给更新带来了相当大的开销，
+特别是当线程数量很多时。
 
-Finally, despite the fact that concurrent RCU updates could in principle be
-satisfied by a common grace period, this implementation
-serializes grace periods, preventing grace-period
-sharing.
+最后，尽管并发的RCU更新原则上可以由一个共同的宽限期来满足，
+但这个实现将宽限期串行化了，阻止了宽限期共享。
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu_rcpg:r]
-	Given that atomic increment and decrement are so expensive,
-	why not just use non-atomic increment on \clnref{lock:cur:e} and a
-	non-atomic decrement on \clnref{unlock:atmdec} of
-	\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}?
+	既然原子递增和递减开销如此之大，
+	为什么不在
+	\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
+	的\clnref{lock:cur:e}上使用非原子递增，
+	在\clnref{unlock:atmdec}上使用非原子递减呢？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	Using non-atomic operations would cause increments and decrements
-	to be lost, in turn causing the implementation to fail.
-	See \cref{sec:app:toyrcu:Scalable Counter-Based RCU}
-	for a safe way to use non-atomic operations in
-	\co{rcu_read_lock()} and \co{rcu_read_unlock()}.
+	使用非原子操作会导致递增和递减丢失，
+	进而导致实现失败。
+	请参阅\cref{sec:app:toyrcu:Scalable Counter-Based RCU}
+	了解在\co{rcu_read_lock()}和\co{rcu_read_unlock()}中
+	安全使用非原子操作的方法。
 }\QuickQuizEnd
 
-Despite these shortcomings, one could imagine this variant
-of RCU being used on small tightly coupled multiprocessors,
-perhaps as a memory-conserving implementation that maintains
-API compatibility with more complex implementations.
-However, it would not likely scale well beyond a few CPUs.
+尽管有这些缺点，可以想象这种RCU变体用于小型紧密耦合的多处理器，也许作为一种节省内存的实现，与更复杂的实现保持API兼容性。然而，它不太可能在超过几个CPU的情况下良好扩展。
 
-The next section describes yet another variation on the reference-counting
-scheme that provides greatly improved read-side performance and scalability.
+下一节描述了引用计数方案的另一种变体，提供了大大改进的读端性能和可扩展性。
 
-\section{Scalable Single-Counter RCU}
+\section{可扩展的单计数器RCU}
 \label{sec:app:toyrcu:Scalable Single-Counter RCU}
 
-The single global counter used in
-\cref{sec:app:toyrcu:Simple Counter-Based RCU}
-will be non-zero any time that any thread is executing within
-an RCU read-side critical section.
-Assuming that each thread spends a fixed fraction of its time in
-such a critical section, as threads are added, the probability
-that the global counter is non-zero approaches unity, resulting
-in starvation of the updater.
-One way to avoid such starvation is to use a pair of global counters,
-as discussed in
-\cref{sec:app:toyrcu:Starvation-Free Counter-Based RCU},
-however, this still suffers from memory contention as illustrated by
-\cref{fig:count:Atomic Increment Scalability on x86}.
-Another approach is to use a per-thread counter, so that a given thread's
-counter will be zero whenever that thread is outside of an RCU read-side
-critical section, no matter how many threads there are.
+\cref{sec:app:toyrcu:Simple Counter-Based RCU}中使用的单一全局计数器
+在任何线程执行RCU读端临界区时都将为非零。
+假设每个线程花费固定比例的时间在这样的临界区中，
+随着线程的增加，全局计数器为非零的概率趋近于一，
+导致更新者饥饿。
+避免这种饥饿的一种方法是使用一对全局计数器，
+如\cref{sec:app:toyrcu:Starvation-Free Counter-Based RCU}中所讨论的，
+但这仍然受到内存竞争的影响，如
+\cref{fig:count:Atomic Increment Scalability on x86}所示。
+另一种方法是使用每线程计数器，
+这样无论有多少线程，给定线程的计数器在该线程处于
+RCU读端临界区之外时将为零。
 
 \Cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count}
 (\path{rcu_rcpl.h})
-shows the read-side primitives of an RCU implementation that uses per-thread
-reference counters.\footnote{
-	Or, if you prefer, nesting-level counters.}
-One benefit of per-thread \co{rcu_nesting[]} counter is that the
-\co{rcu_read_lock()} and \co{rcu_read_unlock()} primitives no longer
-execute atomic instructions, but instead execute non-atomic increments
-and decrements of per-thread counters.
+展示了使用每线程引用计数器的RCU实现的读端原语。\footnote{
+	或者，如果你更愿意的话，嵌套级别计数器。}
+每线程\co{rcu_nesting[]}计数器的一个好处是
+\co{rcu_read_lock()}和\co{rcu_read_unlock()}原语不再执行原子指令，
+而是执行每线程计数器的非原子递增和递减。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcl@define.fcv}
-\caption{RCU Per-Thread Reference-Count Data}
+\caption{RCU每线程引用计数数据}
 \label{lst:app:toyrcu:RCU Per-Thread Reference-Count Data}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcl@r.fcv}
-\caption{RCU Read-Side Using Per-Thread Reference-Count}
+\caption{使用每线程引用计数的RCU读端}
 \label{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count}
 \end{listing}
 
 \QuickQuiz{
-	Come off it!
-	We can see the \co{atomic_read()} primitive in
-	\co{rcu_read_lock()}!!!
-	So why are you trying to pretend that \co{rcu_read_lock()}
-	contains no atomic operations???
+	别开玩笑了！
+	我们可以在\co{rcu_read_lock()}中看到\co{atomic_read()}原语！！！
+	那你为什么要假装\co{rcu_read_lock()}不包含原子操作？？？
 }\QuickQuizAnswer{
-	Yes, the \co{atomic_read()} primitives is an atomic operation,
-	but it does not execute atomic machine instructions.
-	It instead executes a normal load from an \co{atomic_t}.
-	Its sole purpose is to keep the compiler's type-checking happy.
-	If the Linux kernel ran on 8-bit CPUs, it would also need to
-	prevent ``store tearing'', which could happen due to the need
-	to store a 16-bit pointer with two eight-bit accesses on some
-	8-bit systems.
-	But thankfully, it seems that no one runs Linux on 8-bit systems.
+	是的，\co{atomic_read()}原语是一个原子操作，
+	但它不执行原子机器指令。
+	它只是执行从\co{atomic_t}的普通加载。
+	它唯一的目的是让编译器的类型检查满意。
+	如果Linux内核运行在8位CPU上，它还需要防止"存储撕裂"，
+	这可能是由于需要在某些8位系统上用两次八位访问来存储
+	一个16位指针而发生的。
+	但值得庆幸的是，似乎没有人在8位系统上运行Linux。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcl@u.fcv}
-\caption{RCU Update Using Per-Thread Reference-Count}
+\caption{使用每线程引用计数的RCU更新}
 \label{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count}
 \end{listing}
 
 \Cref{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count}
 (\path{rcu_rcl.c})
-shows the implementation of \co{synchronize_rcu()}.
+展示了\co{synchronize_rcu()}的实现。
 \begin{fcvref}[ln:defer:rcu_rcl:u:sync]
-The \co{synchronize_rcu()} function resembles that shown in
-\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter},
-except that the polling of the global counter is replaced by a scan on
-\clnrefrange{loop:b}{loop:e}
-that polls each per-thread counter in turn.
+\co{synchronize_rcu()}函数类似于
+\cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
+中所示的，不同之处在于对全局计数器的轮询被
+\clnrefrange{loop:b}{loop:e}上依次轮询每个每线程计数器的扫描所替代。
 \end{fcvref}
 
-This RCU implementation imposes important new requirements on its
-software environment, namely,
+这个RCU实现对其软件环境提出了重要的新要求，即
 %
 \begin{enumerate*}[(1)]
-\item {}that it be possible to declare per-thread variables,
-\item {}that these per-thread variables be accessible from other threads, and
-\item {}that it is possible to enumerate all threads.
+\item {}必须能够声明每线程变量，
+\item {}这些每线程变量必须能从其他线程访问，以及
+\item {}必须能够枚举所有线程。
 \end{enumerate*}
 %
-These requirements can be met in almost all software environments,
-but often result in fixed upper bounds on the number of threads.
-More-complex implementations might avoid such bounds, for example, by using
-expandable hash tables.
-Such implementations might dynamically track threads, for example, by
-adding them on their first call to \co{rcu_read_lock()}.
+这些要求在几乎所有软件环境中都可以满足，
+但通常会导致线程数量有固定的上限。
+更复杂的实现可能会避免这种限制，例如使用可扩展的哈希表。
+这种实现可能会动态跟踪线程，
+例如在它们第一次调用\co{rcu_read_lock()}时添加。
 
 \QuickQuiz{
-	Great, if we have $N$ threads, we can have $2N$ ten-millisecond
-	waits (one set per \co{flip_counter_and_wait()} invocation,
-	and even that assumes that we wait only once for each thread).
-	Don't we need the grace period to complete \emph{much} more quickly?
+	好吧，如果我们有$N$个线程，我们可能有$2N$个十毫秒的等待
+	（每次\co{flip_counter_and_wait()}调用一组，
+	而且这还假设我们对每个线程只等待一次）。
+	我们不需要宽限期\emph{更快}地完成吗？
 }\QuickQuizAnswer{
-	Keep in mind that we only wait for a given thread if that thread
-	is still in an RCU read-side critical section.
-	So the only way that we would wait for $2N$ intervals would
-	be if each thread happened to be in an RCU read-side critical
-	section at the time that the update iterated over that thread.
+	请记住，我们只在给定线程仍处于RCU读端临界区时才等待该线程。
+	因此，我们等待$2N$个间隔的唯一方式是
+	每个线程恰好在更新迭代到该线程时处于RCU读端临界区中。
 
-	However, the implementation in
-	\cref{sec:app:toyrcu:Scalable Counter-Based RCU}
-	does even better.
+	然而，\cref{sec:app:toyrcu:Scalable Counter-Based RCU}
+	中的实现做得更好。
 }\QuickQuizEnd
 
-This implementation still has several shortcomings.
-First, \co{synchronize_rcu()} must now examine a number of variables
-that increases linearly with the number of threads, imposing substantial
-overhead on applications with large numbers of threads.
+这个实现仍然有几个缺点。
+首先，\co{synchronize_rcu()}现在必须检查数量随线程数线性增长的变量，
+这给具有大量线程的应用程序带来了相当大的开销。
 
-Third, as before, although concurrent RCU updates could in principle
-be satisfied by a common grace period, this implementation serializes
-grace periods, preventing grace-period sharing.
+第三，与以前一样，尽管并发的RCU更新原则上可以由一个共同的宽限期来满足，
+但这个实现将宽限期串行化了，阻止了宽限期共享。
 
-Finally, as noted in the text, the need for per-thread variables
-and for enumerating threads may be problematic in some software
-environments.
+最后，如文中所述，对每线程变量和枚举线程的需求在某些软件环境中可能有问题。
 
-That said, the read-side primitives scale very nicely, executing a
-fixed set of machine instructions that access a per-thread counter.
+话虽如此，读端原语的扩展性非常好，执行一组固定的机器指令来访问每线程计数器。
 
-The next section describes an algorithm that prevents readers from
-starving even the most unlucky updaters.
+下一节描述了一种算法，可以防止读者使即使最不幸的更新者也饥饿。
 
-\section{Scalable Counter-Based RCU}
+\section{可扩展的基于计数器的RCU}
 \label{sec:app:toyrcu:Scalable Counter-Based RCU}
 
 \Cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair}
 (\path{rcu_rcpl.h})
-shows the read-side primitives of an RCU implementation that uses per-thread
-pairs of reference counters.
-This implementation is quite similar to that shown in
-\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count},
-the main difference being the addition of the \co{rcu_refcnt} per-thread
-array shown in
-\cref{lst:app:toyrcu:RCU Per-Thread Reference-Count Pair Data}.
-As with the algorithm in 
-\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair},
-use of this two-element array prevents readers from starving even the
-least lucky updaters.
+展示了使用每线程引用计数器对的RCU实现的读端原语。
+这个实现与
+\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count}
+中所示的非常相似，
+主要区别在于添加了
+\cref{lst:app:toyrcu:RCU Per-Thread Reference-Count Pair Data}
+中所示的\co{rcu_refcnt}每线程数组。
+与\cref{lst:app:toyrcu:RCU Read-Side Using Global Reference-Count Pair}
+中的算法一样，
+使用这个双元素数组可以防止读者使即使最不幸的更新者也饥饿。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpl@define.fcv}
-\caption{RCU Per-Thread Reference-Count Pair Data}
+\caption{RCU每线程引用计数对数据}
 \label{lst:app:toyrcu:RCU Per-Thread Reference-Count Pair Data}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpl@r.fcv}
-\caption{RCU Read-Side Using Per-Thread Reference-Count Pair}
+\caption{使用每线程引用计数对的RCU读端}
 \label{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpl@u.fcv}
-\caption{RCU Update Using Per-Thread Reference-Count Pair}
+\caption{使用每线程引用计数对的RCU更新}
 \label{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count Pair}
 \end{listing}
 
 \Cref{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count Pair}
 (\path{rcu_rcpl.c})
-shows the implementation of \co{synchronize_rcu()}, along with a helper
-function named \co{flip_counter_and_wait()}.
+展示了\co{synchronize_rcu()}的实现，以及一个名为\co{flip_counter_and_wait()}的辅助函数。
 \begin{fcvref}[ln:defer:rcu_rcpl:u:sync]
-The \co{synchronize_rcu()} function resembles that shown in
-\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair},
-except that the repeated counter flip is replaced by a pair of calls
-on \clnref{flip1,flip2} to the new helper function.
+\co{synchronize_rcu()}函数类似于
+\cref{lst:app:toyrcu:RCU Update Using Global Reference-Count Pair}中所示的，
+不同之处在于重复的计数器翻转被\clnref{flip1,flip2}上
+对新辅助函数的一对调用所替代。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:rcu_rcpl:u:flip]
-The new \co{flip_counter_and_wait()} function updates the
-\co{rcu_idx} variable on \clnref{atmset},
-executes a memory barrier on \clnref{mb1},
-then \clnrefrange{loop:b}{loop:e}
-spin on each thread's prior \co{rcu_refcnt} element,
-waiting for it to go to zero.
-Once all such elements have gone to zero,
-it executes another memory barrier on \clnref{mb2} and returns.
+新的\co{flip_counter_and_wait()}函数在\clnref{atmset}上更新\co{rcu_idx}变量，
+在\clnref{mb1}上执行内存屏障，
+然后\clnrefrange{loop:b}{loop:e}
+对每个线程的先前\co{rcu_refcnt}元素自旋，等待其变为零。
+一旦所有这些元素都变为零，
+它在\clnref{mb2}上执行另一个内存屏障并返回。
 \end{fcvref}
 
-This implementation still has several shortcomings.
-First, the need to flip \co{rcu_idx} twice imposes substantial overhead
-on updates, especially if there are large numbers of threads.
+这个实现仍然有几个缺点。
+首先，需要翻转\co{rcu_idx}两次给更新带来了相当大的开销，
+特别是当线程数量很多时。
 
-Second, as before, \co{synchronize_rcu()} must now examine a number of
-variables that increases linearly with the number of threads, imposing
-substantial overhead on applications with large numbers of threads.
+其次，与以前一样，\co{synchronize_rcu()}现在必须检查数量随线程数
+线性增长的变量，这给具有大量线程的应用程序带来了相当大的开销。
 
-Third, as before, although concurrent RCU updates could in principle
-be satisfied by a common grace period, this implementation serializes
-grace periods, preventing grace-period sharing.
+第三，与以前一样，尽管并发的RCU更新原则上可以由一个共同的宽限期来满足，
+但这个实现将宽限期串行化了，阻止了宽限期共享。
 
-Fourth, the need to consult \co{rcu_idx} slows readers slightly compared
-to the implementation presented in
-\cref{sec:app:toyrcu:Scalable Single-Counter RCU}.
+第四，需要查阅\co{rcu_idx}使得读者比
+\cref{sec:app:toyrcu:Scalable Single-Counter RCU}
+中提出的实现稍慢。
 
-Finally, as noted in the text, the need for per-thread variables
-and for enumerating threads may be problematic in some software
-environments.
+最后，如文中所述，对每线程变量和枚举线程的需求在某些软件环境中可能有问题。
 
-That said, the read-side primitives scale very nicely, requiring about
-115~nanoseconds regardless of whether running on a single-CPU or a 64-CPU
-\Power{5} system.
-As noted above, the \co{synchronize_rcu()} primitive does not scale,
-ranging in overhead from almost a microsecond on a single \Power{5} CPU
-up to almost 200~microseconds on a 64-CPU system.
-This implementation could conceivably form the basis for a
-production-quality user-level RCU implementation.
+话虽如此，读端原语的扩展性非常好，
+无论运行在单CPU还是64-CPU的\Power{5}系统上都只需要约115纳秒。
+如上所述，\co{synchronize_rcu()}原语不能扩展，
+开销从单个\Power{5} CPU上的接近一微秒到64-CPU系统上的接近200微秒不等。
+可以想象这个实现可以作为生产级用户级RCU实现的基础。
 
-The next section describes an algorithm permitting more efficient
-concurrent RCU updates.
+下一节描述了一种允许更高效并发RCU更新的算法。
 
-\section{Scalable Counter-Based RCU With Shared Grace Periods}
+\section{支持共享宽限期的可扩展基于计数器的RCU}
 \label{sec:app:toyrcu:Scalable Counter-Based RCU With Shared Grace Periods}
 
 \Cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}
 (\path{rcu_rcpls.h})
-shows the read-side primitives for an RCU implementation using per-thread
-reference count pairs, as before, but permitting updates to share
-grace periods.
+展示了使用每线程引用计数对的RCU实现的读端原语，
+与之前一样，但允许更新共享宽限期。
 \begin{fcvref}[ln:defer:rcu_rcpls:r]
-The main difference from the earlier implementation shown in
-\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair}
-is that \co{rcu_idx} is now a \co{long} that counts freely,
-so that \clnref{lock:idx} of
-\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}
-must mask off the low-order bit.
-We also switched from using \co{atomic_read()} and \co{atomic_set()}
-to using \co{READ_ONCE()}.
-The data is also quite similar, as shown in
-\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update Data},
-with \co{rcu_idx} now being a \co{long} instead of an
-\co{atomic_t}.
+与\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair}
+中所示的早期实现的主要区别在于\co{rcu_idx}现在是一个自由计数的\co{long}，
+因此\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}
+的\clnref{lock:idx}必须屏蔽低位比特。
+我们还从使用\co{atomic_read()}和\co{atomic_set()}
+切换到使用\co{READ_ONCE()}。
+数据也非常相似，如
+\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update Data}
+所示，\co{rcu_idx}现在是\co{long}而不是\co{atomic_t}。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpls@define.fcv}
-\caption{RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update Data}
+\caption{使用每线程引用计数对和共享更新数据的RCU读端数据}
 \label{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update Data}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpls@r.fcv}
-\caption{RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}
+\caption{使用每线程引用计数对和共享更新的RCU读端}
 \label{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}
 \end{listing}
 
 \Cref{lst:app:toyrcu:RCU Shared Update Using Per-Thread Reference-Count Pair}
 (\path{rcu_rcpls.c})
-shows the implementation of \co{synchronize_rcu()} and its helper
-function \co{flip_counter_and_wait()}.
-These are similar to those in
-\cref{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count Pair}.
-The differences in \co{flip_counter_and_wait()} include:
+展示了\co{synchronize_rcu()}及其辅助函数\co{flip_counter_and_wait()}的实现。
+这些与\cref{lst:app:toyrcu:RCU Update Using Per-Thread Reference-Count Pair}
+中的类似。
+\co{flip_counter_and_wait()}中的区别包括：
 \begin{fcvref}[ln:defer:rcu_rcpls:u:flip]
 \begin{enumerate}
-\item	\Clnref{inc} uses \co{WRITE_ONCE()} instead of \co{atomic_set()},
-	and increments rather than complementing.
-\item	A new \clnref{mask} masks the counter down to its bottom bit.
+\item	\Clnref{inc}使用\co{WRITE_ONCE()}而不是\co{atomic_set()}，
+	并且是递增而不是取补。
+\item	新的\clnref{mask}将计数器屏蔽到其最低位。
 \end{enumerate}
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_rcpls@u.fcv}
-\caption{RCU Shared Update Using Per-Thread Reference-Count Pair}
+\caption{使用每线程引用计数对的RCU共享更新}
 \label{lst:app:toyrcu:RCU Shared Update Using Per-Thread Reference-Count Pair}
 \end{listing}
 
 \begin{fcvref}[ln:defer:rcu_rcpls:u:sync]
-The changes to \co{synchronize_rcu()} are more pervasive:
+\co{synchronize_rcu()}的更改更为广泛：
 \begin{enumerate}
-\item	There is a new \co{oldctr} local variable that captures
-	the pre-lock-acquisition value of \co{rcu_idx} on
-	\clnref{oldctr}.
-\item	\Clnref{idx} uses \co{READ_ONCE()} instead of \co{atomic_read()}.
-\item	\Clnrefrange{if:b}{ret} check to see if at least three counter flips were
-	performed by other threads while the lock was being acquired,
-	and, if so, releases the lock, does a memory barrier, and returns.
-	In this case, there were two full waits for the counters to
-	go to zero, so those other threads already did all the required work.
-\item	At \clnrefrange{ifpair}{flip2}, \co{flip_counter_and_wait()} is only
-	invoked a second time if there were fewer than two counter flips
-	while the lock was being acquired.
-	On the other hand, if there were two counter flips, some other
-	thread did one full wait for all the counters to go to zero,
-	so only one more is required.
+\item	有一个新的\co{oldctr}局部变量，在\clnref{oldctr}上
+	捕获获取锁之前的\co{rcu_idx}值。
+\item	\Clnref{idx}使用\co{READ_ONCE()}而不是\co{atomic_read()}。
+\item	\Clnrefrange{if:b}{ret}检查在获取锁期间是否有至少三次计数器翻转
+	由其他线程执行，如果是，则释放锁，执行内存屏障并返回。
+	在这种情况下，已经有两次完整的等待计数器归零，
+	所以那些其他线程已经完成了所有必需的工作。
+\item	在\clnrefrange{ifpair}{flip2}，只有当获取锁期间
+	计数器翻转少于两次时，\co{flip_counter_and_wait()}才会被第二次调用。
+	另一方面，如果有两次计数器翻转，某个其他线程已经做了
+	一次完整的等待所有计数器归零，所以只需要再等一次。
 \end{enumerate}
 \end{fcvref}
 
-With this approach, if an arbitrarily large number of threads invoke
-\co{synchronize_rcu()} concurrently, with one CPU for each thread, there
-will be a total of only three waits for counters to go to zero.
+使用这种方法，如果任意大量的线程同时调用\co{synchronize_rcu()}，
+每个线程一个CPU，总共只会有三次等待计数器归零。
 
-Despite the improvements, this implementation of RCU still
-has a few shortcomings.
-First, as before, the need to flip \co{rcu_idx} twice imposes substantial
-overhead on updates, especially if there are large
-numbers of threads.
+尽管有所改进，这个RCU实现仍然有一些缺点。
+首先，与以前一样，需要翻转\co{rcu_idx}两次给更新带来了相当大的开销，
+特别是当线程数量很多时。
 
-Second, each updater still acquires \co{rcu_gp_lock}, even if there
-is no work to be done.
-This can result in a severe scalability limitation
-if there are large numbers of concurrent updates.
-There are ways of avoiding this, as was done in a
-production-quality real-time implementation of RCU for the Linux
-kernel~\cite{PaulEMcKenney2007PreemptibleRCU}.
+其次，每个更新者仍然获取\co{rcu_gp_lock}，即使没有工作要做。
+如果有大量并发更新，这可能导致严重的可扩展性限制。
+有一些方法可以避免这个问题，
+如在Linux内核的生产级实时RCU实现中所做的那样~\cite{PaulEMcKenney2007PreemptibleRCU}。
 
-Third, this implementation requires per-thread variables
-and the ability to enumerate threads, which again can be
-problematic in some software environments.
+第三，这个实现需要每线程变量和枚举线程的能力，
+这在某些软件环境中同样可能有问题。
 
-Finally, on 32-bit machines, a given update thread might be
-preempted long enough for the \co{rcu_idx}
-counter to overflow.
-This could cause such a thread to force an unnecessary
-pair of counter flips.
-However, even if each grace period took only one
-microsecond, the offending thread would need to be
-preempted for more than an hour, in which case an
-extra pair of counter flips is likely the least of
-your worries.
+最后，在32位机器上，给定的更新线程可能被抢占足够长的时间，
+导致\co{rcu_idx}计数器溢出。
+这可能导致该线程强制进行不必要的一对计数器翻转。
+然而，即使每个宽限期只需要一微秒，
+违规线程也需要被抢占超过一个小时，
+在这种情况下，额外的一对计数器翻转可能是你最不需要担心的问题。
 
-As with the implementation described in
-\cref{sec:app:toyrcu:Simple Counter-Based RCU},
-the read-side primitives scale extremely well, incurring roughly
-115~nanoseconds of overhead regardless of the number of CPUs.
-The \co{synchronize_rcu()} primitive is still expensive,
-ranging from about one microsecond up to about 16~microseconds.
-This is nevertheless much cheaper than the roughly 200~microseconds
-incurred by the implementation in
-\cref{sec:app:toyrcu:Scalable Counter-Based RCU}.
-So, despite its shortcomings, one could imagine this
-RCU implementation being used in production in real-life applications.
+与\cref{sec:app:toyrcu:Simple Counter-Based RCU}中描述的实现一样，
+读端原语的扩展性极好，
+无论CPU数量如何都只有约115纳秒的开销。
+\co{synchronize_rcu()}原语仍然很昂贵，
+从约一微秒到约16微秒不等。
+尽管如此，这比\cref{sec:app:toyrcu:Scalable Counter-Based RCU}
+中实现所产生的约200微秒要便宜得多。
+因此，尽管有这些缺点，可以想象这个RCU实现在实际应用中用于生产。
 
 \QuickQuiz{
-	All of these toy RCU implementations have either atomic operations
-	in \co{rcu_read_lock()} and \co{rcu_read_unlock()},
-	or \co{synchronize_rcu()}
-	overhead that increases linearly with the number of threads.
-	Under what circumstances could an RCU implementation enjoy
-	lightweight implementations for all three of these primitives,
-	all having deterministic ($\O{1}$) overheads and latencies?
+	所有这些玩具RCU实现要么在\co{rcu_read_lock()}和\co{rcu_read_unlock()}中
+	有原子操作，要么\co{synchronize_rcu()}的开销随线程数线性增长。
+	在什么情况下，RCU实现可以对所有这三个原语都有轻量级实现，
+	且都具有确定性（$\O{1}$）的开销和延迟？
 }\QuickQuizAnswer{
-	Special-purpose uniprocessor implementations of RCU can attain
-	this ideal~\cite{PaulEMcKenney2009BloatwatchRCU}.
+	专用的单处理器RCU实现可以达到这个理想状态~\cite{PaulEMcKenney2009BloatwatchRCU}。
 }\QuickQuizEnd
 
-Referring back to
-\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update},
-we see that there is one global-variable access and no fewer than four
-accesses to thread-local variables.
-Given the relatively high cost of thread-local accesses on systems
-implementing POSIX threads, it is tempting to collapse the three
-thread-local variables into a single structure, permitting
-\co{rcu_read_lock()} and \co{rcu_read_unlock()} to access their
-thread-local data with a single thread-local-storage access.
-However, an even better approach would be to reduce the number of
-thread-local accesses to one, as is done in the next section.
+回顾
+\cref{lst:app:toyrcu:RCU Read-Side Using Per-Thread Reference-Count Pair and Shared Update}，
+我们看到有一次全局变量访问和不少于四次线程局部变量访问。
+鉴于在实现POSIX线程的系统上线程局部访问的相对高成本，
+很容易想到将三个线程局部变量合并为一个结构，
+允许\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+通过一次线程局部存储访问来访问其线程局部数据。
+然而，更好的方法是将线程局部访问的次数减少到一次，
+这将在下一节中完成。
 
-\section{RCU Based on Free-Running Counter}
+\section{基于自由运行计数器的RCU}
 \label{sec:app:toyrcu:RCU Based on Free-Running Counter}
 
 \Cref{lst:app:toyrcu:Free-Running Counter Using RCU}
-(\path{rcu.h} and \path{rcu.c})
-shows an RCU implementation based on a single global free-running counter
-that takes on only even-numbered values, with data shown in
-\cref{lst:app:toyrcu:Data for Free-Running Counter Using RCU}.
+(\path{rcu.h}和\path{rcu.c})
+展示了一个基于单一全局自由运行计数器的RCU实现，
+该计数器只取偶数值，数据如
+\cref{lst:app:toyrcu:Data for Free-Running Counter Using RCU}所示。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu@define.fcv}
-\caption{Data for Free-Running Counter Using RCU}
+\caption{使用自由运行计数器的RCU数据}
 \label{lst:app:toyrcu:Data for Free-Running Counter Using RCU}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu@read_lock_unlock.fcv}\vspace*{-11pt}\fvset{firstnumber=last}
 \input{CodeSamples/defer/rcu@synchronize.fcv}\fvset{firstnumber=auto}
-\caption{Free-Running Counter Using RCU}
+\caption{使用自由运行计数器的RCU}
 \label{lst:app:toyrcu:Free-Running Counter Using RCU}
 \end{listing}
 
-The resulting \co{rcu_read_lock()} implementation is extremely
-straightforward.
+生成的\co{rcu_read_lock()}实现极其简单直接。
 \begin{fcvref}[ln:defer:rcu:read_lock_unlock:lock]
-\Clnref{gp1,gp2} simply
-add the value one to the global free-running \co{rcu_gp_ctr}
-variable and stores the resulting odd-numbered value into the
-\co{rcu_reader_gp} per-thread variable.
-\Clnref{mb} executes a \IX{memory barrier} to prevent the content of the
-subsequent RCU read-side critical section from ``leaking out''.
+\Clnref{gp1,gp2}简单地将值一加到全局自由运行的\co{rcu_gp_ctr}变量上，
+并将生成的奇数值存储到\co{rcu_reader_gp}每线程变量中。
+\Clnref{mb}执行一个\IX{memory barrier}以防止后续RCU读端临界区的内容"泄漏出去"。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:rcu:read_lock_unlock:unlock]
-The \co{rcu_read_unlock()} implementation is similar.
-\Clnref{mb} executes a memory barrier, again to prevent the prior RCU
-read-side critical section from ``leaking out''.
-\Clnref{gp1,gp2} then copy the \co{rcu_gp_ctr} global variable to the
-\co{rcu_reader_gp} per-thread variable, leaving this per-thread
-variable with an even-numbered value so that a concurrent instance
-of \co{synchronize_rcu()} will know to ignore it.
+\co{rcu_read_unlock()}的实现类似。
+\Clnref{mb}执行一个内存屏障，同样是为了防止先前的RCU读端临界区"泄漏出去"。
+\Clnref{gp1,gp2}然后将\co{rcu_gp_ctr}全局变量复制到
+\co{rcu_reader_gp}每线程变量中，使这个每线程变量留下一个偶数值，
+这样\co{synchronize_rcu()}的并发实例就知道要忽略它。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu:read_lock_unlock:unlock]
-	If any even value is sufficient to tell \co{synchronize_rcu()}
-	to ignore a given task, why don't \clnref{gp1,gp2} of
-	\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
-	simply assign zero to \co{rcu_reader_gp}?
+	如果任何偶数值都足以告诉\co{synchronize_rcu()}忽略给定的任务，
+	为什么\cref{lst:app:toyrcu:Free-Running Counter Using RCU}的
+	\clnref{gp1,gp2}不简单地将零赋给\co{rcu_reader_gp}？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	Assigning zero (or any other even-numbered constant)
-	would in fact work, but assigning the value of
-	\co{rcu_gp_ctr} can provide a valuable debugging aid,
-	as it gives the developer an idea of when the corresponding
-	thread last exited an RCU read-side critical section.
+	赋值零（或任何其他偶数常量）确实可以工作，
+	但赋值\co{rcu_gp_ctr}的值可以提供有价值的调试辅助，
+	因为它给开发者一个关于对应线程上次退出RCU读端临界区时间的概念。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:defer:rcu:synchronize:syn]
-Thus, \co{synchronize_rcu()} could wait for all of the per-thread
-\co{rcu_reader_gp} variables to take on even-numbered values.
-However, it is possible to do much better than that because
-\co{synchronize_rcu()} need only wait on \emph{pre-existing}
-RCU read-side critical sections.
-\Clnref{mb1} executes a memory barrier to prevent prior manipulations
-of RCU-protected data structures from being reordered (by either
-the CPU or the compiler) to follow the increment on
-\clnref{increasegp}.
-\Clnref{spinlock} acquires the \co{rcu_gp_lock}
-(and \clnref{spinunlock} releases it)
-in order to prevent multiple
-\co{synchronize_rcu()} instances from running concurrently.
-\Clnref{increasegp} then increments the global \co{rcu_gp_ctr} variable by
-two, so that all pre-existing RCU read-side critical sections will
-have corresponding per-thread \co{rcu_reader_gp} variables with
-values less than that of \co{rcu_gp_ctr}, modulo the machine's
-word size.
-Recall also that threads with even-numbered values of \co{rcu_reader_gp}
-are not in an RCU read-side critical section,
-so that \clnrefrange{scan:b}{scan:e}
-scan the \co{rcu_reader_gp} values until they
-all are either even (\clnref{even}) or are greater than the global
-\co{rcu_gp_ctr} (\clnrefrange{gt1}{gt2}).
-\Clnref{poll} blocks for a short period of time to wait for a
-pre-existing RCU read-side critical section, but this can be replaced with
-a spin-loop if \IXh{grace-period}{latency} is of the essence.
-Finally, the memory barrier at \clnref{mb3} ensures that any subsequent
-destruction will not be reordered into the preceding loop.
+因此，\co{synchronize_rcu()}可以等待所有每线程\co{rcu_reader_gp}变量
+取偶数值。
+然而，可以做得比这好得多，因为\co{synchronize_rcu()}只需要等待
+\emph{先前存在的}RCU读端临界区。
+\Clnref{mb1}执行一个内存屏障，以防止先前对RCU保护的数据结构的操作
+被重排序（无论是由CPU还是编译器）到\clnref{increasegp}上的递增之后。
+\Clnref{spinlock}获取\co{rcu_gp_lock}
+（\clnref{spinunlock}释放它），
+以防止多个\co{synchronize_rcu()}实例并发运行。
+\Clnref{increasegp}然后将全局\co{rcu_gp_ctr}变量递增二，
+使得所有先前存在的RCU读端临界区将具有对应的每线程\co{rcu_reader_gp}变量，
+其值小于\co{rcu_gp_ctr}的值（以机器字长为模）。
+还请回忆，\co{rcu_reader_gp}值为偶数的线程不在RCU读端临界区中，
+因此\clnrefrange{scan:b}{scan:e}
+扫描\co{rcu_reader_gp}值，直到它们全部要么是偶数（\clnref{even}），
+要么大于全局\co{rcu_gp_ctr}（\clnrefrange{gt1}{gt2}）。
+\Clnref{poll}阻塞一小段时间等待先前存在的RCU读端临界区，
+但如果\IXh{grace-period}{latency}至关重要，可以用自旋循环替代。
+最后，\clnref{mb3}上的内存屏障确保任何后续的销毁不会被重排序到前面的循环中。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu:synchronize:syn]
-	Why are the memory barriers on \clnref{mb1,mb3} of
-	\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
-	needed?
-	Aren't the memory barriers inherent in the locking
-	primitives on \clnref{spinlock,spinunlock} sufficient?
+	为什么\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
+	的\clnref{mb1,mb3}上需要内存屏障？
+	\clnref{spinlock,spinunlock}上锁原语中固有的内存屏障不够吗？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	These memory barriers are required because the locking
-	primitives are only guaranteed to confine the critical
-	section.
-	The locking primitives are under absolutely no obligation
-	to keep other code from bleeding in to the critical section.
-	The pair of memory barriers are therefore requires to prevent
-	this sort of code motion, whether performed by the compiler
-	or by the CPU\@.
+	这些内存屏障是必需的，因为锁原语只保证限定临界区。
+	锁原语完全没有义务防止其他代码泄漏到临界区中。
+	因此，这对内存屏障是必需的，以防止这种代码移动，
+	无论是由编译器还是由CPU执行的\@。
 }\QuickQuizEnd
 
-This approach achieves much better read-side performance, incurring
-roughly 63~nanoseconds of overhead regardless of the number of
-\Power{5} CPUs.
-Updates incur more overhead, ranging from about 500~nanoseconds on
-a single \Power{5} CPU to more than 100~\emph{microseconds} on 64
-such CPUs.
+这种方法实现了更好的读端性能，
+无论\Power{5} CPU的数量如何，都只产生约63纳秒的开销。
+更新产生更多开销，从单个\Power{5} CPU上的约500纳秒
+到64个这样的CPU上的超过100\emph{微秒}不等。
 
 \QuickQuiz{
-	Couldn't the update-side batching optimization described in
 	\cref{sec:app:toyrcu:Scalable Counter-Based RCU With Shared Grace Periods}
-	be applied to the implementation shown in
-	\cref{lst:app:toyrcu:Free-Running Counter Using RCU}?
+	中描述的更新端批处理优化能否应用于
+	\cref{lst:app:toyrcu:Free-Running Counter Using RCU}中所示的实现？
 }\QuickQuizAnswer{
-	Indeed it could, with a few modifications.
-	This work is left as an exercise for the reader.
+	确实可以，只需做一些修改。
+	这项工作留给读者作为练习。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:defer:rcu:read_lock_unlock:lock]
-This implementation suffers from some serious shortcomings in
-addition to the high update-side overhead noted earlier.
-First, it is no longer permissible to nest RCU read-side critical
-sections, a topic that is taken up in the next section.
-Second, if a reader is preempted at \clnref{gp1} of
-\cref{lst:app:toyrcu:Free-Running Counter Using RCU} after fetching from
-\co{rcu_gp_ctr} but before storing to \co{rcu_reader_gp},
-and if the \co{rcu_gp_ctr} counter then runs through more than half
-but less than all of its possible values, then \co{synchronize_rcu()}
-will ignore the subsequent RCU read-side critical section.
-Third and finally, this implementation requires that the enclosing software
-environment be able to enumerate threads and maintain per-thread
-variables.
+除了前面提到的高更新端开销外，这个实现还有一些严重的缺点。
+首先，不再允许嵌套RCU读端临界区，这个话题将在下一节中讨论。
+其次，如果读者在\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
+的\clnref{gp1}处被抢占，
+已经从\co{rcu_gp_ctr}取值但尚未存储到\co{rcu_reader_gp}，
+而\co{rcu_gp_ctr}计数器随后经过了其可能值的一半以上但不到全部，
+那么\co{synchronize_rcu()}将忽略后续的RCU读端临界区。
+第三也是最后，这个实现要求封装的软件环境能够枚举线程并维护每线程变量。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu:read_lock_unlock:lock]
-	Is the possibility of readers being preempted in
-	\clnrefrange{gp1}{gp2} of
-	\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
-	a real problem, in other words, is there a real sequence
-	of events that could lead to failure?
-	If not, why not?
-	If so, what is the sequence of events, and how can the
-	failure be addressed?
+	读者在\cref{lst:app:toyrcu:Free-Running Counter Using RCU}
+	的\clnrefrange{gp1}{gp2}处被抢占的可能性
+	是一个真正的问题吗？换句话说，是否存在一个真正的事件序列
+	可能导致失败？
+	如果不是，为什么不是？
+	如果是，事件序列是什么，如何解决这个失败？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	It is a real problem, there is a sequence of events leading to
-	failure, and there are a number of possible ways of
-	addressing it.
-	For more details, see the Quick Quizzes near the end of
-	\cref{sec:app:toyrcu:Nestable RCU Based on Free-Running Counter}.
-	The reason for locating the discussion there is to (1) give you
-	more time to think about it, and (2) because the nesting support
-	added in that section greatly reduces the time required to
-	overflow the counter.
+	这是一个真正的问题，存在导致失败的事件序列，
+	并且有多种可能的解决方法。
+	有关更多细节，请参阅
+	\cref{sec:app:toyrcu:Nestable RCU Based on Free-Running Counter}
+	末尾附近的小测验。
+	将讨论放在那里的原因是(1)给你更多时间思考，
+	(2)因为该节中添加的嵌套支持大大减少了计数器溢出所需的时间。
 }\QuickQuizEnd
 
-\section{Nestable RCU Based on Free-Running Counter}
+\section{基于自由运行计数器的可嵌套RCU}
 \label{sec:app:toyrcu:Nestable RCU Based on Free-Running Counter}
 
 \Cref{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter}
-(\path{rcu_nest.h} and \path{rcu_nest.c})
-shows an RCU implementation based on a single global free-running counter,
-but that permits nesting of RCU read-side critical sections.
-This nestability is accomplished by reserving the low-order bits of the
-global \co{rcu_gp_ctr} to count nesting, using the definitions shown in
-\cref{lst:app:toyrcu:Data for Nestable RCU Using a Free-Running Counter}.
-This is a generalization of the scheme in
-\cref{sec:app:toyrcu:RCU Based on Free-Running Counter},
-which can be thought of as having a single low-order bit reserved
-for counting nesting depth.
-Two C-preprocessor macros are used to arrange this,
-\co{RCU_GP_CTR_NEST_MASK} and
-\co{RCU_GP_CTR_BOTTOM_BIT}.
-These are related: \co{RCU_GP_CTR_NEST_MASK=RCU_GP_CTR_BOTTOM_BIT-1}.
-The \co{RCU_GP_CTR_BOTTOM_BIT} macro contains a single bit that is
-positioned just above the bits reserved for counting nesting,
-and the \co{RCU_GP_CTR_NEST_MASK} has all one bits covering the
-region of \co{rcu_gp_ctr} used to count nesting.
-Obviously, these two C-preprocessor macros must reserve enough
-of the low-order bits of the counter to permit the maximum required
-nesting of RCU read-side critical sections, and this implementation
-reserves seven bits, for a maximum RCU read-side critical-section
-nesting depth of 127, which should be well in excess of that needed
-by most applications.
+(\path{rcu_nest.h}和\path{rcu_nest.c})
+展示了一个基于单一全局自由运行计数器的RCU实现，
+但允许RCU读端临界区的嵌套。
+这种可嵌套性通过保留全局\co{rcu_gp_ctr}的低位来计数嵌套来实现，
+使用\cref{lst:app:toyrcu:Data for Nestable RCU Using a Free-Running Counter}
+中所示的定义。
+这是\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+中方案的推广，后者可以被认为保留了单个低位来计数嵌套深度。
+两个C预处理器宏用于实现这一安排，
+\co{RCU_GP_CTR_NEST_MASK}和\co{RCU_GP_CTR_BOTTOM_BIT}。
+它们之间的关系是：\co{RCU_GP_CTR_NEST_MASK=RCU_GP_CTR_BOTTOM_BIT-1}。
+\co{RCU_GP_CTR_BOTTOM_BIT}宏包含一个位，位于为计数嵌套而保留的位的正上方，
+\co{RCU_GP_CTR_NEST_MASK}的所有一位覆盖了\co{rcu_gp_ctr}中
+用于计数嵌套的区域。
+显然，这两个C预处理器宏必须保留计数器的足够多低位，
+以允许RCU读端临界区的最大所需嵌套，
+这个实现保留了七位，最大RCU读端临界区嵌套深度为127，
+这应该远远超出大多数应用程序所需的。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_nest@define.fcv}
-\caption{Data for Nestable RCU Using a Free-Running Counter}
+\caption{使用自由运行计数器的可嵌套RCU数据}
 \label{lst:app:toyrcu:Data for Nestable RCU Using a Free-Running Counter}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_nest@read_lock_unlock.fcv}\vspace*{-11pt}\fvset{firstnumber=last}
 \input{CodeSamples/defer/rcu_nest@synchronize.fcv}\fvset{firstnumber=auto}
-\caption{Nestable RCU Using a Free-Running Counter}
+\caption{使用自由运行计数器的可嵌套RCU}
 \label{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter}
 \end{listing}
 
 \begin{fcvref}[ln:defer:rcu_nest:read_lock_unlock:lock]
-The resulting \co{rcu_read_lock()} implementation is still reasonably
-straightforward.
-\Clnref{readgp} places a pointer to
-this thread's instance of \co{rcu_reader_gp}
-into the local variable \co{rrgp}, minimizing the number of expensive
-calls to the pthreads thread-local-state API\@.
-\Clnref{wtmp1} records the current value of \co{rcu_reader_gp}
-into another local variable \co{tmp}, and \clnref{checktmp} checks
-to see if the low-order bits are zero, which would indicate that
-this is the outermost \co{rcu_read_lock()}.
-If so, \clnref{wtmp2} places the global \co{rcu_gp_ctr}
-into \co{tmp} because the current value previously fetched by
-\clnref{wtmp1} is likely to be obsolete.
-In either case, \clnref{inctmp} increments the nesting depth,
-which you will recall is stored in the seven low-order bits of the counter.
-\Clnref{writegp} stores the updated counter back into this thread's
-instance of \co{rcu_reader_gp}, and,
-finally, \clnref{mb1} executes a memory barrier
-to prevent the RCU read-side critical section from bleeding out
-into the code preceding the call to \co{rcu_read_lock()}.
+生成的\co{rcu_read_lock()}实现仍然相当简单直接。
+\Clnref{readgp}将指向该线程\co{rcu_reader_gp}实例的指针
+放入局部变量\co{rrgp}中，最大限度地减少了对pthreads线程局部状态API的
+昂贵调用次数\@。
+\Clnref{wtmp1}将\co{rcu_reader_gp}的当前值记录到另一个局部变量\co{tmp}中，
+\clnref{checktmp}检查低位是否为零，如果是则表明这是最外层的\co{rcu_read_lock()}。
+如果是这样，\clnref{wtmp2}将全局\co{rcu_gp_ctr}放入\co{tmp}中，
+因为\clnref{wtmp1}先前获取的当前值可能已经过时。
+无论哪种情况，\clnref{inctmp}递增嵌套深度，
+你会记得它存储在计数器的七个低位中。
+\Clnref{writegp}将更新后的计数器存回该线程的\co{rcu_reader_gp}实例中，
+最后，\clnref{mb1}执行内存屏障，
+以防止RCU读端临界区泄漏到调用\co{rcu_read_lock()}之前的代码中。
 \end{fcvref}
 
-In other words, this implementation of \co{rcu_read_lock()} picks up a copy
-of the global \co{rcu_gp_ctr} unless the current invocation of
-\co{rcu_read_lock()} is nested within an RCU read-side critical section,
-in which case it instead fetches the contents of the current thread's
-instance of \co{rcu_reader_gp}.
-Either way, it increments whatever value it fetched in order to record
-an additional nesting level, and stores the result in the current
-thread's instance of \co{rcu_reader_gp}.
+换句话说，这个\co{rcu_read_lock()}实现获取全局\co{rcu_gp_ctr}的副本，
+除非当前的\co{rcu_read_lock()}调用嵌套在RCU读端临界区内，
+在这种情况下，它转而获取当前线程\co{rcu_reader_gp}实例的内容。
+无论哪种方式，它递增所获取的任何值以记录额外的嵌套级别，
+并将结果存储在当前线程的\co{rcu_reader_gp}实例中。
 
 \begin{fcvref}[ln:defer:rcu_nest:read_lock_unlock:unlock]
-Interestingly enough, despite their \co{rcu_read_lock()} differences,
-the implementation of \co{rcu_read_unlock()}
-is broadly similar to that shown in
-\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}.
-\Clnref{mb1} executes a memory barrier
-in order to prevent the RCU read-side
-critical section from bleeding out into code following the call
-to \co{rcu_read_unlock()}, and
-\clnref{decgp} decrements this thread's instance of \co{rcu_reader_gp},
-which has the effect of decrementing the nesting count contained in
-\co{rcu_reader_gp}'s low-order bits.
-Debugging versions of this primitive would check (before decrementing!\@)
-that these low-order bits were non-zero.
+有趣的是，尽管\co{rcu_read_lock()}有差异，
+\co{rcu_read_unlock()}的实现与
+\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+中所示的大体相似。
+\Clnref{mb1}执行内存屏障，以防止RCU读端临界区
+泄漏到调用\co{rcu_read_unlock()}之后的代码中，
+\clnref{decgp}递减该线程的\co{rcu_reader_gp}实例，
+其效果是递减\co{rcu_reader_gp}低位中包含的嵌套计数。
+这个原语的调试版本会检查（在递减之前！\@）这些低位是否非零。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:rcu_nest:synchronize:syn]
-The implementation of \co{synchronize_rcu()} is quite similar to
-that shown in
-\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}.
-There are two differences.
-The first is that \clnref{incgp1,incgp2}
-adds \co{RCU_GP_CTR_BOTTOM_BIT} to the global \co{rcu_gp_ctr}
-instead of adding the constant ``2'',
-and the second is that the comparison on \clnref{ongoing}
-has been abstracted out to a separate function,
-where it checks the bits indicated by \co{RCU_GP_CTR_NEST_MASK}
-instead of unconditionally checking the low-order bit.
+\co{synchronize_rcu()}的实现与
+\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+中所示的非常相似。
+有两个区别。
+第一个是\clnref{incgp1,incgp2}将\co{RCU_GP_CTR_BOTTOM_BIT}
+加到全局\co{rcu_gp_ctr}上，而不是加常量"2"，
+第二个是\clnref{ongoing}上的比较被抽象到一个单独的函数中，
+该函数检查\co{RCU_GP_CTR_NEST_MASK}指示的位，
+而不是无条件检查低位。
 \end{fcvref}
 
-This approach achieves read-side performance almost equal to that
-shown in
-\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}, incurring
-roughly 65~nanoseconds of overhead regardless of the number of
-\Power{5} CPUs.
-Updates again incur more overhead, ranging from about 600~nanoseconds on
-a single \Power{5} CPU to more than 100~\emph{microseconds} on 64
-such CPUs.
+这种方法实现了几乎等于
+\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+中所示的读端性能，无论\Power{5} CPU的数量如何，都只产生约65纳秒的开销。
+更新再次产生更多开销，从单个\Power{5} CPU上的约600纳秒
+到64个这样的CPU上的超过100\emph{微秒}不等。
 
 \QuickQuiz{
-	Why not simply maintain a separate per-thread nesting-level
-	variable, as was done in previous section, rather than having
-	all this complicated bit manipulation?
+	为什么不像前一节那样简单地维护一个单独的每线程嵌套级别变量，
+	而不是进行所有这些复杂的位操作？
 }\QuickQuizAnswer{
-	The apparent simplicity of the separate per-thread variable
-	is a red herring.
-	This approach incurs much greater complexity in the guise
-	of careful ordering of operations, especially if signal
-	handlers are to be permitted to contain RCU read-side
-	critical sections.
-	But don't take my word for it, code it up and see what you
-	end up with!
+	单独的每线程变量的表面简单性是一个误导。
+	这种方法在仔细的操作排序方面会带来更大的复杂性，
+	特别是如果要允许信号处理程序包含RCU读端临界区的话。
+	但不要只听我说，自己编码试试看最终会得到什么！
 }\QuickQuizEnd
 
-This implementation suffers from the same shortcomings as does that of
-\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}, except that
-nesting of RCU read-side critical sections is now permitted.
-In addition, on 32-bit systems, this approach shortens the time
-required to overflow the global \co{rcu_gp_ctr} variable.
-The following section shows one way to greatly increase the time
-required for overflow to occur, while greatly reducing read-side
-overhead.
+这个实现与
+\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+中的具有相同的缺点，只是现在允许嵌套RCU读端临界区。
+此外，在32位系统上，这种方法缩短了全局\co{rcu_gp_ctr}变量溢出所需的时间。
+下一节展示了一种大大增加溢出发生所需时间的方法，
+同时大大减少读端开销。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Given the algorithm shown in
-	\cref{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter},
-	how could you double the time required to overflow the global
-	\co{rcu_gp_ctr}?
+	给定\cref{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter}
+	中所示的算法，你如何将全局\co{rcu_gp_ctr}溢出所需的时间翻倍？
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:defer:rcu_nest:synchronize:syn]
-	One way would be to replace the magnitude comparison on
-	\clnref{lt1,lt2} with an inequality check of
-	the per-thread \co{rcu_reader_gp} variable against
-	\co{rcu_gp_ctr+RCU_GP_CTR_BOTTOM_BIT}.
+	一种方法是将\clnref{lt1,lt2}上的大小比较替换为
+	每线程\co{rcu_reader_gp}变量与
+	\co{rcu_gp_ctr+RCU_GP_CTR_BOTTOM_BIT}的不等式检查。
 	\end{fcvref}
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Again, given the algorithm shown in
-	\cref{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter},
-	is counter overflow fatal?
-	Why or why not?
-	If it is fatal, what can be done to fix it?
+	再次，给定\cref{lst:app:toyrcu:Nestable RCU Using a Free-Running Counter}
+	中所示的算法，计数器溢出是否是致命的？
+	为什么是或为什么不是？
+	如果是致命的，可以做什么来修复？
 }\QuickQuizAnswerE{
-	It can indeed be fatal.
-	To see this, consider the following sequence of events:
+	它确实可能是致命的。
+	要理解这一点，考虑以下事件序列：
 	\begin{enumerate}
-	\item	Thread~0 enters \co{rcu_read_lock()}, determines
-		that it is not nested, and therefore fetches the
-		value of the global \co{rcu_gp_ctr}.
-		Thread~0 is then preempted for an extremely long time
-		(before storing to its per-thread \co{rcu_reader_gp}
-		variable).
-	\item	Other threads repeatedly invoke \co{synchronize_rcu()},
-		so that the new value of the global \co{rcu_gp_ctr}
-		is now \co{RCU_GP_CTR_BOTTOM_BIT}
-		less than it was when thread~0 fetched it.
-	\item	Thread~0 now starts running again, and stores into
-		its per-thread \co{rcu_reader_gp} variable.
-		The value it stores is
-		\co{RCU_GP_CTR_BOTTOM_BIT+1}
-		greater than that of the global \co{rcu_gp_ctr}.
-	\item	Thread~0 acquires a reference to RCU-protected data
-		element~A.
-	\item	Thread~1 now removes the data element~A that thread~0
-		just acquired a reference to.
-	\item	Thread~1 invokes \co{synchronize_rcu()}, which
-		increments the global \co{rcu_gp_ctr} by
-		\co{RCU_GP_CTR_BOTTOM_BIT}.
-		It then checks all of the per-thread \co{rcu_reader_gp}
-		variables, but thread~0's value (incorrectly) indicates
-		that it started after thread~1's call to
-		\co{synchronize_rcu()}, so thread~1 does not wait
-		for thread~0 to complete its RCU read-side critical
-		section.
-	\item	Thread~1 then frees up data element~A, which thread~0
-		is still referencing.
+	\item	线程0进入\co{rcu_read_lock()}，确定它不是嵌套的，
+		因此获取全局\co{rcu_gp_ctr}的值。
+		然后线程0被抢占了极长的时间
+		（在存储到其每线程\co{rcu_reader_gp}变量之前）。
+	\item	其他线程反复调用\co{synchronize_rcu()}，
+		使得全局\co{rcu_gp_ctr}的新值现在比线程0获取时
+		少了\co{RCU_GP_CTR_BOTTOM_BIT}。
+	\item	线程0现在开始重新运行，并存储到其每线程\co{rcu_reader_gp}变量中。
+		它存储的值比全局\co{rcu_gp_ctr}大\co{RCU_GP_CTR_BOTTOM_BIT+1}。
+	\item	线程0获取了对RCU保护的数据元素A的引用。
+	\item	线程1现在移除了线程0刚刚获取引用的数据元素A。
+	\item	线程1调用\co{synchronize_rcu()}，
+		将全局\co{rcu_gp_ctr}递增\co{RCU_GP_CTR_BOTTOM_BIT}。
+		然后它检查所有每线程\co{rcu_reader_gp}变量，
+		但线程0的值（错误地）表明它是在线程1调用\co{synchronize_rcu()}
+		之后开始的，所以线程1不等待线程0完成其RCU读端临界区。
+	\item	线程1然后释放数据元素A，而线程0仍在引用它。
 	\end{enumerate}
 
-	Note that scenario can also occur in the implementation presented in
-	\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}.
+	请注意，这种情况也可能发生在
+	\cref{sec:app:toyrcu:RCU Based on Free-Running Counter}
+	中提出的实现中。
 
-	One strategy for fixing this problem is to use 64-bit
-	counters so that the time required to overflow them would exceed
-	the useful lifetime of the computer system.
-	Note that non-antique members of the 32-bit x86 CPU family
-	allow atomic manipulation of 64-bit counters via the
-	\co{cmpxchg64b} instruction.
+	修复这个问题的一种策略是使用64位计数器，
+	使得溢出所需的时间超过计算机系统的有用寿命。
+	请注意，32位x86 CPU系列的非古董成员允许通过
+	\co{cmpxchg64b}指令原子操作64位计数器。
 
-	Another strategy is to limit the rate at which grace periods are
-	permitted to occur in order to achieve a similar effect.
-	For example, \co{synchronize_rcu()} could record the last time
-	that it was invoked, and any subsequent invocation would then
-	check this time and block as needed to force the desired
-	spacing.
-	For example, if the low-order four bits of the counter were
-	reserved for nesting, and if grace periods were permitted to
-	occur at most ten times per second, then it would take more
-	than 300 days for the counter to overflow.
-	However, this approach is not helpful if there is any possibility
-	that the system will be fully loaded with CPU-bound high-priority
-	real-time threads for the full 300 days.
-	(A remote possibility, perhaps, but best to consider it ahead
-	of time.)
+	另一种策略是限制允许宽限期发生的速率，以达到类似的效果。
+	例如，\co{synchronize_rcu()}可以记录上次被调用的时间，
+	任何后续调用都会检查这个时间并根据需要阻塞以强制所需的间隔。
+	例如，如果计数器的低四位被保留用于嵌套，
+	并且宽限期被允许每秒最多发生十次，
+	那么计数器溢出需要超过300天。
+	然而，如果存在任何可能性使系统在整整300天内
+	被CPU密集型高优先级实时线程完全占满，这种方法就没有帮助。
+	（也许是一个很小的可能性，但最好提前考虑。）
 
-	A third approach is to administratively abolish real-time threads
-	from the system in question.
-	In this case, the preempted process will age up in priority,
-	thus getting to run long before the counter had a chance to
-	overflow.
-	Of course, this approach is less than helpful for real-time
-	applications.
+	第三种方法是从管理上禁止相关系统中的实时线程。
+	在这种情况下，被抢占的进程会随着时间提升优先级，
+	因此在计数器有机会溢出之前就能运行。
+	当然，对于实时应用程序，这种方法帮助不大。
 
-	A fourth approach would be for \co{rcu_read_lock()} to recheck
-	the value of the global \co{rcu_gp_ctr} after storing to its
-	per-thread \co{rcu_reader_gp} counter, retrying if the new
-	value of the global \co{rcu_gp_ctr} is inappropriate.
-	This works, but introduces non-deterministic execution time
-	into \co{rcu_read_lock()}.
-	On the other hand, if your application is being preempted long
-	enough for the counter to overflow, you have no hope of
-	deterministic execution time in any case!
+	第四种方法是让\co{rcu_read_lock()}在存储到其每线程\co{rcu_reader_gp}
+	计数器之后重新检查全局\co{rcu_gp_ctr}的值，
+	如果全局\co{rcu_gp_ctr}的新值不合适则重试。
+	这可以工作，但在\co{rcu_read_lock()}中引入了非确定性执行时间。
+	另一方面，如果你的应用程序被抢占的时间长到足以使计数器溢出，
+	你无论如何都没有确定性执行时间的希望！
 
-	A fifth approach is for the grace period process to wait for
-	all readers to become aware of the new grace period.
-	This works nicely in theory, but hangs if a reader blocks
-	indefinitely outside of an RCU read-side critical section.
+	第五种方法是让宽限期进程等待所有读者意识到新的宽限期。
+	这在理论上运行得很好，但如果读者在RCU读端临界区外无限期阻塞则会挂起。
 
-	A final approach is, oddly enough, to use a single-bit
-	grace-period counter and for each call to \co{synchronize_rcu()}
-	to take two passes through its algorithm.
-	This is the approached use by userspace
-	RCU~\cite{MathieuDesnoyers2009URCU}, and is described in
-	detail in the journal article and supplementary
-	materials~\cite[Appendix D]{MathieuDesnoyers2012URCU}.
+	最后一种方法是，奇怪的是，使用单比特宽限期计数器，
+	并让每次\co{synchronize_rcu()}调用对其算法进行两遍。
+	这是用户空间RCU~\cite{MathieuDesnoyers2009URCU}所使用的方法，
+	在期刊文章和补充材料~\cite[Appendix D]{MathieuDesnoyers2012URCU}
+	中有详细描述。
 }\QuickQuizEndE
 }
 
-\section{RCU Based on Quiescent States}
+\section{基于静默状态的RCU}
 \label{sec:app:toyrcu:RCU Based on Quiescent States}
 
 \begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock]
 \Cref{lst:app:toyrcu:Quiescent-State-Based RCU Read Side}
 (\path{rcu_qs.h})
-shows the read-side primitives used to construct a user-level
-implementation of RCU based on \IXpl{quiescent state}, with the data shown in
-\cref{lst:app:toyrcu:Data for Quiescent-State-Based RCU}.
-As can be seen from \clnrefrange{lock:b}{unlock:e} in the listing,
-the \co{rcu_read_lock()}
-and \co{rcu_read_unlock()} primitives do nothing, and can in fact
-be expected to be inlined and optimized away, as they are in
-server builds of the Linux kernel.
-This is due to the fact that quiescent-state-based RCU implementations
-\emph{approximate} the extents of RCU read-side critical sections
-using the aforementioned quiescent states.
-Each of these quiescent states contains a call to
-\co{rcu_quiescent_state()}, which is shown from
-\clnrefrange{qs:b}{qs:e} in the listing.
-Threads entering extended quiescent states (for example, when blocking)
-may instead call \co{rcu_thread_offline()}
-(\clnrefrange{offline:b}{offline:e}) when entering
-an extended quiescent state and then call
-\co{rcu_thread_online()}
-(\clnrefrange{online:b}{online:e}) when leaving it.
-As such, \co{rcu_thread_online()} is analogous to \co{rcu_read_lock()}
-and \co{rcu_thread_offline()} is analogous to \co{rcu_read_unlock()}.
-In addition, \co{rcu_quiescent_state()} can be thought of as a
-\co{rcu_thread_online()} immediately followed by a
-\co{rcu_thread_offline()}.\footnote{
-	Although the code in the listing is consistent with
-	\co{rcu_quiescent_state()}
-	being the same as \co{rcu_thread_online()} immediately followed by
-	\co{rcu_thread_offline()}, this relationship is obscured by
-	performance optimizations.}
-It is illegal to invoke \co{rcu_quiescent_state()}, \co{rcu_thread_offline()},
-or \co{rcu_thread_online()} from an RCU read-side critical section.
+展示了用于构建基于\IXpl{quiescent state}的用户级RCU实现的读端原语，
+数据如\cref{lst:app:toyrcu:Data for Quiescent-State-Based RCU}所示。
+从清单中的\clnrefrange{lock:b}{unlock:e}可以看出，
+\co{rcu_read_lock()}和\co{rcu_read_unlock()}原语什么都不做，
+事实上可以预期它们会被内联并优化掉，就像在Linux内核的服务器构建版本中一样。
+这是因为基于静默状态的RCU实现
+使用上述静默状态来\emph{近似}RCU读端临界区的范围。
+每个静默状态包含对\co{rcu_quiescent_state()}的调用，
+如清单中\clnrefrange{qs:b}{qs:e}所示。
+进入扩展静默状态的线程（例如，阻塞时）
+可以在进入扩展静默状态时调用\co{rcu_thread_offline()}
+（\clnrefrange{offline:b}{offline:e}），
+然后在离开时调用\co{rcu_thread_online()}
+（\clnrefrange{online:b}{online:e}）。
+因此，\co{rcu_thread_online()}类似于\co{rcu_read_lock()}，
+\co{rcu_thread_offline()}类似于\co{rcu_read_unlock()}。
+此外，\co{rcu_quiescent_state()}可以被认为是
+\co{rcu_thread_online()}紧接着\co{rcu_thread_offline()}。\footnote{
+	虽然清单中的代码与\co{rcu_quiescent_state()}等同于
+	\co{rcu_thread_online()}紧接着\co{rcu_thread_offline()}一致，
+	但这种关系被性能优化所掩盖。}
+从RCU读端临界区内调用\co{rcu_quiescent_state()}、
+\co{rcu_thread_offline()}或\co{rcu_thread_online()}是非法的。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_qs@define.fcv}
-\caption{Data for Quiescent-State-Based RCU}
+\caption{基于静默状态的RCU数据}
 \label{lst:app:toyrcu:Data for Quiescent-State-Based RCU}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_qs@read_lock_unlock.fcv}
-\caption{Quiescent-State-Based RCU Read Side}
+\caption{基于静默状态的RCU读端}
 \label{lst:app:toyrcu:Quiescent-State-Based RCU Read Side}
 \end{listing}
 
 \begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock:qs]
-In \co{rcu_quiescent_state()}, \clnref{mb1} executes a memory barrier
-to prevent any code prior to the quiescent state (including possible
-RCU read-side critical sections) from being reordered
-into the quiescent state.
-\Clnrefrange{gp1}{gp2} pick up
-a copy of the global \co{rcu_gp_ctr}, using
-\co{READ_ONCE()} to ensure that the compiler does not employ any
-optimizations that would result in \co{rcu_gp_ctr} being fetched
-more than once,
-and then adds one to the value fetched and stores it into
-the per-thread \co{rcu_reader_qs_gp} variable, so that any concurrent
-instance of \co{synchronize_rcu()} will see an odd-numbered value,
-thus becoming aware that a new RCU read-side critical section has started.
-Instances of \co{synchronize_rcu()} that are waiting on older
-RCU read-side critical sections will thus know to ignore this new one.
-Finally, \clnref{mb2} executes a memory barrier, which prevents subsequent
-code (including a possible RCU read-side critical section) from being
-re-ordered with the \clnrefrange{gp1}{gp2}.
+在\co{rcu_quiescent_state()}中，\clnref{mb1}执行内存屏障，
+以防止静默状态之前的任何代码（包括可能的RCU读端临界区）
+被重排序到静默状态中。
+\Clnrefrange{gp1}{gp2}获取全局\co{rcu_gp_ctr}的副本，
+使用\co{READ_ONCE()}确保编译器不会采用任何导致\co{rcu_gp_ctr}
+被获取超过一次的优化，
+然后将获取的值加一并存储到每线程\co{rcu_reader_qs_gp}变量中，
+这样\co{synchronize_rcu()}的任何并发实例将看到奇数值，
+从而意识到新的RCU读端临界区已经开始。
+等待旧的RCU读端临界区的\co{synchronize_rcu()}实例
+因此会知道忽略这个新的。
+最后，\clnref{mb2}执行内存屏障，防止后续代码
+（包括可能的RCU读端临界区）与\clnrefrange{gp1}{gp2}重排序。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock:qs]
-	Doesn't the additional memory barrier shown on \clnref{mb2} of
 	\cref{lst:app:toyrcu:Quiescent-State-Based RCU Read Side}
-	greatly increase the overhead of \co{rcu_quiescent_state()}?
+	的\clnref{mb2}上显示的额外内存屏障
+	不是大大增加了\co{rcu_quiescent_state()}的开销吗？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock:qs]
-	Indeed it does!
-	An application using this implementation of RCU should therefore
-	invoke \co{rcu_quiescent_state()} sparingly, instead using
-	\co{rcu_read_lock()} and \co{rcu_read_unlock()} most of the
-	time.
+	确实如此！
+	因此，使用这个RCU实现的应用程序应该节制地调用\co{rcu_quiescent_state()}，
+	而大多数时候使用\co{rcu_read_lock()}和\co{rcu_read_unlock()}。
 
-	However, this memory barrier is absolutely required so that
-	other threads will see the store on
-	\clnrefrange{gp1}{gp2} before any
-	subsequent RCU read-side critical sections executed by the
-	caller.
+	然而，这个内存屏障是绝对必需的，
+	以确保其他线程在调用者执行的任何后续RCU读端临界区之前
+	看到\clnrefrange{gp1}{gp2}上的存储。
 	\end{fcvref}
 }\QuickQuizEnd
 
-Some applications might use RCU only occasionally, but use it very heavily
-when they do use it.
-Such applications might choose to use \co{rcu_thread_online()} when
-starting to use RCU and \co{rcu_thread_offline()} when no longer
-using RCU\@.
-The time between a call to \co{rcu_thread_offline()} and a subsequent
-call to \co{rcu_thread_online()} is an extended quiescent state,
-so that RCU will not expect explicit quiescent states to be registered
-during this time.
+某些应用程序可能只是偶尔使用RCU，但使用时会非常频繁。
+这类应用程序可能选择在开始使用RCU时调用\co{rcu_thread_online()}，
+在不再使用RCU时调用\co{rcu_thread_offline()}\@。
+从\co{rcu_thread_offline()}调用到后续\co{rcu_thread_online()}调用
+之间的时间是一个扩展静默状态，
+因此RCU不会期望在此期间注册显式的静默状态。
 
-The \co{rcu_thread_offline()} function simply sets the
-per-thread \co{rcu_reader_qs_gp} variable to the current value of
-\co{rcu_gp_ctr}, which has an even-numbered value.
-Any concurrent instances of \co{synchronize_rcu()} will thus know to
-ignore this thread.
+\co{rcu_thread_offline()}函数简单地将每线程\co{rcu_reader_qs_gp}变量
+设置为\co{rcu_gp_ctr}的当前值，该值是偶数。
+\co{synchronize_rcu()}的任何并发实例因此将知道忽略该线程。
 
 \QuickQuiz{
 	\begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock:qs]
-	Why are the two memory barriers on \clnref{mb1,mb2} of
-	\cref{lst:app:toyrcu:Quiescent-State-Based RCU Read Side}
-	needed?
+	为什么\cref{lst:app:toyrcu:Quiescent-State-Based RCU Read Side}
+	的\clnref{mb1,mb2}上需要两个内存屏障？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:defer:rcu_qs:read_lock_unlock:qs]
-	The memory barrier on \clnref{mb1} prevents any RCU read-side
-	critical sections that might precede the
-	call to \co{rcu_thread_offline()} won't be reordered by either
-	the compiler or the CPU to follow the assignment on
-	\clnrefrange{gp1}{gp2}.
-	The memory barrier on \clnref{mb2} is, strictly speaking, unnecessary,
-	as it is illegal to have any RCU read-side critical sections
-	following the call to \co{rcu_thread_offline()}.
+	\clnref{mb1}上的内存屏障防止\co{rcu_thread_offline()}调用之前
+	可能存在的任何RCU读端临界区被编译器或CPU重排序到
+	\clnrefrange{gp1}{gp2}上的赋值之后。
+	严格来说，\clnref{mb2}上的内存屏障是不必要的，
+	因为在\co{rcu_thread_offline()}调用之后
+	拥有任何RCU读端临界区是非法的。
 	\end{fcvref}
 }\QuickQuizEnd
 
-The \co{rcu_thread_online()} function simply invokes
-\co{rcu_quiescent_state()}, thus marking the end of the extended
-quiescent state.
+\co{rcu_thread_online()}函数简单地调用\co{rcu_quiescent_state()}，
+从而标记扩展静默状态的结束。
 
 \begin{listing}
 \input{CodeSamples/defer/rcu_qs@synchronize.fcv}
-\caption{RCU Update Side Using Quiescent States}
+\caption{使用静默状态的RCU更新端}
 \label{lst:app:toyrcu:RCU Update Side Using Quiescent States}
 \end{listing}
 
 \Cref{lst:app:toyrcu:RCU Update Side Using Quiescent States}
 (\path{rcu_qs.c})
-shows the implementation of \co{synchronize_rcu()}, which is
-quite similar to that of the preceding sections.
+展示了\co{synchronize_rcu()}的实现，它与前面各节的实现非常相似。
 
-This implementation has blazingly fast read-side primitives, with
-an \co{rcu_read_lock()}--\co{rcu_read_unlock()} round trip incurring
-an overhead of roughly 50~\emph{picoseconds}.
-The \co{synchronize_rcu()} overhead ranges from about 600~nanoseconds
-on a single-CPU \Power{5} system up to more than 100~microseconds on
-a 64-CPU system.
+这个实现具有极快的读端原语，
+\co{rcu_read_lock()}--\co{rcu_read_unlock()}往返只产生约50\emph{皮秒}的开销。
+\co{synchronize_rcu()}的开销从单CPU \Power{5}系统上的约600纳秒
+到64-CPU系统上的超过100微秒不等。
 
 \QuickQuiz{
-	To be sure, the clock frequencies of \Power{}
-	systems in 2008 were quite high, but even a 5\,GHz clock
-	frequency is insufficient to allow
-	loops to be executed in 50~picoseconds!
-	What is going on here?
+	诚然，2008年\Power{}系统的时钟频率相当高，
+	但即使是5\,GHz的时钟频率也不足以在50皮秒内执行循环！
+	这是怎么回事？
 }\QuickQuizAnswer{
-	Since the measurement loop contains a pair of empty functions,
-	the compiler optimizes it away.
-	The measurement loop takes 1,000 passes between each call to
-	\co{rcu_quiescent_state()}, so this measurement is roughly
-	one thousandth of the overhead of a single call to
-	\co{rcu_quiescent_state()}.
+	由于测量循环包含一对空函数，编译器将其优化掉了。
+	测量循环在每次调用\co{rcu_quiescent_state()}之间运行1,000遍，
+	因此这个测量值大约是单次调用\co{rcu_quiescent_state()}开销的千分之一。
 }\QuickQuizEnd
 
-However, this implementation requires that each thread either
-invoke \co{rcu_quiescent_state()} periodically or to invoke
-\co{rcu_thread_offline()} for extended quiescent states.
-The need to invoke these functions periodically can make this
-implementation difficult to use in some situations, such as for
-certain types of library functions.
+然而，这个实现要求每个线程要么周期性地调用\co{rcu_quiescent_state()}，
+要么为扩展静默状态调用\co{rcu_thread_offline()}。
+需要周期性地调用这些函数使得这个实现在某些情况下难以使用，
+例如某些类型的库函数。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why would the fact that the code is in a library make
-	any difference for how easy it is to use the RCU
-	implementation shown in
+	为什么代码在库中这一事实会对使用
 	\cref{lst:app:toyrcu:Quiescent-State-Based RCU Read Side,%
-	lst:app:toyrcu:RCU Update Side Using Quiescent States}?
+	lst:app:toyrcu:RCU Update Side Using Quiescent States}
+	中所示RCU实现的难易程度产生影响？
 }\QuickQuizAnswerB{
-	A library function has absolutely no control over the caller,
-	and thus cannot force the caller to invoke \co{rcu_quiescent_state()}
-	periodically.
-	On the other hand, a library function that made many references
-	to a given RCU-protected data structure might be able to invoke
-	\co{rcu_thread_online()} upon entry,
-	\co{rcu_quiescent_state()} periodically, and
-	\co{rcu_thread_offline()} upon exit.
+	库函数对调用者完全没有控制权，
+	因此无法强制调用者周期性地调用\co{rcu_quiescent_state()}。
+	另一方面，一个对给定RCU保护的数据结构进行大量引用的库函数
+	可能能够在进入时调用\co{rcu_thread_online()}，
+	周期性地调用\co{rcu_quiescent_state()}，
+	并在退出时调用\co{rcu_thread_offline()}。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	But what if you hold a lock across a call to
-	\co{synchronize_rcu()}, and then acquire that same lock within
-	an RCU read-side critical section?
-	This should be a deadlock, but how can a primitive that
-	generates absolutely no code possibly participate in a
-	deadlock cycle?
+	但如果你在调用\co{synchronize_rcu()}期间持有一个锁，
+	然后在RCU读端临界区内获取同一个锁呢？
+	这应该是死锁，但一个完全不生成代码的原语怎么可能参与死锁环？
 }\QuickQuizAnswerE{
-	Please note that the RCU read-side critical section is in
-	effect extended beyond the enclosing
-	\co{rcu_read_lock()} and \co{rcu_read_unlock()}, out to
-	the previous and next call to \co{rcu_quiescent_state()}.
-	This \co{rcu_quiescent_state()} can be thought of as an
-	\co{rcu_read_unlock()} immediately followed by an
-	\co{rcu_read_lock()}.
+	请注意，RCU读端临界区实际上被扩展到了包围的
+	\co{rcu_read_lock()}和\co{rcu_read_unlock()}之外，
+	延伸到前一个和下一个\co{rcu_quiescent_state()}调用。
+	这个\co{rcu_quiescent_state()}可以被认为是
+	\co{rcu_read_unlock()}紧接着\co{rcu_read_lock()}。
 
-	Even so, the actual deadlock itself will involve the lock
-	acquisition in the RCU read-side critical section and
-	the \co{synchronize_rcu()}, never the \co{rcu_quiescent_state()}.
+	即便如此，实际的死锁本身将涉及RCU读端临界区中的锁获取
+	和\co{synchronize_rcu()}，而不会涉及\co{rcu_quiescent_state()}。
 }\QuickQuizEndE
 }
 
-In addition, this implementation does not permit concurrent calls
-to \co{synchronize_rcu()} to share grace periods.
-That said, one could easily imagine a production-quality RCU
-implementation based on this version of RCU\@.
+此外，这个实现不允许并发的\co{synchronize_rcu()}调用共享宽限期。
+话虽如此，可以很容易地想象基于这个版本的RCU构建一个生产级RCU实现\@。
 
-\section{Summary of Toy RCU Implementations}
+\section{玩具RCU实现总结}
 \label{sec:app:toyrcu:Summary of Toy RCU Implementations}
 
-If you made it this far, congratulations!
-You should now have a much clearer understanding
-not only of RCU itself, but also of the requirements of enclosing
-software environments and applications.
-Those wishing an even deeper understanding are invited to read
-descriptions of production-quality RCU
-implementations~\cite{MathieuDesnoyers2012URCU,PaulEMcKenney2007PreemptibleRCU,PaulEMcKenney2008HierarchicalRCU,PaulEMcKenney2009BloatwatchRCU}.
+如果你读到了这里，恭喜！
+你现在应该对RCU本身以及其封装软件环境和应用程序的需求有了更清晰的理解。
+希望获得更深入理解的人可以阅读生产级RCU实现的
+描述~\cite{MathieuDesnoyers2012URCU,PaulEMcKenney2007PreemptibleRCU,PaulEMcKenney2008HierarchicalRCU,PaulEMcKenney2009BloatwatchRCU}。
 
-The preceding sections listed some desirable properties of the
-various RCU primitives.
-The following list is provided for easy reference for those wishing to
-create a new RCU implementation.
+前面各节列出了各种RCU原语的一些期望属性。
+以下列表供希望创建新RCU实现的人方便参考。
 
 \begin{enumerate}
-\item	There must be read-side primitives (such as \co{rcu_read_lock()}
-	and \co{rcu_read_unlock()}) and grace-period primitives
-	(such as \co{synchronize_rcu()} and \co{call_rcu()}), such
-	that any RCU read-side critical section in existence at the
-	start of a grace period has completed by the end of the
-	grace period.
-\item	RCU read-side primitives should have minimal overhead.
-	In particular, expensive operations such as cache misses,
-	atomic instructions, memory barriers, and branches should
-	be avoided.
-\item	RCU read-side primitives should have $\O{1}$ computational
-	complexity to enable real-time use.
-	This implies that readers run concurrently with updaters.
-	(But note that preemptible Linux-kernel RCU's
-	\co{rcu_read_unlock()} can violate this desideratum for
-	low-priority threads and at the end of extremely long-running
-	RCU read-side critical sections.)
-\item	RCU read-side primitives should be usable in all contexts (in
-	the Linux kernel, they are permitted everywhere except in deep
-	in the idle loop, from offline CPUs, and in kernel entry/exit
-	code paths).
-	An important special case is that RCU read-side primitives be
-	usable within an RCU read-side critical section, in other words,
-	that it be possible to nest RCU read-side critical sections.
-\item	RCU read-side primitives should be unconditional, with no
-	failure returns.
-	This property is extremely important, as failure checking
-	increases complexity and complicates testing and validation.
-\item	Any operation other than a quiescent state (and thus a grace
-	period) should be permitted in an RCU read-side critical section.
-	In particular, irrevocable operations such as I/O should be
-	permitted.
-\item	It should be possible to update an RCU-protected data structure
-	while executing within an RCU read-side critical section.
-\item	Both RCU read-side and update-side primitives should be independent
-	of memory allocator design and implementation, in other words,
-	the same RCU implementation should be able to protect a given
-	data structure regardless of how the data elements are allocated
-	and freed.
-\item	RCU grace periods should not be blocked by threads that
-	halt outside of RCU read-side critical sections.
-	(But note that most quiescent-state-based implementations
-	violate this desideratum.)
+\item	必须有读端原语（如\co{rcu_read_lock()}和\co{rcu_read_unlock()}）
+	和宽限期原语（如\co{synchronize_rcu()}和\co{call_rcu()}），
+	使得在宽限期开始时存在的任何RCU读端临界区
+	在宽限期结束时已经完成。
+\item	RCU读端原语应该有最小的开销。
+	特别是，应避免昂贵的操作，如缓存未命中、
+	原子指令、内存屏障和分支。
+\item	RCU读端原语应该具有$\O{1}$的计算复杂度以支持实时使用。
+	这意味着读者与更新者并发运行。
+	（但请注意，可抢占的Linux内核RCU的\co{rcu_read_unlock()}
+	对于低优先级线程和极长运行的RCU读端临界区结束时
+	可能违反这一期望属性。）
+\item	RCU读端原语应该在所有上下文中可用
+	（在Linux内核中，它们在除了空闲循环深处、离线CPU和
+	内核进入/退出代码路径之外的所有地方都被允许）。
+	一个重要的特殊情况是RCU读端原语可在RCU读端临界区内使用，
+	换句话说，可以嵌套RCU读端临界区。
+\item	RCU读端原语应该是无条件的，没有失败返回。
+	这个属性极其重要，因为失败检查增加了复杂性并使测试和验证更加复杂。
+\item	除了静默状态（因此也是宽限期）之外的任何操作
+	都应该在RCU读端临界区中被允许。
+	特别是，不可撤销的操作如I/O应该被允许。
+\item	应该可以在RCU读端临界区内执行时更新RCU保护的数据结构。
+\item	RCU读端和更新端原语都应该独立于内存分配器的设计和实现，
+	换句话说，同一个RCU实现应该能够保护给定的数据结构，
+	而不管数据元素是如何分配和释放的。
+\item	RCU宽限期不应该被在RCU读端临界区外停止的线程阻塞。
+	（但请注意，大多数基于静默状态的实现违反了这一期望属性。）
 \end{enumerate}
 
 \QuickQuiz{
-	Given that grace periods are prohibited within RCU read-side
-	critical sections, how can an RCU data structure possibly be
-	updated while in an RCU read-side critical section?
+	既然宽限期在RCU读端临界区内是被禁止的，
+	那么在RCU读端临界区内如何才能更新RCU数据结构？
 }\QuickQuizAnswer{
-	This situation is one reason for the existence of asynchronous
-	grace-period primitives such as \co{call_rcu()}.
-	This primitive may be invoked within an RCU read-side critical
-	section, and the specified RCU callback will in turn be invoked
-	at a later time, after a grace period has elapsed.
+	这种情况是异步宽限期原语（如\co{call_rcu()}）存在的原因之一。
+	这个原语可以在RCU读端临界区内调用，
+	指定的RCU回调将在宽限期经过后的稍后时间被调用。
 
-	The ability to perform an RCU update while within an RCU read-side
-	critical section can be extremely convenient, and is analogous
-	to a (mythical) unconditional read-to-write upgrade for
-	reader-writer locking.
+	在RCU读端临界区内执行RCU更新的能力可以非常方便，
+	类似于读写锁的（神话般的）无条件读到写升级。
 }\QuickQuizEnd
 
-Those wishing more detail on requirements for
-Linux-kernel RCU should refer to its internal
-documentation~\cite{PaulEMcKenney2015rcu-requirements}.
+希望了解更多Linux内核RCU需求细节的人应参考其内部
+文档~\cite{PaulEMcKenney2015rcu-requirements}。
 
 \QuickQuizAnswersChp{qqztoyrcu}

@@ -2,26 +2,20 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Why Is Software Buggy?}
+\section{为什么软件会有bug？}
 \label{sec:app:questions:Why Is Software Buggy?}
 %
-\epigraph{There is no perfection, only beautiful versions of brokenness.}
+\epigraph{没有完美，只有美丽的残缺版本。}
 	 {Shannon L. Alder}
 
-The short answer is ``because it was written by humans, and to err
-is human''.
-This does not necessarily mean that automated code generation is
-the answer, because the program that does the code generation will
-have been written by humans.
-In addition, one of the biggest problems in producing software is
-working out what that software is supposed to do, and this task
-has thus far proven rather resistant to automation.
+简短的回答是"因为软件是人写的，而人非圣贤孰能无过"。
+这并不一定意味着自动代码生成就是解决方案，
+因为进行代码生成的程序本身也是由人编写的。
+此外，软件生产中最大的问题之一是弄清楚软件应该做什么，
+而这个任务迄今为止被证明相当难以自动化。
 
-Nevertheless, automation is an important part of the process of reducing
-the number of bugs in software.
-For but one example, despite their many flaws, it is almost always better
-to use a compiler than to write in assembly language.
+尽管如此，自动化是减少软件中bug数量的过程中的重要组成部分。
+举一个例子，尽管编译器有很多缺陷，使用编译器几乎总是比用汇编语言编写要好。
 
-Furthermore, careful validation can be very helpful in finding bugs,
-as discussed in
-\crefrange{chp:Validation}{chp:Formal Verification}.
+此外，仔细的验证对于发现bug非常有帮助，
+正如\crefrange{chp:Validation}{chp:Formal Verification}中所讨论的那样。

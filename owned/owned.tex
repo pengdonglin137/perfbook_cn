@@ -2,65 +2,56 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Data Ownership}{Data Ownership}{qqzowned}
+\QuickQuizChapter{chp:Data Ownership}{数据所有权}{qqzowned}
 %
-\Epigraph{It is mine, I tell you.
-	  My own.
-	  My precious.
-	  Yes, my precious.}
-	 {Gollum in \emph{The Fellowship of the Ring}, J.R.R.~Tolkien}
+\Epigraph{那是我的，我告诉你。
+	  我自己的。
+	  我的宝贝。
+	  是的，我的宝贝。}
+	 {Gollum，出自\emph{《魔戒：护戒使者》}，J.R.R.~Tolkien}
 
-One of the simplest ways to avoid the synchronization overhead that
-comes with locking is to parcel the data out among the threads (or,
-in the case of kernels, CPUs)
-so that a given piece of data is accessed and modified by only one
-of the threads.
-Interestingly enough, data ownership covers each of the ``big three''
-parallel design techniques:
-It partitions over threads (or CPUs, as the case may be),
-it batches all local operations,
-and its elimination of synchronization operations is weakening
-carried to its logical extreme.
-It should therefore be no surprise that data ownership is heavily used:
-Even novices use it almost instinctively.
-In fact, it is so heavily used that this chapter will not introduce any
-new examples, but will instead refer back to those of previous chapters.
+避免locking带来的同步开销，最简单的方法之一就是将数据分配给各个thread
+（或者在内核的情况下，分配给各个CPU），
+使得每一份数据只被一个thread访问和修改。
+有趣的是，data ownership涵盖了三大并行设计技术中的每一种：
+它在thread（或CPU，视情况而定）之间进行分区，
+它将所有本地操作进行批处理，
+而它对同步操作的消除则是弱化策略的逻辑极端。
+因此，data ownership被大量使用就不足为奇了：
+即使是新手也几乎会本能地使用它。
+事实上，它的使用如此广泛，以至于本章不会引入任何新的示例，
+而是回顾前面章节中的那些例子。
 
 \QuickQuiz{
-	What form of data ownership is extremely difficult
-	to avoid when creating shared-memory parallel programs
-	(for example, using pthreads) in C or C++?
+	在使用C或C++创建shared-memory并行程序
+	（例如使用pthreads）时，哪种形式的data ownership
+	极其难以避免？
 }\QuickQuizAnswer{
-	Use of auto variables in functions.
-	By default, these are private to the thread executing the
-	current function.
+	函数中auto变量的使用。
+	默认情况下，这些变量是执行当前函数的thread的私有变量。
 }\QuickQuizEnd
 
-There are a number of approaches to data ownership.
-\Cref{sec:owned:Multiple Processes} presents the logical extreme
-in data ownership, where each thread has its own private address space.
-\Cref{sec:owned:Partial Data Ownership and pthreads} looks at
-the opposite extreme, where the data is shared, but different threads
-own different access rights to the data.
-\Cref{sec:owned:Function Shipping} describes function shipping,
-which is a way of allowing other threads to have indirect access to
-data owned by a particular thread.
-\Cref{sec:owned:Designated Thread} describes how designated
-threads can be assigned ownership of a specified function and the
-related data.
-\Cref{sec:owned:Privatization} discusses improving performance
-by transforming algorithms with shared data to instead use data ownership.
-Finally, \cref{sec:owned:Other Uses of Data Ownership} lists
-a few software environments that feature data ownership as a
-first-class citizen.
+Data ownership有多种实现方式。
+\Cref{sec:owned:Multiple Processes}介绍了data ownership的逻辑极端，
+即每个thread拥有自己的私有地址空间。
+\Cref{sec:owned:Partial Data Ownership and pthreads}探讨了
+相反的极端，即数据是共享的，但不同的thread拥有对数据的不同访问权限。
+\Cref{sec:owned:Function Shipping}描述了function shipping，
+这是一种允许其他thread间接访问特定thread所拥有数据的方法。
+\Cref{sec:owned:Designated Thread}描述了如何将指定thread
+分配为特定功能及其相关数据的所有者。
+\Cref{sec:owned:Privatization}讨论了通过将使用共享数据的算法
+转换为使用data ownership来提升性能。
+最后，\cref{sec:owned:Other Uses of Data Ownership}列举了
+一些将data ownership作为一等公民的软件环境。
 
-\section{Multiple Processes}
+\section{多进程}
 \label{sec:owned:Multiple Processes}
 %
-\epigraph{A man's home is his castle}{Ancient Laws of England}
+\epigraph{一个人的家就是他的城堡}{英格兰古法}
 
 \Cref{sec:toolsoftrade:Scripting Languages}
-introduced the following example:
+介绍了以下示例：
 
 \begin{VerbatimN}[samepage=true]
 compute_it 1 > compute_it.1.out &
@@ -70,371 +61,318 @@ cat compute_it.1.out
 cat compute_it.2.out
 \end{VerbatimN}
 
-This example runs two instances of the \co{compute_it} program in
-parallel, as separate processes that do not share memory.
-Therefore, all data in a given process is owned by that process,
-so that almost the entirety of data in the above example is owned.
-This approach almost entirely eliminates synchronization overhead.
-The resulting combination of extreme simplicity and optimal performance
-is obviously quite attractive.
+这个示例以并行方式运行两个\co{compute_it}程序实例，
+作为不共享内存的独立进程。
+因此，给定进程中的所有数据都归该进程所有，
+所以上述示例中几乎所有的数据都是有所有权的。
+这种方法几乎完全消除了同步开销。
+由此带来的极致简洁性和最优性能的组合显然非常有吸引力。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What synchronization remains in the example shown in
-	\cref{sec:owned:Multiple Processes}?
+	在\cref{sec:owned:Multiple Processes}所示的示例中
+	还残留着什么同步？
 }\QuickQuizAnswerB{
-	The creation of the threads via the \co{sh} \co{&} operator
-	and the joining of thread via the \co{sh} \co{wait}
-	command.
+	通过\co{sh}的\co{&}操作符创建thread，
+	以及通过\co{sh}的\co{wait}命令汇合thread。
 
-	Of course, if the processes explicitly share memory, for
-	example, using the \co{shmget()} or \co{mmap()} system
-	calls, explicit synchronization might well be needed when
-	acccessing or updating the shared memory.
-	The processes might also synchronize using any of the following
-	interprocess communications mechanisms:
+	当然，如果进程显式地共享内存，
+	例如使用\co{shmget()}或\co{mmap()}系统调用，
+	那么在访问或更新共享内存时很可能需要显式的同步。
+	进程还可以使用以下任何进程间通信机制进行同步：
 	\begin{enumerate}
-	\item	System V semaphores.
-	\item	System V message queues.
-	\item	UNIX-domain sockets.
-	\item	Networking protocols, including TCP/IP, UDP, and a whole
-		host of others.
-	\item	File locking.
-	\item	Use of the \co{open()} system call with the
-		\co{O_CREAT} and \co{O_EXCL} flags.
-	\item	Use of the \co{rename()} system call.
+	\item	System V信号量。
+	\item	System V消息队列。
+	\item	UNIX域套接字。
+	\item	网络协议，包括TCP/IP、UDP以及大量其他协议。
+	\item	文件锁定。
+	\item	使用带有\co{O_CREAT}和\co{O_EXCL}标志的
+		\co{open()}系统调用。
+	\item	使用\co{rename()}系统调用。
 	\end{enumerate}
-	A complete list of possible synchronization mechanisms is left
-	as an exercise to the reader, who is warned that it will be
-	an extremely long list.
-	A surprising number of unassuming system calls can be pressed
-	into service as synchronization mechanisms.
+	完整列出所有可能的同步机制留作读者的练习，
+	在此提醒读者这将是一个极其冗长的列表。
+	数量惊人的看似普通的系统调用都可以被用作同步机制。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Is there any shared data in the example shown in
-	\cref{sec:owned:Multiple Processes}?
+	在\cref{sec:owned:Multiple Processes}所示的示例中
+	存在共享数据吗？
 }\QuickQuizAnswerE{
-	That is a philosophical question.
+	这是一个哲学问题。
 
-	Those wishing the answer ``no'' might argue that processes by
-	definition do not share memory.
+	希望答案是"否"的人可能会争辩说，
+	按照定义，进程不共享内存。
 
-	Those wishing to answer ``yes'' might list a large number of
-	synchronization mechanisms that do not require shared memory,
-	note that the kernel will have some shared state, and perhaps
-	even argue that the assignment of process IDs (PIDs) constitute
-	shared data.
+	希望回答"是"的人可能会列出大量不需要共享内存的同步机制，
+	指出内核会有一些共享状态，
+	甚至可能会争辩说进程ID（PID）的分配构成了共享数据。
 
-	Such arguments are excellent intellectual exercise, and are
-	also a wonderful way of feeling intelligent and scoring points
-	against hapless classmates or colleagues, but are mostly a way
-	of avoiding getting anything useful done.
+	这样的争论是很好的智力锻炼，
+	也是展示聪明才智和在无助的同学或同事面前得分的好方法，
+	但基本上只是一种避免做任何有用事情的方式。
 }\QuickQuizEndE
 }
 
-This same pattern can be written in C as well as in \co{sh}, as illustrated by
+这种模式同样可以用C语言编写，而不仅仅是\co{sh}，如
 \cref{lst:toolsoftrade:Using the fork() Primitive,%
-lst:toolsoftrade:Using the wait() Primitive}.
+lst:toolsoftrade:Using the wait() Primitive}所示。
 
-It bears repeating that these trivial forms of parallelism are not in
-any way cheating or ducking responsibility, but are rather simple and
-elegant ways to make your code run faster.
-It is fast, scales well, is easy to program, easy to maintain, and
-gets the job done.
-In addition, taking this approach (where applicable) allows the developer
-more time to focus on other things whether these things might involve
-applying sophisticated single-threaded optimizations to \co{compute_it}
-on the one hand, or applying sophisticated parallel-programming patterns
-to portions of the code where this approach is inapplicable.
-What is not to like?
+值得再次强调的是，这些简单的并行形式绝不是投机取巧或逃避责任，
+而是使代码运行更快的简单而优雅的方法。
+它速度快、可扩展性好、容易编程、容易维护，而且能完成任务。
+此外，采用这种方法（在适用的情况下）可以让开发者有更多的时间
+专注于其他事情，无论这些事情是对\co{compute_it}应用复杂的
+单线程优化，还是对这种方法不适用的代码部分应用复杂的并行编程模式。
+有什么理由不喜欢呢？
 
-The next section discusses the use of data ownership in shared-memory
-parallel programs.
+下一节讨论在shared-memory并行程序中使用data ownership。
 
-\section{Partial Data Ownership and pthreads}
+\section{部分数据所有权与pthreads}
 \label{sec:owned:Partial Data Ownership and pthreads}
 %
-\epigraph{Give thy mind more to what thou hast than to what thou hast not.}
+\epigraph{与其关注你没有的，不如多关注你已拥有的。}
 	 {Marcus Aurelius Antoninus}
 
-Concurrent counting (see \cref{chp:Counting}) uses data ownership heavily,
-but adds a twist.
-Threads are not allowed to modify data owned by other threads,
-but they are permitted to read it.
-In short, the use of shared memory allows more nuanced notions
-of ownership and access rights.
+并发计数（见\cref{chp:Counting}）大量使用了data ownership，
+但增加了一个变化。
+thread不允许修改其他thread拥有的数据，
+但允许读取这些数据。
+简而言之，shared memory的使用允许更细致的所有权和访问权限概念。
 
-For example, consider the per-thread statistical counter implementation
-shown in
-\cref{lst:count:Per-Thread Statistical Counters} on
-\cpageref{lst:count:Per-Thread Statistical Counters}.
-Here, \co{inc_count()} updates only the corresponding thread's
-instance of \co{counter},
-while \co{read_count()} accesses, but does not modify, all
-threads' instances of \co{counter}.
+例如，考虑
+\cref{lst:count:Per-Thread Statistical Counters}（位于
+\cpageref{lst:count:Per-Thread Statistical Counters}）
+中所示的per-thread统计计数器实现。
+这里，\co{inc_count()}只更新对应thread的
+\co{counter}实例，
+而\co{read_count()}访问但不修改所有
+thread的\co{counter}实例。
 
 \QuickQuiz{
-	Does it ever make sense to have partial data ownership where
-	each thread reads only its own instance of a per-thread variable,
-	but writes to other threads' instances?
+	是否有这样的部分data ownership场景：
+	每个thread只读取自己的per-thread变量实例，
+	但写入其他thread的实例？
 }\QuickQuizAnswer{
-	Amazingly enough, yes.
-	One example is a simple message-passing system where threads post
-	messages to other threads' mailboxes, and where each thread
-	is responsible for removing any message it sent once that message
-	has been acted on.
-	Implementation of such an algorithm is left as an exercise for
-	the reader, as is identifying other algorithms with similar
-	ownership patterns.
+	令人惊讶的是，确实有。
+	一个例子是简单的消息传递系统，其中thread将消息发送到
+	其他thread的邮箱中，每个thread负责在其发送的消息
+	被处理后将其删除。
+	实现这样一个算法留作读者的练习，
+	识别具有类似所有权模式的其他算法也是如此。
 }\QuickQuizEnd
 
-Partial data ownership is also common within the Linux kernel.
-For example, a given CPU might be permitted to read a given set of its
-own per-CPU variables only with interrupts disabled, another CPU might
-be permitted to read that same set of the first CPU's per-CPU variables
-only when holding the corresponding per-CPU lock.
-Then that given CPU would be permitted to update this set of its own
-per-CPU variables if it both has interrupts disabled and holds its
-per-CPU lock.
-This arrangement can be thought of as a reader-writer lock that allows
-each CPU very low-overhead access to its own set of per-CPU variables.
-There are a great many variations on this theme.
+部分data ownership在Linux内核中也很常见。
+例如，某个CPU可能只有在禁用中断的情况下才被允许读取自己的
+一组per-CPU变量，另一个CPU只有在持有相应的per-CPU lock时
+才被允许读取第一个CPU的同一组per-CPU变量。
+然后，该CPU在同时禁用中断并持有其per-CPU lock的情况下，
+才被允许更新这组自己的per-CPU变量。
+这种安排可以被看作一种reader-writer lock，它允许每个CPU
+以非常低的开销访问自己的一组per-CPU变量。
+这个主题有很多变体。
 
-For its own part, pure data ownership is also both common and useful,
-for example, the per-thread memory-allocator caches discussed in
-\cref{sec:SMPdesign:Resource Allocator Caches}
-starting on
-\cpageref{sec:SMPdesign:Resource Allocator Caches}.
-In this algorithm, each thread's cache is completely private to that
-thread.
+就其本身而言，纯粹的data ownership也既常见又有用，
+例如在\cref{sec:SMPdesign:Resource Allocator Caches}
+（从\cpageref{sec:SMPdesign:Resource Allocator Caches}开始）
+中讨论的per-thread内存分配器cache。
+在这个算法中，每个thread的cache完全是该thread私有的。
 
-\section{Function Shipping}
+\section{功能转移}
 \label{sec:owned:Function Shipping}
 %
-\epigraph{If the mountain will not come to Muhammad, then Muhammad must
-	  go to the mountain.}
-	 {\emph{Essays}, Francis Bacon}
+\epigraph{如果山不向穆罕默德走来，那么穆罕默德就必须走向山。}
+	 {\emph{《随笔集》}，Francis Bacon}
 
-The previous section described a weak form of data ownership where
-threads reached out to other threads' data.
-This can be thought of as bringing the data to the functions that
-need it.
-An alternative approach is to send the functions to the data.
+上一节描述了一种弱形式的data ownership，其中thread伸手去获取
+其他thread的数据。
+这可以被理解为将数据带到需要它的函数那里。
+另一种方法是将函数发送到数据所在之处。
 
-Such an approach is illustrated in
+这种方法的示例见
 \cref{sec:count:Signal-Theft Limit Counter Design}
-beginning on
-\cpageref{sec:count:Signal-Theft Limit Counter Design},
-in particular the \co{flush_local_count_sig()} and
-\co{flush_local_count()} functions in
+（从\cpageref{sec:count:Signal-Theft Limit Counter Design}开始），
+特别是
 \cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}
-on
-\cpageref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}.
+（位于
+\cpageref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}）
+中的\co{flush_local_count_sig()}和
+\co{flush_local_count()}函数。
 
-The \co{flush_local_count_sig()} function is a signal handler that
-acts as the shipped function.
-The \co{pthread_kill()} function in \co{flush_local_count()}
-sends the signal---shipping the function---and then waits until
-the shipped function executes.
-This shipped function has the not-unusual added complication of
-needing to interact with any concurrently executing \co{add_count()}
-or \co{sub_count()} functions (see
-\cref{lst:count:Signal-Theft Limit Counter Add Function}
-on
-\cpageref{lst:count:Signal-Theft Limit Counter Add Function} and
-\cref{lst:count:Signal-Theft Limit Counter Subtract Function}
-on
-\cpageref{lst:count:Signal-Theft Limit Counter Subtract Function}).
+\co{flush_local_count_sig()}函数是一个信号处理程序，
+充当被转移的函数。
+\co{flush_local_count()}中的\co{pthread_kill()}函数
+发送信号——转移函数——然后等待被转移的函数执行完毕。
+这个被转移的函数有一个常见的额外复杂性，
+即需要与任何并发执行的\co{add_count()}
+或\co{sub_count()}函数进行交互（见
+\cref{lst:count:Signal-Theft Limit Counter Add Function}，
+位于\cpageref{lst:count:Signal-Theft Limit Counter Add Function}，
+以及\cref{lst:count:Signal-Theft Limit Counter Subtract Function}，
+位于\cpageref{lst:count:Signal-Theft Limit Counter Subtract Function}）。
 
 \QuickQuiz{
-	What mechanisms other than POSIX signals may be used for function
-	shipping?
+	除了POSIX信号之外，还有哪些机制可以用于function shipping？
 }\QuickQuizAnswer{
-	There is a very large number of such mechanisms, including:
+	此类机制数量非常庞大，包括：
 	\begin{enumerate}
-	\item	System V message queues.
-	\item	Shared-memory dequeue (see
-		\cref{sec:SMPdesign:Double-Ended Queue}).
-	\item	Shared-memory mailboxes.
-	\item	UNIX-domain sockets.
-	\item	TCP/IP or UDP, possibly augmented by any number of
-		higher-level protocols, including RPC, HTTP,
-		XML, SOAP, and so on.
+	\item	System V消息队列。
+	\item	Shared-memory双端队列（见
+		\cref{sec:SMPdesign:Double-Ended Queue}）。
+	\item	Shared-memory邮箱。
+	\item	UNIX域套接字。
+	\item	TCP/IP或UDP，可能辅以任何数量的高级协议，
+		包括RPC、HTTP、XML、SOAP等等。
 	\end{enumerate}
-	Compilation of a complete list is left as an exercise to
-	sufficiently single-minded readers, who are warned that the
-	list will be extremely long.
+	编译完整列表留给足够专注的读者，
+	在此提醒该列表将会非常冗长。
 }\QuickQuizEnd
 
-\section{Designated Thread}
+\section{指定线程}
 \label{sec:owned:Designated Thread}
 %
-\epigraph{Let a man practice the profession which he best knows.}
+\epigraph{让一个人从事他最擅长的职业。}
 	 {Cicero}
 
-The earlier sections describe ways of allowing each thread to keep its
-own copy or its own portion of the data.
-In contrast, this section describes a functional-decomposition approach,
-where a special designated thread owns the rights to the data
-that is required to do its job.
+前面几节描述了允许每个thread保留自己的数据副本或数据部分的方法。
+相比之下，本节描述了一种功能分解方法，
+其中一个特殊的指定thread拥有完成其工作所需数据的权限。
 \begin{fcvref}[ln:count:count_stat_eventual:whole:eventual]
-The eventually consistent counter implementation described in
-\cref{sec:count:Eventually Consistent Implementation} provides an example.
-This implementation has a designated thread that runs the
-\co{eventual()} function shown on \clnrefrange{b}{e} of
-\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}.
-This \co{eventual()} thread periodically pulls the per-thread counts
-into the global counter, so that accesses to the global counter will,
-as the name says, eventually converge on the actual value.
+\cref{sec:count:Eventually Consistent Implementation}中描述的
+最终一致性计数器实现提供了一个例子。
+该实现有一个运行\co{eventual()}函数的指定thread，
+如\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
+的\clnrefrange{b}{e}所示。
+这个\co{eventual()} thread定期将per-thread计数值
+拉入全局计数器中，这样对全局计数器的访问将如其名称所示，
+最终收敛到实际值。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:count:count_stat_eventual:whole:eventual]
-	But none of the data in the \co{eventual()} function shown on
-	\clnrefrange{b}{e} of
-	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
-	is actually owned by the \co{eventual()} thread!
-	In just what way is this data ownership???
+	但是\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
+	的\clnrefrange{b}{e}所示的\co{eventual()}函数中的数据
+	实际上都不归\co{eventual()} thread所有！
+	这到底算什么data ownership？？？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:count:count_stat_eventual:whole]
-	The key phrase is ``owns the rights to the data''.
-	In this case, the rights in question are the rights to access
-	the per-thread \co{counter} variable defined on \clnref{per_thr_cnt}
-	of the listing.
-	This situation is similar to that described in
-	\cref{sec:owned:Partial Data Ownership and pthreads}.
+	关键短语是"拥有对数据的权限"。
+	在这种情况下，所讨论的权限是访问在该列表
+	\clnref{per_thr_cnt}定义的per-thread \co{counter}变量的权限。
+	这种情况类似于
+	\cref{sec:owned:Partial Data Ownership and pthreads}中描述的情况。
 
-	However, there really is data that is owned by the \co{eventual()}
-	thread, namely the \co{t} and \co{sum} variables defined on
-	\clnref{t,sum} of the listing.
+	然而，确实有归\co{eventual()} thread所有的数据，
+	即在该列表\clnref{t,sum}定义的\co{t}和\co{sum}变量。
 
-	For other examples of designated threads, look at the kernel
-	threads in the Linux kernel, for example, those created by
-	\co{kthread_create()} and \co{kthread_run()}.
+	有关指定thread的其他示例，请查看Linux内核中的内核thread，
+	例如由\co{kthread_create()}和\co{kthread_run()}创建的那些。
 	\end{fcvref}
 }\QuickQuizEnd
 
-\section{Privatization}
+\section{私有化}
 \label{sec:owned:Privatization}
 %
-\epigraph{There is, of course, a difference between what a man seizes
-	  and what he really possesses.}
+\epigraph{当然，一个人所夺取的和他真正拥有的之间是有区别的。}
 	 {Pearl S.~Buck}
 
-One way of improving the performance and scalability of a shared-memory
-parallel program is to transform it so as to convert shared data to
-private data that is owned by a particular thread.
+提高shared-memory并行程序性能和可扩展性的一种方法是
+对其进行转换，将共享数据转换为由特定thread拥有的私有数据。
 
-An excellent example of this is shown in the answer to one of the
-Quick Quizzes in
-\cref{sec:SMPdesign:Dining Philosophers Problem},
-which uses privatization to produce a solution to the
-Dining Philosophers problem with much better performance and scalability
-than that of the standard textbook solution.
-The original problem has five philosophers sitting around the table
-with one fork between each adjacent pair of philosophers, which permits
-at most two philosophers to eat concurrently.
+一个很好的例子见于\cref{sec:SMPdesign:Dining Philosophers Problem}
+中一道Quick Quiz的答案，
+该答案使用私有化为哲学家就餐问题提供了一个
+比标准教科书解法具有更好性能和可扩展性的方案。
+原始问题是五位哲学家围坐在桌旁，
+每对相邻哲学家之间有一把叉子，最多允许两位哲学家同时进餐。
 
-We can trivially privatize this problem by providing an additional five
-forks, so that each philosopher has his or her own private pair of forks.
-This allows all five philosophers to eat concurrently, and also offers
-a considerable reduction in the spread of certain types of disease.
+我们可以通过提供额外的五把叉子来轻松私有化这个问题，
+这样每位哲学家都拥有自己的一对私有叉子。
+这允许所有五位哲学家同时进餐，
+同时也大大减少了某些类型疾病的传播。
 
-In other cases, privatization imposes costs.
-For example, consider the simple limit counter shown in
-\cref{lst:count:Simple Limit Counter Add; Subtract; and Read} on
-\cpageref{lst:count:Simple Limit Counter Add; Subtract; and Read}.
-This is an example of an algorithm where threads can read each others'
-data, but are only permitted to update their own data.
-A quick review of the algorithm shows that the only cross-thread
-accesses are in the summation loop in \co{read_count()}.
-If this loop is eliminated, we move to the more-efficient pure
-data ownership, but at the cost of a less-accurate result
-from \co{read_count()}.
+在其他情况下，私有化会带来成本。
+例如，考虑
+\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}（位于
+\cpageref{lst:count:Simple Limit Counter Add; Subtract; and Read}）
+中所示的简单限值计数器。
+这是一个算法示例，其中thread可以读取彼此的数据，
+但只允许更新自己的数据。
+快速审查该算法可知，唯一的跨thread访问
+在\co{read_count()}的求和循环中。
+如果消除这个循环，我们就转向了更高效的纯data ownership，
+但代价是\co{read_count()}的结果不太精确。
 
 \QuickQuiz{
-	Is it possible to obtain greater accuracy while still
-	maintaining full privacy of the per-thread data?
+	是否可以在保持per-thread数据完全私有的同时
+	获得更高的精度？
 }\QuickQuizAnswer{
-	Yes.
-	One approach is for \co{read_count()} to add the value
-	of its own per-thread variable.
-	This maintains full ownership and performance, but only
-	a slight improvement in accuracy, particularly on systems
-	with very large numbers of threads.
+	是的。
+	一种方法是让\co{read_count()}加上其自身per-thread变量的值。
+	这保持了完全的所有权和性能，但精度只有轻微的提升，
+	特别是在thread数量非常大的系统上。
 
-	Another approach is for \co{read_count()} to use function
-	shipping, for example, in the form of per-thread signals.
-	This greatly improves accuracy, but at a significant performance
-	cost for \co{read_count()}.
+	另一种方法是让\co{read_count()}使用function shipping，
+	例如以per-thread信号的形式。
+	这大大提高了精度，但\co{read_count()}的性能成本显著。
 
-	However, both of these methods have the advantage of eliminating
-	cache thrashing for the common case of updating counters.
+	然而，这两种方法都有一个优点，
+	即消除了更新计数器这一常见情况下的cache抖动。
 }\QuickQuizEnd
 
-Partial privatization is also possible, with some synchronization
-requirements, but less than in the fully shared case.
-Some partial-privatization possibilities were explored in
-\cref{sec:toolsoftrade:Avoiding Data Races}.
-\Cref{chp:Deferred Processing} will introduce a temporal component
-to data ownership by providing ways of safely taking public data
-structures private.
+部分私有化也是可能的，有一些同步要求，
+但比完全共享的情况要少。
+\cref{sec:toolsoftrade:Avoiding Data Races}中探讨了
+一些部分私有化的可能性。
+\Cref{chp:Deferred Processing}将通过提供安全地将公共数据结构
+变为私有的方法，为data ownership引入时间维度。
 
-In short, privatization is a powerful tool in the parallel programmer's
-toolbox, but it must nevertheless be used with care.
-Just like every other synchronization primitive, it has the potential
-to increase complexity while decreasing performance and scalability.
+简而言之，私有化是并行程序员工具箱中的强大工具，
+但仍然必须谨慎使用。
+就像其他所有同步原语一样，它有可能在降低性能和可扩展性的同时
+增加复杂性。
 
-\section{Other Uses of Data Ownership}
+\section{数据所有权的其他用途}
 \label{sec:owned:Other Uses of Data Ownership}
 %
-\epigraph{Everything comes to us that belongs to us if we create the
-	  capacity to receive it.}
+\epigraph{如果我们能创造接纳的能力，
+	  属于我们的一切都会来到我们身边。}
 	 {Rabindranath Tagore}
 
-Data ownership works best when the data can be partitioned so that there
-is little or no need for cross thread access or update.
-Fortunately, this situation is reasonably common, and in a wide variety
-of parallel-programming environments.
+当数据可以被分区，使得跨thread访问或更新的需求很少或没有时，
+data ownership效果最好。
+幸运的是，这种情况相当常见，而且存在于各种各样的并行编程环境中。
 
-Examples of data ownership include:
+Data ownership的例子包括：
 
 \begin{enumerate}
-\item	All message-passing environments, such as MPI~\cite{MPIForum2008}
-	and BOINC~\cite{BOINC2008}.
-\item	Map-reduce~\cite{MapReduce2008MIT}.
-\item	Client-server systems, including RPC, web services, and
-	pretty much any system with a back-end database server.
-\item	Shared-nothing database systems.
-\item	Fork-join systems with separate per-process address spaces.
-\item	Process-based parallelism, such as the Erlang language.
-\item	Private variables, for example, C-language on-stack auto variables,
-	in threaded environments.
-\item	Many parallel linear-algebra algorithms, especially those
-	well-suited for GPGPUs.\footnote{
-		But note that a great many other classes of applications
-		have also been ported to
-		GPGPUs~\cite{NormMatloff2017ParProcBook,AMD2020ROCm,NVidia2017GPGPU,NVidia2017GPGPU-university}.}
-\item	Operating-system kernels adapted for networking, where each connection
-	(also called \emph{flow}~\cite{Shenker89,ZhangPhD,McKenney90})
-	is assigned to a specific thread.
-	One recent example of this approach is the IX operating
-	system~\cite{Belay:2016:IOS:3014162.2997641}.
-	IX does have some shared data structures, which use synchronization
-	mechanisms to be described in
-	\cref{sec:defer:Read-Copy Update (RCU)}.
+\item	所有消息传递环境，如MPI~\cite{MPIForum2008}
+	和BOINC~\cite{BOINC2008}。
+\item	Map-reduce~\cite{MapReduce2008MIT}。
+\item	客户端-服务器系统，包括RPC、Web服务，
+	以及几乎所有带有后端数据库服务器的系统。
+\item	Shared-nothing数据库系统。
+\item	具有独立per-process地址空间的Fork-join系统。
+\item	基于进程的并行，例如Erlang语言。
+\item	私有变量，例如在thread环境中的C语言栈上auto变量。
+\item	许多并行线性代数算法，尤其是那些非常适合GPGPU的算法。\footnote{
+		但请注意，大量其他类别的应用程序也已被移植到
+		GPGPU上~\cite{NormMatloff2017ParProcBook,AMD2020ROCm,NVidia2017GPGPU,NVidia2017GPGPU-university}。}
+\item	为网络应用而改造的操作系统内核，其中每个连接
+	（也称为\emph{流}~\cite{Shenker89,ZhangPhD,McKenney90}）
+	被分配给特定的thread。
+	这种方法的一个近期例子是IX操作系统~\cite{Belay:2016:IOS:3014162.2997641}。
+	IX确实有一些共享数据结构，它们使用将在
+	\cref{sec:defer:Read-Copy Update (RCU)}中描述的同步机制。
 \end{enumerate}
 
-Data ownership is perhaps the most underappreciated synchronization
-mechanism in existence.
-When used properly, it delivers unrivaled simplicity, performance,
-and scalability.
-Perhaps its simplicity costs it the respect that it deserves.
-Hopefully a greater appreciation for the subtlety and power of data ownership
-will lead to greater level of respect, to say nothing of leading to
-greater performance and scalability coupled with reduced complexity.
+Data ownership也许是现有最被低估的同步机制。
+正确使用时，它提供了无与伦比的简洁性、性能和可扩展性。
+也许正是它的简洁性使它没有得到应有的尊重。
+希望对data ownership的微妙之处和威力有更深入的认识，
+能够带来更高层次的尊重，更不用说带来更高的性能和可扩展性，
+同时降低复杂性。
 
 % populate with problems showing benefits of coupling data ownership with
 % other approaches. For example, work-stealing schedulers. Perhaps also

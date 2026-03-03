@@ -2,80 +2,70 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{SAT Solvers}
+\section{SAT 求解器}
 \label{sec:formal:SAT Solvers}
 %
-\epigraph{Live by the heuristic, die by the heuristic.}{Unknown}
+\epigraph{靠启发式而活，因启发式而死。}{佚名}
 
-Any finite program with bounded loops and recursion can be converted
-into a logic expression, which might express that program's assertions
-in terms of its inputs.
-Given such a logic expression, it would be quite interesting to know
-whether any possible combinations of inputs could result in one of
-the assertions triggering.
-If the inputs are expressed as combinations of boolean variables,
-this is simply SAT, also known as the satisfiability problem.
-SAT solvers are heavily used in verification of hardware, which has
-motivated great advances.
-A world-class early 1990s SAT solver might be able to handle a logic
-expression with 100 distinct boolean variables, but by the early 2010s
-million-variable SAT solvers were readily
-available~\cite{Kroening:2008:DPA:1391237}.
+任何具有有界循环和递归的有限程序都可以被转换为一个逻辑表达式，
+该表达式可以用输入来表达程序的断言。
+给定这样的逻辑表达式，如果能知道是否存在某种输入组合会触发其中一个断言，
+那将非常有趣。
+如果输入被表示为布尔变量的组合，
+这就是所谓的 SAT，也称为可满足性问题。
+SAT solvers 在硬件验证中被大量使用，这推动了巨大的进步。
+20世纪90年代初的世界级 SAT solver 也许只能处理具有100个不同布尔变量的逻辑表达式，
+但到21世纪10年代初，能处理百万变量的 SAT solver 已经
+随处可得~\cite{Kroening:2008:DPA:1391237}。
 
 \begin{figure}
 \centering
 \resizebox{2in}{!}{\includegraphics{formal/cbmc}}
-\caption{\IXacr{cbmc} Processing Flow}
+\caption{\IXacr{cbmc} 处理流程}
 \label{fig:formal:CBMC Processing Flow}
 \end{figure}
 
-In addition, front-end programs for SAT solvers can automatically translate
-C code into logic expressions, taking assertions into account and generating
-assertions for error conditions such as array-bounds errors.
-One example is the \IXacrl{cbmc}, or \co{cbmc}, which is
-available as part of many Linux distributions.
-This tool is quite easy to use, with \co{cbmc test.c} sufficing to
-validate \path{test.c}, resulting in the processing flow shown in
-\cref{fig:formal:CBMC Processing Flow}.
-This ease of use is exceedingly important because it opens the door
-to formal verification being incorporated into regression-testing
-frameworks.
-In contrast, the traditional tools that require non-trivial translation
-to a special-purpose language are confined to design-time verification.
+此外，SAT solver 的前端程序可以自动将 C 代码翻译为逻辑表达式，
+同时考虑断言并为数组越界等错误条件生成断言。
+一个例子是 \IXacrl{cbmc}，即 \co{cbmc}，
+它作为许多 Linux 发行版的一部分提供。
+这个工具非常易于使用，只需 \co{cbmc test.c} 即可验证 \path{test.c}，
+其处理流程如\cref{fig:formal:CBMC Processing Flow}所示。
+这种易用性极其重要，因为它为将 formal verification 纳入回归测试框架
+打开了大门。
+相比之下，那些需要非平凡地翻译到专用语言的传统工具
+只能用于设计时验证。
 
-More recently, SAT solvers have appeared that handle parallel code.
-These solvers operate by converting the input code into single static
-assignment (SSA) form, then generating all permitted access orders.
-This approach seems promising, but it remains to be seen how well
-it works in practice.
-One encouraging sign is work in 2016 applying \co{cbmc} to Linux-kernel
-RCU~\cite{LihaoLiang2016VerifyTreeRCU,Liang:2018:VTB,LanceRoy2017CBMC-SRCU}.
-This work used minimal configurations of RCU, and verified scenarios
-using small numbers of threads, but nevertheless successfully ingested
-Linux-kernel C code and produced a useful result.
-The logic expressions generated from the C code had up to 90~million
-variables, 450~million clauses, occupied tens of gigabytes of memory,
-and required up to 80~hours of CPU time for the SAT solver to produce
-the correct result.
+近年来，出现了能处理并行代码的 SAT solver。
+这些求解器通过将输入代码转换为静态单赋值（SSA）形式，
+然后生成所有允许的访问顺序来工作。
+这种方法看起来很有前景，但它在实践中的效果如何还有待观察。
+一个令人鼓舞的迹象是2016年将 \co{cbmc} 应用于 Linux 内核
+RCU 的工作~\cite{LihaoLiang2016VerifyTreeRCU,Liang:2018:VTB,LanceRoy2017CBMC-SRCU}。
+这项工作使用了 RCU 的最小配置，并使用少量线程验证了各种场景，
+但仍然成功地读入了 Linux 内核的 C 代码并产生了有用的结果。
+从 C 代码生成的逻辑表达式具有多达9000万个变量、4.5亿个子句，
+占用数十 GB 的内存，
+并且 SAT solver 需要多达80小时的 CPU 时间才能产生正确的结果。
 
-Nevertheless, a Linux-kernel hacker might be justified in feeling skeptical
-of a claim that his or her code had been automatically verified, and
-such hackers would find many fellow skeptics going back
-decades~\cite{DeMillo:1979:SPP:359104.359106}.
-One way to productively express such skepticism is to provide bug-injected
-versions of the allegedly verified code.
-If the formal-verification tool finds all the injected bugs, our hacker
-might gain more confidence in the tool's capabilities.
-Of course, tools that find valid bugs of which the hacker was not yet aware
-will likely engender even more confidence.
-And this is exactly why there is a \co{git} archive with a 20-branch set
-of mutations, with each branch potentially containing a bug injected
-into Linux-kernel RCU~\cite{PaulEMcKenney2017VerificationChallenge6}.
-Anyone with a formal-verification tool is cordially invited to try that
-tool out on this set of verification challenges.
+然而，一个 Linux 内核开发者对于其代码已被自动验证的声明
+可能有理由感到怀疑，
+而且这样的怀疑者可以找到数十年来的许多
+同道中人~\cite{DeMillo:1979:SPP:359104.359106}。
+表达这种怀疑的一种有效方式是提供注入了 bug 的
+被验证代码版本。
+如果 formal verification 工具能找到所有注入的 bug，我们的开发者
+可能会对该工具的能力增加一些信心。
+当然，能找到开发者尚未察觉的有效 bug 的工具
+可能会赢得更多信任。
+这正是为什么有一个 \co{git} 归档包含20个分支的变异集，
+每个分支可能包含一个注入到 Linux 内核 RCU 中的
+bug~\cite{PaulEMcKenney2017VerificationChallenge6}。
+任何拥有 formal verification 工具的人都被诚挚地邀请
+在这组验证挑战上试用他们的工具。
 
-Currently, \co{cbmc} is able to find a number of injected bugs,
-however, it has not yet been able to locate a bug that RCU's
-maintainer was not already aware of.
-Nevertheless, there is some reason to hope that SAT solvers will someday
-be useful for finding concurrency bugs in parallel code.
+目前，\co{cbmc} 能够找到一些注入的 bug，
+但它尚未能找到 RCU 维护者
+之前不知道的 bug。
+尽管如此，仍有理由期望 SAT solver 有朝一日
+能对寻找并行代码中的并发 bug 有所帮助。

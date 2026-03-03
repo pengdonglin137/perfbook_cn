@@ -2,20 +2,18 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\subsection{RCU Usage}
+\subsection{RCU的使用}
 \label{sec:defer:RCU Usage}
 \OriginallyPublished{sec:defer:RCU Usage}{RCU Usage}{Linux Weekly News}{PaulEMcKenney2008WhatIsRCUUsage}
 
-This section answers the question ``What is RCU?'' from the viewpoint
-of the uses to which RCU can be put.
-Because RCU is most frequently used to replace some existing mechanism,
-we look at it primarily in terms of its relationship to such mechanisms,
-as listed in \cref{tab:defer:RCU Usage}
-and as displayed in \cref{fig:defer:Relationships Between RCU Use Cases}.
-Following the sections listed in this table,
-\cref{sec:defer:RCU Usage Summary} provides a summary,
-which is expanded on in the following sections and
-elsewhere~\cite{PaulEMcKenney2021RCUMysteriesFundamental,PaulEMcKenney2022RCUMysteriesUseCases}.
+本节从RCU可被应用的场景这一角度来回答``什么是RCU？''这个问题。
+由于RCU最常被用来替换某些既有机制，
+我们主要从它与这些机制的关系来审视它，
+如\cref{tab:defer:RCU Usage}所列
+以及\cref{fig:defer:Relationships Between RCU Use Cases}所展示的那样。
+在本表所列各节之后，
+\cref{sec:defer:RCU Usage Summary}给出了总结，
+并在后续各节和其他文献~\cite{PaulEMcKenney2021RCUMysteriesFundamental,PaulEMcKenney2022RCUMysteriesUseCases}中进一步展开。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.2}
@@ -23,183 +21,177 @@ elsewhere~\cite{PaulEMcKenney2021RCUMysteriesFundamental,PaulEMcKenney2022RCUMys
 \small
 \begin{tabular}{ll}
 \toprule
-Mechanism RCU Replaces & Page \\
+RCU所替换的机制 & 页码 \\
 \midrule
-RCU for pre-BSD routing &
+用于pre-BSD路由的RCU &
 	\pageref{sec:defer:RCU for Pre-BSD Routing} \\
-Wait for pre-existing things to finish &
+等待已有事务完成 &
 	\pageref{sec:defer:Wait for Pre-Existing Things to Finish} \\
-Phased state change &
+分阶段状态变更 &
 	\pageref{sec:defer:Phased State Change} \\
-Add-only list (publish/subscribe) &
+仅添加链表（发布/订阅） &
 	\pageref{sec:defer:Add-Only List} \\
-Type-safe memory &
+类型安全内存 &
 	\pageref{sec:defer:Type-Safe Memory} \\
-Existence Guarantee &
+存在性保证 &
 	\pageref{sec:defer:Existence Guarantee} \\
-Light-weight garbage collector &
+轻量级垃圾收集器 &
 	\pageref{sec:defer:Light-Weight Garbage Collector} \\
-Delete-only list &
+仅删除链表 &
 	\pageref{sec:defer:Delete-Only List} \\
-Quasi reader-writer lock &
+准读写锁 &
 	\pageref{sec:defer:Quasi Reader-Writer Lock} \\
-Quasi reference count &
+准引用计数 &
 	\pageref{sec:defer:Quasi Reference Count} \\
-Quasi multi-version concurrency control (MVCC) &
+准多版本并发控制（MVCC） &
 	\pageref{sec:defer:Quasi Multi-Version Concurrency Control} \\
 \bottomrule
 \end{tabular}
-\caption{RCU Usage}
+\caption{RCU的使用}
 \label{tab:defer:RCU Usage}
 \end{table}
 
-\subsubsection{RCU for Pre-BSD Routing}
+\subsubsection{用于Pre-BSD路由的RCU}
 \label{sec:defer:RCU for Pre-BSD Routing}
 
-In contrast to the later sections, this section focuses on a very
-specific use case for the purpose of comparison with other mechanisms.
+与后面各节不同，本节聚焦于一个非常具体的用例，以便与其他机制进行比较。
 
 \Cref{lst:defer:RCU Pre-BSD Routing Table Lookup,%
 lst:defer:RCU Pre-BSD Routing Table Add/Delete}
-show code for an RCU-protected Pre-BSD routing table
-(\path{route_rcu.c}).
-The former shows data structures and \co{route_lookup()},
-and the latter shows \co{route_add()} and \co{route_del()}.
+展示了受RCU保护的Pre-BSD路由表代码
+（\path{route_rcu.c}）。
+前者展示了数据结构和\co{route_lookup()}，
+后者展示了\co{route_add()}和\co{route_del()}。
 
 \begin{listing}
 \input{CodeSamples/defer/route_rcu@lookup.fcv}
-\caption{RCU Pre-BSD Routing Table Lookup}
+\caption{RCU Pre-BSD路由表查找}
 \label{lst:defer:RCU Pre-BSD Routing Table Lookup}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/route_rcu@add_del.fcv}
-\caption{RCU Pre-BSD Routing Table Add/Delete}
+\caption{RCU Pre-BSD路由表添加/删除}
 \label{lst:defer:RCU Pre-BSD Routing Table Add/Delete}
 \end{listing}
 
 \begin{fcvref}[ln:defer:route_rcu:lookup]
-In \cref{lst:defer:RCU Pre-BSD Routing Table Lookup},
-\clnref{rh} adds the \co{->rh} field used by RCU reclamation,
-\clnref{re_freed} adds the \co{->re_freed} use-after-free-check field,
+在\cref{lst:defer:RCU Pre-BSD Routing Table Lookup}中，
+\clnref{rh}添加了RCU回收所用的\co{->rh}字段，
+\clnref{re_freed}添加了释放后使用检查字段\co{->re_freed}，
 \clnref{lock,unlock1,unlock2}
-add RCU read-side protection,
-and \clnref{chk_freed,abort} add the use-after-free check.
+添加了RCU读侧保护，
+而\clnref{chk_freed,abort}则添加了释放后使用检查。
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_rcu:add_del]
-In \cref{lst:defer:RCU Pre-BSD Routing Table Add/Delete},
+在\cref{lst:defer:RCU Pre-BSD Routing Table Add/Delete}中，
 \clnref{add:lock,add:unlock,del:lock,%
-del:unlock1,del:unlock2} add update-side locking,
-\clnref{add:add_rcu,del:del_rcu} add RCU update-side protection,
-\clnref{del:call_rcu} causes \co{route_cb()} to be invoked after
-a grace period elapses,
-and \clnrefrange{cb:b}{cb:e} define \co{route_cb()}.
-This is minimal added code for a working concurrent implementation.
+del:unlock1,del:unlock2}添加了更新侧加锁，
+\clnref{add:add_rcu,del:del_rcu}添加了RCU更新侧保护，
+\clnref{del:call_rcu}使得\co{route_cb()}在
+grace period过后被调用，
+而\clnrefrange{cb:b}{cb:e}则定义了\co{route_cb()}。
+对于一个可工作的并发实现来说，这已是最少量的附加代码。
 \end{fcvref}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-rcu}}
-\caption{Pre-BSD Routing Table Protected by RCU}
+\caption{受RCU保护的Pre-BSD路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by RCU}
 \end{figure}
 
 \Cref{fig:defer:Pre-BSD Routing Table Protected by RCU}
-shows the performance on the read-only workload.
-RCU scales quite well, and offers nearly ideal performance.
-However, this data was generated using the \co{RCU_SIGNAL}
-flavor of userspace
-RCU~\cite{MathieuDesnoyers2009URCU,PaulMcKenney2013LWNURCU},
-for which \co{rcu_read_lock()} and \co{rcu_read_unlock()}
-generate a small amount of code.
-What happens for the \IXacr{qsbr} flavor of RCU, which generates no code at all
-for \co{rcu_read_lock()} and \co{rcu_read_unlock()}?
-(See \cref{sec:defer:Introduction to RCU},
-and especially
-\cref{fig:defer:QSBR: Waiting for Pre-Existing Readers},
-for a discussion of RCU QSBR\@.)
+展示了在只读工作负载下的性能。
+RCU的可扩展性相当好，提供了近乎理想的性能。
+然而，这些数据是使用用户空间
+RCU~\cite{MathieuDesnoyers2009URCU,PaulMcKenney2013LWNURCU}的\co{RCU_SIGNAL}
+风格生成的，
+其中\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+会生成少量代码。
+对于\IXacr{qsbr}风格的RCU——\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+完全不生成任何代码——会发生什么呢？
+（参见\cref{sec:defer:Introduction to RCU}，
+特别是
+\cref{fig:defer:QSBR: Waiting for Pre-Existing Readers}，
+其中讨论了RCU QSBR。）
 
-The answer to this is shown in
-\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR},
-which shows that RCU QSBR's performance and scalability actually exceeds
-that of the ideal synchronization-free workload.
+答案如
+\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR}所示，
+这表明RCU QSBR的性能和可扩展性实际上超过了
+理想的无同步工作负载。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Wait, what???
-	How can RCU QSBR possibly be better than ideal?
-	Just what rubbish definition of ideal would fail to be the best
-	of all possible results???
+	等等，什么？？？
+	RCU QSBR怎么可能比理想情况还好？
+	究竟是什么荒唐的"理想"定义才会不是
+	所有可能结果中最好的？？？
 }\QuickQuizAnswerB{
-	This is an excellent question, and the answer is that modern
-	CPUs and compilers are extremely complex.
-	But before getting into that, it is well worth noting that
-	RCU QSBR's performance advantage appears only in the
-	one-hardware-thread-per-core regime.
-	Once the system is fully loaded, RCU QSBR's performance drops
-	back to ideal.
+	这是一个极好的问题，答案是现代CPU和编译器极其复杂。
+	但在深入探讨之前，非常值得注意的是，
+	RCU QSBR的性能优势仅出现在
+	每核一个硬件线程的情况下。
+	一旦系统满载，RCU QSBR的性能就会
+	回落到理想水平。
 
-	The RCU variant of the \co{route_lookup()} search loop actually
-	has one more x86 instruction than does the sequential version,
-	namely the \co{lea} in the sequence
-	\co{cmp}, \co{je}, \co{mov}, \co{cmp}, \co{lea}, and \co{jne}.
-	This extra instruction is due to the \co{rcu_head} structure
-	at the beginning of the RCU variant's \co{route_entry} structure,
-	so that, unlike the sequential variant, the RCU variant's
-	\co{->re_next.next} pointer has a non-zero offset.
-	Back in the 1980s, this additional \co{lea} instruction might
-	have reliably resulted in the RCU variant being slower, but we
-	are now in the 21\textsuperscript{st} century, and the 1980s
-	are long gone.
+	\co{route_lookup()}搜索循环的RCU变体实际上
+	比顺序版本多出一条x86指令，
+	即序列\co{cmp}、\co{je}、\co{mov}、\co{cmp}、\co{lea}和\co{jne}中的\co{lea}。
+	这条额外的指令是由于RCU变体的\co{route_entry}结构
+	开头的\co{rcu_head}结构所致，
+	因此，与顺序变体不同，RCU变体的
+	\co{->re_next.next}指针有一个非零偏移量。
+	回到20世纪80年代，这条额外的\co{lea}指令
+	可能会可靠地导致RCU变体更慢，但我们
+	现在已经是21\textsuperscript{世纪}了，80年代
+	早已过去。
 
-	But those of you who read
+	但那些仔细阅读了
 	\cref{sec:cpu:Pipelined CPUs}
-	carefully already knew all of this!
+	的读者早已知道这一切！
 
-	These counter-intuitive results of course mean that any
-	performance result on modern microprocessors must be subject to
-	some skepticism.
-	In theory, it really does not make sense to obtain performance
-	results that are better than ideal, but it really can happen
-	on modern microprocessors.
-	Such results can be thought of as similar to the celebrated
-	super-linear speedups (see
+	这些反直觉的结果当然意味着，在现代微处理器上
+	任何性能结果都必须持一定的怀疑态度。
+	从理论上讲，获得优于理想的性能结果确实没有道理，
+	但在现代微处理器上这确实可能发生。
+	这样的结果可以被看作类似于著名的
+	超线性加速（参见
 	\cref{sec:SMPdesign:Beyond Partitioning}
-	for one such example), that is, of interest but also of limited
-	practical importance.
-	Nevertheless, one of the strengths of RCU is that its read-side
-	overhead is so low that tiny effects such as this one are visible
-	in real performance measurements.
+	中的一个例子），即有趣但实际重要性有限。
+	尽管如此，RCU的一大优势就是其读侧
+	开销如此之低，以至于像这样的微小效应
+	在实际的性能测量中清晰可见。
 
 \begin{figure}
 \centering
 % Run with initial rcu_head structure in route_entry moved down.
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-rcu-qsbr}}
-\caption{Pre-BSD Routing Table Protected by RCU QSBR With Non-Initial \tco{rcu_head}}
+\caption{受RCU QSBR保护、\tco{rcu_head}非首字段的Pre-BSD路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR With Non-Initial rcu-head}
 \end{figure}
 
-	This raises the question as to what would happen if the
-	\co{rcu_head} structure were to be moved so that RCU's
-	\co{->re_next.next} pointer also had zero offset, just the
-	same as the sequential variant.
-	And the answer, as can be seen in
-	\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR With Non-Initial rcu-head},
-	is that this causes RCU QSBR's performance to decrease to where
-	it is still very nearly ideal, but no longer super-ideal.
+	这就引出了一个问题：如果将
+	\co{rcu_head}结构移动使得RCU的
+	\co{->re_next.next}指针也具有零偏移量，
+	与顺序变体完全相同，会发生什么。
+	答案如
+	\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR With Non-Initial rcu-head}
+	所示，这会导致RCU QSBR的性能下降到
+	仍然非常接近理想的水平，但不再是超理想的。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Given RCU QSBR's read-side performance, why bother with any
-	other flavor of userspace RCU?
+	鉴于RCU QSBR的读侧性能如此出色，为何还要费心使用
+	用户空间RCU的其他风格呢？
 }\QuickQuizAnswerE{
-	Because RCU QSBR places constraints on the overall application
-	that might not be tolerable,
-	for example, requiring that each and every thread in the
-	application regularly pass through a quiescent state.
-	Among other things, this means that RCU QSBR is not helpful
-	to library writers, who might be better served by other
-	flavors of userspace RCU~\cite{PaulMcKenney2013LWNURCU}.
+	因为RCU QSBR对整个应用程序施加了一些
+	可能无法容忍的约束，
+	例如，要求应用程序中的每一个线程
+	都定期通过一个quiescent state。
+	除此之外，这意味着RCU QSBR对
+	库的编写者没有帮助，他们可能更适合使用其他
+	风格的用户空间RCU~\cite{PaulMcKenney2013LWNURCU}。
 }\QuickQuizEndE
 }
 
@@ -209,7 +201,7 @@ that of the ideal synchronization-free workload.
 % This need to run twice is the reason for the oddball directory.
 % @@@ Make this generate both files with a single run?
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.02a/perf-rcu-qsbr}}
-\caption{Pre-BSD Routing Table Protected by RCU QSBR}
+\caption{受RCU QSBR保护的Pre-BSD路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR}
 \end{figure}
 
@@ -221,65 +213,60 @@ that of the ideal synchronization-free workload.
   \resizebox{.96\textwidth}{!}{\includegraphics{defer/RCUusecases}}
   % eb builds require .96
 }
-\caption{Relationships Between RCU Use Cases}
+\caption{RCU各用例之间的关系}
 \label{fig:defer:Relationships Between RCU Use Cases}
 \end{figure*}
 
-Although Pre-BSD routing is an excellent RCU use case, it is worthwhile
-looking at the relationships between the wider spectrum of use cases
-shown in
-\cref{fig:defer:Relationships Between RCU Use Cases}.
-This task is taken up by the following sections.
+虽然Pre-BSD路由是一个极好的RCU用例，但还是值得
+看看
+\cref{fig:defer:Relationships Between RCU Use Cases}
+所示的更广泛的用例之间的关系。
+以下各节将承担这一任务。
 
-While reading these sections, please ask yourself which of these
-use cases best describes Pre-BSD routing.
+在阅读这些节的同时，请思考哪个用例
+最能描述Pre-BSD路由。
 
-\subsubsection{Wait for Pre-Existing Things to Finish}
+\subsubsection{等待已有事务完成}
 \label{sec:defer:Wait for Pre-Existing Things to Finish}
 
-As noted in \cref{sec:defer:RCU Fundamentals}
-an important component
-of RCU is a way of waiting for RCU readers to finish.
-One of
-RCU's great strengths is that it allows you to wait for each of
-thousands of different things to finish without having to explicitly
-track each and every one of them, and without incurring
-the performance degradation, scalability limitations, complex deadlock
-scenarios, and memory-leak hazards that are inherent in schemes that
-use explicit tracking.
+如\cref{sec:defer:RCU Fundamentals}所述，
+RCU的一个重要组成部分
+是等待RCU读者完成的方式。
+RCU的一大优势是它允许你等待数千种不同的事务完成，
+而无需显式地跟踪每一个，也不会招致
+使用显式跟踪的方案所固有的
+性能下降、可扩展性限制、复杂的死锁
+场景和内存泄漏风险。
 
-In this section, we will show how \co{synchronize_sched()}'s
-read-side counterparts (which include anything that disables preemption,
-along with hardware operations and
-primitives that disable interrupts) permit you to interact with
-non-maskable interrupt
-(NMI) handlers, which is quite difficult using locking.
-This approach has been called ``Pure RCU''~\cite{PaulEdwardMcKenneyPhD},
-and it is used in a few places in the Linux kernel.
+在本节中，我们将展示\co{synchronize_sched()}的
+读侧对应物（包括任何禁用抢占的操作，
+以及硬件操作和
+禁用中断的原语）如何允许你与
+不可屏蔽中断（NMI）处理程序交互，这用锁机制来做是相当困难的。
+这种方法被称为``纯RCU''~\cite{PaulEdwardMcKenneyPhD}，
+在Linux内核中的少数地方有使用。
 
-The basic form of such ``Pure RCU'' designs is as follows:
+这种``纯RCU''设计的基本形式如下：
 
 \begin{enumerate}
-\item	Make a change, for example, to the way that the OS reacts to an NMI\@.
-\item	Wait for all pre-existing read-side critical sections to
-	completely finish (for example, by using the
-	\co{synchronize_sched()} primitive).\footnote{
-		In Linux kernel v5.1 and later, \co{synchronize_sched()} has
-		been subsumed into \co{synchronize_rcu()}.}
-	The key observation here is that subsequent RCU read-side critical
-	sections are guaranteed to see whatever change was made.
-\item	Clean up, for example, return status indicating that the
-	change was successfully made.
+\item	进行一项变更，例如改变操作系统对NMI的响应方式。
+\item	等待所有已有的read-side critical section
+	完全结束（例如，使用
+	\co{synchronize_sched()}原语）。\footnote{
+		在Linux内核v5.1及更高版本中，\co{synchronize_sched()}已
+		被纳入\co{synchronize_rcu()}。}
+	这里的关键观察是，后续的RCU read-side critical section
+	保证能看到所做的任何变更。
+\item	清理，例如返回表示变更已成功完成的状态。
 \end{enumerate}
 
-The remainder of this section presents example code adapted from
-the Linux kernel.
-In this example, the \co{nmi_stop()} function in the now-defunct
-oprofile facility uses \co{synchronize_sched()} to ensure that all
-in-flight NMI notifications have completed before freeing the associated
-resources.
-A simplified version of this code is shown in
-\cref{lst:defer:Using RCU to Wait for NMIs to Finish}.
+本节的其余部分展示了改编自Linux内核的示例代码。
+在此示例中，现已废弃的oprofile设施中的
+\co{nmi_stop()}函数使用\co{synchronize_sched()}来确保
+所有进行中的NMI通知在释放相关
+资源之前已经完成。
+此代码的简化版本如
+\cref{lst:defer:Using RCU to Wait for NMIs to Finish}所示。
 
 \begin{listing}
 \begin{fcvlabel}[ln:defer:Using RCU to Wait for NMIs to Finish]
@@ -313,68 +300,65 @@ void nmi_stop(void)				\lnlbl@nmi_stop:b$
 }						\lnlbl@nmi_stop:e$
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Using RCU to Wait for NMIs to Finish}
+\caption{使用RCU等待NMI完成}
 \label{lst:defer:Using RCU to Wait for NMIs to Finish}
 \end{listing}
 
 \begin{fcvref}[ln:defer:Using RCU to Wait for NMIs to Finish:struct]
-\Clnrefrange{b}{e} define a \co{profile_buffer} structure, containing a
-size and an indefinite array of entries.
-\Clnref{buf} defines a pointer to a profile buffer, which is
-presumably initialized elsewhere to point to a dynamically allocated
-region of memory.
+\Clnrefrange{b}{e}定义了一个\co{profile_buffer}结构，包含
+一个大小字段和一个不定长的条目数组。
+\Clnref{buf}定义了一个指向profile缓冲区的指针，
+该指针大概在其他地方被初始化为指向一块动态分配的
+内存区域。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:Using RCU to Wait for NMIs to Finish:nmi_profile]
-\Clnrefrange{b}{e} define the \co{nmi_profile()} function,
-which is called from within an NMI handler.
-As such, it cannot be preempted, nor can it be interrupted by a normal
-interrupt handler, however, it is still subject to delays due to cache misses,
-ECC errors, and cycle stealing by other hardware threads within the same
-core.
-\Clnref{rcu_deref} gets a local pointer to the profile buffer using the
-\co{rcu_dereference()} primitive to ensure memory ordering on
-DEC Alpha, and
-\clnref{if_NULL,ret:a} exit from this function if there is no
-profile buffer currently allocated, while \clnref{if_oor,ret:b}
-exit from this function if the \co{pcvalue} argument
-is out of range.
-Otherwise, \clnref{inc} increments the profile-buffer entry indexed
-by the \co{pcvalue} argument.
-Note that storing the size with the buffer guarantees that the
-range check matches the buffer, even if a large buffer is suddenly
-replaced by a smaller one.
+\Clnrefrange{b}{e}定义了\co{nmi_profile()}函数，
+它在NMI处理程序内被调用。
+因此，它不能被抢占，也不能被普通的
+中断处理程序中断，然而，它仍然可能由于缓存未命中、
+ECC错误以及同一核心内其他硬件线程的周期窃取而延迟。
+\Clnref{rcu_deref}使用\co{rcu_dereference()}原语获取
+指向profile缓冲区的本地指针，以确保在
+DEC Alpha上的内存排序，
+\clnref{if_NULL,ret:a}在没有当前分配的
+profile缓冲区时从此函数退出，而\clnref{if_oor,ret:b}
+在\co{pcvalue}参数超出范围时
+从此函数退出。
+否则，\clnref{inc}递增以\co{pcvalue}参数为索引的
+profile缓冲区条目。
+注意，将大小与缓冲区一起存储可以保证
+范围检查与缓冲区匹配，即使一个大缓冲区突然
+被一个较小的缓冲区替换。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:Using RCU to Wait for NMIs to Finish:nmi_stop]
-\Clnrefrange{b}{e} define the \co{nmi_stop()} function,
-where the caller is responsible for mutual exclusion (for example,
-holding the correct lock).
-\Clnref{fetch} fetches a pointer to the profile buffer, and
-\clnref{if_NULL,ret} exit the function if there is no buffer.
-Otherwise, \clnref{NULL} \co{NULL}s out the profile-buffer pointer
-(using the \co{rcu_assign_pointer()} primitive to maintain
-memory ordering on weakly ordered machines),
-and \clnref{sync_sched} waits for an RCU Sched grace period to elapse,
-in particular, waiting for all non-preemptible regions of code,
-including NMI handlers, to complete.
-Once execution continues at \clnref{kfree}, we are guaranteed that
-any instance of \co{nmi_profile()} that obtained a
-pointer to the old buffer has returned.
-It is therefore safe to free the buffer, in this case using the
-\co{kfree()} primitive.
+\Clnrefrange{b}{e}定义了\co{nmi_stop()}函数，
+调用者负责互斥（例如，持有正确的锁）。
+\Clnref{fetch}获取指向profile缓冲区的指针，
+\clnref{if_NULL,ret}在没有缓冲区时退出函数。
+否则，\clnref{NULL}将profile缓冲区指针置\co{NULL}
+（使用\co{rcu_assign_pointer()}原语在弱序
+机器上维持内存排序），
+\clnref{sync_sched}等待一个RCU Sched grace period过去，
+特别是等待所有不可抢占的代码区域
+（包括NMI处理程序）完成。
+一旦执行继续到\clnref{kfree}，我们就可以保证
+任何获取了旧缓冲区指针的\co{nmi_profile()}
+实例已经返回。
+因此，可以安全地释放缓冲区，本例中使用的是
+\co{kfree()}原语。
 \end{fcvref}
 
 \QuickQuiz{
-	Suppose that the \co{nmi_profile()} function was preemptible.
-	What would need to change to make this example work correctly?
+	假设\co{nmi_profile()}函数是可抢占的。
+	要使此示例正确工作，需要做哪些改变？
 }\QuickQuizAnswer{
-	One approach would be to use
-	\co{rcu_read_lock()} and \co{rcu_read_unlock()}
-	in \co{nmi_profile()}, and to replace the
-	\co{synchronize_sched()} with \co{synchronize_rcu()},
-	perhaps as shown in
-	\cref{lst:defer:Using RCU to Wait for Mythical Preemptible NMIs to Finish}.
+	一种方法是在\co{nmi_profile()}中使用
+	\co{rcu_read_lock()}和\co{rcu_read_unlock()}，
+	并将\co{synchronize_sched()}替换为\co{synchronize_rcu()}，
+	也许如
+	\cref{lst:defer:Using RCU to Wait for Mythical Preemptible NMIs to Finish}所示。
 %
 \begin{listing}
 \begin{VerbatimL}
@@ -413,47 +397,45 @@ void nmi_stop(void)
 	kfree(p);
 }
 \end{VerbatimL}
-\caption{Using RCU to Wait for Mythical Preemptible NMIs to Finish}
+\caption{使用RCU等待虚构的可抢占NMI完成}
 \label{lst:defer:Using RCU to Wait for Mythical Preemptible NMIs to Finish}
 \end{listing}
 
-	But why on earth would an NMI handler be preemptible???
+	但NMI处理程序为什么会是可抢占的呢？？？
 }\QuickQuizEnd
 
-In short, RCU makes it easy to dynamically switch among profile
-buffers (you just \emph{try} doing this efficiently with atomic
-operations, or at all with locking!).
-This is a rare use of RCU in its pure form.
-RCU is normally used at higher levels of abstraction, as
-will be shown in the following sections.
+简而言之，RCU使得动态切换profile缓冲区变得容易
+（你不妨\emph{试试}用原子操作高效地做到这一点，
+或者用锁来做！）。
+这是RCU纯粹形式的一种罕见使用。
+RCU通常在更高的抽象层次上使用，
+如后续各节所示。
 
-\subsubsection{Phased State Change}
+\subsubsection{分阶段状态变更}
 \label{sec:defer:Phased State Change}
 
 \Cref{fig:defer:Phased State Change for Maintenance Operation}
-shows a timeline for an example phased state change to efficiently
-handle maintenance operations.
-If there is no maintenance operation in progress, common-case operations
-must proceed quickly, for example, without acquiring a reader-writer lock.
-However, if there is a maintenance operation in progress, the common-case
-operations must be undertaken carefully, taking into account added
-complexities due to their running concurrently with that maintenance
-operation.
-This means that common-case operations will incur higher overhead during
-maintenance operations, which is one reason that maintenance operations
-are normally scheduled to take place during times of low load.
+展示了一个分阶段状态变更的时间线示例，
+用于高效地处理维护操作。
+如果没有正在进行的维护操作，常规操作
+必须快速执行，例如不需要获取读写锁。
+然而，如果有维护操作正在进行，常规操作
+必须谨慎进行，考虑到因与维护操作
+并发运行而增加的复杂性。
+这意味着在维护操作期间，常规操作将招致更高的开销，
+这也是维护操作通常被安排在
+低负载时段执行的原因之一。
 
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{defer/RCUphasedstatechange}}
-\caption{Phased State Change for Maintenance Operation}
+\caption{维护操作的分阶段状态变更}
 \label{fig:defer:Phased State Change for Maintenance Operation}
 \end{figure}
 
-In the figure, these apparently conflicting requirements are resolved by
-having a prepare phase prior to the maintenance operation and a cleanup
-phase after it, during which the common-case operations can proceed
-either quickly or carefully.
+在图中，这些看似矛盾的需求通过
+在维护操作之前设置准备阶段、在之后设置清理阶段来解决，
+在这些阶段中常规操作可以快速执行或谨慎执行。
 
 \begin{listing}
 \begin{fcvlabel}[ln:defer:Phased State Change for Maintenance Operations]
@@ -480,227 +462,218 @@ void maint(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Phased State Change for Maintenance Operations}
+\caption{维护操作的分阶段状态变更}
 \label{lst:defer:Phased State Change for Maintenance Operations}
 \end{listing}
 
 \begin{fcvref}[ln:defer:Phased State Change for Maintenance Operations]
-Example pseudo-code for this phased state change is shown in
-\cref{lst:defer:Phased State Change for Maintenance Operations}.
-The common-case operations are carried out by \co{cco()} within an RCU
-read-side critical section extending from \clnref{rrl} to \clnref{rul}.
-Here, \clnref{if} checks a global \co{be_careful} flag, invoking
-\co{cco_carefully()} or \co{cco_quickly()}, as indicated.
+此分阶段状态变更的伪代码示例如
+\cref{lst:defer:Phased State Change for Maintenance Operations}所示。
+常规操作由\co{cco()}在从\clnref{rrl}到\clnref{rul}的
+RCU read-side critical section内执行。
+其中\clnref{if}检查全局的\co{be_careful}标志，
+相应地调用\co{cco_carefully()}或\co{cco_quickly()}。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:Phased State Change for Maintenance Operations]
-This allows the \co{maint()} function to set the \co{be_careful} flag
-on \clnref{tocareful} and wait for an RCU grace period on \clnref{sr1}.
-When control reaches \clnref{maint}, all \co{cco()} functions that saw a
-\co{false} value of \co{be_careful} (and thus which might invoke
-the \co{cco_quickly()} function) will have completed their operations,
-so that all currently executing \co{cco()} functions will be invoking
-\co{cco_carefully()}.
-This means that it is safe for the \co{do_maint()} function to be
-invoked.
-\Clnref{sr2} then waits for all \co{cco()} functions that might have
-run concurrently with \co{do_maint()} to complete, and finally
-\clnref{toquick} sets the \co{be_careful} flag back to \co{false}.
+这允许\co{maint()}函数在\clnref{tocareful}设置\co{be_careful}标志，
+并在\clnref{sr1}等待一个RCU grace period。
+当控制到达\clnref{maint}时，所有看到\co{be_careful}
+为\co{false}值（因此可能调用
+\co{cco_quickly()}函数）的\co{cco()}函数将已经完成其操作，
+从而所有当前正在执行的\co{cco()}函数都将调用
+\co{cco_carefully()}。
+这意味着此时调用\co{do_maint()}函数是安全的。
+\Clnref{sr2}接着等待所有可能与\co{do_maint()}并发
+运行的\co{cco()}函数完成，最后
+\clnref{toquick}将\co{be_careful}标志重新设为\co{false}。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What is the point of the second call to \co{synchronize_rcu()}
-	in function
-	\co{maint()} in \cref{lst:defer:Phased State Change for Maintenance Operations}?
-	Isn't it OK for any \co{cco()} invocations in the clean-up
-	phase to invoke either \co{cco_carefully()} or \co{cco_quickly()}?
+	\cref{lst:defer:Phased State Change for Maintenance Operations}中
+	\co{maint()}函数第二次调用\co{synchronize_rcu()}
+	的意义何在？
+	在清理阶段让\co{cco()}调用\co{cco_carefully()}或
+	\co{cco_quickly()}不是都可以吗？
 }\QuickQuizAnswerB{
-	The problem is that there is no ordering between the \co{cco()}
-	function's load from \co{be_careful} and any memory loads
-	executed by the \co{cco_quickly()} function.
-	Because there is no ordering, without that second call to
-	\co{synchronize_rcu()}, memory ordering could cause loads
-	in \co{cco_quickly()} to overlap with stores by \co{do_maint()}.
+	问题在于\co{cco()}函数从\co{be_careful}的加载
+	与\co{cco_quickly()}函数执行的任何内存加载之间
+	没有排序保证。
+	由于没有排序保证，如果没有第二次调用
+	\co{synchronize_rcu()}，内存排序可能导致
+	\co{cco_quickly()}中的加载与\co{do_maint()}中的存储重叠。
 
-	Another alternative would be to compensate for the removal of
-	that second call to \co{synchronize_rcu()} by changing the
-	\co{READ_ONCE()} to \co{smp_load_acquire()} and the
-	\co{WRITE_ONCE()} to \co{smp_store_release()}, thus restoring
-	the needed ordering.
+	另一种替代方案是通过将\co{READ_ONCE()}
+	改为\co{smp_load_acquire()}、将
+	\co{WRITE_ONCE()}改为\co{smp_store_release()}来
+	弥补去掉第二次\co{synchronize_rcu()}调用的影响，
+	从而恢复所需的排序。
 }\QuickQuizEndB
 
 \QuickQuizE{
-	How can you be sure that the code shown in
-	\co{maint()} in \cref{lst:defer:Phased State Change for Maintenance Operations}
-	really works?\@
+	你怎么能确定
+	\cref{lst:defer:Phased State Change for Maintenance Operations}中
+	\co{maint()}所示的代码确实有效？
 }\QuickQuizAnswerE{
-	By one popular school of thought, you cannot.
+	按照一种流行的学派观点，你无法确定。
 
-	But in this case, those willing to jump ahead to
+	但在这个例子中，那些愿意跳到
 	\cref{chp:Formal Verification}
-	and
+	和
 	\cref{chp:Advanced Synchronization: Memory Ordering}
-	might find a couple of LKMM litmus tests to be interesting
-	(\path{C-RCU-phased-state-change-1.litmus} and
-	\path{C-RCU-phased-state-change-2.litmus}).
-	These tests could be argued to demonstrate that this code
-	and a variant of it really do work.
+	的读者可能会发现几个LKMM litmus测试很有趣
+	（\path{C-RCU-phased-state-change-1.litmus}和
+	\path{C-RCU-phased-state-change-2.litmus}）。
+	可以说这些测试证明了这段代码
+	及其一个变体确实能正常工作。
 }\QuickQuizEndE
 }% End of \QuickQuizSeries
 
-Phased state change allows frequent operations to use light-weight
-checks, without the need for expensive lock acquisitions or atomic
-read-modify-write operations, and is used in the Linux kernel in the
-guise of \co{rcu_sync}~\cite{OlegNesterov2013rcusync} to implement a
-variant of reader-writer semaphores with lightweight readers.
-Phased state change adds only a checked state variable
-to the wait-to-finish use case
-(\cref{sec:defer:Wait for Pre-Existing Things to Finish}),
-thus also residing at a rather low level of abstraction.
+分阶段状态变更允许频繁的操作使用轻量级检查，
+无需昂贵的锁获取或原子读-修改-写操作，
+并在Linux内核中以\co{rcu_sync}~\cite{OlegNesterov2013rcusync}的
+形式被使用，以实现具有轻量级读者的
+读写信号量的变体。
+分阶段状态变更只是在等待完成用例
+（\cref{sec:defer:Wait for Pre-Existing Things to Finish}）之上
+增加了一个受检查的状态变量，
+因此也处于较低的抽象层次。
 
-\subsubsection{Add-Only List}
+\subsubsection{仅添加链表}
 \label{sec:defer:Add-Only List}
 
-Add-only data structures, exemplified by the add-only list, can be used
-for a surprisingly common set of use cases, perhaps most commonly the
-logging of changes.
-Add-only data structures are a pure use of RCU's underlying
-publish/subscribe mechanism.
+仅添加数据结构，以仅添加链表为代表，可用于
+数量惊人的常见用例，其中最常见的可能是
+变更日志。
+仅添加数据结构是对RCU底层
+发布/订阅机制的纯粹使用。
 
-An add-only variant of a pre-BSD routing table can be derived from
-\cref{lst:defer:RCU Pre-BSD Routing Table Lookup,lst:defer:RCU Pre-BSD Routing Table Add/Delete}.
-Because there is no deletion, the \co{route_del()} and \co{route_cb()}
-functions may be dispensed with, along with the \co{->rh}
-and \co{->re_freed} fields of the \co{route_entry} structure, the
-\co{rcu_read_lock()}, the \co{rcu_read_unlock()} invocations in the
-\co{route_lookup()} function, and all uses of the \co{->re_freed} field
-in all remaining functions.
+Pre-BSD路由表的仅添加变体可以从
+\cref{lst:defer:RCU Pre-BSD Routing Table Lookup,lst:defer:RCU Pre-BSD Routing Table Add/Delete}
+派生而来。
+由于没有删除操作，\co{route_del()}和\co{route_cb()}
+函数可以省略，连同\co{route_entry}结构的
+\co{->rh}和\co{->re_freed}字段、
+\co{route_lookup()}函数中的
+\co{rcu_read_lock()}和\co{rcu_read_unlock()}调用，
+以及所有剩余函数中\co{->re_freed}字段的所有使用。
 
-Of course, if there are many concurrent invocations of the \co{route_add()}
-function, there will be heavy contention on \co{routelock}, and if lockless
-techniques are used, heavy memory contention on \co{routelist}.
-The usual way to avoid this contention is to use a concurrency-friendly
-data structure such as a hash table (see \cref{chp:Data Structures}).
-Alternatively, per-CPU data structures might be periodically merged
-into a single global data structure.
+当然，如果有许多\co{route_add()}函数的并发调用，
+\co{routelock}将面临严重的争用，
+如果使用无锁技术，\co{routelist}也将面临严重的内存争用。
+避免这种争用的通常方法是使用一种并发友好的
+数据结构，如哈希表（参见\cref{chp:Data Structures}）。
+另一种方法是将每CPU数据结构定期合并
+到一个全局数据结构中。
 
-On the other hand, if there is never any deletion, extended time periods
-featuring many concurrent invocations of \co{route_add()} will eventually
-consume all available memory.
-Therefore, most RCU-protected data structures also implement deletion.
+另一方面，如果永远不进行删除操作，
+长时间的多个\co{route_add()}并发调用最终将
+耗尽所有可用内存。
+因此，大多数受RCU保护的数据结构也实现了删除操作。
 
-\subsubsection{Type-Safe Memory}
+\subsubsection{类型安全内存}
 \label{sec:defer:Type-Safe Memory}
 
-A number of lockless algorithms do not require that a given data
-element keep the same identity through a given RCU read-side critical
-section referencing it---but only if that data element retains the
-same type.
-In other words, these lockless algorithms can tolerate a given data
-element being freed and reallocated as the same type of structure
-while they are referencing it, but must prohibit a change in type.
-This guarantee, called ``\IX{type-safe memory}'' in
-academic literature~\cite{Cheriton96a},
-is weaker than the \IXpl{existence guarantee} discussed
-in \cref{sec:defer:Existence Guarantee},
-and is therefore quite a bit harder to work with.
-Type-safe memory algorithms in the Linux kernel make use of slab caches,
-specially marking these caches with \co{SLAB_TYPESAFE_BY_RCU}
-so that RCU is used when returning a freed-up
-slab to system memory.
-This use of RCU guarantees that any in-use element of
-such a slab will remain in that slab, thus retaining its type,
-for the duration of any pre-existing RCU read-side critical sections.
+许多无锁算法不要求给定的数据元素
+在引用它的整个RCU read-side critical section期间
+保持相同的身份——但前提是该数据元素保持
+相同的类型。
+换言之，这些无锁算法可以容忍给定数据元素
+在被引用期间被释放并重新分配为相同类型的结构，
+但必须禁止类型更改。
+这种保证在学术文献中被称为``\IX{type-safe memory}''~\cite{Cheriton96a}，
+它比\cref{sec:defer:Existence Guarantee}中讨论的
+\IXpl{existence guarantee}更弱，
+因此使用起来相当困难。
+Linux内核中的类型安全内存算法利用slab缓存，
+通过\co{SLAB_TYPESAFE_BY_RCU}特别标记这些缓存，
+以便在将释放的slab返回到系统内存时使用RCU。
+这种RCU的使用保证了这种slab中任何正在使用的元素
+将在所有已有的RCU read-side critical section持续期间
+保留在该slab中，从而保持其类型。
 
 \QuickQuiz{
-	But what if there is an arbitrarily long series of RCU
-	read-side critical sections in multiple threads, so that at
-	any point in time there is at least one thread in the system
-	executing in an RCU read-side critical section?
-	Wouldn't that prevent any data from a \co{SLAB_TYPESAFE_BY_RCU}
-	slab ever being returned to the system, possibly resulting
-	in OOM events?
+	但如果多个线程中有任意长的RCU read-side critical section
+	序列，使得在任何时间点系统中总有至少一个线程
+	在执行RCU read-side critical section呢？
+	这不会阻止\co{SLAB_TYPESAFE_BY_RCU} slab中的
+	任何数据被归还给系统，可能导致
+	OOM事件吗？
 }\QuickQuizAnswer{
-	There could certainly be an arbitrarily long period of time
-	during which at least one thread is always in an RCU read-side
-	critical section.
-	However, the key words in the description in
-	\cref{sec:defer:Type-Safe Memory}
-	are ``in-use'' and ``pre-existing''.
-	Keep in mind that a given RCU read-side critical section is
-	conceptually only permitted to gain references to data elements
-	that were visible to readers during that critical section.
-	Furthermore, remember that a slab cannot be returned to the
-	system until all of its data elements have been freed, in fact,
-	the RCU grace period cannot start until after they have all been
-	freed.
+	确实可能存在任意长的时间段，
+	在此期间总有至少一个线程处于RCU read-side critical section中。
+	然而，\cref{sec:defer:Type-Safe Memory}中
+	描述的关键词是``正在使用''和``已有的''。
+	请记住，给定的RCU read-side critical section
+	在概念上只被允许获取对在该临界区期间
+	对读者可见的数据元素的引用。
+	此外，请记住slab不能被归还给系统，
+	直到其所有数据元素都被释放——事实上，
+	RCU grace period不能在它们全部被释放之前开始。
 
-	Therefore, the slab cache need only wait for those RCU read-side
-	critical sections that started before the freeing of the last element
-	of the slab.
-	This in turn means that any RCU grace period that begins after
-	the freeing of the last element will do---the slab may be returned
-	to the system after that grace period ends.
+	因此，slab缓存只需等待那些在最后一个元素
+	释放之前开始的RCU read-side critical section。
+	这反过来意味着，在最后一个元素释放之后
+	开始的任何RCU grace period都可以——在该grace period
+	结束后，slab可以被归还给系统。
 }\QuickQuizEnd
 
-It is important to note that \co{SLAB_TYPESAFE_BY_RCU} will
-\emph{in no way}
-prevent \co{kmem_cache_alloc()} from immediately reallocating
-memory that was just now freed via \co{kmem_cache_free()}!
-In fact, the \co{SLAB_TYPESAFE_BY_RCU}-protected data structure
-just returned by \co{rcu_dereference()} might be freed and reallocated
-an arbitrarily large number of times, even when under the protection
-of \co{rcu_read_lock()}.
-Instead, \co{SLAB_TYPESAFE_BY_RCU} operates by preventing
-\co{kmem_cache_free()}
-from returning a completely freed-up slab of data structures
-to the system until after an RCU grace period elapses.
-In short, although a given RCU read-side critical section might see a
-given \co{SLAB_TYPESAFE_BY_RCU} data element being freed and reallocated
-arbitrarily often, the element's type is guaranteed not to change until
-that critical section has completed.
+重要的是要注意，\co{SLAB_TYPESAFE_BY_RCU}
+\emph{绝不会}阻止\co{kmem_cache_alloc()}立即
+重新分配刚通过\co{kmem_cache_free()}释放的内存！
+事实上，\co{rcu_dereference()}刚返回的受
+\co{SLAB_TYPESAFE_BY_RCU}保护的数据结构
+可能被释放和重新分配任意多次，
+即使在\co{rcu_read_lock()}的保护下也是如此。
+相反，\co{SLAB_TYPESAFE_BY_RCU}通过阻止
+\co{kmem_cache_free()}将完全释放的数据结构slab
+归还给系统来运作，直到一个RCU grace period过去之后。
+简而言之，虽然给定的RCU read-side critical section
+可能看到给定的\co{SLAB_TYPESAFE_BY_RCU}数据元素
+被任意频繁地释放和重新分配，
+但在该临界区完成之前，该元素的类型保证不会改变。
 
-These algorithms therefore typically use a validation step that checks
-to make sure that the newly referenced data structure really is the one
-that was requested~\cite[Section~2.5]{LaninShasha1986TSM}.
-These validation checks require that portions of the data structure
-remain untouched by the free-reallocate process.
-Such validation checks are usually very hard to get right, and can
-hide subtle and difficult bugs.
+因此，这些算法通常使用一个验证步骤来检查
+确保新引用的数据结构确实是
+所请求的那个~\cite[Section~2.5]{LaninShasha1986TSM}。
+这些验证检查要求数据结构的部分内容
+在释放-重新分配过程中保持不变。
+这样的验证检查通常很难做对，并且可能
+隐藏微妙而难以发现的错误。
 
-Therefore, although type-safety-based lockless algorithms can be extremely
-helpful in a very few difficult situations, you should instead use existence
-guarantees where possible.
-Simpler is after all almost always better!
-On the other hand, type-safety-based lockless algorithms can
-provide improved cache locality, and thus improved performance.
-This improved cache locality is provided by the fact that such
-algorithms can immediately reallocate a newly freed block of memory.
-In contrast, algorithms based on existence guarantees must wait for
-all pre-existing readers before reallocating memory, by which time
-that memory may have been ejected from CPU caches.
+因此，虽然基于类型安全的无锁算法
+在极少数困难情况下可以极为有用，
+但你应当尽可能使用存在性保证。
+毕竟，更简单几乎总是更好！
+另一方面，基于类型安全的无锁算法可以
+提供更好的缓存局部性，从而提高性能。
+这种改善的缓存局部性源于这样一个事实：
+此类算法可以立即重新分配刚释放的内存块。
+相比之下，基于存在性保证的算法必须等待
+所有已有的读者完成后才能重新分配内存，
+届时该内存可能已被从CPU缓存中淘汰。
 
-As can be seen in \cref{fig:defer:Relationships Between RCU Use Cases},
-RCU's type-safe-memory use case combines both the wait-to-finish
-and publish-subscribe components, but in the Linux kernel also includes
-the slab allocator's deferred reclamation specified by the
-\co{SLAB_TYPESAFE_BY_RCU} flag.
+如\cref{fig:defer:Relationships Between RCU Use Cases}所示，
+RCU的类型安全内存用例结合了等待完成
+和发布/订阅两个组件，但在Linux内核中还包括
+slab分配器通过\co{SLAB_TYPESAFE_BY_RCU}标志
+指定的延迟回收。
 
-\subsubsection{Existence Guarantee}
+\subsubsection{存在性保证}
 \label{sec:defer:Existence Guarantee}
 
-Gamsa et al.~\cite{Gamsa99}
-discuss \IXpl{existence guarantee} and describe how a mechanism
-resembling RCU can be used to provide these existence guarantees
-(see Section~5 on page~7 of the PDF), and
+Gamsa等人~\cite{Gamsa99}
+讨论了\IXpl{existence guarantee}，并描述了一种
+类似RCU的机制如何能够提供这些存在性保证
+（参见PDF第7页的第5节），
 \cref{sec:locking:Lock-Based Existence Guarantees}
-discusses how to guarantee existence via locking, along with the
-ensuing disadvantages of doing so.
-The effect is that if any RCU-protected data element is accessed
-within an RCU read-side critical section, that data element is
-guaranteed to remain in existence for the duration of that RCU
-read-side critical section.
+讨论了如何通过加锁来保证存在性，
+以及这样做所带来的缺点。
+其效果是，如果在RCU read-side critical section中
+访问了任何受RCU保护的数据元素，
+则该数据元素在整个RCU read-side critical section
+期间都保证继续存在。
 
 \begin{listing}
 \begin{fcvlabel}[ln:defer:Existence Guarantees Enable Per-Element Locking]
@@ -732,74 +705,70 @@ int delete(int key)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Existence Guarantees Enable Per-Element Locking}
+\caption{存在性保证实现每元素加锁}
 \label{lst:defer:Existence Guarantees Enable Per-Element Locking}
 \end{listing}
 
 \begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
 \Cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
-demonstrates how RCU-based existence guarantees can enable
-per-element locking via a function that deletes an element from
-a hash table.
-\Clnref{hash} computes a hash function, and \clnref{rdlock} enters an RCU
-read-side critical section.
-If \clnref{chkkey} finds that the corresponding bucket of the hash table is
-empty or that the element present is not the one we wish to delete,
-then \clnref{rdunlock1} exits the RCU read-side critical section and
-\clnref{ret_0:a}
-indicates failure.
+展示了基于RCU的存在性保证如何通过一个
+从哈希表中删除元素的函数来实现每元素加锁。
+\Clnref{hash}计算哈希函数，\clnref{rdlock}进入一个
+RCU read-side critical section。
+如果\clnref{chkkey}发现哈希表的对应桶
+为空或其中的元素不是我们要删除的，
+则\clnref{rdunlock1}退出RCU read-side critical section，
+\clnref{ret_0:a}返回失败。
 \end{fcvref}
 
 \QuickQuiz{
-	What if the element we need to delete is not the first element
-	of the list on
-	\clnrefr{ln:defer:Existence Guarantees Enable Per-Element Locking:chkkey} of
-	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}?
+	如果我们需要删除的元素不是
+	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
+	\clnrefr{ln:defer:Existence Guarantees Enable Per-Element Locking:chkkey}行上
+	链表的第一个元素怎么办？
 }\QuickQuizAnswer{
-	As with the (bug-ridden)
-	\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)},
-	this is a very simple hash table with no chaining, so the only
-	element in a given bucket is the first element.
-	The reader is again invited to adapt this example to a hash table with
-	full chaining.
-	Less energetic readers might wish to refer to
-	\cref{chp:Data Structures}.
+	与（有缺陷的）
+	\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}
+	一样，这是一个非常简单的无链接哈希表，因此给定桶中
+	唯一的元素就是第一个元素。
+	读者再次被邀请将此示例改编为具有
+	完整链接的哈希表。
+	不那么精力充沛的读者可以参阅
+	\cref{chp:Data Structures}。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
-Otherwise, \clnref{acq} acquires the update-side spinlock, and
-\clnref{chkkey2} then checks that the element is still the one that we want.
-If so, \clnref{rdunlock2} leaves the RCU read-side critical section,
-\clnref{remove} removes it from the table, \clnref{rel1} releases
-the lock, \clnref{sync_rcu} waits for all pre-existing RCU read-side critical
-sections to complete, \clnref{kfree} frees the newly removed element,
-and \clnref{ret_1} indicates success.
-If the element is no longer the one we want, \clnref{rel2} releases
-the lock, \clnref{rdunlock3} leaves the RCU read-side critical section,
-and \clnref{ret_0:b} indicates failure to delete the specified key.
+否则，\clnref{acq}获取更新侧自旋锁，
+\clnref{chkkey2}然后检查该元素是否仍然是我们想要的。
+如果是，\clnref{rdunlock2}离开RCU read-side critical section，
+\clnref{remove}将其从表中移除，\clnref{rel1}释放锁，
+\clnref{sync_rcu}等待所有已有的RCU read-side critical section完成，
+\clnref{kfree}释放新移除的元素，
+\clnref{ret_1}返回成功。
+如果该元素已不再是我们想要的，\clnref{rel2}释放锁，
+\clnref{rdunlock3}离开RCU read-side critical section，
+\clnref{ret_0:b}返回删除指定键失败。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
-	Why is it OK to exit the RCU read-side critical section on
-	\clnref{rdunlock2} of
-	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
-	before releasing the lock on \clnref{rel1}?
+	为什么在
+	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}的
+	\clnref{rdunlock2}行退出RCU read-side critical section，
+	然后在\clnref{rel1}才释放锁，是可以的？
 	\end{fcvref}
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
-	First, please note that the second check on \clnref{chkkey2} is
-	necessary because some other
-	CPU might have removed this element while we were waiting
-	to acquire the lock.
-	However, the fact that we were in an RCU read-side critical section
-	while acquiring the lock guarantees that this element could not
-	possibly have been re-allocated and re-inserted into this
-	hash table.
-	Furthermore, once we acquire the lock, the lock itself guarantees
-	the element's existence, so we no longer need to be in an
-	RCU read-side critical section.
+	首先请注意，\clnref{chkkey2}上的第二次检查是必要的，
+	因为在我们等待获取锁的期间，
+	其他CPU可能已经移除了此元素。
+	然而，我们在获取锁时处于RCU read-side critical section中，
+	这保证了此元素不可能被重新分配
+	并重新插入到此哈希表中。
+	此外，一旦我们获取了锁，锁本身就保证了
+	元素的存在，因此我们不再需要处于
+	RCU read-side critical section中。
 	% The question as to whether it is necessary to re-check the
 	% element's key is left as an exercise to the reader.
 	% A re-check is necessary if the key can mutate or if it is
@@ -810,189 +779,176 @@ and \clnref{ret_0:b} indicates failure to delete the specified key.
 %
 \QuickQuizM{
 	\begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
-	Why not exit the RCU read-side critical section on
-	\clnref{rdunlock3} of
-	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
-	before releasing the lock on \clnref{rel2}?
+	为什么不在
+	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}的
+	\clnref{rdunlock3}行退出RCU read-side critical section之前，
+	先在\clnref{rel2}行释放锁呢？
 	\end{fcvref}
 }\QuickQuizAnswerM{
-	Suppose we reverse the order of these two lines.
-	Then this code is vulnerable to the following sequence of
-	events:
+	假设我们颠倒这两行的顺序。
+	那么这段代码就容易受到以下事件序列的影响：
 	\begin{enumerate}
 	\begin{fcvref}[ln:defer:Existence Guarantees Enable Per-Element Locking]
-	\item	CPU~0 invokes \co{delete()}, and finds the element
-		to be deleted, executing through \clnref{rdunlock2}.
-		It has not yet actually deleted the element, but
-		is about to do so.
-	\item	CPU~1 concurrently invokes \co{delete()}, attempting
-		to delete this same element.
-		However, CPU~0 still holds the lock, so CPU~1 waits
-		for it at \clnref{acq}.
-	\item	CPU~0 executes \clnref{remove,rel1},
-		and blocks at \clnref{sync_rcu} waiting for CPU~1
-		to exit its RCU read-side critical section.
-	\item	CPU~1 now acquires the lock, but the test on \clnref{chkkey2}
-		fails because CPU~0 has already removed the element.
-		CPU~1 now executes \clnref{rel2}
-		(which we switched with \clnref{rdunlock3}
-		for the purposes of this Quick Quiz)
-		and exits its RCU read-side critical section.
-	\item	CPU~0 can now return from \co{synchronize_rcu()},
-		and thus executes \clnref{kfree}, sending the element to
-		the freelist.
-	\item	CPU~1 now attempts to release a lock for an element
-		that has been freed, and, worse yet, possibly
-		reallocated as some other type of data structure.
-		This is a fatal memory-corruption error.
+	\item	CPU~0调用\co{delete()}，找到了要删除的元素，
+		执行到\clnref{rdunlock2}。
+		它尚未实际删除该元素，但即将这样做。
+	\item	CPU~1并发调用\co{delete()}，试图
+		删除同一个元素。
+		然而，CPU~0仍持有锁，因此CPU~1
+		在\clnref{acq}处等待。
+	\item	CPU~0执行\clnref{remove,rel1}，
+		并在\clnref{sync_rcu}处阻塞，等待CPU~1
+		退出其RCU read-side critical section。
+	\item	CPU~1现在获取了锁，但\clnref{chkkey2}上的测试
+		失败了，因为CPU~0已经移除了该元素。
+		CPU~1现在执行\clnref{rel2}
+		（为了本快速测验的目的，我们已将其与\clnref{rdunlock3}
+		交换）
+		并退出其RCU read-side critical section。
+	\item	CPU~0现在可以从\co{synchronize_rcu()}返回，
+		因此执行\clnref{kfree}，将元素发送到
+		空闲列表。
+	\item	CPU~1现在试图为一个已被释放的元素释放锁，
+		更糟糕的是，该元素可能已被
+		重新分配为其他类型的数据结构。
+		这是一个致命的内存损坏错误。
 	\end{fcvref}
 	\end{enumerate}
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	The RCU-based algorithm shown in
 	\cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
-	looks very similar to that in
-	\cref{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees},
-	so why should the RCU-based approach be any better?
+	中所示的基于RCU的算法看起来与
+	\cref{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees}
+	中的非常相似，那为什么基于RCU的方法应该更好呢？
 }\QuickQuizAnswerE{
 	\Cref{lst:defer:Existence Guarantees Enable Per-Element Locking}
-	replaces the per-element \co{spin_lock()} and \co{spin_unlock()}
-	shown in
+	将
 	\cref{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees}
-	with a much cheaper \co{rcu_read_lock()} and \co{rcu_read_unlock()},
-	thus greatly improving both performance and scalability.
-	For more detail, please see
-	\cref{sec:datastruct:RCU-Protected Hash Table Performance}.
+	中所示的每元素\co{spin_lock()}和\co{spin_unlock()}
+	替换为开销低得多的\co{rcu_read_lock()}和\co{rcu_read_unlock()}，
+	从而极大地提高了性能和可扩展性。
+	更多详情请参阅
+	\cref{sec:datastruct:RCU-Protected Hash Table Performance}。
 }\QuickQuizEndE
 }
 
-Alert readers will recognize this as only a slight variation on
-the original wait-to-finish theme
-(\cref{sec:defer:Wait for Pre-Existing Things to Finish}),
-adding publish/subscribe, linked structures, a heap allocator
-(typically), and deferred reclamation, as shown in
-\cref{fig:defer:Relationships Between RCU Use Cases}.
-They might also note the deadlock-immunity advantages over the lock-based
-existence guarantees discussed in
-\cref{sec:locking:Lock-Based Existence Guarantees}.
+细心的读者会认识到这只是原始的等待完成主题
+（\cref{sec:defer:Wait for Pre-Existing Things to Finish}）
+的一个轻微变体，添加了发布/订阅、链式结构、
+堆分配器（通常）和延迟回收，如
+\cref{fig:defer:Relationships Between RCU Use Cases}所示。
+他们可能还会注意到，与
+\cref{sec:locking:Lock-Based Existence Guarantees}
+中讨论的基于锁的存在性保证相比，
+这具有死锁免疫的优势。
 
-\subsubsection{Light-Weight Garbage Collector}
+\subsubsection{轻量级垃圾收集器}
 \label{sec:defer:Light-Weight Garbage Collector}
 
-A not-uncommon exclamation made by people first learning about
-RCU is ``RCU is sort of like a garbage
-collector!''~\cite{MattKline2023LockBasedLocklessFresh}.
-This exclamation has a large grain of truth, especially when using RCU
-to implement non-blocking algorithms that rely on garbage collection,
-but it can sometimes be misleading.
+初次了解RCU的人常发出的一个惊叹是``RCU有点像
+垃圾收集器！''~\cite{MattKline2023LockBasedLocklessFresh}。
+这一惊叹有很大的道理，特别是当使用RCU来
+实现依赖垃圾收集的非阻塞算法时，
+但有时也可能会产生误导。
 
-Perhaps the best way to think of the relationship between RCU
-and automatic garbage collectors (GCs) is that RCU resembles
-a GC in that the \emph{timing} of collection is automatically
-determined, but that RCU differs from a GC in that:
+也许思考RCU与自动垃圾收集器（GC）之间关系的最佳方式是：
+RCU类似于GC，因为收集的\emph{时机}是自动
+确定的，但RCU与GC的不同之处在于：
 \begin{enumerate*}[(1)]
-\item The programmer must manually indicate when a given data
-structure is eligible to be collected and
-\item The programmer must manually mark the RCU read-side critical
-sections where references might be held.
+\item 程序员必须手动指明给定的数据结构
+何时有资格被收集，且
+\item 程序员必须手动标记可能持有引用的
+RCU read-side critical section。
 \end{enumerate*}
 
-Despite these differences, the resemblance does go quite deep.
-In fact, the first RCU-like mechanism I am aware of used a
-reference-count-based garbage collector to handle the grace
-periods~\cite{Kung80}, and the connection between RCU and
-garbage collection has been noted more
-recently~\cite{HarshalSheth2016goRCU}.
+尽管存在这些差异，两者的相似性确实很深。
+事实上，我所知的第一个类RCU机制使用了
+基于引用计数的垃圾收集器来处理
+grace period~\cite{Kung80}，RCU与垃圾收集之间的联系
+也在较近期被注意到~\cite{HarshalSheth2016goRCU}。
 
-The light-weight garbage collector use case is very similar to
-the existence-guarantee use case, adding only the desired non-blocking
-algorithm to the mix.
-This light-weight garbage collector use case can also be used in
-conjunction with the existence guarantees described in the next section.
+轻量级垃圾收集器用例与存在性保证用例非常相似，
+只是在混合中添加了所需的非阻塞算法。
+此轻量级垃圾收集器用例也可以与下一节
+描述的存在性保证结合使用。
 
-\subsubsection{Delete-Only List}
+\subsubsection{仅删除链表}
 \label{sec:defer:Delete-Only List}
 
-The delete-only list is the less-popular counterpart to the add-only list
-covered in \cref{sec:defer:Add-Only List}, and can be thought of as the
-existence-guarantee use case, but without the publish/subscribe component,
-as shown in \cref{fig:defer:Relationships Between RCU Use Cases}.
-A delete-only list can be used when the universe of possible members of
-the list is known at initialization, and where members can be removed.
-For example, elements of the list might represent hardware elements of
-the system that are subject to failure, but cannot be repaired or
-replaced without a reboot.
+仅删除链表是\cref{sec:defer:Add-Only List}中
+介绍的仅添加链表的较不常用的对应物，
+可以被看作是没有发布/订阅组件的存在性保证用例，
+如\cref{fig:defer:Relationships Between RCU Use Cases}所示。
+仅删除链表可用于链表的所有可能成员
+在初始化时已知、且成员可以被移除的情况。
+例如，链表的元素可能代表系统中可能发生故障
+但在重启前无法修复或替换的硬件组件。
 
-A delete-only variant of a pre-BSD routing table can be derived from
-\cref{lst:defer:RCU Pre-BSD Routing Table Lookup,lst:defer:RCU Pre-BSD Routing Table Add/Delete}.
-Because there is no addition, the \co{route_add()} function may be
-dispensed with, or, alternatively, its use might be restricted to
-initialization time.
-In theory, the \co{route_lookup()} function can use a non-RCU iterator,
-though in the Linux kernel this will result in complaints from debug code.
-In addition, the incremental cost of an RCU iterator is usually
-negligible.
+Pre-BSD路由表的仅删除变体可以从
+\cref{lst:defer:RCU Pre-BSD Routing Table Lookup,lst:defer:RCU Pre-BSD Routing Table Add/Delete}
+派生而来。
+由于没有添加操作，可以省略\co{route_add()}函数，
+或者将其使用限制在初始化阶段。
+理论上，\co{route_lookup()}函数可以使用非RCU的迭代器，
+不过在Linux内核中这会引起调试代码的警告。
+此外，RCU迭代器的增量成本通常可以忽略不计。
 
-As a result, delete-only situations typically use algorithms and data
-structures that are designed for addition as well as deletion.
+因此，仅删除的情况通常使用为
+添加和删除而设计的算法和数据结构。
 
-\subsubsection{Quasi Reader-Writer Lock}
+\subsubsection{准读写锁}
 \label{sec:defer:Quasi Reader-Writer Lock}
 
-Perhaps the most common use of RCU within the Linux kernel is as
-a replacement for reader-writer locking in read-intensive situations.
-Nevertheless, this use of RCU was not immediately apparent to me
-at the outset.
-In fact, I chose to implement a lightweight reader-writer
-lock~\cite{WilsonCHsieh92a}\footnote{
-	Similar to \co{brlock} in the 2.4 Linux kernel and to
-	\co{lglock} in more recent Linux kernels.}
-before implementing a general-purpose RCU implementation
-back in the early 1990s.
-Each and every one of the uses I envisioned for the lightweight reader-writer
-lock was instead implemented using RCU\@.
-In fact, it was more than
-three years before the lightweight reader-writer lock saw its first use.
-Boy, did I feel foolish!
+也许Linux内核中最常见的RCU使用方式是
+在读密集场景中替换读写锁。
+然而，RCU的这种使用方式在一开始对我来说并不明显。
+事实上，我在20世纪90年代早期
+实现了一个轻量级读写锁~\cite{WilsonCHsieh92a}\footnote{
+	类似于2.4 Linux内核中的\co{brlock}和
+	更新版本Linux内核中的\co{lglock}。}，
+然后才实现了通用的RCU实现。
+我为轻量级读写锁设想的每一个使用场景
+都改用了RCU来实现。
+事实上，轻量级读写锁过了三年多才
+迎来它的第一次使用。
+真是让我大出洋相！
 
-The key similarity between RCU and reader-writer locking is that
-both have read-side critical sections that can execute concurrently.
-In fact, in some cases, it is possible to mechanically substitute RCU API
-members for the corresponding reader-writer lock API members.
-But first, why bother?
+RCU与读写锁之间的关键相似之处在于
+两者都有可以并发执行的读侧临界区。
+事实上，在某些情况下，可以机械地将RCU API
+成员替换为对应的读写锁API成员。
+但首先，为什么要这样做？
 
-Advantages of RCU include performance,
-deadlock immunity, and realtime latency.
-There are, of course, limitations to RCU, including the fact that
-readers and updaters run concurrently, that low-priority RCU readers
-can block high-priority threads waiting for a grace period to elapse,
-and that grace-period latencies can extend for many milliseconds.
-These advantages and limitations are discussed in the following paragraphs.
+RCU的优势包括性能、
+死锁免疫和实时延迟。
+当然，RCU也有局限性，包括
+读者和更新者并发运行的事实、低优先级的RCU读者
+可以阻塞等待grace period过去的高优先级线程、
+以及grace period延迟可达多个毫秒。
+以下段落将讨论这些优势和局限性。
 
-\paragraph{Performance}
+\paragraph{性能}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/rwlockRCUperf}}
-\caption{Performance Advantage of RCU Over Reader-Writer Locking}
+\caption{RCU相比读写锁的性能优势}
 \label{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}
 \end{figure}
 
-The read-side performance advantages of Linux-kernel RCU over
-reader-writer locking are shown in
-\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking},
-which was generated on a 448-CPU 2.10\,GHz Intel x86 system.
+\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}
+展示了Linux内核RCU相对于读写锁的读侧性能优势，
+数据在一台448 CPU、2.10\,GHz的Intel x86系统上生成。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	WTF\@?
-	How the heck do you expect me to believe that RCU can have less
-	than a 300-picosecond overhead when the clock period at 2.10\,GHz
-	is almost 500\,picoseconds?
+	什么鬼？
+	在时钟周期为2.10\,GHz（几乎500皮秒）的情况下，
+	你怎么能指望我相信RCU的开销
+	不到300皮秒？
 }\QuickQuizAnswerB{
-	First, consider that the inner loop used to
-	take this measurement is as follows:
+	首先，考虑用于此测量的内部循环如下：
 
 \begin{VerbatimN}
 	for (i = nloops; i >= 0; i--) {
@@ -1001,212 +957,200 @@ which was generated on a 448-CPU 2.10\,GHz Intel x86 system.
 	}
 \end{VerbatimN}
 
-	Next, consider the effective definitions of \co{rcu_read_lock()}
-	and \co{rcu_read_unlock()}:
+	接下来，考虑\co{rcu_read_lock()}和
+	\co{rcu_read_unlock()}的有效定义：
 
 \begin{VerbatimN}
 #define rcu_read_lock()   barrier()
 #define rcu_read_unlock() barrier()
 \end{VerbatimN}
 
-	These definitions constrain compiler code-movement optimizations
-	involving memory references, but emit no instructions in and
-	of themselves.
-	However, if the loop variable is maintained in a register,
-	the accesses to \co{i} will not count as memory references.
-	Furthermore, the compiler can do loop unrolling,
-	allowing the resulting code to ``execute'' multiple passes
-	through the loop body simply by incrementing \co{i} by
-	some value larger than the value 1.
+	这些定义约束了编译器涉及内存引用的
+	代码移动优化，但本身不生成任何指令。
+	然而，如果循环变量保存在寄存器中，
+	对\co{i}的访问将不算作内存引用。
+	此外，编译器可以进行循环展开，
+	使得生成的代码通过将\co{i}递增
+	某个大于1的值来"执行"循环体的多次遍历。
 
-	So the ``measurement'' of 267 picoseconds is simply the fixed
-	overhead of the timing measurements divided by the number of
-	passes through the inner loop containing the calls
-	to \co{rcu_read_lock()} and \co{rcu_read_unlock()}, plus
-	the code to manipulate \co{i} divided by the loop-unrolling
-	factor.
-	And therefore, this measurement really is in error, in fact,
-	it exaggerates the overhead by an arbitrary number of orders
-	of magnitude.
-	After all, in terms of machine instructions emitted, the actual
-	overheads of \co{rcu_read_lock()} and of \co{rcu_read_unlock()}
-	are each precisely zero.
+	因此267皮秒的"测量值"不过是计时测量的
+	固定开销除以包含\co{rcu_read_lock()}和
+	\co{rcu_read_unlock()}调用的内部循环遍历次数，
+	再加上操作\co{i}的代码除以循环展开因子。
+	所以这个测量值确实有误——事实上，
+	它将开销夸大了任意多个数量级。
+	毕竟，就生成的机器指令而言，
+	\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+	各自的实际开销精确为零。
 
-	It is not just every day that a timing measurement of 267
-	picoseconds turns out to be an overestimate!
+	267皮秒的计时测量结果竟然是高估——
+	这种事可不是天天都能碰到！
 }\QuickQuizEndB
 
 \QuickQuizM{
-	Didn't an earlier edition of this book show RCU read-side
-	overhead way down in the sub-picosecond range?
-	What happened???
+	本书的早期版本不是显示RCU读侧开销
+	在亚皮秒范围内吗？
+	发生了什么？？？
 }\QuickQuizAnswerM{
-	Excellent memory!!!
-	The overhead in some early releases was in fact roughly
-	100~femtoseconds.
+	好记性！！！
+	一些早期版本中的开销确实大约为
+	100飞秒。
 
-	What happened was that RCU usage spread more broadly through the
-	Linux kernel, including into code that takes page faults.
-	Back at that time, \co{rcu_read_lock()} and \co{rcu_read_unlock()}
-	were complete no-ops in \co{CONFIG_PREEMPT=n} kernels.
-	Unfortunately, that situation allowed the compiler to reorder
-	page-faulting memory accesses into RCU read-side critical
-	sections.
-	Of course, page faults can block, which destroys those critical
-	sections.
+	发生的事情是RCU的使用在Linux内核中更广泛地传播，
+	包括传播到会产生页面错误的代码中。
+	在那个时候，\co{rcu_read_lock()}和\co{rcu_read_unlock()}
+	在\co{CONFIG_PREEMPT=n}内核中是完全的空操作。
+	不幸的是，这种情况允许编译器将
+	产生页面错误的内存访问重排到RCU read-side critical section中。
+	当然，页面错误可以阻塞，这会破坏这些临界区。
 
-	Nor was this a theoretical problem:
-	A failure actually manifested in 2019.
-	\ppl{Herbert}{Xu} tracked down this failure and
-	\ppl{Linus}{Torvalds}
-	therefore queued a commit to upgrade \co{rcu_read_lock()} and
-	\co{rcu_read_unlock()} to unconditionally include a call to
-	\co{barrier()}~\cite{LinusTorvalds2019:RCUreader.barrier}.
-	And although \co{barrier()} emits no code, it does constrain
-	compiler optimizations.
-	And so the price of widespread RCU usage is slightly higher
-	\co{rcu_read_lock()} and \co{rcu_read_unlock()} overhead.
-	As such, Linux-kernel RCU has proven to be a victim of its
-	own success.
+	而且这不是理论上的问题：
+	2019年确实出现了一次故障。
+	\ppl{Herbert}{Xu}追踪到了这个故障，
+	\ppl{Linus}{Torvalds}因此
+	排队了一个提交，将\co{rcu_read_lock()}和
+	\co{rcu_read_unlock()}无条件升级为包含对
+	\co{barrier()}的调用~\cite{LinusTorvalds2019:RCUreader.barrier}。
+	虽然\co{barrier()}不生成代码，但它确实约束了
+	编译器优化。
+	因此，RCU广泛使用的代价是略高的
+	\co{rcu_read_lock()}和\co{rcu_read_unlock()}开销。
+	由此，Linux内核的RCU可谓是
+	自身成功的受害者。
 
-	Of course, it is also the case that the older results were obtained
-	on a different system than were those shown in
-	\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}.
-	So which change had the most effect, Linus's commit or the change in
-	the system?
-	This question is left as an exercise to the reader.
+	当然，较早的结果也是在不同的系统上获得的，
+	与\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}
+	中所示的不同。
+	那么哪个变化影响更大——Linus的提交还是系统的更换？
+	这个问题留给读者作为练习。
 }\QuickQuizEndM
 
 \QuickQuizE{
-	Why is there such large variation for the \co{RCU} trace in
-	\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}?
+	为什么
+	\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}
+	中\co{RCU}曲线的变化如此之大？
 }\QuickQuizAnswerE{
-	Keep in mind that this is a log-log plot, so those large-seeming
-	\co{RCU} variances in reality span only a few hundred picoseconds.
-	And that is such a short time that anything could cause it.
-	However, given that the variance decreases with both small and
-	large numbers of CPUs, one hypothesis is that the variation is
-	due to migrations from one CPU to another.
+	请记住这是对数-对数图，因此那些看似很大的
+	\co{RCU}方差实际上只跨越了几百皮秒。
+	如此短的时间内，任何因素都可能导致这种变化。
+	然而，考虑到方差在CPU数量较少和较多时
+	都会减小，一个假设是这种变化
+	是由于从一个CPU迁移到另一个CPU造成的。
 
-	Yes, these measurements were taken with interrupts disabled, but
-	they were also taken within a guest OS, so that preemption was
-	still possible at the hypervisor level.
-	In addition, the system featured hyperthreading and a single
-	hardware thread running this RCU workload is able to consume
-	more than half of the core's resources.
-	Therefore, the overall throughput varies depending on how many
-	of a given guest OS's CPUs share cores.
-	Attempting to reduce these variations by running the guest OSes
-	at real-time priority (as suggested by Joel Fernandes) is left
-	as an exercise for the reader.
+	是的，这些测量是在中断禁用的情况下进行的，
+	但它们也是在客户操作系统内进行的，因此在
+	hypervisor层面仍然可能发生抢占。
+	此外，该系统具有超线程特性，
+	运行此RCU工作负载的单个硬件线程能够消耗
+	超过核心一半的资源。
+	因此，总体吞吐量取决于给定客户操作系统
+	有多少CPU共享核心。
+	尝试通过以实时优先级运行客户操作系统
+	（如Joel Fernandes所建议）来减少这些变化
+	留给读者作为练习。
 }\QuickQuizEndE
 }                 % End of \QuickQuizSeries
 
-Note that reader-writer locking is more than an order of magnitude slower
-than RCU on a single CPU, and is more than \emph{four} orders of magnitude
-slower on 192~CPUs.
-In contrast, RCU scales quite well.
-In both cases, the error bars cover the full range of the measurements
-from 30~runs, with the line being the median.
+请注意，在单个CPU上读写锁比RCU慢了一个数量级以上，
+在192个CPU上则慢了\emph{四}个数量级以上。
+相比之下，RCU的可扩展性相当好。
+在两种情况下，误差条覆盖了30次运行中
+测量值的全部范围，线条为中位数。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/rwlockRCUperfPREEMPT}}
-\caption{Performance Advantage of Preemptible RCU Over Reader-Writer Locking}
+\caption{可抢占RCU相比读写锁的性能优势}
 \label{fig:defer:Performance Advantage of Preemptible RCU Over Reader-Writer Locking}
 \end{figure}
 
-A more moderate view may be obtained from a \co{CONFIG_PREEMPT} kernel,
-though RCU still beats reader-writer locking by between a factor of seven
-on a single CPU and by three orders of magnitude on 192~CPUs, as shown in
-\cref{fig:defer:Performance Advantage of Preemptible RCU Over Reader-Writer Locking},
-which was generated on the same 448-CPU 2.10\,GHz x86 system.
-Note the high variability of reader-writer locking at larger numbers of CPUs.
-The error bars span the full range of data.
+从\co{CONFIG_PREEMPT}内核可以获得更温和的观点，
+不过RCU仍然在单个CPU上以七倍的优势、
+在192个CPU上以三个数量级的优势击败读写锁，如
+\cref{fig:defer:Performance Advantage of Preemptible RCU Over Reader-Writer Locking}所示，
+数据在同一台448 CPU、2.10\,GHz的x86系统上生成。
+请注意读写锁在较多CPU数量时的高变异性。
+误差条覆盖了数据的全部范围。
 
 \QuickQuiz{
-	Given that the system had no fewer than 448~hardware threads,
-	why only 192~CPUs?
+	既然系统有不少于448个硬件线程，
+	为什么只测到192个CPU？
 }\QuickQuizAnswer{
-	Because the script (\path{rcuscale.sh}) that generates this data
-	spawns a guest operating system for each set of points gathered,
-	and on this particular system, both \co{qemu} and KVM limit the
-	number of CPUs that may be configured into a given guest OS\@.
-	Yes, it would have been possible to run a few more CPUs, but
-	192 is a nice round number from a binary perspective, given
-	that 256 is infeasible.
+	因为生成此数据的脚本（\path{rcuscale.sh}）为
+	每组采集的数据点启动一个客户操作系统，
+	而在这个特定的系统上，\co{qemu}和KVM都限制了
+	可以配置到给定客户操作系统中的CPU数量。
+	是的，可以多运行几个CPU，但
+	从二进制的角度来看，在256不可行的情况下，
+	192是一个很好的整数。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/rwlockRCUperfwt}}
-\caption{Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration, 192 CPUs}
+\caption{RCU与读写锁随临界区持续时间变化的比较，192个CPU}
 \label{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}
 \end{figure}
 
-Of course, the low performance of reader-writer locking in
+当然，
 \cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking,%
 fig:defer:Performance Advantage of Preemptible RCU Over Reader-Writer Locking}
-is exaggerated by the unrealistic zero-length critical sections.
-The performance advantages of RCU decrease as the overhead of the critical
-sections increase, as shown in
-\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration},
-which was run on the same system as the previous plots.
-Here, the y-axis represents the sum of the overhead of the read-side
-primitives and that of the critical section and the x-axis represents
-the critical-section overhead in nanoseconds.
-But please note the logscale y~axis, which means that the small
-separations between the traces still represent significant differences.
-This figure shows non-preemptible RCU, but given that preemptible RCU's
-read-side overhead is only about three nanoseconds, its plot would be
-nearly identical to
-\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}.
+中读写锁的低性能被不切实际的零长度临界区所夸大了。
+RCU的性能优势随着临界区开销的增加而减小，如
+\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}所示，
+在同一系统上运行。
+这里，y轴表示读侧原语的开销与临界区开销之和，
+x轴表示以纳秒为单位的临界区开销。
+但请注意对数刻度的y轴，这意味着曲线之间的
+小间距仍然代表着显著的差异。
+此图展示的是不可抢占RCU，但鉴于可抢占RCU的
+读侧开销仅约三纳秒，其图形将与
+\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}
+几乎相同。
 
 \QuickQuiz{
-	Why the larger error ranges for the submicrosecond durations in
-	\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}?
+	为什么
+	\cref{fig:defer:Comparison of RCU to Reader-Writer Locking as Function of Critical-Section Duration}
+	中亚微秒持续时间的误差范围更大？
 }\QuickQuizAnswer{
-	Because smaller disturbances result in greater relative errors
-	for smaller measurements.
-	Also, the Linux kernel's \co{ndelay()} nanosecond-scale primitive
-	is (as of 2020) less accurate than is the \co{udelay()} primitive
-	used for the data for durations of a microsecond or more.
-	It is instructive to compare to the zero-length case shown in
-	\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}.
+	因为较小的干扰对较小的测量值造成
+	更大的相对误差。
+	此外，Linux内核的\co{ndelay()}纳秒级原语
+	（截至2020年）不如用于
+	微秒及以上持续时间数据的\co{udelay()}原语精确。
+	将其与
+	\cref{fig:defer:Performance Advantage of RCU Over Reader-Writer Locking}
+	中所示的零长度情况进行比较很有启发性。
 }\QuickQuizEnd
 
-There are three traces for reader-writer locking, with the upper trace
-being for 100~CPUs, the next for 10~CPUs, and the lowest for 1~CPU\@.
-The greater the number of CPUs and the shorter the critical sections,
-the greater is RCU's performance advantage.
-These performance advantages are underscored by the fact that 100-CPU
-systems are no longer uncommon and that a number of system calls (and
-thus any RCU read-side critical sections that they contain) complete
-within microseconds.
+读写锁有三条曲线，最上面的是100个CPU，
+接下来是10个CPU，最下面的是1个CPU。
+CPU数量越多、临界区越短，
+RCU的性能优势越大。
+以下事实进一步凸显了这些性能优势：
+100 CPU的系统已不再罕见，
+而且许多系统调用（因此它们包含的任何RCU read-side
+critical section）在微秒内完成。
 
-In addition, as is discussed in the next paragraph,
-RCU read-side primitives are almost entirely deadlock-immune.
+此外，如下一段所讨论的，
+RCU读侧原语几乎完全免疫死锁。
 
 
-\paragraph{Deadlock Immunity}
+\paragraph{死锁免疫}
 
-Although RCU offers significant performance advantages for
-read-mostly workloads, one of the primary reasons for creating
-RCU in the first place was in fact its immunity to read-side
-deadlocks.
-This immunity stems from the fact that
-RCU read-side primitives do not block, spin, or even
-do backwards branches, so that their execution time is deterministic.
-It is therefore impossible for them to participate in a deadlock
-cycle.
+虽然RCU为读密集工作负载提供了显著的性能优势，
+创建RCU的主要原因之一实际上是它对读侧
+死锁的免疫。
+这种免疫源于RCU读侧原语不阻塞、不自旋、
+甚至不进行后向分支的事实，因此它们的执行时间是确定的。
+因此它们不可能参与死锁循环。
 
 \QuickQuiz{
-	Is there an exception to this deadlock immunity, and if so,
-	what sequence of events could lead to deadlock?
+	这种死锁免疫有没有例外？如果有的话，
+	什么事件序列可能导致死锁？
 }\QuickQuizAnswer{
-	One way to cause a deadlock cycle involving
-	RCU read-side primitives is via the following (illegal) sequence
-	of statements:
+	导致涉及RCU读侧原语的死锁循环的一种方式是
+	通过以下（非法的）语句序列：
 
 \begin{VerbatimU}
 rcu_read_lock();
@@ -1214,40 +1158,37 @@ synchronize_rcu();
 rcu_read_unlock();
 \end{VerbatimU}
 
-	The \co{synchronize_rcu()} cannot return until all
-	pre-existing RCU read-side critical sections complete, but
-	is enclosed in an RCU read-side critical section that cannot
-	complete until the \co{synchronize_rcu()} returns.
-	The result is a classic self-deadlock---you get the same
-	effect when attempting to write-acquire a reader-writer lock
-	while read-holding it.
+	\co{synchronize_rcu()}不能在所有已有的
+	RCU read-side critical section完成之前返回，
+	但它被包含在一个RCU read-side critical section中，
+	而该临界区不能在\co{synchronize_rcu()}返回之前完成。
+	结果是经典的自死锁——当你试图在
+	读持有读写锁时进行写获取时，效果相同。
 
-	Note that this self-deadlock scenario does not apply to
-	RCU QSBR, because the context switch performed by the
-	\co{synchronize_rcu()} would act as a quiescent state
-	for this CPU, allowing a grace period to complete.
-	However, this is if anything even worse, because data used
-	by the RCU read-side critical section might be freed as a
-	result of the grace period completing.
-	Plus Linux kernel's lockdep facility will yell at you.
+	请注意，此自死锁场景不适用于RCU QSBR，
+	因为\co{synchronize_rcu()}执行的上下文切换
+	将充当此CPU的quiescent state，
+	从而允许grace period完成。
+	然而，如果说这更糟也不为过，因为
+	RCU read-side critical section使用的数据可能
+	由于grace period完成而被释放。
+	而且Linux内核的lockdep设施会对你发出警告。
 
-	In short, do not invoke synchronous RCU update-side primitives, which
-	are listed in
-	\cref{tab:defer:RCU Wait-to-Finish APIs},
-	from within an RCU read-side critical section.
+	简而言之，不要在RCU read-side critical section内
+	调用同步的RCU更新侧原语，
+	这些原语列在
+	\cref{tab:defer:RCU Wait-to-Finish APIs}中。
 
-	In addition, within the Linux kernel, RCU uses the scheduler
-	and the scheduler uses RCU\@.
-	In some cases, both RCU and the scheduler must take care to
-	avoid deadlock.
+	此外，在Linux内核中，RCU使用调度器，
+	调度器也使用RCU。
+	在某些情况下，RCU和调度器都必须小心
+	以避免死锁。
 }\QuickQuizEnd
 
-An interesting consequence of RCU's read-side deadlock immunity is
-that it is possible to unconditionally upgrade an RCU
-reader to an RCU updater.
-Attempting to do such an upgrade with reader-writer locking results
-in deadlock.
-A sample code fragment that does an RCU read-to-update upgrade follows:
+RCU读侧死锁免疫的一个有趣后果是，
+可以无条件地将RCU读者升级为RCU更新者。
+使用读写锁尝试这样的升级会导致死锁。
+以下代码片段展示了RCU读到更新的升级：
 
 \begin{VerbatimN}[samepage=true]
 rcu_read_lock();
@@ -1262,219 +1203,208 @@ list_for_each_entry_rcu(p, &head, list_field) {
 rcu_read_unlock();
 \end{VerbatimN}
 
-Note that \co{do_update()} is executed under
-the protection of the lock \emph{and} under RCU read-side protection.
+请注意\co{do_update()}在锁的保护\emph{和}
+RCU读侧保护下执行。
 
-Another interesting consequence of RCU's deadlock immunity is its
-immunity to a large class of priority inversion problems.
-For example, low-priority RCU readers cannot prevent a high-priority
-RCU updater from acquiring the update-side lock.
-Similarly, a low-priority RCU updater cannot prevent high-priority
-RCU readers from entering an RCU read-side critical section.
+RCU死锁免疫的另一个有趣后果是它对
+大量优先级反转问题的免疫。
+例如，低优先级的RCU读者不能阻止高优先级的
+RCU更新者获取更新侧锁。
+类似地，低优先级的RCU更新者不能阻止高优先级的
+RCU读者进入RCU read-side critical section。
 
 \QuickQuiz{
-	Immunity to both deadlock and priority inversion???
-	Sounds too good to be true.
-	Why should I believe that this is even possible?
+	既免疫死锁又免疫优先级反转？？？
+	听起来好得不像真的。
+	我凭什么相信这是可能的？
 }\QuickQuizAnswer{
-	It really does work.
-	After all, if it didn't work, the Linux kernel would not run.
+	它确实有效。
+	毕竟，如果它不能工作，Linux内核就无法运行。
 }\QuickQuizEnd
 
-\paragraph{Realtime Latency}
+\paragraph{实时延迟}
 
-Because RCU read-side primitives neither spin nor block, they offer
-excellent realtime latencies.
-In addition, as noted earlier, this means that they are
-immune to priority inversion
-involving the RCU read-side primitives and locks.
+因为RCU读侧原语既不自旋也不阻塞，
+它们提供了极好的实时延迟。
+此外，如前所述，这意味着它们
+免疫涉及RCU读侧原语和锁的优先级反转。
 
-However, RCU is susceptible to more subtle priority-inversion scenarios,
-for example, a high-priority process blocked waiting for an RCU
-grace period to elapse can be blocked by low-priority RCU readers
-in \rt\ kernels.
-This can be solved by using RCU priority
-boosting~\cite{PaulEMcKenney2007BoostRCU,DinakarGuniguntala2008IBMSysJ}.
+然而，RCU容易受到更微妙的优先级反转场景的影响，
+例如，在\rt\ 内核中，等待RCU grace period过去的
+高优先级进程可能被低优先级的RCU读者阻塞。
+这可以通过使用RCU优先级
+提升~\cite{PaulEMcKenney2007BoostRCU,DinakarGuniguntala2008IBMSysJ}来解决。
 
-However, use of RCU priority boosting requires that \co{rcu_read_unlock()}
-do deboosting, which entails acquiring scheduler locks.
-Some care is therefore required within the scheduler and RCU to avoid
-deadlocks, which as of the v5.15 Linux kernel requires RCU to avoid
-invoking the scheduler while holding any of RCU's locks.
+然而，使用RCU优先级提升要求\co{rcu_read_unlock()}
+执行降优先级操作，这需要获取调度器锁。
+因此，在调度器和RCU中需要一些小心来避免
+死锁，截至v5.15 Linux内核，这要求RCU在持有
+任何RCU锁时避免调用调度器。
 
-This in turn means that \co{rcu_read_unlock()} is not always lockless
-when RCU priority boosting is enabled.
-However, \co{rcu_read_unlock()} will still be lockless if its
-critical section was not priority-boosted.
-Furthermore, critical sections will not be priority boosted unless they
-are preempted, or, in -rt kernels, they acquire non-raw spinlocks.
-This means that \co{rcu_read_unlock()} will normally be lockless from the
-perspective of the highest priority task running on any given CPU.
+这反过来意味着当启用RCU优先级提升时，
+\co{rcu_read_unlock()}并不总是无锁的。
+然而，如果其临界区没有被优先级提升，
+\co{rcu_read_unlock()}仍然是无锁的。
+此外，除非临界区被抢占，或者在-rt内核中获取了
+非原始自旋锁，否则不会对临界区进行优先级提升。
+这意味着从任何给定CPU上运行的最高优先级任务的
+角度来看，\co{rcu_read_unlock()}通常是无锁的。
 
-\paragraph{RCU Readers and Updaters Run Concurrently}
+\paragraph{RCU读者和更新者并发运行}
 
-Because RCU readers never spin nor block, and because updaters are not
-subject to any sort of rollback or abort semantics, RCU readers and
-updaters really can run concurrently.
-This means that RCU readers might access stale data, and might even
-see inconsistencies, either of which can render conversion from reader-writer
-locking to RCU non-trivial.
+因为RCU读者永远不自旋也不阻塞，而且更新者
+不受任何形式的回滚或中止语义的约束，
+RCU读者和更新者确实可以并发运行。
+这意味着RCU读者可能访问过时数据，甚至可能
+看到不一致性，这两者都可能使从读写锁
+到RCU的转换变得不简单。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/rwlockRCUupdate}}
-\caption{Response Time of RCU vs.\@ Reader-Writer Locking}
+\caption{RCU与读写锁的响应时间对比}
 \label{fig:defer:Response Time of RCU vs. Reader-Writer Locking}
 \end{figure}
 
-However, in a surprisingly large number of situations, inconsistencies and
-stale data are not problems.
-The classic example is the networking routing table.
-Because routing updates can take considerable time to reach a given
-system (seconds or even minutes), the system will have been sending
-packets the wrong way for quite some time when the update arrives.
-It is usually not a problem to continue sending updates the wrong
-way for a few additional milliseconds.
-Furthermore, because RCU updaters can make changes without waiting for
-RCU readers to finish,
-the RCU readers might well see the change more quickly than would
-batch-fair
-reader-writer-locking readers, as shown in
-\cref{fig:defer:Response Time of RCU vs. Reader-Writer Locking}.
-This faster RCU response time has since been corroborated (if perhaps
-a bit unrealistically) by Markov-model
-analysis~\cite[Figures 3 and 5]{VishakhaRamani2023LockBasedLocklessFresh}.
+然而，在数量惊人的场景中，不一致性和
+过时数据并不是问题。
+经典的例子是网络路由表。
+因为路由更新可能需要相当长的时间才能到达给定
+系统（数秒甚至数分钟），在更新到达时，
+系统早已按错误的方式发送了数据包相当长一段时间。
+继续按错误的方式多发送几毫秒数据包
+通常不是问题。
+此外，因为RCU更新者可以在不等待RCU读者完成的情况下
+进行更改，RCU读者很可能比
+批量公平的读写锁读者更快地看到更改，如
+\cref{fig:defer:Response Time of RCU vs. Reader-Writer Locking}所示。
+这种更快的RCU响应时间后来也被Markov模型
+分析所证实（虽然可能有些不切实际）~\cite[Figures 3 and 5]{VishakhaRamani2023LockBasedLocklessFresh}。
 
 \QuickQuiz{
-	But how many other algorithms really tolerate stale and
-	inconsistent data?
+	但究竟有多少其他算法真正容忍过时和
+	不一致的数据？
 }\QuickQuizAnswer{
-	Quite a few!
+	相当多！
 
-	Please keep in mind that the finite speed of light means that
-	data reaching a given computer system is at least slightly stale
-	at the time that it arrives, and extremely stale in the case
-	of astronomical data.
-	The finite speed of light also places a sharp limit on the
-	consistency of data arriving from different sources or via
-	different paths.
+	请记住，光速有限意味着
+	到达给定计算机系统的数据在到达时至少略有过时，
+	对于天文数据来说则极其过时。
+	光速有限也对来自不同来源或通过
+	不同路径到达的数据的一致性设定了严格的限制。
 
-	You might as well face the fact that the laws of physics
-	are incompatible with naive notions of perfect freshness and
-	consistency.
+	你不妨正视这样一个事实：物理定律
+	与对完美新鲜度和一致性的朴素观念
+	是不兼容的。
 }\QuickQuizEnd
 
-Once the update is received, the rwlock writer cannot proceed until the
-last reader completes, and subsequent readers cannot proceed until the
-writer completes.
-However, these subsequent readers are guaranteed to see the new value,
-as indicated by the green shading of the rightmost boxes.
-In contrast, RCU readers and updaters do not block each other, which permits
-the RCU readers to see the updated values sooner.
-Of course, because their execution overlaps that of the RCU updater,
-\emph{all} of the RCU readers might well see updated values, including
-the three readers that started before the update.
-Nevertheless only the green-shaded rightmost RCU readers
-are \emph{guaranteed} to see the updated values.
+一旦收到更新，rwlock写者不能在最后一个读者完成之前
+继续，后续读者也不能在写者完成之前继续。
+然而，这些后续读者保证能看到新值，
+如最右边方框的绿色底纹所示。
+相比之下，RCU读者和更新者不会互相阻塞，这允许
+RCU读者更快地看到更新后的值。
+当然，因为它们的执行与RCU更新者重叠，
+\emph{所有}RCU读者都很可能看到更新后的值，包括
+在更新之前开始的三个读者。
+尽管如此，只有绿色底纹的最右边RCU读者
+才\emph{保证}能看到更新后的值。
 
-Reader-writer locking and RCU simply provide different guarantees.
-With reader-writer locking, any reader that begins after the writer begins
-is guaranteed to see new values, and any reader that attempts to
-begin while the writer is spinning might or might not see new values,
-depending on the reader/writer preference of the rwlock implementation in
-question.
-In contrast, with RCU, any reader that begins after the updater completes
-is guaranteed to see new values, and any reader that completes after the
-updater begins might or might not see new values, depending on timing.
+读写锁和RCU只是提供不同的保证。
+对于读写锁，在写者开始之后开始的任何读者
+都保证能看到新值，而在写者自旋期间
+试图开始的任何读者可能看到也可能看不到新值，
+取决于所涉及的rwlock实现的读者/写者优先级。
+相比之下，对于RCU，在更新者完成之后开始的任何读者
+都保证能看到新值，而在更新者开始之后完成的
+任何读者可能看到也可能看不到新值，取决于时序。
 
-The key point here is that, although reader-writer locking does
-indeed guarantee consistency within the confines of the computer system,
-there are situations where this consistency comes at the price of
-increased \emph{inconsistency} with the outside world, courtesy of
-the finite speed of light and the non-zero size of atoms.
-In other words, reader-writer locking obtains internal consistency at the
-price of silently stale data with respect to the outside world.
+这里的关键点是，虽然读写锁确实
+在计算机系统的范围内保证了一致性，
+但有些情况下这种一致性的代价是
+与外部世界增加的\emph{不一致性}，
+这要归因于有限的光速和原子的非零大小。
+换句话说，读写锁以对外部世界数据的
+无声过时为代价获取了内部一致性。
 
-Note that if a value is computed while read-holding a reader-writer
-lock, and then that value is used after that lock is released, then
-this reader-writer-locking use case is using stale data.
-After all, the quantities that this value is based on could change
-at any time after that lock is released.
-This sort of reader-writer-locking use case is often easy to
-convert to RCU, as will be shown in
-\cref{lst:defer:Converting Reader-Writer Locking to RCU: Data,%
+请注意，如果在读持有读写锁时计算了一个值，
+然后在释放该锁后使用该值，则
+这种读写锁的使用场景就是在使用过时数据。
+毕竟，该值所基于的量可以在锁释放后
+随时更改。
+这类读写锁使用场景通常很容易转换为RCU，
+如\cref{lst:defer:Converting Reader-Writer Locking to RCU: Data,%
 lst:defer:Converting Reader-Writer Locking to RCU: Search,%
 lst:defer:Converting Reader-Writer Locking to RCU: Deletion}
-and the accompanying text.
+及其附带文字所示。
 
-\paragraph{Low-Priority RCU Readers Can Block High-Priority Reclaimers}
+\paragraph{低优先级RCU读者可阻塞高优先级回收者}
 
-In Realtime RCU~\cite{DinakarGuniguntala2008IBMSysJ} or
-SRCU~\cite{PaulEMcKenney2006c},
-a preempted reader will prevent a grace period from completing, even if
-a high-priority task is blocked waiting for that grace period to complete.
-Realtime RCU can avoid this problem by substituting \co{call_rcu()}
-for \co{synchronize_rcu()} or by using RCU priority
-boosting~\cite{PaulEMcKenney2007BoostRCU,DinakarGuniguntala2008IBMSysJ}.
-It might someday be necessary to augment SRCU and RCU Tasks Trace with
-priority boosting, but not before a clear real-world need is demonstrated.
+在Realtime RCU~\cite{DinakarGuniguntala2008IBMSysJ}或
+SRCU~\cite{PaulEMcKenney2006c}中，
+被抢占的读者会阻止grace period完成，即使
+有高优先级任务在等待该grace period完成而阻塞。
+Realtime RCU可以通过用\co{call_rcu()}
+替代\co{synchronize_rcu()}或通过使用RCU优先级
+提升~\cite{PaulEMcKenney2007BoostRCU,DinakarGuniguntala2008IBMSysJ}
+来避免这个问题。
+将来可能有必要为SRCU和RCU Tasks Trace
+增加优先级提升，但在明确的现实需求被证明之前不会这样做。
 
 \QuickQuiz{
-	If Tasks RCU Trace might someday be priority boosted, why
-	not also Tasks RCU and Tasks RCU Rude?
+	如果Tasks RCU Trace将来可能被优先级提升，
+	为什么不对Tasks RCU和Tasks RCU Rude也这样做呢？
 }\QuickQuizAnswer{
-	Maybe, but these are less likely.
+	也许可以，但可能性较小。
 
-	In the case of Tasks RCU, recall that the quiescent state is
-	a voluntary context switch.
-	Thus, all tasks not blocked after a voluntary context switch
-	might need to be boosted, and the mechanics of deboosting would
-	not likely be at all pretty.
+	对于Tasks RCU，请回忆quiescent state是
+	自愿的上下文切换。
+	因此，所有在自愿上下文切换后未被阻塞的任务
+	可能都需要被提升，而降优先级的机制
+	可能不会很优雅。
 
-	In the case of Tasks RCU Rude, as was the case with the old
-	RCU Sched, any preemptible region of code is a quiescent state.
-	Thus, the only tasks that might need boosting are those currently
-	running with preemption disabled.
-	But boosting the priority of a preemption-disabled task has no
-	effect.
-	It therefore seems doubly unlikely that priority boosting will
-	ever be introduced to Tasks RCU Rude, at least in its current
-	form.
+	对于Tasks RCU Rude，与旧的RCU Sched一样，
+	任何可抢占的代码区域都是quiescent state。
+	因此，唯一可能需要提升的任务是那些
+	当前在禁用抢占的情况下运行的任务。
+	但提升禁用抢占的任务的优先级没有任何效果。
+	因此，优先级提升被引入Tasks RCU Rude的
+	可能性加倍地小，至少在其当前形式下是如此。
 }\QuickQuizEnd
 
-\paragraph{RCU Grace Periods Extend for Many Milliseconds}
+\paragraph{RCU Grace Period持续数毫秒}
 
-With the exception of userspace
-RCU~\cite{MathieuDesnoyers2009URCU,PaulMcKenney2013LWNURCU},
-expedited grace periods, and several of the ``toy''
-RCU implementations described in
-\cref{chp:app:``Toy'' RCU Implementations},
-RCU grace periods extend milliseconds.
-Although there are a number of techniques to render such long
-delays harmless, including use of the asynchronous interfaces
-(\co{call_rcu()} and \co{call_rcu_bh()}) or of the polling interfaces
-(\co{get_state_synchronize_rcu()}, \co{start_poll_synchronize_rcu()},
-and \co{poll_state_synchronize_rcu()}), this situation is a major reason
-for the rule of thumb that RCU be used in read-mostly situations.
+除了用户空间
+RCU~\cite{MathieuDesnoyers2009URCU,PaulMcKenney2013LWNURCU}、
+加速的grace period以及
+\cref{chp:app:``Toy'' RCU Implementations}中描述的
+几种"玩具"RCU实现外，
+RCU grace period持续数毫秒。
+虽然有许多技术可以使这种长延迟变得无害，
+包括使用异步接口
+（\co{call_rcu()}和\co{call_rcu_bh()}）或轮询接口
+（\co{get_state_synchronize_rcu()}、\co{start_poll_synchronize_rcu()}
+和\co{poll_state_synchronize_rcu()}），
+但这种情况是RCU应当用于读密集场景这一
+经验法则的主要原因。
 
-As noted in \cref{sec:defer:RCU Linux-Kernel API}, within the Linux
-kernel, shorter grace periods may be obtained via expedited grace
-periods, for example, by invoking \co{synchronize_rcu_expedited()}
-instead of \co{synchronize_rcu()}.
-Expedited grace periods can reduce delays to as little as a few tens of
-microseconds, albeit at the expense of higher CPU utilization and IPIs.
-The added IPIs can be especially unwelcome in some real-time workloads.
+如\cref{sec:defer:RCU Linux-Kernel API}所述，在Linux
+内核中，可以通过加速的grace period获得更短的grace period，
+例如，调用\co{synchronize_rcu_expedited()}
+而不是\co{synchronize_rcu()}。
+加速的grace period可以将延迟减少到数十微秒，
+但代价是更高的CPU使用率和IPI。
+额外的IPI在某些实时工作负载中尤其不受欢迎。
 
-\paragraph{Code:
-		 Reader-Writer Locking vs.\@ RCU}
+\paragraph{代码：
+		 读写锁 vs.\@ RCU}
 
-In the best case, the conversion from reader-writer locking to RCU
-is quite simple, as shown in
+在最佳情况下，从读写锁到RCU的转换
+非常简单，如
 \cref{lst:defer:Converting Reader-Writer Locking to RCU: Data,%
 lst:defer:Converting Reader-Writer Locking to RCU: Search,%
-lst:defer:Converting Reader-Writer Locking to RCU: Deletion},
-all taken from
-Wikipedia~\cite{WikipediaRCU}.
+lst:defer:Converting Reader-Writer Locking to RCU: Deletion}所示，
+均来自Wikipedia~\cite{WikipediaRCU}。
 
 \begin{listing*}
 { \scriptsize
@@ -1492,8 +1422,8 @@ Wikipedia~\cite{WikipediaRCU}.
 }
 \hspace*{0.9in}\OneColumnHSpace{-0.5in}
 \IfEbookSize{\hspace*{-1.05in}}{}\theverbbox
-\caption{Converting Reader-Writer Locking to RCU\@:
-						    Data}
+\caption{将读写锁转换为RCU：
+						    数据}
 \label{lst:defer:Converting Reader-Writer Locking to RCU: Data}
 \end{listing*}
 
@@ -1519,8 +1449,8 @@ Wikipedia~\cite{WikipediaRCU}.
 }
 \hspace*{0.9in}\OneColumnHSpace{-0.5in}
 \IfEbookSize{\hspace*{-1.05in}}{}\theverbbox
-\caption{Converting Reader-Writer Locking to RCU\@:
-						    Search}
+\caption{将读写锁转换为RCU：
+						    搜索}
 \label{lst:defer:Converting Reader-Writer Locking to RCU: Search}
 \end{listing*}
 
@@ -1548,269 +1478,247 @@ Wikipedia~\cite{WikipediaRCU}.
 }
 \hspace*{0.9in}\OneColumnHSpace{-0.5in}
 \IfEbookSize{\hspace*{-1.05in}}{}\theverbbox
-\caption{Converting Reader-Writer Locking to RCU\@:
-						    Deletion}
+\caption{将读写锁转换为RCU：
+						    删除}
 \label{lst:defer:Converting Reader-Writer Locking to RCU: Deletion}
 \end{listing*}
 
-However, the transformation is not always this straightforward.
-This is because neither the \co{spin_lock()} nor the
-\co{synchronize_rcu()} in
-\cref{lst:defer:Converting Reader-Writer Locking to RCU: Deletion}
-exclude the readers in
-\cref{lst:defer:Converting Reader-Writer Locking to RCU: Search}.
-First, the \co{spin_lock()} does not interact in any way with
-\co{rcu_read_lock()} and \co{rcu_read_unlock()}, thus not excluding them.
-Second, although both \co{write_lock()} and \co{synchronize_rcu()}
-wait for pre-existing readers, only \co{write_lock()} prevents
-subsequent readers from commencing.\footnote{
-	Kudos to whoever pointed this out to Paul.}
-Thus, \co{synchronize_rcu()} cannot exclude readers.
-Nevertheless, a great many situations using reader-writer locking can
-be converted to RCU\@.
+然而，转换并不总是这么直接。
+这是因为\cref{lst:defer:Converting Reader-Writer Locking to RCU: Deletion}
+中的\co{spin_lock()}和\co{synchronize_rcu()}
+都不排斥\cref{lst:defer:Converting Reader-Writer Locking to RCU: Search}
+中的读者。
+首先，\co{spin_lock()}与\co{rcu_read_lock()}和
+\co{rcu_read_unlock()}没有任何交互，因此不排斥它们。
+其次，虽然\co{write_lock()}和\co{synchronize_rcu()}
+都等待已有读者完成，但只有\co{write_lock()}阻止
+后续读者开始。\footnote{
+	感谢向Paul指出这一点的人。}
+因此，\co{synchronize_rcu()}无法排斥读者。
+尽管如此，使用读写锁的大量场景
+都可以转换为RCU。
 
-More-elaborate cases of replacing reader-writer locking with RCU
-may be found
-elsewhere~\cite{NeilBrown2015PathnameLookup,NeilBrown2015RCUwalk}.
+更复杂的用RCU替换读写锁的案例可以在其他地方找到~\cite{NeilBrown2015PathnameLookup,NeilBrown2015RCUwalk}。
 
-\paragraph{Semantics:
-		      Reader-Writer Locking vs.\@ RCU}
+\paragraph{语义：
+		      读写锁 vs.\@ RCU}
 
-Expanding on the previous section, reader-writer locking semantics can
-be roughly and informally summarized by the following three temporal
-constraints:
+在上一节的基础上扩展，读写锁的语义可以
+粗略且非正式地概括为以下三个时间约束：
 
 \begin{enumerate}
-\item	Write-side acquisitions wait for any read-holders to release
-	the lock.
-\item	Write-side acquisitions wait for any write-holder to release
-	the lock.
-\item	Read-side acquisitions wait for any write-holder to release
-	the lock.
+\item	写侧获取等待任何读持有者释放锁。
+\item	写侧获取等待任何写持有者释放锁。
+\item	读侧获取等待任何写持有者释放锁。
 \end{enumerate}
 
-RCU dispenses entirely with constraint~\#3 and weakens the other two
-as follows:
+RCU完全消除了约束\#3，并将其他两个弱化如下：
 
 \begin{enumerate}
-\item	Writers wait for any pre-existing read-holders before progressing
-	to the destructive phase of their update (usually the freeing of
-	memory).
-\item	Writers synchronize with each other as needed.
+\item	写者在进入更新的破坏性阶段（通常是
+	释放内存）之前等待任何已有的读持有者完成。
+\item	写者之间根据需要进行同步。
 \end{enumerate}
 
-It is of course this weakening that permits RCU implementations to attain
-excellent performance and scalability.
-It also allows RCU to implement the aforementioned unconditional
-read-to-write upgrade that is so attractive and so deadlock-prone in
-reader-writer locking.
-Code using RCU can compensate for this weakening in a surprisingly large
-number of ways, but most commonly by imposing spatial constraints:
+正是这种弱化使得RCU实现能够获得
+出色的性能和可扩展性。
+它也允许RCU实现前面提到的无条件
+读到写升级，这在读写锁中既吸引人又容易死锁。
+使用RCU的代码可以通过数量惊人的
+方式来弥补这种弱化，但最常见的是施加空间约束：
 
 \begin{enumerate}
-\item	New data is placed in newly allocated memory.
-\item	Old data is freed, but only after:
+\item	新数据被放置在新分配的内存中。
+\item	旧数据被释放，但仅在以下条件满足后：
 	\begin{enumerate}
-	\item	That data has been unlinked so as to be inaccessible
-		to later readers, and
-	\item	A subsequent RCU grace period has elapsed.
+	\item	该数据已被断开链接使其对后续读者不可访问，且
+	\item	随后的一个RCU grace period已经过去。
 	\end{enumerate}
 \end{enumerate}
 
-Of course, there are some reader-writer-locking use cases for which
-RCU's weakened semantics are inappropriate, but experience in the Linux
-kernel indicates that more than 80\pct\ of reader-writer locks can in fact
-be replaced by RCU\@.
-For example, a common reader-writer-locking use case computes some value
-while holding the lock and then uses that value after releasing that lock.
-This use case results in stale data, and therefore often accommodates
-RCU's weaker semantics.
+当然，有些读写锁用例的语义不适合
+RCU的弱化语义，但Linux内核中的经验表明
+超过80\pct\ 的读写锁实际上可以被RCU替换。
+例如，一个常见的读写锁用例是在持有锁时计算某个值，
+然后在释放该锁后使用该值。
+这种用例导致使用过时数据，因此通常能够适应
+RCU的较弱语义。
 
 \begin{listing}
 \input{CodeSamples/defer/singleton@get.fcv}
-\caption{RCU Singleton Get}
+\caption{RCU单例获取}
 \label{lst:defer:Singleton Get}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/singleton@set.fcv}
-\caption{RCU Singleton Set}
+\caption{RCU单例设置}
 \label{lst:defer:Singleton Set}
 \end{listing}
 
 \begin{fcvref}[ln:defer:singleton:get]
-This interaction of temporal and spatial constraints is illustrated
-by the RCU singleton data structure illustrated in
-\cref{fig:defer:Insertion With Concurrent Readers,fig:defer:Deletion With Concurrent Readers}.
-This structure is defined on \clnrefrange{myconfig.b}{myconfig.e} of
-\cref{lst:defer:Singleton Get}, and contains two integer fields,
-\co{->a} and \co{->b} (\path{singleton.c}).
-The current instance of this structure is referenced by the \co{curconfig}
-pointer defined on \clnref{myconfig.e}.
+时间约束和空间约束的这种交互通过
+\cref{fig:defer:Insertion With Concurrent Readers,fig:defer:Deletion With Concurrent Readers}
+中所示的RCU单例数据结构来说明。
+此结构定义在\cref{lst:defer:Singleton Get}的
+\clnrefrange{myconfig.b}{myconfig.e}，包含两个整数字段
+\co{->a}和\co{->b}（\path{singleton.c}）。
+此结构的当前实例由\clnref{myconfig.e}上定义的
+\co{curconfig}指针引用。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:singleton:get]
-The fields of the current structure are passed back through the
-\co{cur_a} and \co{cur_b} parameters to the \co{get_config()} function
-defined on \clnrefrange{get_config.b}{get_config.e}.
-These two fields can be slightly out of date, but they absolutely must
-be consistent with each other.
-The \co{get_config()} function provides this consistency
-within the RCU read-side critical section starting on
-\clnref{rrl} and ending on either \clnref{rrul1} or \clnref{rrul2},
-which provides the needed temporal synchronization.
-\Clnref{rderef} fetches the pointer to the current \co{myconfig} structure.
-This structure will be used regardless of any concurrent changes due
-to calls to the \co{set_config()} function, thus providing the needed
-spatial synchronization.
-If \clnref{nullchk} determines that the \co{curconfig} pointer was
-\co{NULL}, \clnref{retfail} returns failure.
-Otherwise, \clnref{copya,copyb} copy out the \co{->a} and \co{->b} fields
-and \clnref{retsuccess} returns success.
-These \co{->a} and \co{->b} fields are from the same \co{myconfig}
-structure, and the RCU read-side critical section prevents this structure
-from being freed, thus guaranteeing that these two fields are consistent
-with each other.
+当前结构的字段通过\co{cur_a}和\co{cur_b}参数
+传回给定义在\clnrefrange{get_config.b}{get_config.e}上的
+\co{get_config()}函数。
+这两个字段可以略微过时，但它们绝对必须
+彼此一致。
+\co{get_config()}函数在从\clnref{rrl}开始、
+在\clnref{rrul1}或\clnref{rrul2}结束的
+RCU read-side critical section内提供这种一致性，
+从而提供所需的时间同步。
+\Clnref{rderef}获取指向当前\co{myconfig}结构的指针。
+无论由于\co{set_config()}函数的调用而发生的任何并发更改，
+此结构都将被使用，从而提供所需的空间同步。
+如果\clnref{nullchk}确定\co{curconfig}指针为\co{NULL}，
+\clnref{retfail}返回失败。
+否则，\clnref{copya,copyb}复制出\co{->a}和\co{->b}字段，
+\clnref{retsuccess}返回成功。
+这些\co{->a}和\co{->b}字段来自同一个\co{myconfig}
+结构，而RCU read-side critical section阻止此结构
+被释放，从而保证这两个字段彼此一致。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:singleton:set]
-The structure is updated by the \co{set_config()} function shown in
-\cref{lst:defer:Singleton Set}.
-\Clnrefrange{allocinit.b}{allocinit.e} allocate and initialize a
-new \co{myconfig} structure.
-\Clnref{xchg} atomically exchanges a pointer to this new structure with
-the pointer to the old structure in \co{curconfig}, while also providing
-full memory ordering both before and after the \co{xchg()} operation,
-thus providing the needed updater/reader spatial synchronization on
-the one hand and the needed updater/updater synchronization on the other.
-If \clnref{if} determines that the pointer to the old structure was
-in fact non-\co{NULL}, \clnref{sr} waits for a grace period (thus providing
-the needed reader/updater temporal synchronization) and \clnref{free}
-frees the old structure, safe in the knowledge that there are no
-longer any readers still referencing it.
+该结构由\cref{lst:defer:Singleton Set}中所示的
+\co{set_config()}函数更新。
+\Clnrefrange{allocinit.b}{allocinit.e}分配并初始化
+一个新的\co{myconfig}结构。
+\Clnref{xchg}原子地将指向此新结构的指针与
+\co{curconfig}中指向旧结构的指针交换，
+同时在\co{xchg()}操作前后提供完整的内存排序，
+从而一方面提供所需的更新者/读者空间同步，
+另一方面提供所需的更新者/更新者同步。
+如果\clnref{if}确定指向旧结构的指针确实
+非\co{NULL}，\clnref{sr}等待一个grace period（从而提供
+所需的读者/更新者时间同步），\clnref{free}
+释放旧结构，确信不再有任何读者仍在引用它。
 \end{fcvref}
 
 \begin{figure*}
 \centering
 \resizebox{\onecolumntextwidth}{!}{\includegraphics{defer/RCUspacetime}}
-\caption{RCU Spatial/Temporal Synchronization}
+\caption{RCU空间/时间同步}
 \label{fig:defer:RCU Spatial/Temporal Synchronization}
 \end{figure*}
 
-\Cref{fig:defer:RCU Spatial/Temporal Synchronization} shows an abbreviated
-representation of \co{get_config()} on the left and right and a similarly
-abbreviated representation of \co{set_config()} in the middle.
-Time advances from top to bottom, and the address space of the objects
-referenced by \co{curconfig} advances from left to right.
-The boxes with comma-separated numbers each represent a \co{myconfig}
-structure, with the constraint that \co{->b} is the square of \co{->a}.
-Each blue dash-dotted arrow represents an interaction with the old structure
-(on the left, containing ``5,25'') and each green dashed arrow represents
-an interaction with the new structure (on the right, containing ``9,81'').
+\Cref{fig:defer:RCU Spatial/Temporal Synchronization}在左右两侧
+展示了\co{get_config()}的简略表示，
+在中间展示了\co{set_config()}的类似简略表示。
+时间从上到下推进，\co{curconfig}引用的对象
+的地址空间从左到右推进。
+带有逗号分隔数字的方框各代表一个\co{myconfig}
+结构，其约束是\co{->b}是\co{->a}的平方。
+每个蓝色的点划线箭头代表与旧结构
+（左侧，包含``5,25''）的交互，每个绿色虚线箭头代表
+与新结构（右侧，包含``9,81''）的交互。
 
-The black dotted arrows represent temporal relationships between RCU readers
-on the left and right and the RCU grace period at center, with each
-arrow pointing from an older event to a newer event.
-The call to \co{synchronize_rcu()} followed the leftmost \co{rcu_read_lock()},
-and therefore that \co{synchronize_rcu()} invocation must not return
-until after the corresponding \co{rcu_read_unlock()}.
-In contrast, the call to \co{synchronize_rcu()} precedes the
-rightmost \co{rcu_read_lock()}, which allows the return from that same
-\co{synchronize_rcu()} to ignore the corresponding \co{rcu_read_unlock()}.
-These temporal relationships prevent the \co{myconfig} structures from
-being freed while RCU readers are still accessing them.
+黑色虚线箭头代表左右RCU读者与中间RCU grace period
+之间的时间关系，每个箭头从较早的事件指向较晚的事件。
+\co{synchronize_rcu()}的调用在最左边的\co{rcu_read_lock()}之后，
+因此该\co{synchronize_rcu()}调用必须在
+对应的\co{rcu_read_unlock()}之后才能返回。
+相比之下，\co{synchronize_rcu()}的调用先于
+最右边的\co{rcu_read_lock()}，
+这允许同一\co{synchronize_rcu()}的返回忽略
+对应的\co{rcu_read_unlock()}。
+这些时间关系阻止了\co{myconfig}结构在
+RCU读者仍在访问时被释放。
 
-The two horizontal grey dashed lines represent the period of time during
-which different readers get different results, however, each reader
-will see one and only one of the two objects.
-All readers that end before the first horizontal line will see the
-leftmost \co{myconfig} structure, and all readers that start after the
-second horizontal line will see the rightmost structure.
-Between the two lines, that is, during the grace period, different
-readers might see different objects, but as long as each reader
-loads the \co{curconfig} pointer only once, each reader will see
-a consistent view of its \co{myconfig} structure.
-
-\QuickQuiz{
-	But doesn't the RCU grace period start sometime after the
-	call to \co{synchronize_rcu()} rather than in the middle
-	of that \co{xchg()} statement?
-}\QuickQuizAnswer{
-	Which grace period, exactly?
-
-	The updater is required to wait for at least one grace
-	period that starts at or some time after the removal,
-	in this case, the \co{xchg()}.
-	So in
-	\cref{fig:defer:RCU Spatial/Temporal Synchronization},
-	the indicated grace period starts as early as theoretically
-	possible and extends to the return from \co{synchronize_rcu()}.
-	This is a perfectly legal grace period corresponding to the
-	change carried out by that \co{xchg()} statement.
-}\QuickQuizEnd
-
-In short, when operating on a suitable linked data structure, RCU
-combines temporal and spatial synchronization in order to approximate
-reader-writer locking, with RCU read-side critical sections acting as
-the reader-writer-locking reader, as shown in
-\cref{fig:defer:Relationships Between RCU Use Cases,fig:defer:RCU Spatial/Temporal Synchronization}.
-RCU's temporal synchronization is provided by the read-side markers,
-for example, \co{rcu_read_lock()} and \co{rcu_read_unlock()}, as well as
-the update-side grace-period primitives, for example, \co{synchronize_rcu()}
-or \co{call_rcu()}.
-The spatial synchronization is provided by the read-side
-\co{rcu_dereference()} family of primitives, each of which subscribes
-to a version published by \co{rcu_assign_pointer()}.\footnote{
-	Preferably with both \co{rcu_dereference()} and
-	\co{rcu_assign_pointer()} being embedded in higher-level APIs.}
-RCU's combining of temporal and spatial synchronization contrasts to
-the schemes presented in
-\cref{sec:SMPdesign:Code Locking,sec:SMPdesign:Data Locking,sec:locking:Inefficiency},
-in which temporal and spatial synchronization are provided separately by
-locking and by static data-structure layout, respectively.
+两条水平灰色虚线代表不同读者获得不同结果的
+时间段，但每个读者只会看到两个对象中的一个。
+在第一条水平线之前结束的所有读者将看到
+最左边的\co{myconfig}结构，而在第二条水平线之后
+开始的所有读者将看到最右边的结构。
+在两条线之间，即在grace period期间，
+不同的读者可能看到不同的对象，但只要每个读者
+只加载\co{curconfig}指针一次，每个读者将看到
+其\co{myconfig}结构的一致视图。
 
 \QuickQuiz{
-	Is RCU the only synchronization mechanism that combines temporal
-	and spatial synchronization in this way?
+	但RCU grace period不是在调用\co{synchronize_rcu()}
+	之后的某个时刻才开始的，而不是在
+	\co{xchg()}语句的中间开始的吗？
 }\QuickQuizAnswer{
-	Not at all.
+	具体是哪个grace period？
 
-	Hazard pointers can be considered to combine temporal and spatial
-	synchronization in a similar manner.
-	Referring to
-	\cref{lst:defer:Hazard-Pointer Recording and Clearing},
-	the \co{hp_record()} function's acquisition of a reference
-	provides both spatial and temporal synchronization, subscribing
-	to a version and marking the start of a reference, respectively.
-	This function therefore combines the effects of RCU's
-	\co{rcu_read_lock()} and \co{rcu_dereference()}.
-	Referring now to
-	\cref{lst:defer:Hazard-Pointer Scanning and Freeing},
-	the \co{hp_clear()} function's release of a reference provides
-	temporal synchronization marking the end of a reference, and is
-	thus similar to RCU's \co{rcu_read_unlock()}.
-	The \co{hazptr_free_later()} function's retiring of a
-	hazard-pointer-protected object provides temporal synchronization,
-	similar to RCU's \co{call_rcu()}.
-	The primitives used to mutate a hazard-pointer-protected
-	structure provide spatial synchronization, similar to RCU's
-	\co{rcu_assign_pointer()}.
-
-	Alternatively, one could instead come at hazard pointers by
-	analogy with reference counting.
-	And, by doing so, learn that reference counting also combines
-	temporal and spatial synchronization as described above for
-	hazard pointers.
+	更新者被要求等待至少一个在移除操作
+	（在本例中为\co{xchg()}）之时或之后开始的grace period。
+	因此在
+	\cref{fig:defer:RCU Spatial/Temporal Synchronization}中，
+	所示的grace period尽可能早地开始，
+	并延伸到\co{synchronize_rcu()}返回。
+	这是一个完全合法的grace period，
+	对应于该\co{xchg()}语句所进行的更改。
 }\QuickQuizEnd
 
-\subsubsection{Quasi Reference Count}
+简而言之，当操作合适的链式数据结构时，RCU
+结合时间和空间同步来近似读写锁，
+其中RCU read-side critical section充当
+读写锁的读者，如
+\cref{fig:defer:Relationships Between RCU Use Cases,fig:defer:RCU Spatial/Temporal Synchronization}所示。
+RCU的时间同步由读侧标记提供，
+例如\co{rcu_read_lock()}和\co{rcu_read_unlock()}，以及
+更新侧grace period原语，例如\co{synchronize_rcu()}
+或\co{call_rcu()}。
+空间同步由读侧的\co{rcu_dereference()}系列原语提供，
+每个原语订阅一个由\co{rcu_assign_pointer()}发布的版本。\footnote{
+	最好是将\co{rcu_dereference()}和
+	\co{rcu_assign_pointer()}都嵌入到更高层的API中。}
+RCU将时间和空间同步相结合，这与
+\cref{sec:SMPdesign:Code Locking,sec:SMPdesign:Data Locking,sec:locking:Inefficiency}
+中展示的方案形成对比，在那些方案中，
+时间和空间同步分别由锁和静态数据结构布局提供。
+
+\QuickQuiz{
+	RCU是唯一以这种方式结合时间和空间同步的
+	同步机制吗？
+}\QuickQuizAnswer{
+	完全不是。
+
+	Hazard pointer可以被认为以类似的方式
+	结合了时间和空间同步。
+	参考\cref{lst:defer:Hazard-Pointer Recording and Clearing}，
+	\co{hp_record()}函数获取引用的操作
+	同时提供空间和时间同步，订阅
+	一个版本并标记引用的开始。
+	因此，此函数结合了RCU的
+	\co{rcu_read_lock()}和\co{rcu_dereference()}的效果。
+	现在参考\cref{lst:defer:Hazard-Pointer Scanning and Freeing}，
+	\co{hp_clear()}函数释放引用的操作
+	提供标记引用结束的时间同步，
+	因此类似于RCU的\co{rcu_read_unlock()}。
+	\co{hazptr_free_later()}函数退役
+	一个受hazard pointer保护的对象提供时间同步，
+	类似于RCU的\co{call_rcu()}。
+	用于变更受hazard pointer保护的结构的原语
+	提供空间同步，类似于RCU的
+	\co{rcu_assign_pointer()}。
+
+	另外，也可以通过与引用计数的类比
+	来理解hazard pointer。
+	这样做就会发现，引用计数也以上述
+	hazard pointer描述的方式结合了
+	时间和空间同步。
+}\QuickQuizEnd
+
+\subsubsection{准引用计数}
 \label{sec:defer:Quasi Reference Count}
 
-Because grace periods are not allowed to complete while
-there is an RCU read-side critical section in progress,
-the RCU read-side primitives may be used as a restricted
-reference-counting mechanism.
-For example, consider the following code fragment:
+因为在有RCU read-side critical section正在进行时
+不允许grace period完成，RCU读侧原语可以
+用作一种受限的引用计数机制。
+例如，考虑以下代码片段：
 
 \begin{VerbatimN}
 rcu_read_lock();  /* acquire reference. */
@@ -1819,18 +1727,18 @@ p = rcu_dereference(head);
 rcu_read_unlock();  /* release reference. */
 \end{VerbatimN}
 
-The combination of the \co{rcu_read_lock()} and \co{rcu_dereference()}
-primitives can be thought of as acquiring a reference to \co{p},
-because a grace period starting after the \co{rcu_dereference()}
-assignment to \co{p} cannot possibly end until after we reach the matching
-\co{rcu_read_unlock()}.
-This reference-counting scheme is restricted in that it is forbidden
-to wait for RCU grace periods within RCU read-side critical sections,
-and also forbidden to hand off an RCU read-side critical section's
-references from one task to another.
+\co{rcu_read_lock()}和\co{rcu_dereference()}
+原语的组合可以被看作是获取了对\co{p}的引用，
+因为在\co{rcu_dereference()}赋值给\co{p}之后
+开始的grace period不可能在我们到达匹配的
+\co{rcu_read_unlock()}之前结束。
+这种引用计数方案是受限的，因为在RCU read-side
+critical section内禁止等待RCU grace period，
+也禁止将一个RCU read-side critical section
+的引用从一个任务传递给另一个任务。
 
-Regardless of these restrictions,
-the following code can safely delete \co{p}:
+不管这些限制如何，
+以下代码可以安全地删除\co{p}：
 
 \begin{VerbatimN}
 spin_lock(&mylock);
@@ -1842,306 +1750,287 @@ synchronize_rcu();
 kfree(p);
 \end{VerbatimN}
 
-The assignment to \co{head} prevents any future references
-to \co{p} from being acquired, and the \co{synchronize_rcu()}
-waits for any previously acquired references to be released.
+对\co{head}的赋值阻止了任何将来对\co{p}的
+引用被获取，而\co{synchronize_rcu()}
+等待任何先前获取的引用被释放。
 
 \QuickQuiz{
-	But wait!
-	This is exactly the same code that might be used when thinking
-	of RCU as a replacement for reader-writer locking!
-	What gives?
+	但等等！
+	这与将RCU视为读写锁替代品时
+	可能使用的代码完全相同！
+	这是怎么回事？
 }\QuickQuizAnswer{
-	This is an effect of the Law of Toy Examples:
-	Beyond a certain point, the code fragments look the same.
-	The only difference is in how we think about the code.
-	For example, what does an \co{atomic_inc()} operation do?
-	It might be acquiring another explicit reference to an object
-	to which we already have a reference, it might be incrementing
-	an often-read/seldom-updated statistical counter, it might
-	be checking into an HPC-style barrier, or any of a number of
-	other things.
+	这是玩具示例定律的效果：
+	超过某一点后，代码片段看起来都一样。
+	唯一的区别在于我们如何思考代码。
+	例如，一个\co{atomic_inc()}操作做什么？
+	它可能是在获取我们已有引用的对象的
+	另一个显式引用，可能是递增
+	一个经常读/偶尔更新的统计计数器，
+	可能是签入一个HPC风格的barrier，
+	或者许多其他事情中的任何一个。
 
-	However, these differences can be extremely important.
-	For but one example of the importance, consider that if we think
-	of RCU as a restricted reference counting scheme, we would never
-	be fooled into thinking that the updates would exclude the RCU
-	read-side critical sections.
+	然而，这些区别可能极其重要。
+	仅举一个重要性的例子：如果我们将RCU
+	视为受限的引用计数方案，
+	我们就永远不会被误导认为更新会排斥
+	RCU read-side critical section。
 
-	It nevertheless is often useful to think of RCU as a replacement
-	for reader-writer locking, for example, when you are replacing
-	reader-writer locking with RCU\@.
+	然而，将RCU视为读写锁的替代品通常很有用，
+	例如，当你正在用RCU替换读写锁时。
 }\QuickQuizEnd
 
-Of course, RCU can also be combined with traditional reference counting,
-as discussed in
-\cref{sec:together:Refurbish Reference Counting}.
+当然，RCU也可以与传统引用计数结合使用，
+如\cref{sec:together:Refurbish Reference Counting}中所讨论的。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/refcntRCUperf}}
-\caption{Performance of RCU vs.\@ Reference Counting}
+\caption{RCU与引用计数的性能对比}
 \label{fig:defer:Performance of RCU vs. Reference Counting}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/refRCUperfPREEMPT}}
-\caption{Performance of Preemptible RCU vs.\@ Reference Counting}
+\caption{可抢占RCU与引用计数的性能对比}
 \label{fig:defer:Performance of Preemptible RCU vs. Reference Counting}
 \end{figure}
 
-But why bother?
-Again, part of the answer is performance, as shown in
+但为什么要费心呢？
+同样，部分答案是性能，如
 \cref{fig:defer:Performance of RCU vs. Reference Counting,%
-fig:defer:Performance of Preemptible RCU vs. Reference Counting},
-again showing data taken on a 448-CPU 2.1\,GHz Intel x86 system
-for non-preemptible and preemptible Linux-kernel RCU, respectively.
-Non-preemptible RCU's advantage over
-\IXalt{reference counting}{reference count} ranges from
-more than an order of magnitude at one CPU up to about four orders of
-magnitude at 192~CPUs.
-Preemptible RCU's advantage ranges from about a factor of three at
-one CPU up to about three orders of magnitude at 192~CPUs.
+fig:defer:Performance of Preemptible RCU vs. Reference Counting}所示，
+同样展示了在448 CPU、2.1\,GHz的Intel x86系统上
+分别对不可抢占和可抢占的Linux内核RCU采集的数据。
+不可抢占RCU相对于\IXalt{reference counting}{reference count}的
+优势从1个CPU上超过一个数量级
+到192个CPU上约四个数量级。
+可抢占RCU的优势从1个CPU上约三倍
+到192个CPU上约三个数量级。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/rcuscale.hps.2020.05.28a/refRCUperfwt}}
-\caption{Response Time of RCU vs.\@ Reference Counting, 192 CPUs}
+\caption{RCU与引用计数的响应时间对比，192个CPU}
 \label{fig:defer:Response Time of RCU vs. Reference Counting}
 \end{figure}
 
-However, as with reader-writer locking, the performance advantages of
-RCU are most pronounced for short-duration critical sections and for
-large numbers of CPUs, as shown in
+然而，与读写锁一样，RCU的性能优势
+在短持续时间的临界区和大量CPU时最为显著，如
 \cref{fig:defer:Response Time of RCU vs. Reference Counting}
-for the same system.
-In addition, as with reader-writer locking, many system calls (and thus
-any RCU read-side critical sections that they contain) complete in
-a few microseconds.
+中在同一系统上所示。
+此外，与读写锁一样，许多系统调用
+（因此它们包含的任何RCU read-side critical section）
+在几微秒内完成。
 
-Although traditional reference counters are usually associated with a
-specific data structure, or perhaps a specific group of data structures,
-this approach does have some disadvantages.
-For example, maintaining a single global reference counter for a large
-variety of data structures typically results in bouncing the cache line
-containing the reference count.
-As we saw in
-\crefrange{fig:defer:Performance of RCU vs. Reference Counting}{fig:defer:Response Time of RCU vs. Reference Counting},
-such cache-line bouncing can severely degrade performance.
+虽然传统引用计数通常与特定的数据结构相关联，
+或者可能与特定的一组数据结构相关联，
+但这种方法确实有一些缺点。
+例如，为大量不同的数据结构维护一个
+全局引用计数器通常会导致包含引用计数的
+缓存行反复弹跳。
+正如我们在
+\crefrange{fig:defer:Performance of RCU vs. Reference Counting}{fig:defer:Response Time of RCU vs. Reference Counting}
+中看到的，这种缓存行弹跳会严重降低性能。
 
-In contrast, RCU's lightweight \co{rcu_read_lock()},
-\co{rcu_dereference()}, and \co{rcu_read_unlock()} read-side primitives
-permit extremely frequent read-side usage with negligible performance
-degradation.
-Except that the calls to \co{rcu_dereference()} are not doing anything
-specific to acquire a reference to the pointed-to object.
-The heavy lifting is instead done by the \co{rcu_read_lock()} and
-\co{rcu_read_unlock()} primitives and their interactions with RCU
-grace periods.
+相比之下，RCU轻量级的\co{rcu_read_lock()}、
+\co{rcu_dereference()}和\co{rcu_read_unlock()}读侧原语
+允许极其频繁的读侧使用，性能降低可以忽略不计。
+只不过\co{rcu_dereference()}的调用并没有做任何
+特定于获取被指向对象引用的事情。
+繁重的工作实际上由\co{rcu_read_lock()}和
+\co{rcu_read_unlock()}原语及其与RCU grace period的
+交互来完成。
 
-And ignoring those calls to \co{rcu_dereference()} permits RCU to be
-thought of as a ``bulk reference-counting'' mechanism, where each call
-to \co{rcu_read_lock()} obtains a reference on each and every RCU-protected
-object, and with little or no overhead.
-However, the restrictions that go with RCU can be quite onerous.
-For example, in many cases, the Linux-kernel prohibition against
-sleeping while in an RCU read-side critical section would defeat the
-entire purpose.
-Such cases might be better served by the hazard pointers mechanism
-described in \cref{sec:defer:Hazard Pointers}.
-Cases where code rarely sleeps have been handled by using RCU as a
-reference count in the common non-sleeping case and by bridging
-to an explicit reference counter when sleeping is necessary.
+忽略这些\co{rcu_dereference()}的调用，
+RCU可以被看作一种"批量引用计数"机制，
+其中每次调用\co{rcu_read_lock()}就获取了
+对每一个受RCU保护的对象的引用，而且几乎没有开销。
+然而，RCU附带的限制可能相当繁重。
+例如，在很多情况下，Linux内核禁止在RCU
+read-side critical section中睡眠的规定会破坏
+整个目的。
+这种情况可能更适合使用
+\cref{sec:defer:Hazard Pointers}中描述的hazard pointer机制。
+代码很少睡眠的情况已通过以下方式处理：
+在常见的不睡眠情况下使用RCU作为引用计数，
+在需要睡眠时桥接到显式引用计数器。
 
-Alternatively, situations where a reference must be held by a single task
-across a section of code that sleeps may be accommodated with Sleepable
-RCU (SRCU)~\cite{PaulEMcKenney2006c}.
-This fails to cover the not-uncommon situation where a reference is ``passed''
-from one task to another, for example, when a reference is acquired
-when starting an I/O and released in the corresponding completion
-interrupt handler.
-Again, such cases might be better handled by explicit reference counters
-or by hazard pointers.
+另外，当引用必须由单个任务在
+包含睡眠的代码段中持有时，可以使用Sleepable
+RCU（SRCU）~\cite{PaulEMcKenney2006c}来适应。
+这无法涵盖引用从一个任务"传递"给另一个任务的
+不少见情况，例如，在启动I/O时获取引用
+并在相应的完成中断处理程序中释放引用。
+同样，这种情况可能更适合用显式引用计数器
+或hazard pointer来处理。
 
-Of course, SRCU brings restrictions of its own, namely that the
-return value from \co{srcu_read_lock()} be passed into the
-corresponding \co{srcu_read_unlock()}, and that no SRCU primitives
-be invoked from hardware interrupt handlers or from \IXacrf{nmi}
-handlers.
-The jury is still out as to how much of a problem is presented by
-this restriction, and as to how it can best be handled.
+当然，SRCU也有自身的限制，即
+\co{srcu_read_lock()}的返回值必须传入
+对应的\co{srcu_read_unlock()}，并且不得从
+硬件中断处理程序或\IXacrf{nmi}处理程序中
+调用SRCU原语。
+关于这一限制带来多大问题以及如何最好地处理它，
+目前尚无定论。
 
-However, in the common case where references are held within the confines
-of a single CPU or task, RCU can be used as a high-performance and highly
-scalable reference-counting mechanism.
+然而，在引用被限制在单个CPU或任务范围内的
+常见情况下，RCU可以用作高性能且高度
+可扩展的引用计数机制。
 
-As shown in \cref{fig:defer:Relationships Between RCU Use Cases},
-quasi reference counts add RCU readers as individual or bulk
-reference counts, possibly also bridging to reference counters
-in corner cases.
+如\cref{fig:defer:Relationships Between RCU Use Cases}所示，
+准引用计数将RCU读者作为个别或批量
+引用计数添加，并可能在边界情况下
+桥接到引用计数器。
 
-\subsubsection{Quasi Multi-Version Concurrency Control}
+\subsubsection{准多版本并发控制}
 \label{sec:defer:Quasi Multi-Version Concurrency Control}
 
-RCU can also be thought of as a simplified multi-version concurrency
-control (MVCC) mechanism with weak consistency criteria.
-The multi-version aspects were touched upon in
-\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}.
-However, in its native form, RCU provides version consistency only
-within a given RCU-protected data element.
+RCU也可以被看作是一种简化的多版本并发控制
+（MVCC）机制，具有较弱的一致性准则。
+多版本方面在
+\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}
+中已有涉及。
+然而，在其原始形式中，RCU仅在给定的
+受RCU保护的数据元素内提供版本一致性。
 
-Nevertheless, there are situations where consistency and fresh data are
-required across multiple data elements.
-Fortunately, there are a number of approaches that avoid inconsistency
-and stale data, including the following:
+尽管如此，有些情况需要跨多个数据元素的
+一致性和新鲜数据。
+幸运的是，有许多方法可以避免不一致性
+和过时数据，包括以下几种：
 
 \begin{enumerate}
-\item	Enclose RCU readers within sequence-locking readers, forcing
-	the RCU readers to be retried should an update occur,
-	as described in
-	\cref{sec:together:Correlated Data Elements}
-	and
-	\cref{sec:together:Atomic Move}.
-\item	Place the data that must be consistent into a single element
-	of a linked data structure, and refrain from updating those
-	fields within any element visible to RCU readers.
-	RCU readers gaining a reference to any such element are then
-	guaranteed to see consistent values.
-	See \cref{sec:together:Correlated Fields} for additional details.
-\item	Use a per-element lock that guards a ``deleted'' flag to allow
-	RCU readers to reject stale
-	data~\cite{PaulEdwardMcKenneyPhD,Arcangeli03}.
-\item	Provide an existence flag that is referenced by all data elements
-	whose update is to appear atomic to RCU
-	readers~\cite{PaulEMcKennneyAtomicTreeN4037,PaulEMcKennneyAtomicTreeCPPCON2014,PaulEMcKenneyIssaquahUpdate2015,PaulEMcKenney2016IssaquahACMApp,PaulEMcKenney2016IssaquahCPPCON}.
-\item	Use one of a wide range of counter-based
-	methods~\cite{PaulEMcKenney2008cyclicRCU,PaulEMcKenney2010cyclicRCU,PaulEMcKenney2011cyclicparallelRCU,PaulEMcKenney2014cyclicRCU,Matveev:2015:RLS:2815400.2815406,Kim:2019:MSR:3297858.3304040}.
-	In these approaches, updaters maintain a version number and maintain links
-	to old versions of a given piece of data.
-	Readers take a snapshot of the current version number, and, if necessary,
-	traverse the links to find a version consistent with that snapshot.
+\item	将RCU读者封装在序列锁读者内，强制
+	在发生更新时重试RCU读者，
+	如\cref{sec:together:Correlated Data Elements}
+	和\cref{sec:together:Atomic Move}中所述。
+\item	将必须一致的数据放入链式数据结构的
+	单个元素中，并避免更新对RCU读者可见的
+	元素中的那些字段。
+	获取对任何此类元素的引用的RCU读者
+	因此保证能看到一致的值。
+	更多细节参见\cref{sec:together:Correlated Fields}。
+\item	使用一个保护"已删除"标志的每元素锁来允许
+	RCU读者拒绝过时
+	数据~\cite{PaulEdwardMcKenneyPhD,Arcangeli03}。
+\item	提供一个被所有数据元素引用的存在标志，
+	这些数据元素的更新对RCU读者来说应当
+	表现为原子的~\cite{PaulEMcKennneyAtomicTreeN4037,PaulEMcKennneyAtomicTreeCPPCON2014,PaulEMcKenneyIssaquahUpdate2015,PaulEMcKenney2016IssaquahACMApp,PaulEMcKenney2016IssaquahCPPCON}。
+\item	使用多种基于计数器的
+	方法~\cite{PaulEMcKenney2008cyclicRCU,PaulEMcKenney2010cyclicRCU,PaulEMcKenney2011cyclicparallelRCU,PaulEMcKenney2014cyclicRCU,Matveev:2015:RLS:2815400.2815406,Kim:2019:MSR:3297858.3304040}。
+	在这些方法中，更新者维护一个版本号并维护
+	指向给定数据旧版本的链接。
+	读者获取当前版本号的快照，如有必要，
+	沿着链接找到与该快照一致的版本。
 \end{enumerate}
 
-In short, when using RCU to approximate multi-version concurrency control,
-you only pay for the level of consistency that you actually need.
+简而言之，当使用RCU来近似多版本并发控制时，
+你只需为你实际需要的一致性级别付费。
 
-As shown in \cref{fig:defer:Relationships Between RCU Use Cases},
-quasi multi-version concurrency control is based on existence guarantees,
-adding read-side snapshot operations and constraints on readers and
-writers, the exact form of the constraint being dictated by the
-consistency requirements, as summarized above.
+如\cref{fig:defer:Relationships Between RCU Use Cases}所示，
+准多版本并发控制基于存在性保证，
+添加了读侧快照操作和对读者与写者的约束，
+约束的确切形式由一致性需求决定，
+如上所述。
 
-\subsubsection{RCU Usage Summary}
+\subsubsection{RCU使用总结}
 \label{sec:defer:RCU Usage Summary}
 
-At its core, RCU is nothing more nor less than an API that provides:
+在其核心，RCU不多不少就是一个提供以下功能的API：
 
 \begin{enumerate}
-\item	A publish-subscribe mechanism for adding new data,
-\item	A way of waiting for pre-existing RCU readers to finish, and
-\item	A discipline of maintaining multiple versions to permit change
-	without harming or unduly delaying concurrent RCU readers.
+\item	用于添加新数据的发布-订阅机制，
+\item	一种等待已有RCU读者完成的方式，以及
+\item	维护多个版本以允许更改而不伤害或过度延迟
+	并发RCU读者的规范。
 \end{enumerate}
 
-That said, it is possible to build higher-level constructs on top of RCU,
-including the various use cases described in the earlier sections.
-Furthermore, I have no doubt that new use cases will continue to be
-found for RCU, as well as for any of a number of other synchronization
-primitives.
-And so it is that RCU's use cases are conceptually more complex than
-is RCU itself, as hinted on
-\cpageref{sec:defer:Mysteries RCU Use Cases}.
+话虽如此，可以在RCU之上构建更高层次的结构，
+包括前面各节描述的各种用例。
+此外，我毫不怀疑新的用例将继续被发现，
+无论是对RCU还是对许多其他同步原语。
+因此，RCU的用例在概念上比RCU本身更复杂，
+如\cpageref{sec:defer:Mysteries RCU Use Cases}所暗示的那样。
 
 \QuickQuiz{
-	Which of these use cases best describes the Pre-BSD routing
-	example in
-	\cref{sec:defer:RCU for Pre-BSD Routing}?
+	在\cref{sec:defer:RCU for Pre-BSD Routing}中的
+	Pre-BSD路由示例最符合哪个用例？
 }\QuickQuizAnswer{
-	Pre-BSD routing could be argued to fit into either
-	quasi reader-writer lock, quasi reference count, or
-	quasi multi-version concurrency control.
-	The code is the same either way.
-	This is similar to things like \co{atomic_inc()}, another tool
-	that can be put to a great many uses.
+	Pre-BSD路由可以被认为适合准读写锁、
+	准引用计数或准多版本并发控制中的任何一个。
+	无论如何，代码都是一样的。
+	这类似于\co{atomic_inc()}之类的东西，
+	另一种可以有多种用途的工具。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUApplicability}}
-\caption{RCU Areas of Applicability}
+\caption{RCU的适用领域}
 \label{fig:defer:RCU Areas of Applicability}
 \end{figure}
 
-In the meantime,
-\cref{fig:defer:RCU Areas of Applicability}
-shows some rough rules of thumb on where RCU is most helpful.
+同时，\cref{fig:defer:RCU Areas of Applicability}
+展示了RCU最有用之处的一些粗略经验法则。
 
-As shown in the blue box in the upper-right corner of the figure, RCU
-works best if you have read-mostly data where stale and inconsistent
-data is permissible (but see below for more information on stale and
-inconsistent data).
-The canonical example of this case in the Linux kernel is routing tables.
-Because it may have taken many seconds or even minutes for the
-routing updates to propagate across the Internet, the system
-has been sending packets the wrong way for quite some time.
-Having some small probability of continuing to send some of them the wrong
-way for a few more milliseconds is almost never a problem.
+如图右上角蓝色方框所示，RCU
+在读密集且允许过时和不一致数据的情况下效果最好
+（但有关过时和不一致数据的更多信息请参见下文）。
+Linux内核中此案例的典型例子是路由表。
+因为路由更新可能需要数秒甚至数分钟
+才能在Internet上传播，所以系统已经
+按错误的方式发送数据包相当长一段时间了。
+继续以较小的概率按错误的方式多发送一些数据包
+几毫秒几乎从来不是问题。
 
-If you have a read-mostly workload where consistent data is required,
-RCU works well, as shown by the green ``read-mostly, need consistent data''
-box.
-One example of this case is the Linux kernel's mapping from user-level
-System-V semaphore IDs to the corresponding in-kernel data structures.
-Semaphores tend to be used far more frequently than they are created
-and destroyed, so this mapping is read-mostly.
-However, it would be erroneous to perform a semaphore operation on
-a semaphore that has already been deleted.
-This need for consistency is handled by using the lock in the
-in-kernel semaphore data structure, along with a ``deleted''
-flag that is set when deleting a semaphore.
-If a user ID maps to an in-kernel data structure with the
-``deleted'' flag set, the data structure is ignored, so that
-the user ID is flagged as invalid.
+如果你有一个读密集的工作负载，其中需要一致的数据，
+RCU也能很好地工作，如绿色的"读密集，需要一致数据"
+方框所示。
+此案例的一个例子是Linux内核中从用户级
+System-V信号量ID到相应内核内数据结构的映射。
+信号量的使用频率远高于其创建和销毁频率，
+因此这个映射是读密集的。
+然而，对已被删除的信号量执行信号量操作
+将是错误的。
+这种对一致性的需求通过使用
+内核内信号量数据结构中的锁以及在删除信号量时
+设置的"已删除"标志来处理。
+如果用户ID映射到一个设置了"已删除"标志的
+内核内数据结构，则该数据结构被忽略，
+用户ID被标记为无效。
 
-Although this requires that the readers acquire a lock for the
-data structure representing the semaphore itself,
-it allows them to dispense with locking for the
-mapping data structure.
-The readers therefore locklessly
-traverse the tree used to map from ID to data structure,
-which in turn greatly improves performance, scalability, and
-real-time response.
+虽然这要求读者获取代表信号量本身的
+数据结构的锁，但它允许它们省略
+映射数据结构的锁。
+因此读者无锁地遍历用于从ID映射到
+数据结构的树，这反过来极大地改善了性能、
+可扩展性和实时响应。
 
-As indicated by the yellow ``read-write'' box, RCU can also be useful
-for read-write
-workloads where consistent data is required, although usually in
-conjunction with a number of other synchronization primitives.
-For example, the directory-entry cache in recent Linux kernels uses RCU in
-conjunction with sequence locks, per-CPU locks, and per-data-structure
-locks to allow lockless traversal of pathnames in the common case.
-Although RCU can be very beneficial in this read-write case, the
-corresponding code is often more complex than that of the read-mostly
-cases.
+如黄色的"读写"方框所示，RCU对于
+需要一致数据的读写工作负载也可能有用，
+尽管通常需要结合许多其他同步原语。
+例如，近期Linux内核中的目录项缓存使用RCU
+结合序列锁、每CPU锁和每数据结构锁，
+在常见情况下允许路径名的无锁遍历。
+虽然RCU在此读写情况下可以非常有益，
+但相应的代码通常比读密集情况更复杂。
 
-Finally, as indicated by the red box in the lower-left corner
-of the figure, update-mostly workloads requiring consistent
-data are rarely good places to use RCU, though there are some
-exceptions~\cite{MathieuDesnoyers2012URCU}.
-For example, as noted in
-\cref{sec:defer:Type-Safe Memory},
-within the Linux kernel, the \co{SLAB_TYPESAFE_BY_RCU}
-slab-allocator flag provides type-safe memory to RCU readers, which can
-greatly simplify \IXacrl{nbs} and other lockless
-algorithms.
-In addition, if the rare readers are on critical code paths on real-time
-systems, use of RCU for those readers might provide real-time response
-benefits that more than make up for the increased update-side overhead,
-as discussed in \cref{sec:advsync:The Role of RCU}.
+最后，如图左下角红色方框所示，
+需要一致数据的更新密集工作负载很少是
+使用RCU的好场所，不过也有一些
+例外~\cite{MathieuDesnoyers2012URCU}。
+例如，如\cref{sec:defer:Type-Safe Memory}所述，
+在Linux内核中，\co{SLAB_TYPESAFE_BY_RCU}
+slab分配器标志为RCU读者提供类型安全内存，
+这可以极大地简化\IXacrl{nbs}和其他无锁算法。
+此外，如果罕见的读者处于实时系统的关键代码路径上，
+为这些读者使用RCU可能带来实时响应方面的
+收益，足以弥补增加的更新侧开销，
+如\cref{sec:advsync:The Role of RCU}中所讨论的。
 
-In short, RCU is an API that includes a publish-subscribe mechanism for
-adding new data, a way of waiting for pre-existing RCU readers to finish,
-and a discipline of maintaining multiple versions to allow updates to
-avoid harming or unduly delaying concurrent RCU readers.
-This RCU API is best suited for read-mostly situations, especially if
-stale and inconsistent data can be tolerated by the application.
+简而言之，RCU是一个API，包括用于添加新数据的
+发布-订阅机制、等待已有RCU读者完成的方式，
+以及维护多个版本以允许更新不伤害或过度
+延迟并发RCU读者的规范。
+此RCU API最适合读密集的场景，尤其是在
+应用程序可以容忍过时和不一致数据的情况下。

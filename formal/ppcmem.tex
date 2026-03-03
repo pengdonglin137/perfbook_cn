@@ -2,71 +2,67 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Special-Purpose State-Space Search}
+\section{专用状态空间搜索}
 \label{sec:formal:Special-Purpose State-Space Search}
 %
-\epigraph{Jack of all trades, master of none.}{Unknown}
+\epigraph{样样通，样样松。}{佚名}
 
-Although Promela and Spin allow you to verify pretty much any (smallish)
-algorithm, their very generality can sometimes be a curse.
-For example, Promela does not understand \IX{memory model}s or any sort
-of reordering semantics.
-This section therefore describes some state-space search tools that
-understand memory models used by production systems, greatly simplifying the
-verification of weakly ordered code.
+虽然 Promela 和 Spin 允许你验证几乎任何（较小的）算法，
+但它们的通用性有时会成为一种负担。
+例如，Promela 不理解 \IX{memory model} 或任何类型的
+重排序语义。
+因此，本节描述了一些理解生产系统使用的 memory model 的
+state-space search 工具，大大简化了弱序代码的验证。
 
-For example,
+例如，
 \cref{sec:formal:Promela Example: QRCU}
-showed how to convince Promela to account for weak memory ordering.
-Although this approach can work well, it requires that the developer
-fully understand the system's memory model.
-Unfortunately, few (if any) developers fully understand the complex
-memory models of modern CPUs.
+展示了如何说服 Promela 来考虑弱内存排序。
+虽然这种方法可以很好地工作，但它要求开发者
+完全理解系统的 memory model。
+不幸的是，很少有（如果有的话）开发者完全理解
+现代 CPU 的复杂 memory model。
 
-Therefore, another approach is to use a tool that already understands
-this memory ordering, such as the PPCMEM tool produced by
-\ppl{Peter}{Sewell} and \ppl{Susmit}{Sarkar} at the University of Cambridge,
-\ppl{Luc}{Maranget}, \ppl{Francesco Zappa}{Nardelli}, and
-\ppl{Pankaj}{Pawan} at INRIA, and \ppl{Jade}{Alglave} at Oxford University,
-in cooperation with \ppl{Derek}{Williams} of
-IBM~\cite{JadeAlglave2011ppcmem}.
-This group formalized the memory models of Power, \ARM, x86, as well
-as that of the C/C++11 standard~\cite{RichardSmith2019N4800}, and
-produced the PPCMEM tool based on the Power and \ARM\ formalizations.
+因此，另一种方法是使用已经理解内存排序的工具，
+例如由剑桥大学的 \ppl{Peter}{Sewell} 和 \ppl{Susmit}{Sarkar}、
+INRIA 的 \ppl{Luc}{Maranget}、\ppl{Francesco Zappa}{Nardelli}
+和 \ppl{Pankaj}{Pawan}、牛津大学的 \ppl{Jade}{Alglave}
+与 IBM 的 \ppl{Derek}{Williams} 合作产生的
+PPCMEM 工具~\cite{JadeAlglave2011ppcmem}。
+这个团队形式化了 Power、\ARM、x86 以及
+C/C++11 标准~\cite{RichardSmith2019N4800}的 memory model，
+并基于 Power 和 \ARM\ 形式化产生了 PPCMEM 工具。
 
 \QuickQuiz{
-	But x86 has strong memory ordering, so why formalize its memory
-	model?
+	但 x86 有强内存排序，为什么要形式化它的
+	memory model？
 }\QuickQuizAnswer{
-	Actually, academics consider the x86 memory model to be weak
-	because it can allow prior stores to be reordered with
-	subsequent loads.
-	From an academic viewpoint, a strong memory model is one
-	that allows absolutely no reordering, so that all threads
-	agree on the order of all operations visible to them.
+	实际上，学术界认为 x86 的 memory model 是弱的，
+	因为它可以允许先前的存储与后续的加载重排序。
+	从学术角度来看，强 memory model 是完全不允许
+	重排序的，这样所有线程都同意它们可见的所有操作的顺序。
 
-	Plus it really is the case that developers are sometimes confused
-	about x86 memory ordering.
+	而且确实存在开发者有时对 x86 内存排序
+	感到困惑的情况。
 }\QuickQuizEnd
 
-The PPCMEM tool takes \emph{litmus tests} as input.
-A sample litmus test is presented in
-\cref{sec:formal:Anatomy of a Litmus Test}.
+PPCMEM 工具以 \emph{litmus test} 作为输入。
+一个示例 litmus test 在
+\cref{sec:formal:Anatomy of a Litmus Test}中介绍。
 \Cref{sec:formal:What Does This Litmus Test Mean?}
-relates this litmus test to the equivalent C-language program,
-\cref{sec:formal:Running a Litmus Test} describes how to
-apply PPCMEM to this litmus test, and
+将这个 litmus test 与等效的 C 语言程序联系起来，
+\cref{sec:formal:Running a Litmus Test}描述了如何
+将 PPCMEM 应用于这个 litmus test，而
 \cref{sec:formal:PPCMEM Discussion}
-discusses the implications.
+讨论了其影响。
 
-\subsection{Anatomy of a Litmus Test}
+\subsection{Litmus Test 的剖析}
 \label{sec:formal:Anatomy of a Litmus Test}
 
-An example PowerPC litmus test for PPCMEM is shown in
-\cref{lst:formal:PPCMEM Litmus Test}.
-The ARM interface works the same way, but with \ARM\ instructions
-substituted for the Power instructions and with the initial \qco{PPC}
-replaced by \qco{ARM}.
+\cref{lst:formal:PPCMEM Litmus Test}展示了
+PPCMEM 的一个 PowerPC litmus test 示例。
+ARM 接口以相同方式工作，但用 \ARM\ 指令
+替代 Power 指令，并将开头的 \qco{PPC}
+替换为 \qco{ARM}。
 
 \begin{listing}
 \begin{fcvlabel}[ln:formal:PPCMEM Litmus Test]
@@ -98,123 +94,117 @@ exists						@lnlbl[assert:b]
 \end{listing}
 
 \begin{fcvref}[ln:formal:PPCMEM Litmus Test]
-In the example, \clnref{type} identifies the type of system (\qco{ARM} or
-\qco{PPC}) and contains the title for the model.
-\Clnref{altname} provides a place for an
-alternative name for the test, which you will usually want to leave
-blank as shown in the above example.
-Comments can be inserted between
-\clnref{altname,init:b} using the OCaml (or Pascal) syntax of \nbco{(* *)}.
+在这个例子中，\clnref{type}标识了系统类型（\qco{ARM} 或
+\qco{PPC}）并包含模型的标题。
+\Clnref{altname}提供了一个测试的替代名称位置，
+通常你会像上面的例子那样留空。
+可以使用 OCaml（或 Pascal）的 \nbco{(* *)} 语法
+在\clnref{altname,init:b}之间插入注释。
 
-\Clnrefrange{init:b}{init:e} give initial values for all registers;
-each is of the form
-\co{P:R=V}, where \co{P} is the process identifier, \co{R} is the register
-identifier, and \co{V} is the value.
-For example, process~0's register \co{r3} initially contains the value~2.
-If the value is a variable (\co{x}, \co{y}, or \co{z} in the example)
-then the register is initialized to the address of the variable.
-It is also possible to initialize the contents of variables, for example,
-\co{x=1} initializes the value of \co{x} to~1.
-Uninitialized variables default to the value zero, so that in the
-example, \co{x}, \co{y}, and~\co{z} are all initially zero.
+\Clnrefrange{init:b}{init:e}给出所有寄存器的初始值；
+每个的形式为
+\co{P:R=V}，其中 \co{P} 是进程标识符，\co{R} 是寄存器
+标识符，\co{V} 是值。
+例如，进程~0 的寄存器 \co{r3} 初始包含值~2。
+如果值是一个变量（在例子中是 \co{x}、\co{y} 或 \co{z}），
+那么寄存器被初始化为该变量的地址。
+也可以初始化变量的内容，例如，
+\co{x=1} 将 \co{x} 的值初始化为~1。
+未初始化的变量默认为零值，所以在
+例子中，\co{x}、\co{y} 和 \co{z} 初始都为零。
 
-\Clnref{procid} provides identifiers for the two processes, so that
-the \co{0:r3=2} on \clnref{init:0} could instead have been written
-\co{P0:r3=2}.
-\Clnref{procid} is required, and the identifiers must be of the form
-\co{Pn}, where \co{n} is the column number, starting from zero for
-the left-most column.
-This may seem unnecessarily strict, but it does prevent considerable
-confusion in actual use.
+\Clnref{procid}提供了两个进程的标识符，所以
+\clnref{init:0}上的 \co{0:r3=2} 也可以写成
+\co{P0:r3=2}。
+\Clnref{procid}是必须的，标识符必须是
+\co{Pn} 的形式，其中 \co{n} 是列号，从最左列的零开始。
+这可能看起来不必要地严格，但它确实防止了
+实际使用中相当多的混淆。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:PPCMEM Litmus Test]
-	Why does \clnref{reginit} of \cref{lst:formal:PPCMEM Litmus Test}
-	initialize the registers?
-	Why not instead initialize them on \clnref{init:0,init:1}?
+	为什么\cref{lst:formal:PPCMEM Litmus Test}的
+	\clnref{reginit}要初始化寄存器？
+	为什么不在\clnref{init:0,init:1}上初始化它们？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	Either way works.
-	However, in general, it is better to use initialization than
-	explicit instructions.
-	The explicit instructions are used in this example to demonstrate
-	their use.
-	In addition, many of the litmus tests available on the tool's
-	web site (\url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}) were
-	automatically generated, which generates explicit
-	initialization instructions.
+	两种方式都可以。
+	然而，一般来说，使用初始化比使用显式指令更好。
+	在这个例子中使用显式指令是为了演示它们的使用。
+	此外，该工具网站上提供的许多 litmus test
+	（\url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}）
+	是自动生成的，这会生成显式的初始化指令。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:formal:PPCMEM Litmus Test]
-\Clnrefrange{reginit}{P0fail1} are the lines of code for each process.
-A given process can have empty lines, as is the case for P0's
-\clnref{P0empty} and P1's \clnrefrange{P1empty:b}{P1empty:e}.
-Labels and branches are permitted, as demonstrated by the branch
-on \clnref{P0bne} to the label on \clnref{P0fail1}.
-That said, too-free use of branches will expand the state space.
-Use of loops is a particularly good way to explode your state space.
+\Clnrefrange{reginit}{P0fail1}是每个进程的代码行。
+一个给定的进程可以有空行，如 P0 的
+\clnref{P0empty}和 P1 的\clnrefrange{P1empty:b}{P1empty:e}。
+标签和分支是允许的，如\clnref{P0bne}上的分支
+到\clnref{P0fail1}上的标签所演示的那样。
+话虽如此，过于自由地使用分支会扩展 state space。
+使用循环是一种特别好的方式来让你的 state space 爆炸。
 
-\Clnrefrange{assert:b}{assert:e} show the assertion, which in this case
-indicates that we are interested in whether P0's and P1's \co{r3} registers
-can both contain zero after both threads complete execution.
-This assertion is important because there are a number of use cases
-that would fail miserably if both P0 and P1 saw zero in their
-respective \co{r3} registers.
+\Clnrefrange{assert:b}{assert:e}展示了 assertion，在这种情况下
+表示我们关心的是在两个线程完成执行后，P0 和 P1 的 \co{r3} 寄存器
+是否都能包含零。
+这个 assertion 很重要，因为有许多用例
+如果 P0 和 P1 在各自的 \co{r3} 寄存器中都看到零，
+将会惨败。
 
-This should give you enough information to construct simple litmus tests.
-Some additional documentation is available, though much of this
-additional documentation is intended for a different research tool that
-runs tests on actual hardware.
-Perhaps more importantly, a large number of pre-existing litmus tests
-are available with the online tool (available via the ``Select ARM Test''
-and ``Select POWER Test'' buttons at
-\url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}).
-It is quite likely that one of these pre-existing litmus tests will
-answer your Power or \ARM\ memory-ordering question.
+这应该给你足够的信息来构造简单的 litmus test。
+还有一些额外的文档可用，不过大部分
+额外文档是为另一个在实际硬件上运行测试的
+研究工具准备的。
+也许更重要的是，在线工具提供了大量预先存在的 litmus test
+（可通过 \url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}
+的 ``Select ARM Test'' 和 ``Select POWER Test'' 按钮获得）。
+这些预先存在的 litmus test 中很可能有一个能
+回答你的 Power 或 \ARM\ 内存排序问题。
 
-\subsection{What Does This Litmus Test Mean?}
+\subsection{这个 Litmus Test 是什么意思？}
 \label{sec:formal:What Does This Litmus Test Mean?}
 
-P0's \clnref{reginit,stw} are equivalent to the C statement \co{x=1}
-because \clnref{init:0} defines P0's register \co{r2} to be the address
-of~\co{x}.
-P0's \clnref{P0lwarx,P0stwcx} are the mnemonics for load-linked
-(``load register exclusive'' in \ARM\ parlance and ``load reserve''
-in Power parlance) and store-conditional (``store register exclusive''
-in \ARM\ parlance), respectively.
-When these are used together, they form an atomic instruction sequence,
-roughly similar to the \IXacrml{cas} sequences exemplified by the
-x86 \co{lock;cmpxchg} instruction.
-Moving to a higher level of abstraction, the sequence from
-\clnrefrange{P0lwsync}{P0isync}
-is equivalent to the Linux kernel's \co{atomic_add_return(&z, 0)}.
-Finally, \clnref{P0lwz} is roughly equivalent to the C statement \co{r3=y}.
+P0 的\clnref{reginit,stw}等价于 C 语句 \co{x=1}，
+因为\clnref{init:0}将 P0 的寄存器 \co{r2} 定义为
+\co{x} 的地址。
+P0 的\clnref{P0lwarx,P0stwcx}分别是 load-linked
+（在 \ARM\ 中称为 ``load register exclusive''，
+在 Power 中称为 ``load reserve''）
+和 store-conditional（在 \ARM\ 中称为
+``store register exclusive''）的助记符。
+当它们一起使用时，形成一个原子指令序列，
+大致类似于以 x86 \co{lock;cmpxchg} 指令为代表的
+\IXacrml{cas} 序列。
+提升到更高的抽象层次，从
+\clnrefrange{P0lwsync}{P0isync}的序列
+等价于 Linux 内核的 \co{atomic_add_return(&z, 0)}。
+最后，\clnref{P0lwz}大致等价于 C 语句 \co{r3=y}。
 
-P1's \clnref{reginit,stw} are equivalent to the C statement \co{y=1},
-\clnref{P1sync}
-is a memory barrier, equivalent to the Linux kernel statement \co{smp_mb()},
-and \clnref{P1lwz} is equivalent to the C statement \co{r3=x}.
+P1 的\clnref{reginit,stw}等价于 C 语句 \co{y=1}，
+\clnref{P1sync}是一个内存屏障，等价于 Linux 内核语句 \co{smp_mb()}，
+\clnref{P1lwz}等价于 C 语句 \co{r3=x}。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:PPCMEM Litmus Test]
-	But whatever happened to \clnref{P0fail1} of
-	\cref{lst:formal:PPCMEM Litmus Test},
-	the one that is the \co{Fail1:} label?
+	但是\cref{lst:formal:PPCMEM Litmus Test}的
+	\clnref{P0fail1}，即 \co{Fail1:} 标签那行，
+	怎么了？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	The implementation of PowerPC version of \co{atomic_add_return()}
-	loops when the \co{stwcx} instruction fails, which it communicates
-	by setting non-zero status in the condition-code register,
-	which in turn is tested by the \co{bne} instruction.
-	Because actually modeling the loop would result in state-space
-	explosion, we instead branch to the \co{Fail1:} label,
-	terminating the model with the initial value of~2 in P0's \co{r3}
-	register, which will not trigger the exists assertion.
+	PowerPC 版本的 \co{atomic_add_return()} 实现
+	在 \co{stwcx} 指令失败时循环，它通过在
+	条件码寄存器中设置非零状态来通知这一点，
+	然后由 \co{bne} 指令测试。
+	因为实际建模循环会导致 state-space 爆炸，
+	我们改为跳转到 \co{Fail1:} 标签，
+	以 P0 的 \co{r3} 寄存器中的初始值~2 终止模型，
+	这不会触发 exists assertion。
 
-	There is some debate about whether this trick is universally
-	applicable, but I have not seen an example where it fails.
+	关于这个技巧是否普遍适用存在一些争论，
+	但我还没有看到它失败的例子。
 }\QuickQuizEnd
 
 \begin{listing}
@@ -237,31 +227,29 @@ void P1(void)
 	r3 = x; /* Line 11 */
 }
 \end{VerbatimL}
-\caption{Meaning of PPCMEM Litmus Test}
+\caption{PPCMEM Litmus Test 的含义}
 \label{lst:formal:Meaning of PPCMEM Litmus Test}
 \end{listing}
 
-Putting all this together, the C-language equivalent to the entire litmus
-test is as shown in
-\cref{lst:formal:Meaning of PPCMEM Litmus Test}.
-The key point is that if \co{atomic_add_return()} acts as a full
-memory barrier (as the Linux kernel requires it to), 
-then it should be impossible for \co{P0()}'s and \co{P1()}'s \co{r3}
-variables to both be zero after execution completes.
+将所有这些放在一起，整个 litmus test 的 C 语言等价物
+如\cref{lst:formal:Meaning of PPCMEM Litmus Test}所示。
+关键点是如果 \co{atomic_add_return()} 充当完整的
+内存屏障（如 Linux 内核要求的那样），
+那么 \co{P0()} 和 \co{P1()} 的 \co{r3}
+变量在执行完成后应该不可能都为零。
 
-The next section describes how to run this litmus test.
+下一节描述如何运行这个 litmus test。
 
-\subsection{Running a Litmus Test}
+\subsection{运行 Litmus Test}
 \label{sec:formal:Running a Litmus Test}
 
-As noted earlier, litmus tests may be run interactively via
-\url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}, which can help build an
-understanding of the \IX{memory model}.
-However, this approach requires that the user manually carry out the
-full state-space search.
-Because it is very difficult to be sure that you have checked every
-possible sequence of events, a separate tool is provided for this
-purpose~\cite{PaulEMcKenney2011ppcmem}.
+如前所述，litmus test 可以通过
+\url{https://www.cl.cam.ac.uk/~pes20/ppcmem/}交互式运行，
+这有助于建立对 \IX{memory model} 的理解。
+然而，这种方法要求用户手动进行
+完整的 state-space search。
+因为很难确保你已经检查了每种可能的事件序列，
+所以为此目的提供了一个单独的工具~\cite{PaulEMcKenney2011ppcmem}。
 
 \begin{listing}
 \begin{VerbatimL}[numbers=none,xleftmargin=0pt]
@@ -280,23 +268,21 @@ Condition exists (0:r3=0 /\ 1:r3=0)
 Hash=e2240ce2072a2610c034ccd4fc964e77
 Observation SB+lwsync-RMW-lwsync+isync Sometimes 1
 \end{VerbatimL}
-\caption{PPCMEM Detects an Error}
+\caption{PPCMEM 检测到错误}
 \label{lst:formal:PPCMEM Detects an Error}
 \end{listing}
 
-Because the litmus test shown in
-\cref{lst:formal:PPCMEM Litmus Test}
-contains read-modify-write instructions, we must add \co{-model}
-arguments to the command line.
-If the litmus test is stored in \co{filename.litmus},
-this will result in the output shown in
-\cref{lst:formal:PPCMEM Detects an Error},
-where the \co{...} stands for voluminous making-progress output.
-The list of states includes \co{0:r3=0; 1:r3=0;}, indicating once again
-that the old PowerPC implementation of \co{atomic_add_return()} does
-not act as a full barrier.
-The ``Sometimes'' on the last line confirms this:
-The assertion triggers for some executions, but not all of the time.
+因为\cref{lst:formal:PPCMEM Litmus Test}中
+展示的 litmus test 包含读-修改-写指令，我们必须在命令行
+中添加 \co{-model} 参数。
+如果 litmus test 存储在 \co{filename.litmus} 中，
+结果将产生如\cref{lst:formal:PPCMEM Detects an Error}所示的输出，
+其中 \co{...} 代表大量的进度输出。
+状态列表包括 \co{0:r3=0; 1:r3=0;}，再次表明
+旧的 PowerPC 实现的 \co{atomic_add_return()} 不能
+充当完整屏障。
+最后一行的 ``Sometimes'' 确认了这一点：
+assertion 在某些执行中触发，但不是每次都触发。
 
 \begin{listing}
 \begin{VerbatimL}[numbers=none,xleftmargin=0pt]
@@ -314,149 +300,138 @@ Condition exists (0:r3=0 /\ 1:r3=0)
 Hash=77dd723cda9981248ea4459fcdf6097d
 Observation SB+lwsync-RMW-lwsync+sync Never 0 5
 \end{VerbatimL}
-\caption{PPCMEM on Repaired Litmus Test}
+\caption{修复后的 Litmus Test 上的 PPCMEM}
 \label{lst:formal:PPCMEM on Repaired Litmus Test}
 \end{listing}
 
-The fix to this Linux-kernel bug is to replace P0's \co{isync} with
-\co{sync}, which results in the output shown in
-\cref{lst:formal:PPCMEM on Repaired Litmus Test}.
-As you can see, \co{0:r3=0; 1:r3=0;} does not appear in the list of states,
-and the last line calls out ``Never''.
-Therefore, the model predicts that the offending execution sequence
-cannot happen.
+修复这个 Linux 内核 bug 的方法是将 P0 的 \co{isync} 替换为
+\co{sync}，这产生了如
+\cref{lst:formal:PPCMEM on Repaired Litmus Test}所示的输出。
+如你所见，\co{0:r3=0; 1:r3=0;} 没有出现在状态列表中，
+最后一行标注了 ``Never''。
+因此，模型预测有问题的执行序列不会发生。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Does the \ARM\ Linux kernel have a similar bug?
+	\ARM\ Linux 内核有类似的 bug 吗？
 }\QuickQuizAnswer{
-	\ARM\ does not have this particular bug because it places
-	\co{smp_mb()} before and after the \co{atomic_add_return()}
-	function's assembly-language implementation.
-	PowerPC no longer has this bug; it has long since been
-	fixed~\cite{BenjaminHerrenschmidt2011:powerpc:atomic_return}.
+	\ARM\ 没有这个特定的 bug，因为它在
+	\co{atomic_add_return()} 函数的汇编语言实现
+	前后都放置了 \co{smp_mb()}。
+	PowerPC 也不再有这个 bug；它早已被
+	修复~\cite{BenjaminHerrenschmidt2011:powerpc:atomic_return}。
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:formal:PPCMEM Litmus Test]
-	Does the \co{lwsync} on \clnref{P0lwsync} in
-	\cref{lst:formal:PPCMEM Litmus Test} provide sufficient ordering?
+	\cref{lst:formal:PPCMEM Litmus Test}中
+	\clnref{P0lwsync}上的 \co{lwsync} 是否提供了
+	足够的排序？
 	\end{fcvref}
 }\QuickQuizAnswerE{
-	It depends on the semantics required.
-	The rest of this answer assumes that the assembly language
-	for \co{P0} in
-	\cref{lst:formal:PPCMEM Litmus Test}
-	is supposed to implement a value-returning atomic operation.
+	这取决于所需的语义。
+	本回答的其余部分假设
+	\cref{lst:formal:PPCMEM Litmus Test}中
+	\co{P0} 的汇编语言旨在实现一个返回值的原子操作。
 
-	As is discussed in
-	\cref{chp:Advanced Synchronization: Memory Ordering},
-	Linux kernel's memory consistency model requires
-	value-returning atomic RMW operations to be fully ordered
-	on both sides.
-	The ordering provided by \co{lwsync} is insufficient for this
-	purpose, and so \co{sync} should be used instead.
-	This change has since been
-	made~\cite{BoqunFeng2015:powerpc:value-returning-atomics}
-	in response to an email thread discussing a couple of other litmus
-	tests~\cite{Paulmck2015:powerpc:value-returning-atomics}.
-	Finding any other bugs that the Linux kernel might have is left
-	as an exercise for the reader.
+	正如\cref{chp:Advanced Synchronization: Memory Ordering}中
+	所讨论的，
+	Linux 内核的内存一致性模型要求
+	返回值的原子 RMW 操作在两侧都是完全排序的。
+	\co{lwsync} 提供的排序不足以达到此目的，
+	因此应该使用 \co{sync} 代替。
+	这个更改后来已经
+	完成~\cite{BoqunFeng2015:powerpc:value-returning-atomics}，
+	以响应讨论其他几个 litmus test 的
+	邮件线程~\cite{Paulmck2015:powerpc:value-returning-atomics}。
+	找到 Linux 内核可能存在的其他 bug 留作
+	读者的练习。
 
-	In other enviroments providing weaker semantics, \co{lwsync}
-	might be sufficient.
-	But not for the Linux kernel's value-returning atomic operations!
+	在提供较弱语义的其他环境中，\co{lwsync}
+	可能就够了。
+	但对于 Linux 内核的返回值原子操作则不行！
 }\QuickQuizEndE
 }
 
-\subsection{PPCMEM Discussion}
+\subsection{PPCMEM 讨论}
 \label{sec:formal:PPCMEM Discussion}
 
-These tools promise to be of great help to people working on low-level
-parallel primitives that run on \ARM\ and on Power.
-These tools do have some intrinsic limitations:
+这些工具有望对从事在 \ARM\ 和 Power 上运行的底层
+并行原语工作的人员提供巨大帮助。
+这些工具确实有一些固有的局限性：
 
 \begin{enumerate}
-\item	These tools are research prototypes, and as such are unsupported.
-\item	These tools do not constitute official statements by IBM or \ARM\
-	on their respective CPU architectures.
-	For example, both corporations reserve the right to report a bug
-	at any time against any version of any of these tools.
-	These tools are therefore not a substitute for careful stress
-	testing on real hardware.
-	Moreover, both the tools and the model that they are based on
-	are under active development and might change at any time.
-	On the other hand, this model was developed in consultation
-	with the relevant hardware experts, so there is good reason to be
-	confident that it is a robust representation of the architectures.
-\item	These tools currently handle a subset of the instruction set.
-	This subset has been sufficient for my purposes, but your mileage
-	may vary.
-	In particular, the tool handles only word-sized accesses (32 bits),
-	and the words accessed must be properly aligned.\footnote{
-		But recent work focuses on mixed-size
-		accesses~\cite{Flur:2017:MCA:3093333.3009839}.}
-	In addition, the tool does not handle some of the weaker variants
-	of the \ARM\ memory-barrier instructions, nor does it handle
-	arithmetic.
-\item	The tools are restricted to small loop-free code fragments
-	running on small numbers of threads.
-	Larger examples result
-	in state-space explosion, just as with similar tools such as
-	Promela and Spin.
-\item	The full state-space search does not give any indication of how
-	each offending state was reached.
-	That said, once you realize that the state is in fact reachable,
-	it is usually not too hard to find that state using the
-	interactive tool.
-\item	These tools are not much good for complex data structures, although
-	it is possible to create and traverse extremely simple linked
-	lists using initialization statements of the form
-	\qco{x=y; y=z; z=42;}.
-\item	These tools do not handle memory mapped I/O or device registers.
-	Of course, handling such things would require that they be
-	formalized, which does not appear to be in the offing.
-\item	The tools will detect only those problems for which you code an
-	assertion.
-	This weakness is common to all formal methods, and is yet another
-	reason why testing remains important.
-	In the immortal words of Donald Knuth quoted at the beginning of
-	this chapter, ``Beware of bugs in the above code;
-	I have only proved it correct, not tried it.''
+\item	这些工具是研究原型，因此不提供支持。
+\item	这些工具不构成 IBM 或 \ARM\ 对其各自 CPU 架构的
+	官方声明。
+	例如，两家公司保留在任何时间对这些工具的任何版本
+	报告 bug 的权利。
+	因此，这些工具不能替代在真实硬件上进行仔细的
+	压力测试。
+	此外，工具和它们所基于的模型都在积极开发中，
+	可能随时发生变化。
+	另一方面，这个模型是与相关硬件专家协商开发的，
+	所以有很好的理由相信它是对架构的可靠表示。
+\item	这些工具目前处理指令集的一个子集。
+	这个子集对我的目的来说已经足够了，但你的情况
+	可能不同。
+	特别是，该工具只处理字大小的访问（32位），
+	并且被访问的字必须正确对齐。\footnote{
+		但最近的工作关注混合大小的
+		访问~\cite{Flur:2017:MCA:3093333.3009839}。}
+	此外，该工具不处理 \ARM\ 内存屏障指令的某些
+	较弱变体，也不处理算术运算。
+\item	这些工具仅限于在少量线程上运行的小型无循环代码片段。
+	更大的例子会导致 state-space 爆炸，
+	就像 Promela 和 Spin 等类似工具一样。
+\item	完整的 state-space search 不会指出
+	每个有问题的状态是如何达到的。
+	话虽如此，一旦你意识到该状态实际上是可达的，
+	使用交互式工具找到该状态通常不会太难。
+\item	这些工具对复杂的数据结构不太擅长，虽然
+	可以使用形如 \qco{x=y; y=z; z=42;} 的
+	初始化语句创建和遍历极其简单的链表。
+\item	这些工具不处理内存映射 I/O 或设备寄存器。
+	当然，处理这些东西需要将它们形式化，
+	而这似乎不太可能。
+\item	这些工具只会检测你为之编写 assertion 的问题。
+	这个弱点是所有形式化方法所共有的，也是测试
+	仍然重要的又一个原因。
+	用本章开头引用的 Donald Knuth 的不朽名言来说，
+	``当心上述代码中的 bug；
+	我只是证明了它是正确的，而没有试过。''
 \end{enumerate}
 
-That said, one strength of these tools is that they are designed to
-model the full range of behaviors allowed by the architectures, including
-behaviors that are legal, but which current hardware implementations do
-not yet inflict on unwary software developers.
-Therefore, an algorithm that is vetted by these tools likely has some
-additional safety margin when running on real hardware.
-Furthermore, testing on real hardware can only find bugs; such testing
-is inherently incapable of proving a given usage correct.
-To appreciate this, consider that the researchers routinely ran in excess
-of 100 billion test runs on real hardware to validate their model.
-In one case, behavior that is allowed by the architecture did not occur,
-despite 176 billion runs~\cite{JadeAlglave2011ppcmem}.
-In contrast, the
-full-state-space search allows the tool to prove code fragments correct.
+话虽如此，这些工具的一个优势是它们被设计为
+模拟架构所允许的全部行为范围，包括
+合法但当前硬件实现尚未施加于不知情的软件
+开发者身上的行为。
+因此，经过这些工具审查的算法在实际硬件上运行时
+可能具有一些额外的安全边际。
+此外，在真实硬件上的测试只能找到 bug；这样的测试
+本质上无法证明给定的用法是正确的。
+要理解这一点，考虑到研究人员在真实硬件上
+常规运行超过1000亿次测试来验证他们的模型。
+在一个案例中，尽管运行了1760亿次，
+架构允许的行为没有出现~\cite{JadeAlglave2011ppcmem}。
+相比之下，完整的 state-space search 允许工具
+证明代码片段是正确的。
 
-It is worth repeating that formal methods and tools are no substitute for
-testing.
-The fact is that producing large reliable concurrent software artifacts,
-the Linux kernel for example, is quite difficult.
-Developers must therefore be prepared to apply every tool at their
-disposal towards this goal.
-The tools presented in this chapter are able to locate bugs that are
-quite difficult to produce (let alone track down) via testing.
-On the other hand, testing can be applied to far larger bodies of software
-than the tools presented in this chapter are ever likely to handle.
-As always, use the right tools for the job!
+值得重复的是，形式化方法和工具不能替代测试。
+事实是，生产大型可靠的并发软件工件（例如 Linux 内核）
+是相当困难的。
+因此，开发者必须准备好运用他们所掌握的每一个工具
+来实现这个目标。
+本章介绍的工具能够定位通过测试非常难以产生
+（更不用说追踪）的 bug。
+另一方面，测试可以应用于比本章介绍的工具
+可能处理的大得多的软件体。
+一如既往，使用合适的工具做合适的工作！
 
-Of course, it is always best to avoid the need to work at this level
-by designing your parallel code to be easily partitioned and then
-using higher-level primitives (such as locks, sequence counters, atomic
-operations, and RCU) to get your job done more straightforwardly.
-And even if you absolutely must use low-level memory barriers and
-read-modify-write instructions to get your job done, the more
-conservative your use of these sharp instruments, the easier your life
-is likely to be.
+当然，最好是通过设计你的并行代码使其容易分区，
+然后使用更高级别的原语（如锁、序列计数器、
+原子操作和 RCU）来更直接地完成工作，
+从而避免在这个层面工作的需要。
+即使你绝对必须使用底层的内存屏障和读-修改-写指令
+来完成工作，你越保守地使用这些锋利的工具，
+你的生活就越可能轻松。

@@ -2,321 +2,280 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Ease of Use}{Ease of Use}{qqzeasy}
+\QuickQuizChapter{chp:Ease of Use}{易用性}{qqzeasy}
 %
-\Epigraph{Creating a perfect API is like committing the perfect crime.
-	  There are at least fifty things that can go wrong, and if you are
-	  a genius, you might be able to anticipate twenty-five of them.}
-	 {With apologies to any Kathleen Turner fans who might
-	  still be alive.}
+\Epigraph{创建一个完美的API就像实施一场完美的犯罪。
+	  至少有五十件事情可能出错，即使你是天才，
+	  也最多只能预见其中二十五件。}
+	 {向所有可能还健在的Kathleen Turner粉丝致歉。}
 
-\section{What is Easy?}
+\section{什么是"容易"？}
 \label{sec:easy:What is Easy?}
 %
-\epigraph{When someone says ``I want a programming language in which I
-	  need only say what I wish done,'' give them a lollipop.}
-	 {Alan J.~ Perlis, updated}
+\epigraph{当有人说"我想要一种编程语言，只需说出我想做什么就行"时，
+	  给他一根棒棒糖。}
+	 {Alan J.~Perlis，经改编}
 % http://www.cs.yale.edu/homes/perlis-alan/quotes.html
 
-If you are tempted to look down on ease-of-use requirements, please
-consider that an ease-of-use bug in Linux-kernel RCU resulted in an
-exploitable Linux-kernel security bug in a use of
-RCU~\cite{McKenney:2019:CRS:3319647.3325836}.
-It is therefore clearly important that even in-kernel APIs be easy to use.
+如果你有轻视易用性需求的倾向，请考虑这样一个事实：
+Linux内核RCU中的一个易用性bug导致了一个可被利用的
+Linux内核安全漏洞~\cite{McKenney:2019:CRS:3319647.3325836}。
+因此，即使是内核内部的API也必须易于使用，这一点显然很重要。
 
-Unfortunately, ``easy'' is a relative term.
-For example, many people would consider a 15-hour airplane flight to be
-a bit of an ordeal---unless they stopped to consider alternative modes
-of transportation, especially swimming.
-This means that creating an easy-to-use API requires that you understand
-your intended users well enough to know what is easy for them.
-Which might or might not have anything to do with what is easy for you.
+不幸的是，"容易"是一个相对的概念。
+例如，许多人会认为15小时的飞机旅程有点折磨人——
+除非他们停下来考虑替代的交通方式，尤其是游泳。
+这意味着创建易用的API要求你足够了解目标用户，
+知道什么对他们来说是容易的。
+而这可能与什么对你来说是容易的毫无关系。
 
-The following question illustrates this point:
-``Given a randomly chosen person among everyone alive today, what one
-change would improve that person's life?''
+以下问题说明了这一点：
+"从当今世界上随机选择一个人，做出什么样的单一改变能改善此人的生活？"
 
-There is no single change that would be guaranteed to help everyone's life.
-After all, there is an extremely wide range of people, with a correspondingly
-wide range of needs, wants, desires, and aspirations.
-A starving person might need food, but additional food might well hasten
-the death of a morbidly obese person.
-The high level of excitement so fervently desired by many young people
-might well be fatal to someone recovering from a heart attack.
-Information critical to the success of one person might contribute to
-the failure of someone suffering from information overload.
-In short, if you are working on a software project that is intended to
-help people you know nothing about, you should not be surprised when
-those people find fault with your project.
+没有任何单一的改变能保证帮助每个人的生活。
+毕竟，人与人之间差异极大，需求、愿望、渴望和抱负也相应地千差万别。
+一个饥饿的人可能需要食物，但额外的食物可能会加速一个病态肥胖者的死亡。
+许多年轻人如此热切渴望的高度刺激，对于心脏病恢复期的人来说可能是致命的。
+对某个人的成功至关重要的信息，可能会加剧另一个遭受信息过载之苦的人的失败。
+简而言之，如果你正在开发一个旨在帮助你一无所知的人的软件项目，
+当这些人对你的项目提出批评时，你不应该感到惊讶。
 
-If you really want to help a given group of people, there is simply no
-substitute for working closely with them over an extended period of time,
-as in years.
-Nevertheless, there are some simple things that you can do to increase
-the odds of your users being happy with your software, and some of these
-things are covered in the next section.
+如果你真的想帮助特定的一群人，
+没有什么能替代与他们长期紧密合作，以年为计。
+尽管如此，有一些简单的事情可以增加用户对你的软件满意的可能性，
+其中一些将在下一节中介绍。
 
-\section{Rusty Scale for API Design}
+\section{API设计的Rusty量表}
 \label{sec:easy:Rusty Scale for API Design}
 %
-\epigraph{Finding the appropriate measurement is thus not a mathematical
-	  exercise.
-	  It is a risk-taking judgment.}
+\epigraph{因此，找到合适的度量不是一个数学练习，
+	  而是一个冒险的判断。}
 	 {Peter Drucker}
 % http://billhennessy.com/simple-strategies/2015/09/09/i-wish-drucker-never-said-it
 % Rusty is OK with this: July 19, 2006.
 
-This section is adapted from portions of Rusty Russell's 2003 Ottawa Linux
-Symposium keynote address~\cite[Slides~39--57]{RustyRussell2003OLSkeynote}.
-Rusty's key point is that the goal should not be merely to make an API
-easy to use, but rather to make the API hard to misuse.
-To that end, Rusty proposed his ``Rusty Scale'' in decreasing order
-of this important hard-to-misuse property.
+本节改编自Rusty Russell 2003年渥太华Linux研讨会主题演讲的
+部分内容~\cite[Slides~39--57]{RustyRussell2003OLSkeynote}。
+Rusty的关键观点是，目标不应该仅仅是使API易于使用，
+而应该是使API难以被误用。
+为此，Rusty提出了他的"Rusty量表"，
+按照这一重要的"难以误用"属性的递减顺序排列。
 
-The following list attempts to generalize the Rusty Scale beyond the
-Linux kernel:
+以下列表尝试将Rusty量表推广到Linux内核之外：
 
 \begin{enumerate}
-\item	It is impossible to get wrong.
-	Although this is the standard to which all API designers should
-	strive, only the mythical \co{dwim()}\footnote{
-		The \co{dwim()} function is an acronym that expands to
-		``do what I mean''.}
-	command manages to come close.
-\item	The compiler or linker won't let you get it wrong.
-\item	The compiler or linker will warn you if you get it wrong.
-	\co{BUILD_BUG_ON()} is your users' friend.
-\item	The simplest use is the correct one.
-\item	The name tells you how to use it.
-	But names can be two-edged swords.
-	Although \co{rcu_read_lock()} is plain enough for someone
-	converting code from reader-writer locking, it might cause
-	some consternation for someone converting code from
-	reference counting.
-\item	Do it right or it will always break at runtime.
-	\co{WARN_ON_ONCE()} is your users' friend.
-\item	Follow common convention and you will get it right.
-	The \co{malloc()} library function is a good example.
-	Although it is easy to get memory allocation wrong, a
-	great many projects do manage to get it right, at least most
-	of the time.
-	Using \co{malloc()} in conjunction with
-	Valgrind~\cite{ValgrindHomePage} moves \co{malloc()}
-	almost up to the ``do it right or it will always break at runtime''
-	point on the scale.
-\item	Read the documentation and you will get it right.
-\item	Read the implementation and you will get it right.
-\item	Read the right mailing-list archive and you will get it right.
-\item	Read the right mailing-list archive and you will get it wrong.
-\item	Read the implementation and you will get it wrong.
-	The original non-\co{CONFIG_PREEMPT} implementation of
-	\co{rcu_read_lock()}~\cite{PaulEMcKenney2007PreemptibleRCU}
-	is an infamous example of this point on the scale.
-\item	Read the documentation and you will get it wrong.
-	For example, the DEC Alpha \co{wmb} instruction's
-	documentation~\cite{ALPHA2002} fooled a
-	number of developers into thinking that this instruction
-	had much stronger memory-order semantics than it actually does.
-	Later documentation clarified this
-	point~\cite{Compaq01,WilliamPugh2000Gharachorloo},
-	moving the \co{wmb} instruction up to the
-	``read the documentation and you will get it right'' point on
-	the scale.
-\item	Follow common convention and you will get it wrong.
-	The \co{printf()} statement is an example of this point on the
-	scale because
-	developers almost always fail to check \co{printf()}'s error return.
-\item	Do it right and it will break at runtime.
-\item	The name tells you how not to use it.
-\item	The obvious use is wrong.
-	The Linux kernel \co{smp_mb()} function is an example of
-	this point on the scale.
-	Many developers assume that this function has much
-	stronger ordering semantics than it actually possesses.
-	\Cref{chp:Advanced Synchronization: Memory Ordering} contains the
-	information needed to avoid this mistake, as does the
-	Linux-kernel source tree's \path{Documentation} and
-	\path{tools/memory-model} directories.
-\item	The compiler or linker will warn you if you get it right.
-\item	The compiler or linker won't let you get it right.
-\item	It is impossible to get right.
-	The \co{gets()} function is a famous example of this point on
-	the scale.
-	In fact, \co{gets()} can perhaps best be described as
-	an unconditional buffer-overflow security hole.
+\item	不可能用错。
+	虽然这是所有API设计者应该努力达到的标准，
+	但只有神话般的\co{dwim()}\footnote{
+		\co{dwim()}函数是一个首字母缩写，
+		展开为"do what I mean"（做我想做的）。}
+	命令才能接近这个目标。
+\item	编译器或链接器不会让你用错。
+\item	如果你用错了，编译器或链接器会发出警告。
+	\co{BUILD_BUG_ON()}是用户的好朋友。
+\item	最简单的用法就是正确的用法。
+\item	名称告诉你如何使用它。
+	但名称可能是双刃剑。
+	虽然\co{rcu_read_lock()}对于从reader-writer locking
+	转换代码的人来说足够明了，
+	但对于从引用计数转换代码的人来说可能会引起一些困惑。
+\item	用对了就没事，用错了运行时一定会出问题。
+	\co{WARN_ON_ONCE()}是用户的好朋友。
+\item	遵循常见惯例，你就能用对。
+	\co{malloc()}库函数就是一个好例子。
+	虽然很容易在内存分配上出错，
+	但大量项目确实在大多数时候做到了正确使用。
+	将\co{malloc()}与Valgrind~\cite{ValgrindHomePage}
+	配合使用，几乎可以将\co{malloc()}提升到
+	量表上"用对了就没事，用错了运行时一定会出问题"的位置。
+\item	阅读文档，你就能用对。
+\item	阅读实现代码，你就能用对。
+\item	阅读正确的邮件列表归档，你就能用对。
+\item	阅读正确的邮件列表归档，你还是会用错。
+\item	阅读实现代码，你还是会用错。
+	\co{rcu_read_lock()}的原始非\co{CONFIG_PREEMPT}
+	实现~\cite{PaulEMcKenney2007PreemptibleRCU}
+	就是量表上这一位置的臭名昭著的例子。
+\item	阅读文档，你还是会用错。
+	例如，DEC Alpha的\co{wmb}指令的
+	文档~\cite{ALPHA2002}让许多开发者
+	误以为该指令具有比实际强得多的内存顺序语义。
+	后来的文档澄清了这一点~\cite{Compaq01,WilliamPugh2000Gharachorloo}，
+	将\co{wmb}指令提升到了量表上
+	"阅读文档，你就能用对"的位置。
+\item	遵循常见惯例，你还是会用错。
+	\co{printf()}语句就是量表上这一位置的例子，
+	因为开发者几乎总是忘记检查\co{printf()}的错误返回值。
+\item	用对了，运行时反而会出问题。
+\item	名称告诉你的是如何\emph{不}使用它。
+\item	显而易见的用法是错误的。
+	Linux内核的\co{smp_mb()}函数就是量表上这一位置的例子。
+	许多开发者认为这个函数具有比其实际拥有的强得多的
+	顺序语义。
+	\Cref{chp:Advanced Synchronization: Memory Ordering}包含了
+	避免这一错误所需的信息，Linux内核源码树的
+	\path{Documentation}和\path{tools/memory-model}目录也是如此。
+\item	如果你用对了，编译器或链接器会发出警告。
+\item	编译器或链接器不会让你用对。
+\item	不可能用对。
+	\co{gets()}函数就是量表上这一位置的著名例子。
+	事实上，\co{gets()}最好的描述可能是
+	一个无条件的缓冲区溢出安全漏洞。
 \end{enumerate}
 
-\section{Shaving the Mandelbrot Set}
+\section{修剪曼德博集合}
 \label{sec:easy:Shaving the Mandelbrot Set}
 %
-\epigraph{Simplicity does not precede complexity, \\ but follows it.}
+\epigraph{简单不在复杂之前，\\而在复杂之后。}
 	 {Alan J.~Perlis}
 
-The set of useful programs resembles the Mandelbrot set
-(shown in \cref{fig:easy:Mandelbrot Set})
-in that it does
-not have a clear-cut smooth boundary---if it did, the halting problem
-would be solvable.
-But we need APIs that real people can use, not ones that require a
-Ph.D. dissertation be completed for each and every potential use.
-So, we ``shave the Mandelbrot set'',\footnote{
-	Due to Josh Triplett.}
-restricting the use of the
-API to an easily described subset of the full set of potential uses.
+有用程序的集合类似于曼德博集合
+（如\cref{fig:easy:Mandelbrot Set}所示），
+因为它没有清晰光滑的边界——如果有的话，
+停机问题就可以求解了。
+但我们需要的是真实的人能够使用的API，
+而不是每一个潜在用途都需要完成一篇博士论文的API。
+因此，我们"修剪曼德博集合"\footnote{
+	归功于Josh Triplett。}，
+将API的使用限制在完整潜在用途集合中一个容易描述的子集内。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{easy/Mandel_zoom_00_mandelbrot_set}}
-\caption{Mandelbrot Set (Courtesy of Wikipedia)}
+\caption{曼德博集合（图片来自维基百科）}
 \label{fig:easy:Mandelbrot Set}
 \end{figure}
 
-Such shaving may seem counterproductive.
-After all, if an algorithm works, why shouldn't it be used?
+这样的修剪可能看起来适得其反。
+毕竟，如果一个算法能工作，为什么不应该使用它呢？
 
-To see why at least some shaving is absolutely necessary, consider
-a locking design that avoids \IX{deadlock}, but in perhaps the worst possible way.
-This design uses a circular doubly linked list, which contains one
-element for each thread in the system along with a header element.
-When a new thread is spawned, the parent thread must insert a new
-element into this list, which requires some sort of synchronization.
+要理解为什么至少某些修剪是绝对必要的，
+考虑一个避免\IX{deadlock}的locking设计，但可能以最糟糕的方式。
+这个设计使用一个循环双向链表，
+其中包含系统中每个thread的一个元素以及一个头元素。
+当一个新thread被创建时，父thread必须向这个列表中插入一个新元素，
+这需要某种形式的同步。
 
-One way to protect the list is to use a global lock.
-However, this might be a bottleneck if threads were being created and
-deleted frequently.\footnote{
-	Those of you with strong operating-system backgrounds, please
-	suspend disbelief.
-	Those unable to suspend disbelief are encouraged to provide
-	better examples.}
-Another approach would be to use a hash table and to lock the individual
-hash buckets, but this can perform poorly when scanning the list in order.
+保护列表的一种方法是使用全局lock。
+然而，如果thread被频繁创建和删除，
+这可能会成为瓶颈。\footnote{
+	有操作系统背景的读者，请暂时搁置疑虑。
+	无法搁置疑虑的读者欢迎提供更好的例子。}
+另一种方法是使用hash table并锁定单独的hash桶，
+但当按顺序扫描列表时，这可能表现不佳。
 
-A third approach is to lock the individual list elements, and to require
-the locks for both the predecessor and successor to be held during the
-insertion.
-Since both locks must be acquired, we need to decide which order to
-acquire them in.
-Two conventional approaches would be to acquire the locks in address
-order, or to acquire them in the order that they appear in the list,
-so that the header is always acquired first when it is one of the two
-elements being locked.
-However, both of these methods require special checks and branches.
+第三种方法是锁定单独的列表元素，
+并要求在插入时同时持有前驱和后继元素的lock。
+由于必须获取两把lock，我们需要决定获取的顺序。
+两种传统方法是按地址顺序获取lock，
+或按它们在列表中出现的顺序获取lock，
+这样当头元素是被锁定的两个元素之一时，它总是先被获取。
+然而，这两种方法都需要特殊的检查和分支。
 
-The to-be-shaven solution is to unconditionally acquire the locks in
-list order.
-But what about deadlock?
+这个待修剪的方案是无条件地按列表顺序获取lock。
+但deadlock怎么办？
 
-Deadlock cannot occur.
+Deadlock不可能发生。
 
-To see this, number the elements in the list starting with zero for the
-header up to $N$ for the last element in the list (the one preceding the
-header, given that the list is circular).
-Similarly, number the threads from zero to $N-1$.
-If each thread attempts to lock some consecutive pair of elements,
-at least one of the threads is guaranteed to be able to acquire both
-locks.
+要理解这一点，将列表中的元素从零开始编号，
+头元素为零，直到列表中的最后一个元素$N$
+（即在循环列表中位于头元素之前的那个）。
+类似地，将thread从零编号到$N-1$。
+如果每个thread试图锁定某对连续的元素，
+至少有一个thread能够保证获取两把lock。
 
-Why?
+为什么？
 
-Because there are not enough threads to reach all the way around the list.
-Suppose thread~0 acquires element~0's lock.
-To be blocked, some other thread must have already acquired element~1's
-lock, so let us assume that thread~1 has done so.
-Similarly, for thread~1 to be blocked, some other thread must have acquired
-element~2's lock, and so on, up through thread~$N-1$, who acquires
-element~$N-1$'s lock.
-For thread~$N-1$ to be blocked, some other thread must have acquired
-element~$N$'s lock.
-But there are no more threads, and so thread~$N-1$ cannot be blocked.
-Therefore, deadlock cannot occur.
+因为没有足够多的thread来环绕整个列表。
+假设thread~0获取了元素~0的lock。
+要使其被阻塞，某个其他thread必须已经获取了元素~1的lock，
+所以让我们假设thread~1已经这样做了。
+类似地，要使thread~1被阻塞，某个其他thread必须已经获取了
+元素~2的lock，依此类推，直到thread~$N-1$获取了
+元素~$N-1$的lock。
+要使thread~$N-1$被阻塞，某个其他thread必须已经获取了
+元素~$N$的lock。
+但已经没有更多的thread了，所以thread~$N-1$不可能被阻塞。
+因此，deadlock不可能发生。
 
-So why should we prohibit use of this delightful little algorithm?
+那么为什么我们应该禁止使用这个妙趣横生的小算法呢？
 
-The fact is that if you \emph{really} want to use it, we cannot stop you.
-We \emph{can}, however, recommend against such code being included
-in any project that we care about.
+事实是，如果你\emph{真的}想使用它，我们无法阻止你。
+然而，我们\emph{可以}建议不要将此类代码包含在
+我们关心的任何项目中。
 
-But, before you use this algorithm, please think through the following
-Quick Quiz.
+但是，在你使用这个算法之前，
+请仔细思考以下Quick Quiz。
 
 \QuickQuiz{
-	Can a similar algorithm be used when deleting elements?
+	在删除元素时可以使用类似的算法吗？
 }\QuickQuizAnswer{
-	Yes.
-	However, since each thread must hold the locks of three
-	consecutive elements to delete the middle one, if there
-	are $N$ threads, there must be $2N+1$ elements (rather than
-	just $N+1$) in order to avoid deadlock.
+	可以。
+	然而，由于每个thread必须持有三个连续元素的lock
+	才能删除中间的那个，如果有$N$个thread，
+	则必须有$2N+1$个元素（而不仅仅是$N+1$个）
+	才能避免deadlock。
 }\QuickQuizEnd
 
-The fact is that this algorithm is extremely specialized (it only works
-on certain sized lists), and also quite fragile.
-Any bug that accidentally failed to add a node to the list could result
-in deadlock.
-In fact, simply adding the node a bit too late could result in deadlock,
-as could increasing the number of threads.
+事实是，这个算法极其专门化（它只对特定大小的列表有效），
+而且相当脆弱。
+任何意外未能将节点添加到列表的bug都可能导致deadlock。
+实际上，仅仅是稍微晚了一点添加节点就可能导致deadlock，
+增加thread的数量也是如此。
 
-In addition, the other algorithms described above are ``good and sufficient''.
-For example, simply acquiring the locks in address order is fairly simple
-and quick, while allowing the use of lists of any size.
-Just be careful of the special cases presented by empty lists and lists
-containing only one element!
+此外，上面描述的其他算法是"好且足够的"。
+例如，简单地按地址顺序获取lock相当简单且快速，
+同时允许使用任意大小的列表。
+只要注意空列表和只包含一个元素的列表所带来的特殊情况！
 
 \QuickQuiz{
-	Yetch!
-	What ever possessed someone to come up with an algorithm
-	that deserves to be shaved as much as this one does???
+	呸！
+	到底是什么人想出了一个如此值得被修剪的算法？？？
 }\QuickQuizAnswer{
-	That would be Paul.
+	那就是Paul。
 
-	He was considering the \emph{Dining Philosopher's Problem}, which
-	involves a rather unsanitary spaghetti dinner attended by
-	five philosophers.
-	Given that there are five plates and but five forks on the table, and
-	given that each philosopher requires two forks at a time to eat,
-	one is supposed to come up with a fork-allocation algorithm that
-	avoids deadlock.
-	Paul's response was ``Sheesh!
-			      Just get five more forks!''
+	他当时在思考\emph{哲学家就餐问题}，
+	这涉及一顿由五位哲学家参加的相当不卫生的意大利面晚餐。
+	考虑到桌上有五个盘子但只有五把叉子，
+	而且每位哲学家每次吃饭需要两把叉子，
+	要求想出一种避免deadlock的叉子分配算法。
+	Paul的回应是"天哪！
+			  再拿五把叉子不就行了！"
 
-	This in itself was OK, but Paul then applied this same solution to
-	circular linked lists.
+	这本身没什么问题，但Paul随后将同样的方案
+	应用到了循环链表上。
 
-	This would not have been so bad either, but he had to go and tell
-	someone about it!
+	这也不算太糟糕，但他偏偏还要告诉别人！
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{cartoons/r-2014-shaving-the-mandelbrot}}
-\caption{Shaving the Mandelbrot Set}
+\caption{修剪曼德博集合}
 \ContributedBy{fig:easy:Shaving the Mandelbrot Set}{Melissa Broussard}
 \end{figure}
 
-In summary, we do not use algorithms simply because they happen to work.
-We instead restrict ourselves to algorithms that are useful enough to
-make it worthwhile learning about them.
-The more difficult and complex the algorithm, the more generally useful
-it must be in order for the pain of learning it and fixing its bugs to
-be worthwhile.
+总而言之，我们不会仅仅因为算法碰巧能工作就使用它。
+相反，我们将自己限制在那些足够有用、
+值得花时间学习的算法上。
+算法越困难、越复杂，它就必须越具有通用性，
+才能使学习它和修复其bug的痛苦变得值得。
 
 \QuickQuiz{
-	Give an exception to this rule.
+	给出这条规则的一个例外。
 }\QuickQuizAnswer{
-	One exception would be a difficult and complex algorithm that
-	was the only one known to work in a given situation.
-	Another exception would be a difficult and complex algorithm
-	that was nonetheless the simplest of the set known to work in
-	a given situation.
-	However, even in these cases, it may be very worthwhile to spend
-	a little time trying to come up with a simpler algorithm!
-	After all, if you managed to invent the first algorithm
-	to do some task, it shouldn't be that hard to go on to
-	invent a simpler one.
+	一个例外是，一个困难而复杂的算法，
+	却是在给定情况下已知的唯一可行算法。
+	另一个例外是，一个困难而复杂的算法，
+	却是在给定情况下已知可行算法集合中最简单的一个。
+	然而，即使在这些情况下，
+	花一点时间尝试想出一个更简单的算法也可能非常值得！
+	毕竟，如果你能够发明出第一个完成某项任务的算法，
+	那么继续发明一个更简单的算法应该也不会太难。
 }\QuickQuizEnd
 
-Exceptions aside, we must continue to shave the software ``Mandelbrot
-set'' so that our programs remain maintainable, as shown in
-\cref{fig:easy:Shaving the Mandelbrot Set}.
+除了例外情况，我们必须继续修剪软件的"曼德博集合"，
+使我们的程序保持可维护性，
+如\cref{fig:easy:Shaving the Mandelbrot Set}所示。
 
 \QuickQuizAnswersChp{qqzeasy}

@@ -2,431 +2,361 @@
 % mainfile: ../perfbook.tex
 % From an C++ Standards Committee meeting:  "Can I hazptr cheezeberger?"
 
-\section{Hazard Pointers}
+\section{风险指针}
 \label{sec:defer:Hazard Pointers}
 %
-\epigraph{If in doubt, turn it inside out.}{Zara Carpenter}
+\epigraph{如有疑虑，就将它翻转过来。}{Zara Carpenter}
 
-One way of avoiding problems with concurrent reference counting
-is to implement the reference counters
-inside out, that is, rather than incrementing an integer stored in the
-data element, instead store a pointer to that data element in
-per-CPU (or per-thread) lists.
-Each element of these lists is called a
-\emph{\IX{hazard pointer}}~\cite{MagedMichael04a}.\footnote{
-	Also independently invented by others~\cite{HerlihyLM02}.}
-The value of a given data element's ``virtual reference counter'' can
-then be obtained by counting the number of hazard pointers referencing
-that element.
-Therefore, if that element has been rendered inaccessible to readers,
-and there are no longer any hazard pointers referencing it, that element
-may safely be freed.
+避免并发 reference counting 问题的一种方法是将引用计数器
+内翻实现，即不是递增存储在数据元素中的整数，
+而是在每 CPU（或每线程）列表中存储指向该数据元素的指针。
+这些列表中的每个元素称为
+\emph{\IX{hazard pointer}}~\cite{MagedMichael04a}。\footnote{
+	也由其他人独立发明~\cite{HerlihyLM02}。}
+给定数据元素的``虚拟引用计数器''的值可以通过计算引用该元素的
+hazard pointer 数量来获得。
+因此，如果该元素已经对读者不可访问，
+并且不再有任何 hazard pointer 引用它，
+那么该元素就可以安全释放。
 
 \begin{listing}
 \input{CodeSamples/defer/hazptr@record_clear.fcv}
-\caption{Hazard-Pointer Recording and Clearing}
+\caption{Hazard-Pointer 记录和清除}
 \label{lst:defer:Hazard-Pointer Recording and Clearing}
 \end{listing}
 
-Of course, this means that hazard-pointer acquisition must be carried
-out quite carefully in order to avoid destructive races with concurrent
-deletion.
+当然，这意味着 hazard-pointer 的获取必须非常小心地进行，
+以避免与并发删除的破坏性竞争。
 \begin{fcvref}[ln:defer:hazptr:record_clear]
-One implementation is shown in
-\cref{lst:defer:Hazard-Pointer Recording and Clearing},
-which shows \co{hp_try_record()} on \clnrefrange{htr:b}{htr:e},
-\co{hp_record()} on \clnrefrange{hr:b}{hr:e}, and
-\co{hp_clear()} on
-\clnrefrange{hc:b}{hc:e} (\path{hazptr.h}).
+一种实现如\cref{lst:defer:Hazard-Pointer Recording and Clearing}所示，
+其中 \co{hp_try_record()} 在\clnrefrange{htr:b}{htr:e}，
+\co{hp_record()} 在\clnrefrange{hr:b}{hr:e}，
+\co{hp_clear()} 在\clnrefrange{hc:b}{hc:e}（\path{hazptr.h}）。
 
-The \co{hp_try_record()} macro on \clnref{htr:e} is simply a casting
-wrapper for the \co{_h_t_r_impl()} function, which attempts to store
-the pointer referenced by \co{p} into the hazard pointer referenced
-by \co{hp}.
-If successful, it returns the value of the stored pointer.
-If it fails due to that pointer being \co{NULL}, it returns \co{NULL}.
-Finally, if it fails due to racing with an update, it returns a special
-\co{HAZPTR_POISON} token.
+\co{hp_try_record()} 宏在\clnref{htr:e}只是
+\co{_h_t_r_impl()} 函数的类型转换包装器，
+它尝试将 \co{p} 引用的指针存储到 \co{hp} 引用的 hazard pointer 中。
+如果成功，它返回存储指针的值。
+如果由于该指针为 \co{NULL} 而失败，它返回 \co{NULL}。
+最后，如果由于与更新竞争而失败，它返回一个特殊的
+\co{HAZPTR_POISON} 标记。
 
 \QuickQuiz{
-	Given that papers on hazard pointers use the bottom bits
-	of each pointer to mark deleted elements, what is up with
-	\co{HAZPTR_POISON}?
+	鉴于关于 hazard pointers 的论文使用每个指针的低位来标记已删除的元素，
+	\co{HAZPTR_POISON} 是怎么回事？
 }\QuickQuizAnswer{
-	The published implementations of hazard pointers used
-	non-blocking synchronization techniques for insertion
-	and deletion.
-	These techniques require that readers traversing the
-	data structure ``help'' updaters complete their updates,
-	which in turn means that readers need to look at the successor
-	of a deleted element.
+	hazard pointers 的已发布实现使用非阻塞同步技术来进行插入和删除。
+	这些技术要求遍历数据结构的读者``帮助''更新者完成其更新，
+	这反过来意味着读者需要查看已删除元素的后继。
 
-	In contrast, we will be using locking to synchronize updates,
-	which does away with the need for readers to help updaters
-	complete their updates, which in turn allows us to leave
-	pointers' bottom bits alone.
-	This approach allows read-side code to be simpler and faster.
+	相比之下，我们将使用锁来同步更新，
+	这消除了读者帮助更新者完成其更新的需要，
+	进而允许我们保持指针低位不变。
+	这种方法使读侧代码更简单、更快。
 }\QuickQuizEnd
 
-\Clnref{htr:ro1} reads the pointer to the object to be protected.
-If \clnref{htr:check} finds that this pointer was either \co{NULL} or
-the special \co{HAZPTR_POISON} deleted-object token, then \clnref{htr:race1} returns
-the pointer's value to inform the caller of the failure.
-Otherwise, \clnref{htr:store} stores the pointer into the specified
-hazard pointer, and \clnref{htr:mb} forces full ordering of that
-store with the reload of the original pointer on \clnref{htr:ro2}.
-(See \cref{chp:Advanced Synchronization: Memory Ordering}
-for more information on memory ordering.)
-If the value of the original pointer has not changed, then the hazard
-pointer protects the pointed-to object, and in that case,
-\clnref{htr:success} returns a pointer to that object, which also
-indicates success to the caller.
-Otherwise, if the pointer changed between the two \co{READ_ONCE()}
-invocations, \clnref{htr:race2} indicates failure.
+\Clnref{htr:ro1}读取要保护的对象的指针。
+如果\clnref{htr:check}发现该指针为 \co{NULL} 或
+特殊的 \co{HAZPTR_POISON} 已删除对象标记，
+则\clnref{htr:race1}返回指针的值以通知调用者失败。
+否则，\clnref{htr:store}将指针存储到指定的 hazard pointer 中，
+\clnref{htr:mb}强制该存储与\clnref{htr:ro2}上原始指针的重新加载
+之间的完全排序。
+（参见\cref{chp:Advanced Synchronization: Memory Ordering}了解
+更多关于内存排序的信息。）
+如果原始指针的值没有改变，则 hazard pointer 保护了指向的对象，
+在这种情况下，\clnref{htr:success}返回指向该对象的指针，
+这也向调用者表示成功。
+否则，如果指针在两次 \co{READ_ONCE()} 调用之间发生了变化，
+\clnref{htr:race2}表示失败。
 
 \QuickQuiz{
-	Why does \co{hp_try_record()} in
-	\cref{lst:defer:Hazard-Pointer Recording and Clearing}
-	take a double indirection to the data element?
-	Why not \co{void *} instead of \co{void **}?
+	为什么\cref{lst:defer:Hazard-Pointer Recording and Clearing}中的
+	\co{hp_try_record()} 对数据元素采用双重间接引用？
+	为什么不用 \co{void *} 而是 \co{void **}？
 }\QuickQuizAnswer{
-	Because \co{hp_try_record()} must check for concurrent modifications.
-	To do that job, it needs a pointer to a pointer to the element,
-	so that it can check for a modification to the pointer to the
-	element.
+	因为 \co{hp_try_record()} 必须检查并发修改。
+	为了完成这项工作，它需要一个指向元素指针的指针，
+	以便可以检查元素指针是否被修改。
 }\QuickQuizEnd
 
-The \co{hp_record()} function is quite straightforward:
-It repeatedly invokes \co{hp_try_record()} until the return value
-is something other than \co{HAZPTR_POISON}.
+\co{hp_record()} 函数非常直接：
+它反复调用 \co{hp_try_record()} 直到返回值不是 \co{HAZPTR_POISON}。
 
 \QuickQuiz{
-	Why bother with \co{hp_try_record()}?
-	Wouldn't it be easier to just use the failure-immune
-	\co{hp_record()} function?
+	为什么要费心使用 \co{hp_try_record()}？
+	直接使用不会失败的 \co{hp_record()} 函数不是更容易吗？
 }\QuickQuizAnswer{
-	It might be easier in some sense, but as will be seen in the
-	Pre-BSD routing example, there are situations for which
-	\co{hp_record()} simply does not work.
+	从某种意义上说可能更容易，但正如将在 Pre-BSD 路由示例中看到的，
+	有些情况下 \co{hp_record()} 根本无法工作。
 }\QuickQuizEnd
 
-The \co{hp_clear()} function is even more straightforward, with
-an \co{smp_mb()} to force full ordering between the caller's uses
-of the object protected by the hazard pointer and the setting of
-the hazard pointer to \co{NULL}.
+\co{hp_clear()} 函数更加直接，
+使用 \co{smp_mb()} 来强制调用者对 hazard pointer 保护的对象的使用
+与将 hazard pointer 设置为 \co{NULL} 之间的完全排序。
 \end{fcvref}
 
 \begin{listing}
 \ebresizeverb{.91}{\input{CodeSamples/defer/hazptr@scan_free.fcv}}
-\caption{Hazard-Pointer Scanning and Freeing}
+\caption{Hazard-Pointer 扫描和释放}
 \label{lst:defer:Hazard-Pointer Scanning and Freeing}
 \end{listing}
 
 \begin{fcvref}[ln:defer:hazptr:scan_free:free]
-Once a hazard-pointer-protected object has been removed from its
-linked data structure, so that it is now inaccessible to future
-hazard-pointer readers, it is passed to \co{hazptr_free_later()},
-which is shown on \clnrefrange{b}{e} of
-\cref{lst:defer:Hazard-Pointer Scanning and Freeing}
-(\path{hazptr.c}).
-\Clnref{enq:b,enq:e}
-enqueue the object on a per-thread list \co{rlist}
-and \clnref{count} counts the object in \co{rcount}.
-If \clnref{check} sees that a sufficiently large number of objects are now
-queued, \clnref{scan} invokes \co{hazptr_scan()} to attempt to
-free some of them.
+一旦受 hazard-pointer 保护的对象从其链式数据结构中移除，
+使其对未来的 hazard-pointer 读者不可访问，
+它就被传递给 \co{hazptr_free_later()}，
+如\cref{lst:defer:Hazard-Pointer Scanning and Freeing}
+的\clnrefrange{b}{e}所示（\path{hazptr.c}）。
+\Clnref{enq:b,enq:e}将对象入队到每线程列表 \co{rlist} 上，
+\clnref{count}在 \co{rcount} 中计数该对象。
+如果\clnref{check}发现已有足够多的对象排队，
+\clnref{scan}调用 \co{hazptr_scan()} 来尝试释放其中一些。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:hazptr:scan_free:scan]
-The \co{hazptr_scan()} function is shown on \clnrefrange{b}{e}
-of the listing.
-This function relies on a fixed maximum number of threads (\co{NR_THREADS})
-and a fixed maximum number of hazard pointers per thread (\co{K}),
-which allows a fixed-size array of hazard pointers to be used.
-Because any thread might need to scan the hazard pointers, each thread
-maintains its own array, which is referenced by the per-thread variable
-\co{gplist}.
-If \clnref{check} determines that this thread has not yet allocated its
-\co{gplist}, \clnrefrange{alloc:b}{alloc:e} carry out the allocation.
-The \IX{memory barrier} on \clnref{mb1} ensures that all threads see the
-removal of all objects by this thread before
-\clnrefrange{loop:b}{loop:e} scan
-all of the hazard pointers, accumulating non-NULL pointers into
-the \co{plist} array and counting them in \co{psize}.
-The memory barrier on \clnref{mb2} ensures that the reads of
-the hazard pointers
-happen before any objects are freed.
-\Clnref{sort} then sorts this array to enable use of binary search below.
+\co{hazptr_scan()} 函数如列表的\clnrefrange{b}{e}所示。
+该函数依赖于固定的最大线程数（\co{NR_THREADS}）和
+每个线程固定的最大 hazard pointer 数（\co{K}），
+这允许使用固定大小的 hazard pointer 数组。
+因为任何线程都可能需要扫描 hazard pointers，每个线程维护自己的数组，
+由每线程变量 \co{gplist} 引用。
+如果\clnref{check}确定该线程尚未分配其 \co{gplist}，
+\clnrefrange{alloc:b}{alloc:e}执行分配。
+\clnref{mb1}上的\IX{memory barrier}确保所有线程看到此线程移除的所有对象，
+然后\clnrefrange{loop:b}{loop:e}扫描
+所有 hazard pointers，将非 NULL 指针累积到 \co{plist} 数组中，
+并在 \co{psize} 中计数。
+\clnref{mb2}上的 memory barrier 确保对 hazard pointers 的读取
+发生在任何对象被释放之前。
+\Clnref{sort}然后对该数组排序以便下面使用二分搜索。
 
-\Clnref{rem:b,rem:e}
-remove all elements from this thread's list of
-to-be-freed objects, placing them on the local \co{tmplist}
-and \clnref{zero} zeroes the count.
-Each pass through the loop spanning
-\clnrefrange{loop2:b}{loop2:e} processes each
-of the to-be-freed objects.
-\Clnref{rem1st:b,rem1st:e}
-remove the first object from \co{tmplist},
-and if \clnref{chkhazp:b,chkhazp:e}
-determine that there is a hazard pointer
-protecting this object, \clnrefrange{back:b}{back:e}
-place it back onto \co{rlist}.
-Otherwise, \clnref{free} frees the object.
+\Clnref{rem:b,rem:e}从此线程的待释放对象列表中移除所有元素，
+将它们放在本地 \co{tmplist} 上，
+\clnref{zero}将计数清零。
+\clnrefrange{loop2:b}{loop2:e}的循环的每次遍历处理每个
+待释放对象。
+\Clnref{rem1st:b,rem1st:e}从 \co{tmplist} 中移除第一个对象，
+如果\clnref{chkhazp:b,chkhazp:e}确定有 hazard pointer
+保护此对象，\clnrefrange{back:b}{back:e}将其放回 \co{rlist}。
+否则，\clnref{free}释放该对象。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/route_hazptr@lookup.fcv}
-\caption{Hazard-Pointer Pre-BSD Routing Table Lookup}
+\caption{Hazard-Pointer Pre-BSD 路由表查找}
 \label{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}
 \end{listing}
 
-The Pre-BSD routing example can use hazard pointers as shown in
-\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}
-for data structures and \co{route_lookup()}, and in
+Pre-BSD 路由示例可以使用 hazard pointers，
+如\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}
+中数据结构和 \co{route_lookup()} 所示，以及
 \cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}
-for \co{route_add()} and \co{route_del()}
-(\path{route_hazptr.c}).
-As with reference counting, the hazard-pointers implementation
-is quite similar to the sequential algorithm shown in
+中 \co{route_add()} 和 \co{route_del()} 所示
+（\path{route_hazptr.c}）。
+与 reference counting 一样，hazard-pointers 实现与
+\cpageref{lst:defer:Sequential Pre-BSD Routing Table}上
 \cref{lst:defer:Sequential Pre-BSD Routing Table}
-on
-\cpageref{lst:defer:Sequential Pre-BSD Routing Table},
-so only differences will be discussed.
+中展示的顺序算法非常相似，因此只讨论差异之处。
 
 \begin{fcvref}[ln:defer:route_hazptr:lookup]
-Starting with
-\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup},
-\clnref{hh} shows the \co{->hh} field used to queue objects pending
-hazard-pointer free,
-\clnref{re_freed} shows the \co{->re_freed} field used to detect
-use-after-free bugs, and \clnref{tryrecord} invokes
-\co{hp_try_record()} to attempt to acquire a hazard pointer.
-If the return value is \co{NULL}, \clnref{NULL} returns a not-found
-indication to the caller.
-If the call to \co{hp_try_record()} raced with deletion, \clnref{deleted}
-branches back to \clnref{retry}'s \co{retry} to re-traverse the list
-from the beginning.
-The \co{do}--\co{while} loop falls through when the desired element is
-located, but if this element has already been freed, \clnref{abort}
-terminates the program.
-Otherwise, the element's \co{->iface} field is returned to the caller.
+从\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}开始，
+\clnref{hh}显示了用于排队待 hazard-pointer 释放的对象的 \co{->hh} 字段，
+\clnref{re_freed}显示了用于检测释放后使用错误的 \co{->re_freed} 字段，
+\clnref{tryrecord}调用 \co{hp_try_record()} 尝试获取一个 hazard pointer。
+如果返回值为 \co{NULL}，\clnref{NULL}向调用者返回未找到的指示。
+如果对 \co{hp_try_record()} 的调用与删除竞争，
+\clnref{deleted}分支回\clnref{retry}的 \co{retry} 标签，
+从头开始重新遍历列表。
+\co{do}--\co{while} 循环在找到所需元素时正常退出，
+但如果该元素已经被释放，\clnref{abort}终止程序。
+否则，元素的 \co{->iface} 字段被返回给调用者。
 
-Note that \clnref{tryrecord} invokes \co{hp_try_record()} rather
-than the easier-to-use \co{hp_record()}, restarting the full search
-upon \co{hp_try_record()} failure.
-And such restarting is absolutely required for correctness.
-To see this, consider a hazard-pointer-protected linked list
-containing elements~A, B, and~C that is subjected to the following
-sequence of events:
+请注意\clnref{tryrecord}调用的是 \co{hp_try_record()} 而不是
+更易用的 \co{hp_record()}，在 \co{hp_try_record()} 失败时
+重新启动完整搜索。
+这种重新启动对于正确性是绝对必要的。
+为了理解这一点，考虑一个包含元素~A、B 和~C 的
+受 hazard-pointer 保护的链表，它经历以下事件序列：
 \end{fcvref}
 
 \begin{enumerate}
-\item	Thread~0 stores a hazard pointer to element~B
-	(having presumably traversed to element~B from element~A).
-\item	Thread~1 removes element~B from the list, which sets
-	the pointer from element~B to element~C to the special
-	\co{HAZPTR_POISON} value in order to mark the deletion.
-	Because Thread~0 has a hazard pointer to element~B,
-	it cannot yet be freed.
-\item	Thread~1 removes element~C from the list.
-	Because there are no hazard pointers referencing element~C,
-	it is immediately freed.
-\item	Thread~0 attempts to acquire a hazard pointer to now-removed
-	element~B's successor, but \co{hp_try_record()} returns the
-	\co{HAZPTR_POISON} value, forcing the caller to restart its
-	traversal from the beginning of the list.
+\item	线程~0 存储一个指向元素~B 的 hazard pointer
+	（大概是从元素~A 遍历到元素~B）。
+\item	线程~1 从列表中移除元素~B，
+	这将元素~B 到元素~C 的指针设置为特殊的
+	\co{HAZPTR_POISON} 值以标记删除。
+	因为线程~0 有一个指向元素~B 的 hazard pointer，
+	它还不能被释放。
+\item	线程~1 从列表中移除元素~C。
+	因为没有 hazard pointers 引用元素~C，
+	它被立即释放。
+\item	线程~0 尝试获取一个指向已移除元素~B 的后继的 hazard pointer，
+	但 \co{hp_try_record()} 返回 \co{HAZPTR_POISON} 值，
+	迫使调用者从列表开头重新启动遍历。
 \end{enumerate}
 
-Which is a very good thing, because B's successor is the now-freed
-element~C, which means that Thread~0's subsequent accesses might have
-resulted in arbitrarily horrible memory corruption, especially if the
-memory for element~C had since been re-allocated for some other purpose.
-Therefore, hazard-pointer readers must typically restart the full
-traversal in the face of a concurrent deletion.
-Often the restart must go back to some global (and thus immortal) pointer,
-but it is sometimes possible to restart at some intermediate location
-if that location is guaranteed to still be live, for example, due to
-the current thread holding a lock, a reference count, etc.
+这是一件非常好的事，因为 B 的后继是现在已释放的元素~C，
+这意味着线程~0 的后续访问可能导致任意严重的内存损坏，
+特别是如果元素~C 的内存已经被重新分配用于其他目的。
+因此，hazard-pointer 读者在遇到并发删除时通常必须从头重新启动完整遍历。
+通常重新启动必须回到某个全局（因此不朽的）指针，
+但有时可以从某个中间位置重新启动，
+如果该位置保证仍然存活，例如由于当前线程持有锁、
+引用计数等。
 
 \QuickQuiz{
-	Readers must ``typically'' restart?
-	What are some exceptions?
+	读者``通常''必须重新启动？
+	有哪些例外？
 }\QuickQuizAnswer{
-	If the pointer emanates from a global variable or is otherwise
-	not subject to being freed, then \co{hp_record()} may be
-	used to repeatedly attempt to record the hazard pointer,
-	even in the face of concurrent deletions.
+	如果指针来自全局变量或以其他方式不会被释放，
+	则可以使用 \co{hp_record()} 来反复尝试记录 hazard pointer，
+	即使在面对并发删除时也是如此。
 
-	In certain cases, restart can be avoided by using link counting
-	as exemplified by the UnboundedQueue and ConcurrentHashMap data
-	structures implemented in Folly open-source library.\footnote{
+	在某些情况下，可以通过使用 link counting 来避免重新启动，
+	如 Folly 开源库中实现的 UnboundedQueue 和 ConcurrentHashMap
+	数据结构所示。\footnote{
 		\url{https://github.com/facebook/folly}}
 }\QuickQuizEnd
 
-Because algorithms using hazard pointers might be restarted at any
-step of their traversal through the linked data structure, such algorithms
-must typically take care to avoid making any changes to the data
-structure until after they have acquired all the hazard pointers that
-are required for the update in question.
+因为使用 hazard pointers 的算法可能在其遍历链式数据结构的
+任何步骤被重新启动，这些算法通常必须注意在获取所需更新的
+所有 hazard pointers 之前避免对数据结构进行任何更改。
 
 \QuickQuiz{
-	But don't these restrictions on hazard pointers also apply
-	to other forms of reference counting?
+	但是这些对 hazard pointers 的限制是否也适用于
+	其他形式的 reference counting？
 }\QuickQuizAnswer{
-	Yes and no.
-	These restrictions apply only to reference-counting mechanisms whose
-	reference acquisition can fail.
+	是也不是。
+	这些限制只适用于引用获取可能失败的引用计数机制。
 }\QuickQuizEnd
 
-These hazard-pointer restrictions result in great benefits to readers,
-courtesy of the fact that the hazard pointers are stored local to each
-CPU or thread, which in turn allows traversals to be carried out without
-any writes to the data structures being traversed.
-Referring back to
-\cref{fig:count:Optimization and the Four Parallel-Programming Tasks}
-on
-\cpageref{fig:count:Optimization and the Four Parallel-Programming Tasks},
-hazard pointers enable the CPU caches to do resource replication, which
-in turn allows weakening of the parallel-access-control mechanism,
-thus boosting performance and scalability.
+这些 hazard-pointer 限制给读者带来了巨大的好处，
+这要归功于 hazard pointers 存储在每个 CPU 或线程的本地位置，
+这反过来允许遍历在不对被遍历的数据结构进行任何写操作的情况下进行。
+回顾\cpageref{fig:count:Optimization and the Four Parallel-Programming Tasks}上的
+\cref{fig:count:Optimization and the Four Parallel-Programming Tasks}，
+hazard pointers 使 CPU 缓存能够进行资源复制，
+这反过来允许弱化并行访问控制机制，
+从而提升性能和可扩展性。
 
-Another advantage of restarting hazard pointers traversals is a reduction in
-minimal memory footprint:
-Any object not currently referenced by some hazard pointer may be
-immediately freed.
-In contrast,
-\cref{sec:defer:Read-Copy Update (RCU)}
-will discuss a mechanism that avoids read-side retries (and minimizes
-read-side overhead), but which can result in a much larger memory
-footprint.
+重新启动 hazard pointers 遍历的另一个优势是减少了最小内存占用：
+任何当前没有被某个 hazard pointer 引用的对象都可以被立即释放。
+相比之下，\cref{sec:defer:Read-Copy Update (RCU)}将讨论
+一种避免读侧重试（并最小化读侧开销）的机制，
+但这可能导致更大的内存占用。
 
 \begin{listing}
 \input{CodeSamples/defer/route_hazptr@add_del.fcv}
-\caption{Hazard-Pointer Pre-BSD Routing Table Add\slash Delete}
+\caption{Hazard-Pointer Pre-BSD 路由表添加\slash 删除}
 \label{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}
 \end{listing}
 
 \begin{fcvref}[ln:defer:route_hazptr:add_del]
-The \co{route_add()} and \co{route_del()} functions are shown in
-\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}.
-\Clnref{init_freed} initializes \co{->re_freed},
-\clnref{poison} poisons the \co{->re_next} field of the newly removed
-object, and
-\clnref{free_later} passes that object to the
-\co{hazptr_free_later()} function, which will free that object once it
-is safe to do so.
-The spinlocks work the same as in
-\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}.
+\co{route_add()} 和 \co{route_del()} 函数如
+\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}所示。
+\Clnref{init_freed}初始化 \co{->re_freed}，
+\clnref{poison}毒化新移除对象的 \co{->re_next} 字段，
+\clnref{free_later}将该对象传递给 \co{hazptr_free_later()} 函数，
+该函数将在安全时释放该对象。
+自旋锁的工作方式与
+\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}中相同。
 \end{fcvref}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-hazptr}}
-\caption{Pre-BSD Routing Table Protected by Hazard Pointers}
+\caption{受 Hazard Pointers 保护的 Pre-BSD 路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 \end{figure}
 
 \Cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-shows the hazard-pointers-protected Pre-BSD routing algorithm's
-performance on the same read-only workload as for
-\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}.
-Although hazard pointers scale far better than does reference counting,
-hazard pointers still require readers to do writes to shared
-memory (albeit with much improved locality of reference),
-and also require a full memory barrier and retry check for each
-object traversed.
-Therefore, hazard-pointers performance is still far short of ideal.
-On the other hand, unlike naive approaches to concurrent
-reference-counting, hazard pointers not only operate correctly for
-workloads involving concurrent updates, but also exhibit excellent
-scalability.
-Additional performance comparisons with other mechanisms may be found in
-\cref{chp:Data Structures}
-and in other publications~\cite{ThomasEHart2007a,McKenney:2013:SDS:2483852.2483867,MagedMichael04a}.
+显示了受 hazard-pointers 保护的 Pre-BSD 路由算法在与
+\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
+相同的只读工作负载下的性能。
+虽然 hazard pointers 的可扩展性远优于 reference counting，
+但 hazard pointers 仍然需要读者对共享内存进行写操作
+（虽然引用局部性有了很大改善），
+并且还需要为每个遍历的对象进行完整的 memory barrier 和重试检查。
+因此，hazard-pointers 的性能仍然远不够理想。
+另一方面，与朴素的并发 reference-counting 方法不同，
+hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
+而且还表现出出色的可扩展性。
+与其他机制的更多性能比较可以在\cref{chp:Data Structures}
+以及其他出版物~\cite{ThomasEHart2007a,McKenney:2013:SDS:2483852.2483867,MagedMichael04a}中找到。
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\Cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-	shows no sign of hyperthread-induced flattening at 224 threads.
-	Why is that?
+	在 224 个线程处没有显示超线程导致的平坦化迹象。
+	这是为什么？
 }\QuickQuizAnswerB{
-	Modern microprocessors are complicated beasts, so significant
-	skepticism is appropriate for any simple answer.
-	That aside, the most likely reason is the full memory barriers
-	required by hazard-pointers readers.
-	Any delays resulting from those memory barriers would make time
-	available to the other hardware thread sharing the core, resulting
-	in greater scalability at the expense of per-hardware-thread
-	performance.
+	现代微处理器是复杂的怪兽，因此对任何简单答案都应持
+	相当程度的怀疑。
+	撇开这点不谈，最可能的原因是 hazard-pointers 读者所需的
+	完整 memory barriers。
+	由这些 memory barriers 导致的任何延迟都会为共享核心的
+	另一个硬件线程提供可用时间，
+	导致以每硬件线程性能为代价获得更大的可扩展性。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	The paper ``Structured Deferral:
+	论文``Structured Deferral:
 	Synchronization via
 	Procrastination''~\cite{McKenney:2013:SDS:2483852.2483867}
-	shows that hazard pointers have near-ideal performance.
-	Whatever happened in
-	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}???
+	表明 hazard pointers 具有接近理想的性能。
+	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
+	中到底发生了什么？
 }\QuickQuizAnswerM{
-	First,
+	首先，\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
+	有线性 y 轴，而``Structured Deferral''论文中的大多数图形
+	有对数刻度 y 轴。
+	其次，该论文使用轻量加载的哈希表，而
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-	has a linear y-axis, while most of the graphs in the
-	``Structured Deferral'' paper have logscale y-axes.
-	Next, that paper uses lightly-loaded hash tables, while
-	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-	uses a 10-element simple linked list, which means that hazard pointers
-	face a larger memory-barrier penalty in this workload than in
-	that of the ``Structured Deferral'' paper.
-	Finally, that paper used an older modest-sized x86 system, while
-	a much newer and larger system was used to generate the data
-	shown in
-	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}.
+	使用 10 元素的简单链表，这意味着 hazard pointers
+	在这个工作负载中面临比该论文中更大的 memory-barrier 惩罚。
+	最后，该论文使用了一个较旧的中等规模 x86 系统，
+	而生成\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
+	数据使用了一个更新更大的系统。
 
-	In addition, use of pairwise asymmetric
+	此外，已有人提议使用成对的非对称
 	barriers~\cite{Windows2008FlushProcessWriteBuffers,JonathanCorbet2010sys-membarrier,Linuxmanpage2018sys-membarrier}
-	has been proposed to eliminate the read-side hazard-pointer
-	memory barriers on systems supporting this notion~\cite{DavidGoldblatt2018asymmetricFences},
-	which might improve the performance of hazard pointers beyond
-	what is shown in the figure.
+	在支持此概念的系统上消除读侧 hazard-pointer
+	memory barriers~\cite{DavidGoldblatt2018asymmetricFences}，
+	这可能将 hazard pointers 的性能提升到超出图中所示的水平。
 
-	As always, your mileage may vary.
-	Given the difference in performance, it is clear that hazard
-	pointers give you the best performance either for
-	very large data structures (where the memory-barrier overhead
-	will at least partially overlap cache-miss penalties) or
-	for data structures such as hash tables where a lookup
-	operation needs a minimal number of hazard pointers.
+	一如既往，结果因人而异。
+	鉴于性能差异，很明显 hazard pointers 在以下情况下
+	给你最佳性能：非常大的数据结构（其中 memory-barrier 开销
+	至少部分与缓存未命中惩罚重叠）或像哈希表这样的数据结构，
+	其中查找操作只需要最少数量的 hazard pointers。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	What needs to be done to convert reference-counted code to
-	instead use hazard pointers?
+	将 reference-counted 代码转换为使用 hazard pointers
+	需要做什么？
 }\QuickQuizAnswerE{
-	You will need to:
+	你需要：
 	\begin{enumerate}
-	\item	Allocate and deallocate the hazard pointers,
-	\item	Add a \tco{hazptr_head} structure to your
-		hazard-pointer-protected data elements, and
-	\item	Once you have removed such an element from
-		its data structure, pass it to \tco{hazptr_free_later()}.
+	\item	分配和释放 hazard pointers，
+	\item	在受 hazard-pointer 保护的数据元素中添加
+		\tco{hazptr_head} 结构，以及
+	\item	一旦从数据结构中移除了这样的元素，
+		就将其传递给 \tco{hazptr_free_later()}。
 	\end{enumerate}
-	This last requirement is termed ``deferred free'' or (in the C++
-	standard ``retire''), and is needed because, unlike reference
-	counters, there is no efficient and scalable way to determine
-	precisely when the number of hazard pointers referencing a given
-	data element has dropped to zero.
+	最后这个要求被称为``延迟释放''
+	（或在 C++ 标准中称为``retire''），
+	这是必需的，因为与引用计数不同，没有高效且可扩展的方法来
+	精确确定引用给定数据元素的 hazard pointers 数量何时降为零。
 }\QuickQuizEndE
 }
 
-On June 17, 2023, the ISO C++ Standards committee voted hazard pointers
-into C++26~\cite{MagedMichael2023C++26Hazptr3}.
-Daniel Anderson has produced a prototype C++ atomic shared-pointer
-implementation based on hazard
-pointers~\cite{DanielAnderson2023HazptrSharedPtr}.
+2023 年 6 月 17 日，ISO C++ 标准委员会投票将 hazard pointers
+纳入 C++26~\cite{MagedMichael2023C++26Hazptr3}。
+Daniel Anderson 基于 hazard pointers 制作了一个 C++ 原子
+shared-pointer 实现的原型~\cite{DanielAnderson2023HazptrSharedPtr}。
 
-And hazard pointers are the concurrent reference counter mentioned at
-the beginning of this chapter on
-\cpageref{sec:defer:Mysteries hazard pointers}.
-The next section attempts to improve on hazard pointers by using
-sequence locks, which avoid both read-side writes and per-object memory
-barriers.
+hazard pointers 就是本章开头在\cpageref{sec:defer:Mysteries hazard pointers}
+提到的并发引用计数器。
+下一节试图通过使用 sequence locks 来改进 hazard pointers，
+sequence locks 既避免了读侧写操作，也避免了每对象的 memory barriers。

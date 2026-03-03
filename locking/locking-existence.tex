@@ -2,15 +2,14 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Lock-Based Existence Guarantees}
+\section{基于锁的存在性保证}
 \label{sec:locking:Lock-Based Existence Guarantees}
 %
-\epigraph{Existence precedes and rules essence.}{Jean-Paul Sartre}
+\epigraph{存在先于本质并支配本质。}{Jean-Paul Sartre}
 
-A key challenge in parallel programming is to provide
-\emph{\IXpl{existence guarantee}}~\cite{Gamsa99},
-so that attempts to access a given object can rely on that object
-being in existence throughout a given access attempt.
+并行编程中的一个关键挑战是提供
+\emph{\IXpl{existence guarantee}}~\cite{Gamsa99}，
+以便对给定对象的访问尝试可以依赖于该对象在整个访问尝试期间一直存在。
 
 \begin{listing}
 \begin{fcvlabel}[ln:locking:Per-Element Locking Without Existence Guarantees]
@@ -32,110 +31,88 @@ int delete(int key)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Per-Element Locking Without Existence Guarantees (Buggy!)}
+\caption{无存在性保证的逐元素加锁（有缺陷！）}
 \label{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}
 \end{listing}
 
-In some cases, existence guarantees are implicit:
+在某些情况下，存在性保证是隐式的：
 
 \begin{enumerate}
-\item	Global variables and static local variables in the base module
-	will exist as long as the application is running.
-\item	Global variables and static local variables in a loaded module
-	will exist as long as that module remains loaded.
-\item	A module will remain loaded as long as at least one of its functions
-	has an active instance.
-\item	A given function instance's on-stack variables will exist until
-	that instance returns.
-\item	If you are executing within a given function or have been
-	called (directly or indirectly) from that function,
-	then the given function has an active instance.
+\item	基础模块中的全局变量和静态局部变量将在应用程序运行期间一直存在。
+\item	已加载模块中的全局变量和静态局部变量将在该模块保持加载状态期间一直存在。
+\item	只要模块的某个函数有活跃实例，该模块就会保持加载状态。
+\item	给定函数实例的栈上变量将一直存在，直到该实例返回。
+\item	如果你正在某个函数中执行，或者被该函数直接或间接调用，
+	那么该函数就有一个活跃实例。
 \end{enumerate}
 
-These implicit existence guarantees are straightforward, though
-bugs involving implicit existence guarantees really can happen.
+这些隐式存在性保证很直观，但涉及隐式存在性保证的
+bug 确实可能发生。
 
 \QuickQuiz{
-	How can relying on implicit existence guarantees result in
-	a bug?
+	依赖隐式存在性保证怎么会导致 bug？
 }\QuickQuizAnswer{
-	Here are some bugs resulting from improper use of implicit
-	existence guarantees:
+	以下是一些因不当使用隐式存在性保证而导致的 bug：
 	\begin{enumerate}
-	\item	A program writes the address of a global variable to
-		a file, then a later instance of that same program
-		reads that address and attempts to dereference it.
-		This can fail due to address-space randomization,
-		to say nothing of recompilation of the program.
-	\item	A module can record the address of one of its variables
-		in a pointer located in some other module, then attempt
-		to dereference that pointer after the module has
-		been unloaded.
-	\item	A function can record the address of one of its on-stack
-		variables into a global pointer, which some other
-		function might attempt to dereference after that function
-		has returned.
+	\item	程序将一个全局变量的地址写入文件，
+		然后该程序的后续实例读取该地址并尝试解引用它。
+		由于地址空间随机化，这可能会失败，
+		更不用说程序的重新编译了。
+	\item	一个模块可以将其某个变量的地址记录在
+		位于其他模块中的指针中，然后在该模块被
+		卸载后尝试解引用该指针。
+	\item	一个函数可以将其某个栈上变量的地址记录到
+		一个全局指针中，其他函数可能在该函数
+		返回后尝试解引用该指针。
 	\end{enumerate}
-	I am sure that you can come up with additional possibilities.
+	我相信你能想出更多的可能性。
 }\QuickQuizEnd
 
-But the more interesting---and troublesome---guarantee involves
-heap memory:
-A dynamically allocated data structure will exist until it is freed.
-The problem to be solved is to synchronize the freeing of the structure
-with concurrent accesses to that same structure.
-One way to do this is with \emph{explicit guarantees}, such as locking.
-If a given structure may only be freed while holding a given lock, then holding
-that lock guarantees that structure's existence.
+但更有趣——也更棘手——的保证涉及堆内存：
+动态分配的数据结构将一直存在，直到它被释放。
+要解决的问题是如何将该结构的释放与对同一结构的并发访问同步。
+一种方法是使用\emph{显式保证}，例如加锁。
+如果只有在持有某个锁时才能释放给定结构，那么持有该锁就保证了该结构的存在。
 
-But this guarantee depends on the existence of the lock itself.
-One straightforward way to guarantee the lock's existence is to
-place the lock in a global variable, but global locking has the disadvantage
-of limiting scalability.
-One way of providing scalability that improves as the size of the
-data structure increases is to place a lock in each element of the
-structure.
-Unfortunately, putting the lock that is to protect a data element
-in the data element itself is subject to subtle \IXpl{race condition},
-as shown in
-\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}.
+但这个保证依赖于锁本身的存在。
+保证锁存在的一种直接方法是将锁放在全局变量中，但全局加锁的缺点是限制了可扩展性。
+一种随数据结构大小增长而提高可扩展性的方法是在结构的每个元素中放置一个锁。
+不幸的是，将用于保护数据元素的锁放在数据元素本身中
+容易产生微妙的\IXpl{race condition}，如
+\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}
+所示。
 
 \QuickQuiz{
 	\begin{fcvref}[ln:locking:Per-Element Locking Without Existence Guarantees]
-	What if the element we need to delete is not the first element
-	of the list on \clnref{chk_first} of
-	\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}?
+	如果我们需要删除的元素不是
+	\cref{lst:locking:Per-Element Locking Without Existence Guarantees (Buggy!)}
+	\clnref{chk_first} 上列表的第一个元素怎么办？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	This is a very simple hash table with no chaining, so the only
-	element in a given bucket is the first element.
-	The reader is invited to adapt this example to a hash table with
-	full chaining.
+	这是一个没有链接的非常简单的哈希表，所以给定桶中唯一的
+	元素就是第一个元素。
+	读者可以尝试将此示例改编为具有完整链接的哈希表。
 }\QuickQuizEnd
 
 
 \begin{fcvref}[ln:locking:Per-Element Locking Without Existence Guarantees]
-To see one of these race conditions, consider the following sequence
-of events:
+要看到其中一个 race condition，请考虑以下事件序列：
 \begin{enumerate}
-\item	Thread~0 invokes \co{delete(0)}, and reaches \clnref{acq} of
-	the listing, acquiring the lock.
-\item	Thread~1 concurrently invokes \co{delete(0)}, reaching
-	\clnref{acq}, but spins on the lock because Thread~0 holds it.
-\item	Thread~0 executes \clnrefrange{NULL}{return1}, removing the element from
-	the hashtable, releasing the lock, and then freeing the
-	element.
-\item	Thread~0 continues execution, and allocates memory, getting
-	the exact block of memory that it just freed.
-\item	Thread~0 then initializes this block of memory as some
-	other type of structure.
-\item	Thread~1's \co{spin_lock()} operation fails due to the
-	fact that what it believes to be \co{p->lock} is no longer
-	a spinlock.
+\item	线程~0 调用 \co{delete(0)}，执行到代码清单的 \clnref{acq}，获取了锁。
+\item	线程~1 并发调用 \co{delete(0)}，也执行到 \clnref{acq}，
+	但因线程~0 持有锁而自旋等待。
+\item	线程~0 执行 \clnrefrange{NULL}{return1}，将元素从
+	哈希表中移除，释放锁，然后释放该元素。
+\item	线程~0 继续执行，并分配内存，恰好得到了
+	它刚刚释放的那块内存。
+\item	线程~0 然后将这块内存初始化为
+	其他类型的结构。
+\item	线程~1 的 \co{spin_lock()} 操作失败，因为
+	它认为是 \co{p->lock} 的东西已经不再
+	是一个 spinlock 了。
 \end{enumerate}
-Because there is no existence guarantee, the identity of the
-data element can change while a thread is attempting to acquire
-that element's lock on \clnref{acq}!
+因为没有存在性保证，当线程试图在 \clnref{acq} 上获取
+该元素的锁时，数据元素的身份可能已经改变了！
 \end{fcvref}
 
 \begin{listing}
@@ -162,27 +139,23 @@ int delete(int key)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Per-Element Locking With Lock-Based Existence Guarantees}
+\caption{具有基于锁的存在性保证的逐元素加锁}
 \label{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees}
 \end{listing}
 
 \begin{fcvref}[ln:locking:Per-Element Locking With Lock-Based Existence Guarantees]
-One way to fix this example is to use a hashed set of global locks, so
-that each hash bucket has its own lock, as shown in
-\cref{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees}.
-This approach allows acquiring the proper lock (on \clnref{acq}) before
-gaining a pointer to the data element (on \clnref{getp}).
-Although this approach works quite well for elements contained in a
-single partitionable data structure such as the hash table shown in the
-listing, it can be problematic if a given data element can be a member
-of multiple hash tables or given more-complex data structures such
-as trees or graphs.
-Not only can these problems be solved, but the solutions also form
-the basis of lock-based software transactional memory
-implementations~\cite{Shavit95,DaveDice2006DISC}.
-However,
+修复此示例的一种方法是使用一组哈希化的全局锁，使每个哈希桶都有自己的锁，如
+\cref{lst:locking:Per-Element Locking With Lock-Based Existence Guarantees}
+所示。
+这种方法允许在获取数据元素的指针之前（在 \clnref{getp}）先获取适当的锁（在 \clnref{acq}）。
+虽然这种方法对于包含在单个可分区数据结构（如代码清单所示的哈希表）中的元素效果很好，
+但如果给定数据元素可以是多个哈希表的成员，
+或者对于更复杂的数据结构如树或图，这种方法可能会有问题。
+这些问题不仅可以解决，而且其解决方案还构成了基于锁的软件事务内存
+实现的基础~\cite{Shavit95,DaveDice2006DISC}。
+然而，
 \cref{chp:Deferred Processing}
-describes simpler---and faster---ways of providing existence guarantees.
+描述了提供存在性保证的更简单——也更快——的方法。
 \end{fcvref}
 
 % @@@ Optimized sharded locking from P1726R5, and pointer-zap implications.

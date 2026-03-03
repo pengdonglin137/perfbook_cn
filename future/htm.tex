@@ -2,279 +2,215 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Hardware Transactional Memory}
+\section{硬件事务内存}
 \label{sec:future:Hardware Transactional Memory}
 %
-\epigraph{Make sure your report system is reasonably clean and efficient
-	  before you automate.
-	  Otherwise, your new computer will just speed up the mess.}
+\epigraph{在自动化之前，确保你的报告系统合理地清晰和高效。
+	  否则，你的新电脑只会加速这团混乱。}
 	 {Robert Townsend}
 % If at first you do succeed---try to hide your astonishment.
 % Harry F.~Banks
 
-As of 2021, \IXacrf{htm} has been available for many
-years on several types of commercially available commodity computer
-systems~\cite{Yoo:2013:PEI:2503210.2503232,RickMerrit2011PowerTM,ChristianJacobi2012MainframeTM,TimothyHayes2020ARM-HTM}.
-This section makes an attempt to identify HTM's place in the parallel
-programmer's toolbox.
+截至2021年，\IXacrf{htm}已经在多种商用通用计算机系统上可用多年~\cite{Yoo:2013:PEI:2503210.2503232,RickMerrit2011PowerTM,ChristianJacobi2012MainframeTM,TimothyHayes2020ARM-HTM}。
+本节试图确定HTM在并行程序员工具箱中的位置。
 
-From a conceptual viewpoint, HTM uses processor caches and speculative
-execution to make a designated group of statements (a ``transaction'')
-take effect atomically
-from the viewpoint of any other transactions running on other processors.
-This transaction is initiated by a
-begin-transaction machine instruction and completed by a commit-transaction
-machine instruction.
-There is typically also an abort-transaction machine instruction, which
-squashes the speculation (as if the begin-transaction instruction and
-all following instructions had not executed) and commences execution
-at a failure handler.
-The location of the failure handler is typically specified by the
-begin-transaction instruction, either as an explicit failure-handler
-address or via a condition code set by the instruction itself.
-Each transaction executes atomically with respect to all other transactions.
+从概念上看，HTM利用处理器缓存和推测执行，
+使一组指定的语句（即"事务"）从其他处理器上运行的
+任何其他事务的角度来看是原子生效的。
+该事务由begin-transaction机器指令启动，
+并由commit-transaction机器指令完成。
+通常还有一条abort-transaction机器指令，
+它会取消推测（如同begin-transaction指令及其后续所有指令都未执行过一样），
+并从失败处理程序处开始执行。
+失败处理程序的位置通常由begin-transaction指令指定，
+可以是显式的失败处理程序地址，也可以通过该指令本身设置的条件码来指定。
+每个事务相对于所有其他事务原子执行。
 
-HTM has a number of important benefits, including automatic
-dynamic partitioning of data structures, reducing synchronization-primitive
-cache misses, and supporting a fair number of practical applications.
+HTM具有多项重要优势，包括自动动态划分数据结构、
+减少同步原语的缓存未命中，以及支持相当数量的实际应用。
 
-However, it always pays to read the fine print, and HTM is no exception.
-A major point of this section is determining under what conditions HTM's
-benefits outweigh the complications hidden in its fine print.
-To this end, \cref{sec:future:HTM Benefits WRT Locking}
-describes HTM's benefits and
-\cref{sec:future:HTM Weaknesses WRT Locking} describes its weaknesses.
-This is the same approach used in earlier
-papers~\cite{McKenney2007PLOSTM,PaulEMcKenney2010OSRGrassGreener}
-and also in the previous section.\footnote{
-	I gratefully acknowledge many stimulating
-	discussions with the other authors, Maged Michael, Josh Triplett,
-	and Jonathan Walpole, as well as with Andi Kleen.}
+然而，阅读细则总是值得的，HTM也不例外。
+本节的一个重点是确定在什么条件下HTM的优势超过其细则中隐藏的复杂性。
+为此，\cref{sec:future:HTM Benefits WRT Locking}
+描述了HTM的优势，
+\cref{sec:future:HTM Weaknesses WRT Locking}描述了其弱点。
+这与早期论文~\cite{McKenney2007PLOSTM,PaulEMcKenney2010OSRGrassGreener}
+以及前一节中使用的方法相同。\footnote{
+	我衷心感谢与其他作者Maged Michael、Josh Triplett
+	和Jonathan Walpole以及Andi Kleen进行的许多富有启发的讨论。}
 
-\Cref{sec:future:HTM Weaknesses WRT Locking When Augmented} then describes
-HTM's weaknesses with respect to the combination of synchronization
-primitives used in the Linux kernel (and in many user-space applications).
-\Cref{sec:future:Where Does HTM Best Fit In?} looks at where HTM
-might best fit into the parallel programmer's toolbox, and
-\cref{sec:future:Potential Game Changers} lists some events that might
-greatly increase HTM's scope and appeal.
-Finally, \cref{sec:future:Conclusions}
-presents concluding remarks.
+\Cref{sec:future:HTM Weaknesses WRT Locking When Augmented}接着描述了
+HTM相对于Linux内核（以及许多用户空间应用程序）中使用的同步原语组合的弱点。
+\Cref{sec:future:Where Does HTM Best Fit In?}探讨了HTM
+最适合在并行程序员工具箱中的位置，
+\cref{sec:future:Potential Game Changers}列出了一些可能
+大大增加HTM适用范围和吸引力的事件。
+最后，\cref{sec:future:Conclusions}
+给出了总结性评述。
 
 \subsection{HTM Benefits WRT Locking}
 \label{sec:future:HTM Benefits WRT Locking}
 
-The primary benefits of HTM are
-(1)~its avoidance of the cache misses that are often incurred by
-other synchronization primitives,
-(2)~its ability to dynamically partition
-data structures,
-and (3)~the fact that it has
-a fair number of practical applications.
-I break from TM tradition by not listing ease of use separately
-for two reasons.
-First, ease of use should stem from HTM's primary benefits,
-which this section focuses on.
-Second, there has been considerable controversy surrounding attempts to
-test for raw programming
-talent~\cite{RichardBornat2006SheepGoats,SaeedDehnadi2009SheepGoats,ElizabethPatitsas2020GradesNotBimodal}
-and even around the use of small programming exercises in job
-interviews~\cite{RegBraithwaite2007FizzBuzz}.
-This indicates that we really do not have a firm grasp on what makes
-programming easy or hard.
-Therefore, the remainder of this section focuses on the three benefits
-listed above.
+HTM的主要优势是：
+（1）避免了其他同步原语经常导致的缓存未命中，
+（2）能够动态划分数据结构，
+以及（3）它具有相当数量的实际应用。
+我打破TM的传统，没有单独列出易用性，原因有二。
+首先，易用性应该源于HTM的主要优势，这正是本节的重点。
+其次，围绕着测试原始编程天赋的尝试存在相当大的争议~\cite{RichardBornat2006SheepGoats,SaeedDehnadi2009SheepGoats,ElizabethPatitsas2020GradesNotBimodal}，
+甚至在工作面试中使用小型编程练习也存在争议~\cite{RegBraithwaite2007FizzBuzz}。
+这表明我们确实没有牢固地掌握是什么使编程变得容易或困难。
+因此，本节的其余部分重点讨论上面列出的三个优势。
 
 \subsubsection{Avoiding Synchronization Cache Misses}
 \label{sec:future:Avoiding Synchronization Cache Misses}
 
-Most synchronization mechanisms are based on data structures that are
-operated on by atomic instructions.
-Because these atomic instructions normally operate by first causing
-the relevant \IX{cache line} to be owned by the CPU that they are running on,
-a subsequent execution
-of the same instance of that synchronization primitive on some other
-CPU will result in a cache miss.
-These communications cache misses severely degrade both the performance and
-scalability of conventional synchronization
-mechanisms~\cite[Section 4.2.3]{Anderson97}.
+大多数同步机制基于由原子指令操作的数据结构。
+因为这些原子指令通常首先需要使相关的\IX{cache line}被运行它们的CPU所拥有，
+随后在其他CPU上执行同一同步原语实例将导致缓存未命中。
+这些通信缓存未命中严重降低了传统同步机制的性能和可扩展性~\cite[Section 4.2.3]{Anderson97}。
 
-In contrast, HTM synchronizes by using the CPU's cache, avoiding the need
-for a separate synchronization data structure and resultant cache misses.
-HTM's advantage is greatest in cases where a lock data structure is
-placed in a separate cache line, in which case, converting a given
-critical section to an HTM transaction can reduce that critical section's
-overhead by a full cache miss.
-These savings can be quite significant for the common case of short
-critical sections, at least for those situations where the elided lock
-does not share a cache line with an oft-written variable protected by
-that lock.
+相比之下，HTM通过使用CPU的缓存进行同步，避免了对单独的同步数据结构
+及其导致的缓存未命中的需要。
+HTM的优势在锁数据结构被放置在单独的缓存行中的情况下最大，
+在这种情况下，将给定的临界区转换为HTM事务可以减少一次完整的缓存未命中开销。
+这些节省对于短临界区的常见情况可能非常显著，至少在被省略的锁
+没有与该锁保护的频繁写入变量共享缓存行的情况下如此。
 
 \QuickQuiz{
-	Why would it matter that oft-written variables shared the cache
-	line with the lock variable?
+	为什么频繁写入的变量与锁变量共享缓存行会有影响？
 }\QuickQuizAnswer{
-	If the lock is in the same cacheline as some of the variables
-	that it is protecting, then writes to those variables by one CPU
-	will invalidate that cache line for all the other CPUs.
-	These \IXpl{invalidation} will
-	generate large numbers of conflicts and retries, perhaps even
-	degrading performance and scalability compared to locking.
+	如果锁与它保护的某些变量在同一缓存行中，
+	那么一个CPU对这些变量的写入将使所有其他CPU的该缓存行失效。
+	这些\IXpl{invalidation}将产生大量冲突和重试，甚至可能
+	降低性能和可扩展性，比使用锁还差。
 }\QuickQuizEnd
 
 \subsubsection{Dynamic Partitioning of Data Structures}
 \label{sec:future:Dynamic Partitioning of Data Structures}
 
-A major obstacle to the use of some conventional synchronization mechanisms
-is the need to statically partition data structures.
-There are a number of data structures that are trivially
-partitionable, with the most prominent example being hash tables,
-where each hash chain constitutes a partition.
-Allocating a lock for each hash chain then trivially parallelizes
-the hash table for operations confined to a given chain.\footnote{
-	And it is also easy to extend this scheme to operations accessing
-	multiple hash chains by having such operations acquire the
-	locks for all relevant chains in hash order.}
-Partitioning is similarly trivial for arrays, radix trees, skiplists, and
-several other data structures.
+使用某些传统同步机制的一个主要障碍是需要静态划分数据结构。
+有许多数据结构可以轻松划分，最突出的例子是哈希表，
+其中每个哈希链构成一个分区。
+为每个哈希链分配一个锁，就可以轻松地将哈希表中局限于给定链的操作并行化。\footnote{
+	同样容易将此方案扩展到访问多个哈希链的操作，
+	只需让这些操作按哈希顺序获取所有相关链的锁即可。}
+对于数组、基数树、跳表和其他一些数据结构，划分同样很简单。
 
-However, partitioning for many types of trees and graphs is quite
-difficult, and the results are often quite complex~\cite{Ellis80}.
-Although it is possible to use two-phased locking and hashed arrays
-of locks to partition general data structures, other techniques
-have proven preferable~\cite{DavidSMiller2006HashedLocking},
-as will be discussed in
-\cref{sec:future:HTM Weaknesses WRT Locking When Augmented}.
-Given its avoidance of synchronization cache misses,
-HTM is therefore a very real possibility for large non-partitionable
-data structures, at least assuming relatively small updates.
+然而，对于许多类型的树和图，划分相当困难，结果通常也相当复杂~\cite{Ellis80}。
+虽然可以使用两阶段锁和哈希锁数组来划分一般数据结构，
+但其他技术已被证明更可取~\cite{DavidSMiller2006HashedLocking}，
+如将在\cref{sec:future:HTM Weaknesses WRT Locking When Augmented}中讨论的。
+鉴于其避免了同步缓存未命中的特性，
+HTM因此对于大型不可划分的数据结构是一个非常现实的选择，
+至少在更新相对较小的情况下是如此。
 
 \QuickQuiz{
-	Why are relatively small updates important to \IXacr{htm} performance
-	and scalability?
+	为什么相对较小的更新对\IXacr{htm}的性能和可扩展性很重要？
 }\QuickQuizAnswer{
-	The larger the updates, the greater the probability of conflict,
-	and thus the greater probability of retries, which degrade
-	performance.
+	更新越大，冲突的概率就越大，因此重试的概率也越大，
+	这会降低性能。
 }\QuickQuizEnd
 
 \subsubsection{Practical Value}
 \label{sec:future:Practical Value}
 
-Some evidence of HTM's practical value has been demonstrated in a number
-of hardware platforms, including
-Sun Rock~\cite{DaveDice2009ASPLOSRockHTM},
-Azul Vega~\cite{CliffClick2009AzulHTM},
-IBM Blue Gene/Q~\cite{RickMerrit2011PowerTM},
-Intel Haswell TSX~\cite{RaviRajwar2012TSX}, and
-IBM System z~\cite{ChristianJacobi2012MainframeTM}.
+HTM的实际价值已在多个硬件平台上得到了一定程度的证明，包括
+Sun Rock~\cite{DaveDice2009ASPLOSRockHTM}、
+Azul Vega~\cite{CliffClick2009AzulHTM}、
+IBM Blue Gene/Q~\cite{RickMerrit2011PowerTM}、
+Intel Haswell TSX~\cite{RaviRajwar2012TSX}和
+IBM System z~\cite{ChristianJacobi2012MainframeTM}。
 
-Expected practical benefits include:
+预期的实际优势包括：
 
 \begin{enumerate}
-\item	Lock elision for in-memory data access and
-	update~\cite{Martinez01a,Rajwar02a}.
-\item	Concurrent access and small random updates to large non-partitionable
-	data structures.
+\item	内存数据访问和更新的锁省略~\cite{Martinez01a,Rajwar02a}。
+\item	对大型不可划分数据结构的并发访问和小规模随机更新。
 \end{enumerate}
 
-However, HTM also has some very real shortcomings, which will be discussed
-in the next section.
+然而，HTM也有一些非常实际的不足，将在下一节中讨论。
 
 \subsection{HTM Weaknesses WRT Locking}
 \label{sec:future:HTM Weaknesses WRT Locking}
 
-The concept of HTM is quite simple:
-A group of accesses and updates to memory occurs atomically.
-However, as is the case with many simple ideas, complications arise
-when you apply it to real systems in the real world.
-These complications are as follows:
+HTM的概念非常简单：
+一组对内存的访问和更新原子地发生。
+然而，与许多简单的想法一样，当你将其应用于现实世界中的真实系统时，
+就会出现复杂情况。
+这些复杂情况如下：
 
 \begin{enumerate}
-\item	Transaction-size limitations.
-\item	Conflict handling.
-\item	Aborts and rollbacks.
-\item	Lack of forward-progress guarantees.
-\item	Irrevocable operations.
-\item	Semantic differences.
+\item	事务大小限制。
+\item	冲突处理。
+\item	中止和回滚。
+\item	缺乏前进进度保证。
+\item	不可撤销操作。
+\item	语义差异。
 \end{enumerate}
 
-Each of these complications is covered in the following sections,
-followed by a summary.
+以下各节将分别讨论这些复杂情况，然后给出总结。
 
 \subsubsection{Transaction-Size Limitations}
 \label{sec:future:Transaction-Size Limitations}
 
-The transaction-size limitations of current HTM implementations
-stem from the use of the processor caches to hold the data
-affected by the transaction.
-Although this allows a given CPU to make the transaction appear atomic to
-other CPUs by executing the transaction within the confines of its cache,
-it also means that any transaction that does not fit cannot commit.
-Furthermore, events that change execution context, such as interrupts,
-system calls, exceptions, traps, and context switches either must
-abort any ongoing transaction on the CPU in question or must further
-restrict transaction size due to the cache footprint of the other
-execution context.
+当前HTM实现的事务大小限制源于使用处理器缓存来保存
+受事务影响的数据。
+虽然这允许给定的CPU通过在其缓存范围内执行事务来使事务对其他CPU
+显得原子，但这也意味着任何不适合的事务都无法提交。
+此外，改变执行上下文的事件，如中断、系统调用、异常、陷阱和上下文切换，
+要么必须中止相关CPU上正在进行的事务，要么必须由于其他执行上下文的
+缓存占用而进一步限制事务大小。
 
-Of course, modern CPUs tend to have large caches, and the data required
-for many transactions would fit easily in a one-megabyte cache.
-Unfortunately, with caches, sheer size is not all that matters.
-The problem is that most caches
-can be thought of hash tables implemented in hardware.
-However, hardware caches do not chain their buckets (which are normally
-called \emph{sets}), but rather
-provide a fixed number of cachelines per set.
-The number of elements provided for each set in a given cache
-is termed that cache's \emph{\IXalt{associativity}{cache associativity}}.
+当然，现代CPU往往具有大型缓存，许多事务所需的数据可以轻松放入
+一兆字节的缓存中。
+不幸的是，对于缓存来说，单纯的大小并不是唯一重要的因素。
+问题在于大多数缓存可以被认为是用硬件实现的哈希表。
+然而，硬件缓存不会链接其桶（通常称为\emph{组}），而是
+为每组提供固定数量的缓存行。
+给定缓存中每组提供的元素数量
+称为该缓存的\emph{\IXalt{关联度}{cache associativity}}。
 
-Although cache associativity varies, the eight-way associativity of
-the level-0 cache on the laptop I am typing this on is not unusual.
-What this means is that if a given transaction needed to touch
-nine cache lines, and if all nine cache lines mapped to the same
-set, then that transaction cannot possibly complete, never mind how
-many megabytes of additional space might be available in that cache.
-Yes, given randomly selected data elements in a given data structure,
-the probability of that transaction being able to commit is quite
-high, but there can be no guarantee~\cite{PaulEMcKenney2012HTMCacheGeometry}.
+虽然缓存关联度各不相同，但我正在打字的这台笔记本电脑上
+L0缓存的八路关联并不罕见。
+这意味着如果一个给定的事务需要访问九个缓存行，
+且所有九个缓存行都映射到同一组，
+那么该事务不可能完成，不管缓存中还有多少兆字节的额外空间。
+是的，对于给定数据结构中随机选择的数据元素，
+该事务能够提交的概率相当高，
+但不能保证~\cite{PaulEMcKenney2012HTMCacheGeometry}。
 
-There has been some research work to alleviate this limitation.
-Fully associative \emph{victim caches} would alleviate the associativity
-constraints, but there are currently stringent performance and
-energy-efficiency constraints on the sizes of victim caches.
-That said, HTM victim caches for unmodified cache lines can be quite
-small, as they need to retain only the address:
-The data itself can be written to memory or shadowed by other caches,
-while the address itself is sufficient to detect a conflicting
-write~\cite{RaviRajwar2012TSX}.
+已有一些研究工作试图缓解这一限制。
+全关联\emph{victim缓存}可以缓解关联度约束，
+但目前对victim缓存的大小有严格的性能和能效约束。
+也就是说，用于未修改缓存行的HTM victim缓存可以相当小，
+因为它们只需要保留地址：
+数据本身可以写回内存或被其他缓存影子保存，
+而地址本身就足以检测冲突写入~\cite{RaviRajwar2012TSX}。
 
 \IXAcrmfst{utm}
-schemes~\cite{CScottAnanian2006,KevinEMoore2006}
-use DRAM as an extremely large victim cache, but integrating such schemes
-into a production-quality
-\IXalt{cache-coherence}{cache coherence} mechanism is still an unsolved
-problem.
-In addition, use of DRAM as a victim cache may have unfortunate
-performance and energy-efficiency consequences, particularly
-if the victim cache is to be
-\IXalth{fully associative}{fully associative}{cache}.
-Finally, the ``unbounded'' aspect of UTM assumes that all of DRAM
-could be used as a victim cache, while in reality
-the large but still fixed amount of DRAM assigned to a given CPU
-would limit the size of that CPU's transactions.
-Other schemes use a combination of hardware and software transactional
-memory~\cite{SanjeevKumar2006} and one could imagine using \IXacr{stm} as a
-fallback mechanism for HTM\@.
+方案~\cite{CScottAnanian2006,KevinEMoore2006}
+使用DRAM作为极大的victim缓存，但将这些方案集成到
+生产级\IXalt{cache-coherence}{cache coherence}机制中
+仍然是一个未解决的问题。
+此外，使用DRAM作为victim缓存可能会带来不利的
+性能和能效后果，特别是如果victim缓存要求
+\IXalth{全关联}{fully associative}{cache}的话。
+最后，UTM的"无界"方面假设所有DRAM
+都可以用作victim缓存，而实际上分配给给定CPU的
+大量但仍然固定的DRAM将限制该CPU事务的大小。
+其他方案使用硬件和软件transactional memory的组合~\cite{SanjeevKumar2006}，
+人们可以想象使用\IXacr{stm}作为HTM的后备机制。
 
-However, to the best of my knowledge, with the exception of abbreviating
-representation of TM read sets, currently available systems do not
-implement any of these research ideas, and perhaps for good reason.
+然而，据我所知，除了缩略表示TM读集之外，
+当前可用的系统没有实现这些研究想法中的任何一个，
+也许是有充分理由的。
 
 \subsubsection{Conflict Handling}
 \label{sec:future:Conflict Handling}
 
-The first complication is the possibility of \emph{conflicts}.
-For example, suppose that transactions~A and~B are defined as follows:
+第一个复杂因素是\emph{冲突}的可能性。
+例如，假设事务~A和~B定义如下：
 
 \begin{VerbatimU}
 Transaction A       Transaction B
@@ -283,104 +219,75 @@ x = 1;              y = 2;
 y = 3;              x = 4;
 \end{VerbatimU}
 
-Suppose that each transaction executes concurrently on its own processor.
-If transaction~A stores to \co{x} at the same time that transaction~B
-stores to \co{y}, neither transaction can progress.
-To see this, suppose that transaction~A executes its store to \co{y}.
-Then transaction~A will be interleaved within transaction~B, in violation
-of the requirement that transactions execute atomically with respect to
-each other.
-Allowing transaction~B to execute its store to \co{x} similarly violates
-the atomic-execution requirement.
-This situation is termed a \emph{conflict}, which happens whenever two
-concurrent transactions access the same variable where at least one of
-the accesses is a store.
-The system is therefore obligated to abort one or both of the transactions
-in order to allow execution to progress.
-The choice of exactly which transaction to abort is an interesting topic
-that will very likely retain the ability to generate Ph.D. dissertations for
-some time to come, see for
-example~\cite{EgeAkpinar2011HTM2TLE}.\footnote{
-	Liu's and Spear's paper entitled ``Toxic
-	Transactions''~\cite{YujieLiu2011ToxicTransactions} is
-	particularly instructive.}
-For the purposes of this section, we can assume that the system makes
-a random choice.
+假设每个事务在各自的处理器上并发执行。
+如果事务~A在事务~B存储\co{y}的同时存储\co{x}，
+则两个事务都无法继续。
+为了理解这一点，假设事务~A执行对\co{y}的存储。
+那么事务~A将交错在事务~B内部，违反了事务之间
+原子执行的要求。
+允许事务~B执行对\co{x}的存储同样违反原子执行要求。
+这种情况被称为\emph{冲突}，当两个并发事务访问同一变量
+且至少有一个访问是存储时就会发生。
+因此系统有义务中止一个或两个事务以允许执行继续。
+究竟中止哪个事务是一个有趣的课题，
+很可能在未来相当长时间内仍能产出博士论文，
+例如参见~\cite{EgeAkpinar2011HTM2TLE}。\footnote{
+	Liu和Spear题为"Toxic
+	Transactions"~\cite{YujieLiu2011ToxicTransactions}的论文
+	特别具有教育意义。}
+就本节而言，我们可以假设系统做出随机选择。
 
-Another complication is conflict detection, which is comparatively
-straightforward, at least in the simplest case.
-When a processor is executing a transaction, it marks every cache line
-touched by that transaction.
-If the processor's cache receives a request involving a cache line that
-has been marked as touched by the current transaction, a potential
-conflict has occurred.
-More sophisticated systems might try to order the current processors'
-transaction to precede that of the processor sending the request, and
-optimizing this process will likely also retain the ability to generate
-Ph.D. dissertations for quite some time.
-However this section assumes a very simple conflict-detection strategy.
+另一个复杂因素是冲突检测，至少在最简单的情况下比较直接。
+当处理器正在执行事务时，它会标记该事务触及的每个缓存行。
+如果处理器的缓存收到涉及已被当前事务标记为已触及的缓存行的请求，
+则发生了潜在冲突。
+更复杂的系统可能会尝试将当前处理器的事务排序在发送请求的处理器的事务之前，
+优化此过程也可能在相当长时间内产出博士论文。
+然而本节假设一种非常简单的冲突检测策略。
 
-However, for HTM to work effectively, the probability of conflict must
-be quite low, which in turn requires that the data structures
-be organized so as to maintain a sufficiently low probability of conflict.
-For example, a red-black tree with simple insertion, deletion, and search
-operations fits this description, but a red-black
-tree that maintains an accurate count of the number of elements in
-the tree does not.\footnote{
-	The need to update the count would result in additions to and
-	deletions from the tree conflicting with each other, resulting
-	in strong non-commutativity~\cite{HagitAttiya2011LawsOfOrder,Attiya:2011:LOE:1925844.1926442,PaulEMcKenney2011SNC}.}
-For another example, a red-black tree that enumerates all elements in
-the tree in a single transaction will have high conflict probabilities,
-degrading performance and scalability.
-As a result, many serial programs will require some restructuring before
-HTM can work effectively.
-In some cases, practitioners will prefer to take the extra steps
-(in the red-black-tree case, perhaps switching to a partitionable
-data structure such as a radix tree or a hash table), and just
-use locking, particularly until such time as HTM is readily available
-on all relevant
-architectures~\cite{CliffClick2009AzulHTM}.
+然而，要使HTM有效工作，冲突概率必须相当低，这反过来要求数据结构的组织方式
+能维持足够低的冲突概率。
+例如，具有简单插入、删除和搜索操作的红黑树符合此描述，
+但维护准确元素计数的红黑树则不符合。\footnote{
+	更新计数的需要将导致树的添加和删除操作相互冲突，
+	产生强不可交换性~\cite{HagitAttiya2011LawsOfOrder,Attiya:2011:LOE:1925844.1926442,PaulEMcKenney2011SNC}。}
+另一个例子是，在单个事务中枚举树中所有元素的红黑树将具有很高的冲突概率，
+从而降低性能和可扩展性。
+因此，许多串行程序在HTM能有效工作之前需要一些重构。
+在某些情况下，实践者会倾向于采取额外步骤
+（在红黑树的情况下，也许切换到可划分的数据结构如基数树或哈希表），
+直接使用锁，特别是在HTM在所有相关架构上广泛可用之前~\cite{CliffClick2009AzulHTM}。
 
 \QuickQuiz{
-	How could a red-black tree possibly efficiently enumerate all
-	elements of the tree regardless of choice of synchronization
-	mechanism???
+	无论选择什么同步机制，红黑树怎么可能高效地枚举树中的所有元素？
 }\QuickQuizAnswer{
-	In many cases, the enumeration need not be exact.
-	In these cases, hazard pointers or \IXacr{rcu} may be used to protect
-	readers, which provides low probability of conflict with any
-	given insertion or deletion.
+	在许多情况下，枚举不需要精确。
+	在这些情况下，可以使用hazard pointer或\IXacr{rcu}来保护读者，
+	这提供了与任何给定插入或删除操作的低冲突概率。
 }\QuickQuizEnd
 
-Furthermore, the potential for conflicting accesses among concurrent
-transactions can result in failure.
-Handling such failure is discussed in the next section.
+此外，并发事务之间潜在的冲突访问可能导致失败。
+处理此类失败将在下一节中讨论。
 
 \subsubsection{Aborts and Rollbacks}
 \label{sec:future:Aborts and Rollbacks}
 
-Because any transaction might be aborted at any time, it is important
-that transactions contain no statements that cannot be rolled back.
-This means that transactions cannot do I/O, system calls, or debugging
-breakpoints (no single stepping in the debugger for HTM transactions!!!).
-Instead, transactions must confine themselves to accessing normal
-cached memory.
-Furthermore, on some systems, interrupts, exceptions, traps,
-TLB misses, and other events will also abort transactions.
-Given the number of bugs that have resulted from improper handling
-of error conditions, it is fair to ask what impact aborts and rollbacks
-have on ease of use.
+因为任何事务都可能在任何时候被中止，
+所以事务不能包含无法回滚的语句，这一点很重要。
+这意味着事务不能执行I/O、系统调用或调试断点
+（HTM事务中不能在调试器中单步执行！！！）。
+相反，事务必须将自己限制在访问正常的缓存内存。
+此外，在某些系统上，中断、异常、陷阱、TLB未命中和其他事件也会中止事务。
+鉴于因不当处理错误条件而导致的大量错误，
+有理由问中止和回滚对易用性有什么影响。
 
 \QuickQuiz{
-	But why can't a debugger emulate single stepping by setting
-	breakpoints at successive lines of the transaction, relying
-	on the retry to retrace the steps of the earlier instances
-	of the transaction?
+	但为什么调试器不能通过在事务的连续行上设置断点来模拟单步执行，
+	依赖重试来重新追踪事务早期实例的步骤？
 }\QuickQuizAnswer{
-	This scheme might work with reasonably high probability, but it
-	can fail in ways that would be quite surprising to most users.
-	To see this, consider the following transaction:
+	这种方案可能以相当高的概率工作，但它
+	可能以令大多数用户相当惊讶的方式失败。
+	为了理解这一点，考虑以下事务：
 
 \begin{fcvlabel}[ln:future:htm:debug rollbacks]
 \begin{VerbatimN}[commandchars=\\\[\]]
@@ -397,246 +304,184 @@ end_trans();
 \end{fcvlabel}
 
 	\begin{fcvref}[ln:future:htm:debug rollbacks]
-	Suppose that the user sets a breakpoint at \clnref{another},
-	which triggers,
-	aborting the transaction and entering the debugger.
+	假设用户在\clnref{another}处设置了断点，
+	该断点触发，中止事务并进入调试器。
 	\end{fcvref}
-	Suppose that between the time that the breakpoint triggers
-	and the debugger gets around to stopping all the threads, some
-	other thread sets the value of \co{a} to zero.
-	When the poor user attempts to single-step the program, surprise!
-	The program is now in the else-clause instead of the then-clause.
+	假设在断点触发和调试器停止所有线程之间，
+	某个其他线程将\co{a}的值设为零。
+	当可怜的用户试图单步执行程序时，惊讶地发现
+	程序现在在else子句中而不是then子句中。
 
-	This is \emph{not} what I call an easy-to-use debugger.
+	这\emph{不是}我所说的易于使用的调试器。
 }\QuickQuizEnd
 
-Of course, aborts and rollbacks raise the question of whether HTM can
-be useful for hard real-time systems.
-Do the performance benefits of HTM outweigh the costs of the aborts
-and rollbacks, and if so under what conditions?
-Can transactions use priority boosting?
-Or should transactions for high-priority threads instead preferentially
-abort those of low-priority threads?
-If so, how is the hardware efficiently informed of priorities?
-The literature on real-time use of HTM is quite sparse, perhaps
-because there are more than enough problems in making HTM work well in
-non-real-time environments.
+当然，中止和回滚引发了HTM是否可用于硬实时系统的问题。
+HTM的性能优势是否超过了中止和回滚的代价，如果是，在什么条件下？
+事务可以使用优先级提升吗？
+还是高优先级线程的事务应该优先中止低优先级线程的事务？
+如果是这样，如何有效地通知硬件优先级？
+关于HTM实时使用的文献相当稀少，
+也许是因为在非实时环境中使HTM良好工作就已经有足够多的问题了。
 
-Because current HTM implementations might deterministically abort a
-given transaction, software must provide fallback code.
-This fallback code must use some other form of synchronization, for
-example, locking.
-If a lock-based fallback is ever used, then all the limitations of locking,
-including the possibility of \IX{deadlock}, reappear.
-One can of course hope that the fallback isn't used often, which might
-allow simpler and less deadlock-prone locking designs to be used.
-But this raises the question of how the system transitions from using
-the lock-based fallbacks back to transactions.\footnote{
-	The possibility of an application getting stuck in fallback
-	mode has been termed the ``lemming effect'', a term that
-	Dave Dice has been credited with coining.}
-One approach is to use a test-and-test-and-set discipline~\cite{Martinez02a},
-so that everyone holds off until the lock is released, allowing the
-system to start from a clean slate in transactional mode at that point.
-However, this could result in quite a bit of spinning, which might not
-be wise if the lock holder has blocked or been preempted.
-Another approach is to allow transactions to proceed in parallel with
-a thread holding a lock~\cite{Martinez02a}, but this raises difficulties
-in maintaining atomicity, especially if the reason that the thread is
-holding the lock is because the corresponding transaction would not fit
-into cache.
+因为当前的HTM实现可能确定性地中止给定事务，
+软件必须提供后备代码。
+这种后备代码必须使用某种其他形式的同步，例如锁。
+如果曾经使用过基于锁的后备，那么锁的所有限制，
+包括\IX{deadlock}的可能性，都会重新出现。
+当然可以希望后备不经常使用，这可能允许使用更简单、
+更不容易死锁的锁设计。
+但这引发了系统如何从使用基于锁的后备过渡回事务的问题。\footnote{
+	应用程序卡在后备模式中的可能性被称为"旅鼠效应"，
+	这个术语归功于Dave Dice。}
+一种方法是使用test-and-test-and-set策略~\cite{Martinez02a}，
+让所有人都等到锁释放，允许系统在那个时点以事务模式从干净的状态开始。
+然而，这可能导致相当多的自旋，如果锁持有者已被阻塞或被抢占，
+这可能不是明智之举。
+另一种方法是允许事务与持有锁的线程并行进行~\cite{Martinez02a}，
+但这在维护原子性方面带来了困难，
+特别是如果线程持有锁的原因是因为相应的事务无法放入缓存。
 
-Finally, dealing with the possibility of aborts and rollbacks seems to
-put an additional burden on the developer, who must correctly handle
-all combinations of possible error conditions.
+最后，处理中止和回滚的可能性似乎给开发者增加了额外的负担，
+他们必须正确处理所有可能的错误条件组合。
 
-It is clear that users of HTM must put considerable validation effort
-into testing both the fallback code paths and transition from fallback
-code back to transactional code.
-Nor is there any reason to believe that the validation requirements of
-HTM hardware are any less daunting.
+显然，HTM的用户必须在测试后备代码路径和从后备代码
+过渡回事务代码方面投入大量验证工作。
+也没有理由认为HTM硬件的验证要求不那么艰巨。
 
 \subsubsection{Lack of Forward-Progress Guarantees}
 \label{sec:future:Lack of Forward-Progress Guarantees}
 
-Even though transaction size, conflicts, and aborts/rollbacks can all
-cause transactions to abort, one might hope that sufficiently small and
-short-duration transactions could be guaranteed to eventually succeed.
-This would permit a transaction to be unconditionally retried, in the
-same way that \IXacrmf{cas} and load-linked/store-conditional
-(LL/SC) operations are unconditionally retried in code that uses these
-instructions to implement atomic operations.
+尽管事务大小、冲突和中止/回滚都可能导致事务中止，
+人们可能希望足够小且持续时间短的事务可以被保证最终成功。
+这将允许无条件重试事务，就像\IXacrmf{cas}和load-linked/store-conditional
+（LL/SC）操作在使用这些指令实现原子操作的代码中被无条件重试一样。
 
-Unfortunately, other than low-clock-rate academic research
-prototypes~\cite{MartinSchoeberl2010realtimeTM},
-currently available HTM implementations refuse to make any
-sort of forward-progress guarantee.
-As noted earlier, HTM therefore cannot be used to avoid deadlock on
-those systems.
-Hopefully future implementations of HTM will provide some sort of
-forward-progress guarantees.
-Until that time, HTM must be used with extreme caution in real-time
-applications.
+不幸的是，除了低时钟频率的学术研究原型~\cite{MartinSchoeberl2010realtimeTM}之外，
+当前可用的HTM实现拒绝做出任何形式的前进进度保证。
+如前所述，HTM因此不能用于在这些系统上避免死锁。
+希望未来的HTM实现将提供某种形式的前进进度保证。
+在此之前，HTM在实时应用中必须极其谨慎地使用。
 
-The one exception to this gloomy picture as of 2021 is
-the IBM mainframe, which provides
-\emph{constrained transactions}~\cite{ChristianJacobi2012MainframeTM}.
-The constraints are quite severe, and are presented in
-\cref{sec:future:Forward-Progress Guarantees}.
-It will be interesting to see if HTM forward-progress guarantees migrate
-from the mainframe to commodity CPU families.
+截至2021年，这一暗淡图景的唯一例外是IBM大型机，
+它提供了\emph{受约束事务}~\cite{ChristianJacobi2012MainframeTM}。
+约束条件相当严格，在\cref{sec:future:Forward-Progress Guarantees}中介绍。
+看看HTM前进进度保证是否会从大型机迁移到通用CPU系列将是有趣的。
 
 \subsubsection{Irrevocable Operations}
 \label{sec:future:Irrevocable Operations}
 
-Another consequence of aborts and rollbacks is that HTM transactions
-cannot accommodate irrevocable operations.
-Current HTM implementations typically enforce this limitation by
-requiring that all of the accesses in the transaction be to cacheable
-memory (thus prohibiting MMIO accesses) and aborting transactions on
-interrupts, traps, and exceptions (thus prohibiting system calls).
+中止和回滚的另一个后果是HTM事务无法容纳不可撤销的操作。
+当前的HTM实现通常通过要求事务中的所有访问都是对可缓存内存的访问
+（从而禁止MMIO访问）并在中断、陷阱和异常时中止事务
+（从而禁止系统调用）来执行此限制。
 
-Note that buffered I/O can be accommodated by HTM transactions as
-long as the buffer fill/flush operations occur extra-transactionally.
-The reason that this works is that adding data to and removing data
-from the buffer is revocable:
-Only the actual buffer fill/flush operations are irrevocable.
-Of course, this buffered-I/O approach has the effect of including the I/O
-in the transaction's footprint, increasing the size of the transaction
-and thus increasing the probability of failure.
+请注意，只要缓冲区填充/刷新操作在事务外发生，
+HTM事务可以容纳缓冲I/O。
+这之所以有效，是因为向缓冲区添加数据和从中移除数据是可撤销的：
+只有实际的缓冲区填充/刷新操作是不可撤销的。
+当然，这种缓冲I/O方法的效果是将I/O包含在事务的占用空间中，
+增加了事务的大小，从而增加了失败的概率。
 
 \subsubsection{Semantic Differences}
 \label{sec:future:Semantic Differences}
 
-Although HTM can in many cases be used as a drop-in replacement for locking
-(hence the name \IXacrfst{tle}~\cite{DaveDice2008TransactLockElision}),
-there are subtle differences in semantics.
-A particularly nasty example involving coordinated lock-based critical
-sections that results in deadlock or \IX{livelock} when executed transactionally
-was given by Blundell~\cite{Blundell2006TMdeadlock}, but a much simpler
-example is the empty critical section.
+虽然HTM在许多情况下可以作为锁的直接替代品使用
+（因此得名\IXacrfst{tle}~\cite{DaveDice2008TransactLockElision}），
+但语义上存在细微差异。
+Blundell~\cite{Blundell2006TMdeadlock}给出了一个特别棘手的例子，
+涉及协调的基于锁的临界区，在事务方式执行时会导致死锁或\IX{livelock}，
+但一个更简单的例子是空临界区。
 
-In a lock-based program, an empty critical section will guarantee
-that all processes that had previously been holding that lock have
-now released it.
-This idiom was used by the 2.4 Linux kernel's networking stack to
-coordinate changes in configuration.
-But if this empty critical section is translated to a transaction,
-the result is a no-op.
-The guarantee that all prior critical sections have terminated is
-lost.
-In other words, transactional lock elision preserves the data-protection
-semantics of locking, but loses locking's time-based messaging semantics.
+在基于锁的程序中，一个空临界区将保证
+之前持有该锁的所有进程现在都已释放它。
+2.4版Linux内核的网络栈使用了这种习惯用法来协调配置更改。
+但如果将这个空临界区转换为事务，结果就是一个空操作。
+所有先前临界区已终止的保证将丢失。
+换句话说，事务锁省略保留了锁的数据保护语义，
+但丢失了锁的基于时间的消息传递语义。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	But why would \emph{anyone} need an empty lock-based critical
-	section???
+	但为什么\emph{任何人}会需要一个空的基于锁的临界区？
 }\QuickQuizAnswerB{
-	See the answer to \QuickQuizARef{\QlockingQemptycriticalsection} in
-	\cref{sec:locking:Exclusive Locks}.
+	参见\cref{sec:locking:Exclusive Locks}中
+	\QuickQuizARef{\QlockingQemptycriticalsection}的答案。
 
-	However, it is claimed that given a strongly atomic \IXacr{htm}
-	implementation without forward-progress guarantees, any
-	memory-based locking design based on empty critical sections
-	will operate correctly in the presence of transactional
-	lock elision.
-	Although I have not seen a proof of this statement, there
-	is a straightforward rationale for this claim.
-	The main idea is that in a strongly atomic HTM implementation,
-	the results of a given transaction are not visible until
-	after the transaction completes successfully.
-	Therefore, if you can see that a transaction has started,
-	it is guaranteed to have already completed, which means
-	that a subsequent empty lock-based critical section will
-	successfully ``wait'' on it---after all, there is no waiting
-	required.
+	然而，有人声称，给定一个没有前进进度保证的强原子\IXacr{htm}
+	实现，任何基于空临界区的基于内存的锁设计
+	在事务锁省略存在的情况下将正确运行。
+	虽然我没有看到这个声明的证明，但有一个直接的理由。
+	主要思想是，在强原子HTM实现中，
+	给定事务的结果在事务成功完成之前是不可见的。
+	因此，如果你能看到一个事务已经开始，
+	则保证它已经完成，这意味着
+	后续的空锁临界区将成功地"等待"它——毕竟，
+	不需要等待。
 
-	This line of reasoning does not apply to weakly atomic
-	systems (including many \IXacr{stm} implementation), and it also
-	does not apply to lock-based programs that use means other
-	than memory to communicate.
-	One such means is the passage of time (for example, in
-	hard real-time systems) or flow of priority (for example,
-	in soft real-time systems).
+	这种推理不适用于弱原子系统
+	（包括许多\IXacr{stm}实现），也不适用于
+	使用内存以外的方式进行通信的基于锁的程序。
+	这样的方式之一是时间的流逝（例如，在硬实时系统中）
+	或优先级的流动（例如，在软实时系统中）。
 
-	Locking designs that rely on priority boosting are of particular
-	interest.
+	依赖优先级提升的锁设计特别值得关注。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	Can't transactional lock elision trivially handle locking's
-	time-based messaging semantics
-	by simply choosing not to elide empty lock-based critical sections?
+	事务锁省略难道不能通过简单地选择不省略空的基于锁的临界区
+	来轻松处理锁的基于时间的消息传递语义吗？
 }\QuickQuizAnswerM{
-	It could do so, but this would be both unnecessary and
-	insufficient.
+	它可以这样做，但这既不必要也不充分。
 
-	It would be unnecessary in cases where the empty critical section
-	was due to conditional compilation.
-	Here, it might well be that the only purpose of the lock was to
-	protect data, so eliding it completely would be the right thing
-	to do.
-	In fact, leaving the empty lock-based critical section would
-	degrade performance and scalability.
+	在空临界区由条件编译导致的情况下，这是不必要的。
+	在这种情况下，锁的唯一目的很可能是保护数据，
+	因此完全省略它是正确的做法。
+	实际上，保留空的基于锁的临界区会降低性能和可扩展性。
 
-	On the other hand, it is possible for a non-empty lock-based
-	critical section to be relying on both the data-protection
-	and time-based messaging semantics of locking.
-	Using transactional lock elision in such a case would be
-	incorrect, and would result in bugs.
+	另一方面，非空的基于锁的临界区可能同时依赖于
+	锁的数据保护和基于时间的消息传递语义。
+	在这种情况下使用事务锁省略将是不正确的，
+	并会导致错误。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	Given modern hardware~\cite{PeterOkech2009InherentRandomness},
-	how can anyone possibly expect parallel software relying
-	on timing to work?
+	鉴于现代硬件~\cite{PeterOkech2009InherentRandomness}，
+	怎么能指望依赖时序的并行软件正常工作呢？
 }\QuickQuizAnswerE{
-	The short answer is that on commonplace commodity hardware,
-	synchronization designs based on any sort of fine-grained
-	timing are foolhardy and cannot be expected to operate correctly
-	under all conditions.
+	简短的回答是，在普通的商用硬件上，
+	基于任何精细粒度时序的同步设计都是不明智的，
+	不能指望在所有条件下正确运行。
 
-	That said, there are systems designed for hard real-time use
-	that are much more deterministic.
-	In the (very unlikely) event that you are using such a system,
-	here is a toy example showing how time-based synchronization can
-	work.
-	Again, do \emph{not} try this on commodity microprocessors,
-	as they have highly nondeterministic performance characteristics.
+	话虽如此，有些专为硬实时使用而设计的系统要确定性得多。
+	在你使用这样的系统的（非常不可能的）情况下，
+	这里有一个展示基于时间的同步如何工作的简单例子。
+	再次强调，\emph{不要}在商用微处理器上尝试这种方法，
+	因为它们具有高度不确定性的性能特征。
 
-	This example uses multiple worker threads along with a control
-	thread.
-	Each worker thread corresponds to an outbound data feed, and
-	records the current time (for example, from the
-	\co{clock_gettime()} system call) in a per-thread
-	\co{my_timestamp} variable after executing each unit
-	of work.
-	The real-time nature of this example results in the following
-	set of constraints:
+	这个例子使用多个工作线程和一个控制线程。
+	每个工作线程对应一个出站数据流，
+	在每个工作单元执行后将当前时间
+	（例如，从\co{clock_gettime()}系统调用获取）
+	记录在每线程的\co{my_timestamp}变量中。
+	此示例的实时性质导致了以下约束集：
 
 	\begin{enumerate}
-	\item	It is a fatal error for a given worker thread to fail
-		to update its timestamp for a time period of more than
-		\co{MAX_LOOP_TIME}.
-	\item	Locks are used sparingly to access and update global
-		state.
-	\item	Locks are granted in strict FIFO order within
-		a given thread priority.
+	\item	如果给定的工作线程未能在超过
+		\co{MAX_LOOP_TIME}的时间段内更新其时间戳，
+		则为致命错误。
+	\item	锁被谨慎地用于访问和更新全局状态。
+	\item	锁在给定线程优先级内按严格的FIFO顺序授予。
 	\end{enumerate}
 
-	When worker threads complete their feed, they must disentangle
-	themselves from the rest of the application and place a status
-	value in a per-thread \co{my_status} variable that is initialized
-	to \co{-1}.
-	Threads do not exit; they instead are placed on a thread pool
-	to accommodate later processing requirements.
-	The control thread assigns (and re-assigns) worker threads as
-	needed, and also maintains a histogram of thread statuses.
-	The control thread runs at a real-time priority no higher than
-	that of the worker threads.
+	当工作线程完成其数据流时，它们必须与应用程序的其余部分解除关联，
+	并在初始化为\co{-1}的每线程\co{my_status}变量中
+	放置一个状态值。
+	线程不退出；它们被放在线程池中以适应后续的处理需求。
+	控制线程根据需要分配（和重新分配）工作线程，
+	并维护线程状态的直方图。
+	控制线程以不高于工作线程的实时优先级运行。
 
-	Worker threads' code is as follows:
+	工作线程的代码如下：
 
 \begin{VerbatimN}
 	int my_status = -1;  /* Thread local. */
@@ -662,7 +507,7 @@ semantics of locking, but loses locking's time-based messaging semantics.
 	/* thread awaits repurposing. */
 \end{VerbatimN}
 
-	The control thread's code is as follows:
+	控制线程的代码如下：
 
 \begin{fcvlabel}[ln:future:htm:control thread]
 \begin{VerbatimN}[commandchars=\\\@\$]
@@ -684,37 +529,30 @@ semantics of locking, but loses locking's time-based messaging semantics.
 \end{fcvlabel}
 
 	\begin{fcvref}[ln:future:htm:control thread]
-	\Clnref{if} uses the passage of time to deduce that the thread
-	has exited, executing \clnref{dep:b,dep:e} if so.
-	The empty lock-based critical section on \clnref{acq,rel}
-	guarantees that any thread in the process of exiting
-	completes (remember that locks are granted in FIFO order!).
+	\Clnref{if}使用时间的流逝来推断线程已退出，
+	如果是这样则执行\clnref{dep:b,dep:e}。
+	\clnref{acq,rel}上的空锁临界区保证任何正在退出过程中的线程
+	已经完成（记住锁是按FIFO顺序授予的！）。
 	\end{fcvref}
 
-	Once again, do not try this sort of thing on commodity
-	microprocessors.
-	After all, it is difficult enough to get this right on systems
-	specifically designed for hard real-time use!
+	再次强调，不要在商用微处理器上尝试这种方法。
+	毕竟，即使在专门为硬实时使用而设计的系统上，
+	正确实现这一点也够困难的了！
 }\QuickQuizEndE
 }
 
-One important semantic difference between locking and transactions
-is the priority boosting that is used to avoid priority inversion
-in lock-based real-time programs.
-One way in which priority inversion can occur is when a
-low-priority thread holding a lock
-is preempted by a medium-priority CPU-bound thread.
-If there is at least one such medium-priority thread per CPU, the
-low-priority thread will never get a chance to run.
-If a high-priority thread now attempts to acquire the lock,
-it will block.
-It cannot acquire the lock until the low-priority thread releases it,
-the low-priority thread cannot release the lock until it gets a chance
-to run, and it cannot get a chance to run until one of the medium-priority
-threads gives up its CPU\@.
-Therefore, the medium-priority threads are in effect blocking the
-high-priority process, which is the rationale for the name ``priority
-inversion.''
+锁和事务之间的一个重要语义差异是在基于锁的实时程序中
+用于避免优先级反转的优先级提升。
+优先级反转可能发生的一种方式是当持有锁的低优先级线程
+被中等优先级的CPU密集型线程抢占时。
+如果每个CPU至少有一个这样的中等优先级线程，
+低优先级线程将永远没有机会运行。
+如果高优先级线程现在试图获取该锁，它将被阻塞。
+它无法获取锁直到低优先级线程释放它，
+低优先级线程无法释放锁直到它有机会运行，
+而它无法有机会运行直到某个中等优先级线程放弃其CPU。
+因此，中等优先级线程实际上阻塞了高优先级进程，
+这就是"优先级反转"这个名称的由来。
 
 \begin{listing}
 \begin{fcvlabel}[ln:future:Exploiting Priority Boosting]
@@ -745,85 +583,70 @@ void booster(void)		\lnlbl@high:b$
 }                               \lnlbl@high:e$
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Exploiting Priority Boosting}
+\caption{利用优先级提升}
 \label{lst:future:Exploiting Priority Boosting}
 \end{listing}
 
-One way to avoid priority inversion is \emph{priority inheritance},
-in which a high-priority thread blocked on a lock temporarily donates
-its priority to the lock's holder, which is also called \emph{priority
-boosting}.
-However, priority boosting can be used for things other than avoiding
-priority inversion, as shown in
-\cref{lst:future:Exploiting Priority Boosting}.
+避免优先级反转的一种方法是\emph{优先级继承}，
+其中被锁阻塞的高优先级线程临时将其优先级捐赠给锁的持有者，
+这也被称为\emph{优先级提升}。
+然而，优先级提升可以用于避免优先级反转以外的目的，
+如\cref{lst:future:Exploiting Priority Boosting}所示。
 \begin{fcvref}[ln:future:Exploiting Priority Boosting]
-\Clnrefrange{low:b}{low:e} of this listing show a low-priority process that must
-nevertheless run every millisecond or so, while \clnrefrange{high:b}{high:e} of
-this same listing show a high-priority process that uses priority
-boosting to ensure that \co{boostee()} runs periodically as needed.
+该清单的\clnrefrange{low:b}{low:e}展示了一个必须大约每毫秒运行一次的低优先级进程，
+而同一清单的\clnrefrange{high:b}{high:e}展示了一个使用优先级提升
+来确保\co{boostee()}按需定期运行的高优先级进程。
 
-The \co{boostee()} function arranges this by always holding one of
-the two \co{boost_lock[]} locks, so that \clnrefrange{acq}{rel} of
-\co{booster()} can boost priority as needed.
+\co{boostee()}函数通过始终持有两个\co{boost_lock[]}锁中的一个
+来实现这一点，以便\co{booster()}的\clnrefrange{acq}{rel}
+可以根据需要提升优先级。
 \end{fcvref}
 
 \QuickQuiz{
-	But the \co{boostee()} function in
-	\cref{lst:future:Exploiting Priority Boosting}
-	alternatively acquires its locks in reverse order!
-	Won't this result in deadlock?
+	但\cref{lst:future:Exploiting Priority Boosting}中的
+	\co{boostee()}函数交替以相反的顺序获取锁！
+	这不会导致死锁吗？
 }\QuickQuizAnswer{
-	No deadlock will result.
-	To arrive at deadlock, two different threads must each
-	acquire the two locks in opposite orders, which does not
-	happen in this example.
-	However, deadlock detectors such as
-	lockdep~\cite{JonathanCorbet2006lockdep}
-	will flag this as a false positive.
+	不会导致死锁。
+	要产生死锁，两个不同的线程必须各自以相反的顺序
+	获取两个锁，这在此示例中不会发生。
+	然而，像lockdep~\cite{JonathanCorbet2006lockdep}
+	这样的死锁检测器会将此标记为误报。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:future:Exploiting Priority Boosting]
-This arrangement requires that \co{boostee()} acquire its first
-lock on \clnref{1stacq} before the system becomes busy, but this is easily
-arranged, even on modern hardware.
+这种安排要求\co{boostee()}在系统变忙之前在\clnref{1stacq}处获取其第一个锁，
+但即使在现代硬件上也很容易安排。
 
-Unfortunately, this arrangement can break down in presence of transactional
-lock elision.
-The \co{boostee()} function's overlapping critical sections become
-one infinite transaction, which will sooner or later abort,
-for example, on the first time that the thread running
-the \co{boostee()} function is preempted.
-At this point, \co{boostee()} will fall back to locking, but given
-its low priority and that the quiet initialization period is now
-complete (which after all is why \co{boostee()} was preempted),
-this thread might never again get a chance to run.
+不幸的是，这种安排在事务锁省略存在的情况下可能会失效。
+\co{boostee()}函数重叠的临界区变成一个无限事务，
+迟早会中止，例如在运行\co{boostee()}函数的线程
+第一次被抢占时。
+此时\co{boostee()}将回退到使用锁，但鉴于其低优先级
+以及安静的初始化期间已经结束
+（这毕竟是\co{boostee()}被抢占的原因），
+这个线程可能永远不会再有机会运行。
 
-And if the \co{boostee()} thread is not holding the lock, then
-the \co{booster()} thread's empty critical section on \clnref{acq,rel} of
-\cref{lst:future:Exploiting Priority Boosting}
-will become an empty transaction that has no effect, so that
-\co{boostee()} never runs.
-This example illustrates some of the subtle consequences of
-transactional memory's rollback-and-retry semantics.
+而如果\co{boostee()}线程没有持有锁，那么
+\cref{lst:future:Exploiting Priority Boosting}中
+\co{booster()}线程在\clnref{acq,rel}上的空临界区
+将变成一个没有效果的空事务，
+从而\co{boostee()}永远不会运行。
+此例说明了transactional memory的回滚重试语义的一些微妙后果。
 \end{fcvref}
 
-Given that experience will likely uncover additional subtle semantic
-differences, application of HTM-based lock elision to large programs
-should be undertaken with caution.
-That said, where it does apply, HTM-based lock elision can eliminate
-the cache misses associated with the lock variable, which has resulted
-in tens of percent performance increases in large real-world software
-systems as of early 2015.
-We can therefore expect to see substantial use of this technique on
-hardware providing reliable support for it.
+鉴于经验可能会揭示更多微妙的语义差异，
+基于HTM的锁省略在大型程序中的应用应当谨慎进行。
+话虽如此，在适用的地方，基于HTM的锁省略可以消除
+与锁变量相关的缓存未命中，这在截至2015年初的
+大型实际软件系统中已经带来了数十个百分点的性能提升。
+因此我们可以期望在提供可靠支持的硬件上看到这种技术的大量使用。
 
 \QuickQuiz{
-	So a bunch of people set out to supplant locking, and they
-	mostly end up just optimizing locking???
+	所以一群人着手取代锁，结果大多只是在优化锁？
 }\QuickQuizAnswer{
-	At least they accomplished something useful!
-	And perhaps there will continue to be additional \IXacr{htm} progress
-	over time~\cite{Siakavaras2017CombiningHA,DimitriosSiakavaras2020RCU-HTM-B+Trees,ChristinaGiannoula2018HTM-RCU-graphcoloring,SeongJaePark2020HTMRCUlock}.
+	至少他们完成了一些有用的事情！
+	也许随着时间的推移，\IXacr{htm}会继续取得进步~\cite{Siakavaras2017CombiningHA,DimitriosSiakavaras2020RCU-HTM-B+Trees,ChristinaGiannoula2018HTM-RCU-graphcoloring,SeongJaePark2020HTMRCUlock}。
 }\QuickQuizEnd
 
 \subsubsection{Summary}
@@ -831,181 +654,139 @@ hardware providing reliable support for it.
 
 \input{future/HTMtable}
 
-Although it seems likely that HTM will have compelling use cases,
-current implementations have serious transaction-size limitations,
-conflict-handling complications, abort-and-rollback issues, and
-semantic differences that will require careful handling.
-HTM's current situation relative to locking is summarized in
-\cref{tab:future:Comparison of Locking and HTM}.
-As can be seen, although the current state of HTM alleviates some
-serious shortcomings of locking,\footnote{
-	In fairness, it is important to emphasize that locking's shortcomings
-	do have well-known and heavily used engineering solutions, including
-	deadlock detectors~\cite{JonathanCorbet2006lockdep}, a wealth
-	of data structures that have been adapted to locking, and
-	a long history of augmentation, as discussed in
-	\cref{sec:future:HTM Weaknesses WRT Locking When Augmented}.
-	In addition, if locking really were as horrible as a quick skim
-	of many academic papers might reasonably lead one to believe,
-	where did all the large lock-based parallel programs (both
-	FOSS and proprietary) come from, anyway?}
-it does so by introducing a significant
-number of shortcomings of its own.
-These shortcomings are acknowledged by leaders in the TM
-community~\cite{AlexanderMatveev2012PessimisticTM}.\footnote{
-	In addition, in early 2011, I was invited to deliver a critique of
-	some of the assumptions underlying transactional
-	memory~\cite{PaulEMcKenney2011Verico}.
-	The audience was surprisingly non-hostile, though perhaps they
-	were taking it easy on me due to the fact that I was heavily
-	jet-lagged while giving the presentation.}
+虽然HTM似乎可能会有引人注目的用例，
+但当前的实现存在严重的事务大小限制、冲突处理复杂性、
+中止和回滚问题以及需要仔细处理的语义差异。
+HTM相对于锁的当前状况总结在
+\cref{tab:future:Comparison of Locking and HTM}中。
+可以看出，虽然HTM的当前状态缓解了锁的一些严重不足，\footnote{
+	公平地说，重要的是要强调锁的不足确实有广为人知且广泛使用的工程解决方案，
+	包括死锁检测器~\cite{JonathanCorbet2006lockdep}、
+	大量已适应锁的数据结构，以及如
+	\cref{sec:future:HTM Weaknesses WRT Locking When Augmented}中讨论的
+	长期增强历史。
+	此外，如果锁真的像快速浏览许多学术论文可能合理地使人相信的那样糟糕，
+	那些大型的基于锁的并行程序（包括自由开源软件和专有软件）
+	到底是从哪里来的呢？}
+但它通过引入大量自身的不足来实现这一点。
+这些不足被TM社区的领导者所承认~\cite{AlexanderMatveev2012PessimisticTM}。\footnote{
+	此外，在2011年初，我受邀对transactional memory背后的
+	一些假设进行批评~\cite{PaulEMcKenney2011Verico}。
+	听众出奇地不敌视，不过也许他们对我手下留情是因为
+	我在做报告时严重倒时差。}
 
-In addition, this is not the whole story.
-Locking is not normally used by itself, but is instead typically
-augmented by other synchronization mechanisms,
-including reference counting, atomic operations, non-blocking data structures,
-\IXpl{hazard pointer}~\cite{MagedMichael04a,HerlihyLM02},
-and RCU~\cite{McKenney98,McKenney01a,ThomasEHart2007a,PaulEMcKenney2012ELCbattery}.
-The next section looks at how such augmentation changes the equation.
+此外，这还不是完整的故事。
+锁通常不是单独使用的，而是通常由其他同步机制增强，
+包括引用计数、原子操作、非阻塞数据结构、
+\IXpl{hazard pointer}~\cite{MagedMichael04a,HerlihyLM02}
+和RCU~\cite{McKenney98,McKenney01a,ThomasEHart2007a,PaulEMcKenney2012ELCbattery}。
+下一节将探讨这种增强如何改变等式。
 
 \subsection{HTM Weaknesses WRT Locking When Augmented}
 \label{sec:future:HTM Weaknesses WRT Locking When Augmented}
 
 \input{future/HTMtableRCU}
 
-Practitioners have long used reference counting, atomic operations,
-non-blocking data structures, hazard pointers, and RCU to avoid some
-of the shortcomings of locking.
-For example, deadlock can be avoided in many cases by using reference
-counts, hazard pointers, or RCU to protect data structures,
-particularly for read-only critical
-sections~\cite{MagedMichael04a,HerlihyLM02,MathieuDesnoyers2012URCU,DinakarGuniguntala2008IBMSysJ,ThomasEHart2007a}.
-These approaches also reduce the need to partition data
-structures, as was seen in \cref{chp:Data Structures}.
-RCU further provides contention-free bounded wait-free read-side
-primitives~\cite{McKenney98,MathieuDesnoyers2012URCU}, while hazard pointers
-provides lock-free read-side
-primitives~\cite{Michael02a,HerlihyLM02,MagedMichael04a}.
-Adding these considerations to
-\cref{tab:future:Comparison of Locking and HTM}
-results in the updated comparison between augmented locking and HTM
-shown in
-\cref{tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}.
-A summary of the differences between the two tables is as follows:
+实践者长期以来使用引用计数、原子操作、非阻塞数据结构、
+hazard pointer和RCU来避免锁的一些不足。
+例如，在许多情况下，可以通过使用引用计数、hazard pointer或RCU
+来保护数据结构来避免死锁，
+特别是对于只读临界区~\cite{MagedMichael04a,HerlihyLM02,MathieuDesnoyers2012URCU,DinakarGuniguntala2008IBMSysJ,ThomasEHart2007a}。
+这些方法还减少了划分数据结构的需要，
+正如在\cref{chp:Data Structures}中所见。
+RCU进一步提供了无竞争的有界无等待读端原语~\cite{McKenney98,MathieuDesnoyers2012URCU}，
+而hazard pointer提供了无锁的读端原语~\cite{Michael02a,HerlihyLM02,MagedMichael04a}。
+将这些考虑因素添加到\cref{tab:future:Comparison of Locking and HTM}中，
+得到了\cref{tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}
+中所示的增强锁与HTM之间的更新比较。
+两个表之间差异的总结如下：
 
 \begin{enumerate}
-\item	Use of non-blocking read-side mechanisms alleviates deadlock issues.
-\item	Read-side mechanisms such as hazard pointers and RCU can operate
-	efficiently on non-partitionable data.
-\item	Hazard pointers and RCU do not contend with each other or with
-	updaters, allowing excellent performance and scalability for
-	read-mostly workloads.
-\item	Hazard pointers and RCU provide forward-progress guarantees
-	(lock freedom and bounded wait-freedom, respectively).
-\item	Privatization operations for hazard pointers and RCU are
-	straightforward.
+\item	使用非阻塞读端机制缓解了死锁问题。
+\item	hazard pointer和RCU等读端机制可以在不可划分的数据上高效操作。
+\item	hazard pointer和RCU不会彼此竞争，也不会与更新者竞争，
+	允许读多写少工作负载获得出色的性能和可扩展性。
+\item	hazard pointer和RCU提供前进进度保证
+	（分别为无锁和有界无等待）。
+\item	hazard pointer和RCU的私有化操作是直接的。
 \end{enumerate}
 
 \IfEbookSize{}{
 \input{future/HTMtableFull}
 
-For those with good eyesight,
+对于视力好的人，
 \cref{tab:future:Comparison of Locking (Plain and Augmented) and HTM}
-combines
-\cref{tab:future:Comparison of Locking and HTM,%
-tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}.
+合并了\cref{tab:future:Comparison of Locking and HTM,%
+tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}。
 }
 
 \QuickQuiz{
 	\Cref{tab:future:Comparison of Locking and HTM,tab:future:Comparison of Locking (Augmented by RCU or Hazard Pointers) and HTM}
-	state that hardware is only starting to become available.
-	But hasn't HTM hardware support been widely available
-	for almost a full decade?
+	声称硬件才刚刚开始可用。
+	但HTM硬件支持不是已经广泛可用近十年了吗？
 }\QuickQuizAnswer{
-	Yes and no.
-	It appears that implementing even the HTM subset of TM in real
-	hardware is a bit trickier than it
-	appears~\cite{ChristianJacobi2012MainframeTM,ScottWasson2014HaswellDisableTSX,Intel2020HaswellTSXordering,Intel2021perfTSXordering,MichaelLarabel2021DisableTSX}.
-	Therefore, the sad fact is that ``starting to become available'' is
-	all too accurate as of 2021.
-	In fact, vendors are beginning to deprecate their HTM
-	implementations~\cite[Book III Appendix A]{PowerISA3.1-2020}.
+	是也不是。
+	看来即使是在真实硬件中实现TM的HTM子集也比看起来要复杂一些~\cite{ChristianJacobi2012MainframeTM,ScottWasson2014HaswellDisableTSX,Intel2020HaswellTSXordering,Intel2021perfTSXordering,MichaelLarabel2021DisableTSX}。
+	因此，令人遗憾的事实是，截至2021年"刚刚开始可用"
+	这一说法过于准确了。
+	实际上，供应商已经开始弃用其HTM实现~\cite[Book III Appendix A]{PowerISA3.1-2020}。
 }\QuickQuizEnd
 
-Of course, it is also possible to augment HTM,
-as discussed in the next section.
+当然，也可以增强HTM，如下一节中讨论的那样。
 
 \subsection{Where Does HTM Best Fit In?}
 \label{sec:future:Where Does HTM Best Fit In?}
 
-Although it will likely be some time before HTM's area of applicability
-can be as crisply delineated as that shown for RCU in
-\cref{fig:defer:RCU Areas of Applicability} on
-\cpageref{fig:defer:RCU Areas of Applicability}, that is no reason not to
-start moving in that direction.
+虽然HTM的适用范围可能还需要一段时间才能像
+\cpageref{fig:defer:RCU Areas of Applicability}上
+\cref{fig:defer:RCU Areas of Applicability}中所示的RCU那样清晰地划定，
+但这不是不开始朝这个方向前进的理由。
 
-HTM seems best suited to update-heavy workloads involving relatively
-small changes to disparate portions of relatively large in-memory
-data structures running on large multiprocessors,
-as this meets the size restrictions of current HTM implementations while
-minimizing the probability of conflicts and attendant aborts and
-rollbacks.
-This scenario is also one that is relatively difficult to handle given
-current synchronization primitives.
+HTM似乎最适合涉及对在大型多处理器上运行的相对大型内存数据结构的
+不同部分进行相对小的更改的更新密集型工作负载，
+因为这满足了当前HTM实现的大小限制，同时最小化了冲突
+及伴随的中止和回滚的概率。
+这种场景也是给定当前同步原语相对难以处理的场景。
 
-Use of locking in conjunction with HTM seems likely to overcome HTM's
-difficulties with irrevocable operations, while use of RCU or
-hazard pointers might alleviate HTM's transaction-size limitations
-for read-only operations that traverse large fractions of the data
-structure~\cite{SeongJaePark2020HTMRCUlock}.
-Current HTM implementations unconditionally abort an update transaction
-that conflicts with an RCU or hazard-pointer reader, but perhaps future
-HTM implementations will interoperate more smoothly with these
-synchronization mechanisms.
-In the meantime, the probability of an update conflicting with a
-large RCU or hazard-pointer read-side critical section should be
-much smaller than the probability of conflicting with the equivalent
-read-only transaction.\footnote{
-	It is quite ironic that strictly transactional mechanisms are
-	appearing in shared-memory systems at just about the time
-	that NoSQL databases are relaxing the traditional
-	database-application reliance on strict transactions.
-	Nevertheless, HTM has in fact realized the ease-of-use promise
-	of TM, albeit for black-hat attacks on the Linux kernel's
-	address-space randomization defense
-	mechanism~\cite{YeongjinJang2016TSXbreakKASLR,Jang:2016:BKA:2976749.2978321}.}
-Nevertheless, it is quite possible that a steady stream of RCU or
-hazard-pointer readers might starve updaters due to a corresponding
-steady stream of conflicts.
-This vulnerability could be eliminated (at significant
-hardware cost and complexity) by giving extra-transactional
-reads the pre-transaction copy of the memory location being loaded.
+将锁与HTM结合使用似乎可以克服HTM在不可撤销操作方面的困难，
+而使用RCU或hazard pointer可能会缓解HTM对遍历数据结构大部分内容的
+只读操作的事务大小限制~\cite{SeongJaePark2020HTMRCUlock}。
+当前的HTM实现会无条件中止与RCU或hazard pointer读者冲突的更新事务，
+但也许未来的HTM实现将与这些同步机制更顺畅地互操作。
+与此同时，更新与大型RCU或hazard pointer读端临界区冲突的概率
+应该远小于与等效只读事务冲突的概率。\footnote{
+	相当讽刺的是，严格的事务机制出现在共享内存系统中的时间
+	恰好是NoSQL数据库放松传统数据库应用对严格事务依赖的时候。
+	尽管如此，HTM确实实现了TM的易用性承诺，
+	尽管是用于对Linux内核地址空间随机化防御机制的
+	黑帽攻击~\cite{YeongjinJang2016TSXbreakKASLR,Jang:2016:BKA:2976749.2978321}。}
+尽管如此，持续不断的RCU或hazard pointer读者完全有可能
+因为相应的持续冲突流而使更新者饥饿。
+可以通过（以显著的硬件成本和复杂性为代价）
+给事务外读取提供被加载内存位置的事务前副本来消除这一漏洞。
 
-The fact that HTM transactions must have fallbacks might in some cases
-force static partitionability of data structures back onto HTM\@.
-This limitation might be alleviated if future HTM implementations
-provide forward-progress guarantees, which might eliminate the need
-for fallback code in some cases, which in turn might allow HTM to
-be used efficiently in situations with higher conflict probabilities.
+HTM事务必须有后备方案的事实可能在某些情况下
+会将数据结构的静态可划分性重新强加给HTM。
+如果未来的HTM实现提供前进进度保证，
+这一限制可能会得到缓解，这可能在某些情况下消除对后备代码的需要，
+进而可能允许HTM在冲突概率较高的情况下高效使用。
 
-In short, although HTM is likely to have important uses and applications,
-it is another tool in the parallel programmer's toolbox, not a replacement
-for the toolbox in its entirety.
+简而言之，虽然HTM可能有重要的用途和应用，
+但它是并行程序员工具箱中的另一个工具，而不是工具箱整体的替代品。
 
 \subsection{Potential Game Changers}
 \label{sec:future:Potential Game Changers}
 
-Game changers that could greatly increase the need for HTM include
-the following:
+可能大大增加HTM需求的变革因素包括以下几点：
 
 \begin{enumerate}
-\item	Forward-progress guarantees.
-\item	Transaction-size increases.
-\item	Improved debugging support.
-\item	Weak atomicity.
+\item	前进进度保证。
+\item	事务大小增加。
+\item	改进的调试支持。
+\item	弱原子性。
 \end{enumerate}
 
-These are expanded upon in the following sections.
+以下各节对此进行了展开讨论。
 
 \subsubsection{Forward-Progress Guarantees}
 \label{sec:future:Forward-Progress Guarantees}

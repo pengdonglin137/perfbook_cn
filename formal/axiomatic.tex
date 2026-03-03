@@ -2,23 +2,24 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Axiomatic Approaches}
+\section{公理化方法}
 \label{sec:formal:Axiomatic Approaches}
 \OriginallyPublished{sec:formal:Axiomatic Approaches}{Axiomatic Approaches}{Linux Weekly News}{PaulEMcKenney2014weakaxiom}
 %
-\epigraph{Theory helps us to bear our ignorance of facts.}
+\epigraph{理论帮助我们承受对事实的无知。}
 	{George Santayana}
 
-Although the PPCMEM tool can solve the famous ``independent reads of
-independent writes'' (IRIW) litmus test shown in
-\cref{lst:formal:IRIW Litmus Test}, doing so requires no less than
-fourteen CPU hours and generates no less than ten gigabytes of state space.
-That said, this situation is a great improvement over that prior to the advent
-of PPCMEM, where solving this problem required perusing volumes of
-reference manuals, attempting proofs, discussing with experts, and
-then after all that, doubting the final answer.
-Although fourteen hours can seem like a long time, it is much shorter
-than weeks or even months.
+虽然 PPCMEM 工具可以求解如
+\cref{lst:formal:IRIW Litmus Test}所示的著名
+``independent reads of independent writes''（IRIW）litmus test，
+但这样做需要不少于14个 CPU 小时，
+并产生不少于10 GB 的 state space。
+话虽如此，这种情况相比 PPCMEM 出现之前已经大有改善，
+在那之前解决这个问题需要翻阅大量参考手册、
+尝试证明、与专家讨论，
+然后在所有这些之后，仍然怀疑最终答案。
+虽然14小时看起来可能很长，但它比几周甚至几个月
+要短得多。
 
 \begin{listing}
 \begin{fcvlabel}[ln:formal:IRIW Litmus Test]
@@ -45,34 +46,31 @@ exists
 \label{lst:formal:IRIW Litmus Test}
 \end{listing}
 
-However, the time required is a bit surprising given the simplicity
-of the litmus test, which has two threads storing to two separate variables
-and two other threads loading from these two variables in opposite
-orders.
-The assertion triggers if the two loading threads disagree on the order
-of the two stores.
-Even by the standards of memory-order litmus tests, this is quite simple.
+然而，鉴于 litmus test 的简单性，所需的时间和空间
+有点令人惊讶——它有两个线程存储到两个不同的变量，
+另外两个线程以相反的顺序从这两个变量加载。
+如果两个加载线程对两个存储的顺序有分歧，
+则 assertion 触发。
+即使按照 memory-order litmus test 的标准，这也是相当简单的。
 
-One reason for the amount of time and space consumed is that PPCMEM does
-a trace-based full-state-space search, which means that it must generate
-and evaluate all possible orders and combinations of events at the
-architectural level.
-At this level, both loads and stores correspond to ornate sequences
-of events and actions, resulting in a very large state space that must
-be completely searched, in turn resulting in large memory and CPU
-consumption.
+PPCMEM 消耗大量时间和空间的一个原因是它进行了
+基于轨迹的完整 state-space search，这意味着它必须生成
+和评估在架构级别上事件和动作的所有可能顺序和组合。
+在这个级别上，加载和存储都对应于精心设计的
+事件和动作序列，导致必须完全搜索的非常大的 state space，
+进而导致大量的内存和 CPU 消耗。
 
-Of course, many of the traces are quite similar to one another, which
-suggests that an approach that treated similar traces as one might
-improve performace.
-One such approach is the axiomatic approach of
-\pplsur{Jade}{Alglave} et al.~\cite{Alglave:2014:HCM:2594291.2594347},
-which creates a set of axioms to represent the \IX{memory model} and then
-converts litmus tests to theorems that might be proven or disproven
-over this set of axioms.
-The resulting tool, called \qco{herd},  conveniently takes as input the
-same litmus tests as PPCMEM, including the IRIW litmus test shown in
-\cref{lst:formal:IRIW Litmus Test}.
+当然，许多轨迹彼此非常相似，这表明
+将相似轨迹视为一个的方法可能会
+提高性能。
+一种这样的方法是 \pplsur{Jade}{Alglave}
+等人~\cite{Alglave:2014:HCM:2594291.2594347}
+的 axiomatic approach，它创建一组公理来表示 \IX{memory model}，
+然后将 litmus test 转换为可以在这组公理上
+证明或反证的定理。
+由此产生的工具称为 \qco{herd}，方便地接受与 PPCMEM
+相同的 litmus test 作为输入，包括
+\cref{lst:formal:IRIW Litmus Test}中所示的 IRIW litmus test。
 
 \begin{listing}
 \begin{fcvlabel}[ln:formal:Expanded IRIW Litmus Test]
@@ -102,107 +100,104 @@ exists
 (2:r3=1 /\ 2:r5=0 /\ 3:r3=1 /\ 3:r5=0)
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Expanded IRIW Litmus Test}
+\caption{扩展的 IRIW Litmus Test}
 \label{lst:formal:Expanded IRIW Litmus Test}
 \end{listing}
 
-However, where PPCMEM requires 14 CPU hours to solve IRIW, \co{herd} does so
-in 17 milliseconds, which represents a speedup of more than six orders
-of magnitude.
-That said, the problem is exponential in nature, so we should expect
-\co{herd} to exhibit exponential slowdowns for larger problems.
-And this is exactly what happens, for example, if we add four more writes
-per writing CPU as shown in
-\cref{lst:formal:Expanded IRIW Litmus Test},
-\co{herd} slows down by a factor of more than 50,000, requiring more than
-15 \emph{minutes} of CPU time.
-Adding threads also results in exponential
-slowdowns~\cite{PaulEMcKenney2014weakaxiom}.
+然而，PPCMEM 需要14个 CPU 小时来求解 IRIW，\co{herd} 只需
+17毫秒即可完成，这代表了超过六个数量级的加速。
+话虽如此，问题本质上是指数级的，所以我们应该预期
+\co{herd} 对更大的问题会表现出指数级的减慢。
+这正是所发生的，例如，如果我们为每个写入 CPU 再添加四次写入，
+如\cref{lst:formal:Expanded IRIW Litmus Test}所示，
+\co{herd} 减慢了超过50,000倍，需要超过
+15\emph{分钟}的 CPU 时间。
+添加线程也会导致指数级的
+减慢~\cite{PaulEMcKenney2014weakaxiom}。
 
-Despite their exponential nature, both PPCMEM and \co{herd} have proven quite
-useful for checking key parallel algorithms, including the queued-lock
-handoff on x86 systems.
-The weaknesses of the \co{herd} tool are similar to those of PPCMEM, which
-were described in
-\cref{sec:formal:PPCMEM Discussion}.
-There are some obscure (but very real) cases for which the PPCMEM and
-\co{herd} tools disagree, and as of 2021 many but not all of these disagreements
-was resolved.
+尽管具有指数级的性质，PPCMEM 和 \co{herd} 都已被证明
+对检查关键的并行算法非常有用，包括 x86 系统上的
+队列锁交接。
+\co{herd} 工具的弱点与 PPCMEM 类似，
+后者在\cref{sec:formal:PPCMEM Discussion}中描述。
+有一些隐蔽（但非常真实）的情况，PPCMEM 和
+\co{herd} 工具不一致，截至2021年，其中许多但不是全部分歧
+已被解决。
 
-It would be helpful if the litmus tests could be written in C
-(as in \cref{lst:formal:Meaning of PPCMEM Litmus Test})
-rather than assembly
-(as in \cref{lst:formal:PPCMEM Litmus Test}).
-This is now possible, as will be described in the following sections.
+如果 litmus test 可以用 C 语言编写
+（如\cref{lst:formal:Meaning of PPCMEM Litmus Test}）
+而不是汇编语言
+（如\cref{lst:formal:PPCMEM Litmus Test}），
+那将会很有帮助。
+这现在是可能的，将在以下各节中描述。
 
-\subsection{Axiomatic Approaches and Locking}
+\subsection{Axiomatic Approaches 和锁}
 \label{sec:formal:Axiomatic Approaches and Locking}
 
-Axiomatic approaches may also be applied to higher-level
-languages and also to higher-level synchronization primitives, as
-exemplified by the lock-based litmus test shown in
-\cref{lst:formal:Locking Example} (\path{C-Lock1.litmus}).
-This litmus test can be modeled by the
+Axiomatic approaches 也可以应用于更高级别的语言
+以及更高级别的同步原语，
+如\cref{lst:formal:Locking Example}（\path{C-Lock1.litmus}）
+中所示的基于锁的 litmus test 所例证的。
+这个 litmus test 可以由
 \IXalthmr{\acrf{lkmm}}{Linux kernel}{memory model}~%
-\cite{Alglave:2018:FSC:3173162.3177156,LucMaranget2018lock.cat}.
-As expected, the \co{herd} tool's output features the string \co{Never},
-correctly indicating that \co{P1()} cannot see \co{x} having a value
-of one.\footnote{
-	The output of the \co{herd} tool is compatible with that
-	of PPCMEM, so feel free to look at
+\cite{Alglave:2018:FSC:3173162.3177156,LucMaranget2018lock.cat}建模。
+如预期的那样，\co{herd} 工具的输出包含字符串 \co{Never}，
+正确地表示 \co{P1()} 不能看到 \co{x} 具有值
+1。\footnote{
+	\co{herd} 工具的输出与 PPCMEM 兼容，
+	所以可以查看
 	\cref{lst:formal:PPCMEM Detects an Error,%
 	lst:formal:PPCMEM on Repaired Litmus Test}
-	for examples showing the output format.}
+	中展示输出格式的示例。}
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock1@whole.fcv}
-\caption{Locking Example}
+\caption{锁示例}
 \label{lst:formal:Locking Example}
 \end{listing}
 
 \QuickQuiz{
-	What do you have to do to run \co{herd} on litmus tests like
-	that shown in \cref{lst:formal:Locking Example}?
+	你需要做什么才能在如
+	\cref{lst:formal:Locking Example}所示的 litmus test 上运行 \co{herd}？
 }\QuickQuizAnswer{
-	Get version v4.17 (or later) of the Linux-kernel source code,
-	then follow the instructions in \path{tools/memory-model/README}
-	to install the needed tools.
-	Then follow the further instructions to run these tools on the
-	litmus test of your choice.
+	获取 Linux 内核源代码的 v4.17（或更高）版本，
+	然后按照 \path{tools/memory-model/README} 中的说明
+	安装所需的工具。
+	然后按照进一步的说明在你选择的 litmus test 上
+	运行这些工具。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock2@whole.fcv}
-\caption{Broken Locking Example}
+\caption{有缺陷的锁示例}
 \label{lst:formal:Broken Locking Example}
 \end{listing}
 
-Of course, if \co{P0()} and \co{P1()} use different locks, as shown in
-\cref{lst:formal:Broken Locking Example} (\path{C-Lock2.litmus}),
-then all bets are off.
-And in this case, the \co{herd} tool's output features the string
-\co{Sometimes}, correctly indicating that use of different locks allows
-\co{P1()} to see \co{x} having a value of one.
+当然，如果 \co{P0()} 和 \co{P1()} 使用不同的锁，如
+\cref{lst:formal:Broken Locking Example}（\path{C-Lock2.litmus}）
+所示，那么一切都不确定了。
+在这种情况下，\co{herd} 工具的输出包含字符串
+\co{Sometimes}，正确地表示使用不同的锁允许
+\co{P1()} 看到 \co{x} 具有值1。
 
 \QuickQuiz{
-	Why bother modeling locking directly?
-	Why not simply emulate locking with atomic operations?
+	为什么要费心直接建模锁？
+	为什么不简单地用原子操作模拟锁？
 }\QuickQuizAnswer{
-	In a word, performance, as can be seen in
-	\cref{tab:formal:Locking: Modeling vs. Emulation Time (s)}.
-	The first column shows the number of \co{herd} processes modeled.
-	The second column shows the \co{herd} runtime when modeling
-	\co{spin_lock()} and \co{spin_unlock()} directly in \co{herd}'s
-	cat language.
-	The third column shows the \co{herd} runtime when emulating
-	\co{spin_lock()} with \co{cmpxchg_acquire()} and \co{spin_unlock()}
-	with \co{smp_store_release()}, using the \co{herd} \co{filter}
-	clause to reject executions that fail to acquire the lock.
-	The fourth column is like the third, but using \co{xchg_acquire()}
-	instead of \co{cmpxchg_acquire()}.
-	The fifth and sixth columns are like the third and fourth,
-	but instead using the \co{herd} \co{exists} clause to reject
-	executions that fail to acquire the lock.
+	一个词，性能，如
+	\cref{tab:formal:Locking: Modeling vs. Emulation Time (s)}中所示。
+	第一列显示建模的 \co{herd} 进程数量。
+	第二列显示直接在 \co{herd} 的 cat 语言中建模
+	\co{spin_lock()} 和 \co{spin_unlock()} 时的 \co{herd} 运行时间。
+	第三列显示使用 \co{cmpxchg_acquire()} 模拟 \co{spin_lock()}
+	和使用 \co{smp_store_release()} 模拟 \co{spin_unlock()} 时的
+	\co{herd} 运行时间，使用 \co{herd} 的 \co{filter} 子句
+	拒绝未能获取锁的执行。
+	第四列与第三列类似，但使用 \co{xchg_acquire()} 而不是
+	\co{cmpxchg_acquire()}。
+	第五列和第六列与第三列和第四列类似，
+	但改用 \co{herd} 的 \co{exists} 子句来拒绝
+	未能获取锁的执行。
 
 \begin{table}
 \rowcolors{10}{}{lightgray}
@@ -211,11 +206,11 @@ And in this case, the \co{herd} tool's output features the string
 \newcommand{\lockfml}[1]{\multicolumn{1}{c}{\begin{picture}(6,8)(0,0)\rotatebox{90}{#1}\end{picture}}}
 \begin{tabular}{rrrrrr}
 	\toprule
-	& Model & \multicolumn{4}{c}{Emulate} \\
+	& 建模 & \multicolumn{4}{c}{模拟} \\
 	\cmidrule(l){2-2} \cmidrule(l){3-6}
 	& & \multicolumn{2}{c}{\tco{filter}} & \multicolumn{2}{c}{\tco{exists}} \\
 	\cmidrule(l){3-4} \cmidrule(l){5-6}
-	\lockfml{\# Proc.}
+	\lockfml{进程数}
 	&
 	& \tco{cmpxchg}
 	& \tco{xchg}
@@ -229,222 +224,208 @@ And in this case, the \co{herd} tool's output features the string
 	5 & 4.905 \\
 	\bottomrule
 \end{tabular}
-\caption{Locking:
-		  Modeling vs.\@ Emulation Time (s)}
+\caption{锁：建模 vs.\@ 模拟时间（秒）}
 \label{tab:formal:Locking: Modeling vs. Emulation Time (s)}
 \end{table}
 
-	Note also that use of the \co{filter} clause is about twice
-	as fast as is use of the \co{exists} clause.
-	This is no surprise because the \co{filter} clause allows
-	early abandoning of excluded executions, where the executions
-	that are excluded are the ones in which the lock is concurrently
-	held by more than one process.
+	还要注意，使用 \co{filter} 子句大约比使用
+	\co{exists} 子句快两倍。
+	这并不奇怪，因为 \co{filter} 子句允许
+	早期放弃被排除的执行，而被排除的执行
+	是锁被多个进程同时持有的执行。
 
-	More important, modeling \co{spin_lock()} and \co{spin_unlock()}
-	directly ranges from five times faster to more than two orders
-	of magnitude faster than modeling emulated locking.
-	This should also be no surprise, as direct modeling raises
-	the level of abstraction, thus reducing the number of events
-	that \co{herd} must model.
-	Because almost everything that \co{herd} does is of exponential
-	computational complexity, modest reductions in the number of
-	events produces exponentially large reductions in runtime.
+	更重要的是，直接建模 \co{spin_lock()} 和 \co{spin_unlock()}
+	比建模模拟的锁快5倍到超过两个数量级。
+	这也不应该令人惊讶，因为直接建模提高了
+	抽象级别，从而减少了 \co{herd} 必须建模的事件数量。
+	因为 \co{herd} 所做的几乎所有事情都具有指数级的
+	计算复杂度，事件数量的适度减少
+	会产生指数级的运行时间缩减。
 
-	Thus, in formal verification even more than in parallel
-	programming itself, divide and conquer!!!
+	因此，在 formal verification 中甚至比在并行编程本身中
+	更要强调分而治之！！！
 }\QuickQuizEnd
 
-But locking is not the only synchronization primitive that can be
-modeled directly:
-The next section looks at RCU\@.
+但锁不是唯一可以直接建模的同步原语：
+下一节将介绍 RCU\@。
 
-\subsection{Axiomatic Approaches and RCU}
+\subsection{Axiomatic Approaches 和 RCU}
 \label{sec:formal:Axiomatic Approaches and RCU}
 
 \begin{fcvref}[ln:formal:C-RCU-remove:whole]
-Axiomatic approaches can also analyze litmus tests involving
-RCU~\cite{Alglave:2018:FSC:3173162.3177156}.
-To that end,
-\cref{lst:formal:Canonical RCU Removal Litmus Test}
-(\path{C-RCU-remove.litmus})
-shows a litmus test corresponding to the canonical RCU-mediated
-removal from a linked list.
-As with the locking litmus test, this RCU litmus test can be
-modeled by LKMM, with similar performance advantages compared
-to modeling emulations of RCU\@.
-\Clnref{head} shows \co{x} as the list head, initially
-referencing \co{y}, which in turn is initialized to the value
-\co{2} on \clnref{tail:1}.
+Axiomatic approaches 也可以分析涉及
+RCU 的 litmus test~\cite{Alglave:2018:FSC:3173162.3177156}。
+为此，\cref{lst:formal:Canonical RCU Removal Litmus Test}
+（\path{C-RCU-remove.litmus}）
+展示了一个对应于经典的 RCU 介导的从链表中删除操作的
+litmus test。
+与锁 litmus test 一样，这个 RCU litmus test 可以
+由 LKMM 建模，与建模 RCU 的模拟相比具有
+类似的性能优势。
+\Clnref{head}将 \co{x} 显示为列表头，初始
+引用 \co{y}，后者在\clnref{tail:1}上被初始化为值 \co{2}。
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-RCU-remove@whole.fcv}
-\caption{Canonical RCU Removal Litmus Test}
+\caption{经典 RCU 删除 Litmus Test}
 \label{lst:formal:Canonical RCU Removal Litmus Test}
 \end{listing}
 
-\co{P0()} on \clnrefrange{P0start}{P0end}
-removes element \co{y} from the list by replacing it with element \co{z}
-(\clnref{assignnewtail}),
-waits for a \IX{grace period} (\clnref{sync}),
-and finally zeroes \co{y} to emulate \co{free()} (\clnref{free}).
-\co{P1()} on \clnrefrange{P1start}{P1end}
-executes within an RCU read-side critical section
-(\clnrefrange{rl}{rul}),
-picking up the list head (\clnref{rderef}) and then
-loading the next element (\clnref{read}).
-The next element should be non-zero, that is, not yet freed
-(\clnref{exists_}).
-Several other variables are output for debugging purposes
-(\clnref{locations_}).
+\Clnrefrange{P0start}{P0end}上的 \co{P0()}
+通过将元素 \co{y} 替换为元素 \co{z}
+（\clnref{assignnewtail}）来从列表中删除元素 \co{y}，
+等待一个 \IX{grace period}（\clnref{sync}），
+最后将 \co{y} 清零以模拟 \co{free()}（\clnref{free}）。
+\Clnrefrange{P1start}{P1end}上的 \co{P1()}
+在一个 RCU 读端临界区内执行
+（\clnrefrange{rl}{rul}），
+获取列表头（\clnref{rderef}），然后
+加载下一个元素（\clnref{read}）。
+下一个元素应该是非零的，即尚未被释放
+（\clnref{exists_}）。
+几个其他变量被输出用于调试目的
+（\clnref{locations_}）。
 
-The output of the \co{herd} tool when running this litmus test features
-\co{Never}, indicating that \co{P0()} never accesses a freed element,
-as expected.
-Also as expected, removing \clnref{sync} results in \co{P0()}
-accessing a freed element, as indicated by the \co{Sometimes} in
-the \co{herd} output.
+\co{herd} 工具运行此 litmus test 时的输出包含
+\co{Never}，表示 \co{P0()} 从不访问已释放的元素，
+这是预期的。
+同样如预期的那样，删除\clnref{sync}会导致 \co{P0()}
+访问已释放的元素，如 \co{herd} 输出中的 \co{Sometimes}
+所指出的。
 \end{fcvref}
 
 \begin{listing}
 \ebresizeverb{.98}{\input{CodeSamples/formal/herd/C-RomanPenyaev-list-rcu-rr@whole.fcv}}
-\caption{Complex RCU Litmus Test}
+\caption{复杂的 RCU Litmus Test}
 \label{lst:formal:Complex RCU Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-A litmus test for a more complex example proposed by
-\ppl{Roman}{Penyaev}~\cite{RomanPenyaev2018rrRCU} is shown in
+\ppl{Roman}{Penyaev}~\cite{RomanPenyaev2018rrRCU}提出的
+一个更复杂的例子的 litmus test 如
 \cref{lst:formal:Complex RCU Litmus Test}
-(\path{C-RomanPenyaev-list-rcu-rr.litmus}).
-In this example, readers (modeled by \co{P0()} on
-\clnrefrange{P0start}{P0end}) access a linked list
-in a round-robin fashion by ``leaking'' a pointer to the last
-list element accessed into variable \co{c}.
-Updaters (modeled by \co{P1()} on \clnrefrange{P1start}{P1end})
-remove an element, taking care to avoid disrupting current or future
-readers.
+（\path{C-RomanPenyaev-list-rcu-rr.litmus}）所示。
+在这个例子中，读者（由\clnrefrange{P0start}{P0end}上的
+\co{P0()} 建模）以轮询方式访问链表，
+将指向最后访问的列表元素的指针
+``泄漏''到变量 \co{c} 中。
+更新者（由\clnrefrange{P1start}{P1end}上的 \co{P1()} 建模）
+删除一个元素，注意不要干扰当前或未来的读者。
 
 \QuickQuiz{
-	Wait!!!
-	Isn't leaking pointers out of an RCU read-side critical
-	section a critical bug???
+	等等！！！
+	从 RCU 读端临界区泄漏指针
+	不是一个严重的 bug 吗？？？
 }\QuickQuizAnswer{
-	Yes, it usually is a critical bug.
-	However, in this case, the updater has been cleverly constructed
-	to properly handle such pointer leaks.
-	But please don't make a habit of doing this sort of thing, and
-	especially don't do this without having put a lot of thought
-	into making some more conventional approach work.
+	是的，它通常是一个严重的 bug。
+	然而，在这种情况下，更新者被巧妙地构造为
+	正确处理此类指针泄漏。
+	但请不要养成做这种事情的习惯，
+	特别是在没有花大量心思使某种更常规的方法
+	可行之前不要这样做。
 }\QuickQuizEnd
 
-\Clnrefrange{listtail}{listhead} define the initial linked
-list, tail first.
-In the Linux kernel, this would be a doubly linked circular list,
-but \co{herd} is currently incapable of modeling such a beast.
-The strategy is instead to use a singly linked linear list that
-is long enough that the end is never reached.
-\Clnref{rrcache} defines variable \co{c}, which is used to
-cache the list pointer between successive RCU read-side critical
-sections.
+\Clnrefrange{listtail}{listhead}定义了初始链表，
+先从尾部开始。
+在 Linux 内核中，这将是一个双向链接的循环列表，
+但 \co{herd} 目前无法建模这样的结构。
+因此策略是使用一个足够长的单链接线性列表，
+使得永远不会到达末尾。
+\Clnref{rrcache}定义了变量 \co{c}，用于在连续的
+RCU 读端临界区之间缓存列表指针。
 
-Again, \co{P0()} on \clnrefrange{P0start}{P0end} models readers.
-This process models a pair of successive readers traversing round-robin
-through the list, with the first reader on \clnrefrange{rl1}{rul1}
-and the second reader on \clnrefrange{rl2}{rul2}.
-\Clnref{rdcache} fetches the pointer cached in \co{c}, and if
-\clnref{rdckcache} sees that the pointer was \co{NULL},
-\clnref{rdinitcache} restarts at the beginning of the list.
-In either case, \clnref{rdnext} advances to the next list element,
-and \clnref{rdupdcache} stores a pointer to this element back into
-variable \co{c}.
-\Clnrefrange{rl2}{rul2} repeat this process, but using
-registers \co{r3} and \co{r4} instead of \co{r1} and \co{r2}.
-As with
-\cref{lst:formal:Canonical RCU Removal Litmus Test},
-this litmus test stores zero to emulate \co{free()}, so
-\clnref{exists_} checks for any of these four registers being
-\co{NULL}, also known as zero.
+同样，\clnrefrange{P0start}{P0end}上的 \co{P0()} 建模读者。
+这个进程建模了一对连续的读者以轮询方式遍历列表，
+第一个读者在\clnrefrange{rl1}{rul1}上，
+第二个读者在\clnrefrange{rl2}{rul2}上。
+\Clnref{rdcache}获取缓存在 \co{c} 中的指针，
+如果\clnref{rdckcache}看到指针为 \co{NULL}，
+\clnref{rdinitcache}从列表开头重新开始。
+无论哪种情况，\clnref{rdnext}前进到下一个列表元素，
+\clnref{rdupdcache}将指向该元素的指针存储回
+变量 \co{c} 中。
+\Clnrefrange{rl2}{rul2}重复此过程，但使用
+寄存器 \co{r3} 和 \co{r4} 而不是 \co{r1} 和 \co{r2}。
+与\cref{lst:formal:Canonical RCU Removal Litmus Test}一样，
+这个 litmus test 存储零来模拟 \co{free()}，所以
+\clnref{exists_}检查这四个寄存器中是否有任何一个为
+\co{NULL}，也就是零。
 
-Because \co{P0()} leaks an RCU-protected pointer from its first
-RCU read-side critical section to its second, \co{P1()} must carry
-out its update (removing \co{x}) very carefully.
-\Clnref{updremove} removes \co{x} by linking \co{w} to \co{y}.
-\Clnref{updsync1} waits for readers, after which no subsequent reader
-has a path to \co{x} via the linked list.
-\Clnref{updrdcache} fetches \co{c}, and if \clnref{updckcache}
-determines that \co{c} references the newly removed \co{x},
-\clnref{updinitcache} sets \co{c} to \co{NULL}
-and \clnref{updsync2} again waits for readers, after which no
-subsequent reader can fetch \co{x} from \co{c}.
-In either case, \clnref{updfree} emulates \co{free()} by storing
-zero to \co{x}.
+因为 \co{P0()} 从其第一个 RCU 读端临界区
+向第二个泄漏了一个受 RCU 保护的指针，\co{P1()} 必须
+非常小心地执行其更新（删除 \co{x}）。
+\Clnref{updremove}通过将 \co{w} 链接到 \co{y} 来删除 \co{x}。
+\Clnref{updsync1}等待读者，之后没有后续读者
+可以通过链表找到通往 \co{x} 的路径。
+\Clnref{updrdcache}获取 \co{c}，如果\clnref{updckcache}
+确定 \co{c} 引用了新删除的 \co{x}，
+\clnref{updinitcache}将 \co{c} 设置为 \co{NULL}，
+\clnref{updsync2}再次等待读者，之后
+后续读者无法从 \co{c} 获取 \co{x}。
+无论哪种情况，\clnref{updfree}通过存储零到 \co{x}
+来模拟 \co{free()}。
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	In \cref{lst:formal:Complex RCU Litmus Test},
-	why couldn't a reader fetch \co{c} just before \co{P1()}
-	zeroed it on \clnref{updinitcache}, and then later
-	store this same value back into \co{c} just after it was
-	zeroed, thus defeating the zeroing operation?
+	在\cref{lst:formal:Complex RCU Litmus Test}中，
+	为什么读者不能在 \co{P1()} 在\clnref{updinitcache}
+	上将 \co{c} 清零之前获取它，然后
+	在它被清零之后将相同的值存储回 \co{c}，
+	从而击败清零操作？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	Because the reader advances to the next element on
-	\clnref{rdnext}, thus avoiding storing a pointer to the
-	same element as was fetched.
+	因为读者在\clnref{rdnext}上前进到下一个元素，
+	从而避免存储指向与获取的元素相同的指针。
 	\end{fcvref}
 }\QuickQuizEnd
 
-The output of the \co{herd} tool when running this litmus test features
-\co{Never}, indicating that \co{P0()} never accesses a freed element,
-as expected.
-Also as expected, removing either \co{synchronize_rcu()} results
-in \co{P1()} accessing a freed element, as indicated by \co{Sometimes}
-in the \co{herd} output.
+\co{herd} 工具运行此 litmus test 时的输出包含
+\co{Never}，表示 \co{P0()} 从不访问已释放的元素，
+这是预期的。
+同样如预期的那样，删除任一 \co{synchronize_rcu()}
+会导致 \co{P1()} 访问已释放的元素，如 \co{herd}
+输出中的 \co{Sometimes} 所指出的。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	In \cref{lst:formal:Complex RCU Litmus Test},
-	why not have just one call to \co{synchronize_rcu()}
-	immediately before \clnref{updfree}?
+	在\cref{lst:formal:Complex RCU Litmus Test}中，
+	为什么不在\clnref{updfree}之前只调用一次
+	\co{synchronize_rcu()}？
 	\end{fcvref}
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	Because this results in \co{P0()} accessing a freed element.
-	But don't take my word for this, try it out in \co{herd}!
+	因为这会导致 \co{P0()} 访问已释放的元素。
+	但不要只听我说，在 \co{herd} 中试一试！
 	\end{fcvref}
 }\QuickQuizEndB
 %
 \QuickQuizE{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	Also in \cref{lst:formal:Complex RCU Litmus Test},
-	can't \clnref{updfree} be \co{WRITE_ONCE()} instead
-	of \co{smp_store_release()}?
+	同样在\cref{lst:formal:Complex RCU Litmus Test}中，
+	\clnref{updfree}不能用 \co{WRITE_ONCE()} 而不是
+	\co{smp_store_release()} 吗？
 	\end{fcvref}
 }\QuickQuizAnswerE{
 	\begin{fcvref}[ln:formal:C-RomanPenyaev-list-rcu-rr:whole]
-	That is an excellent question.
-	As of late 2021, the answer is ``no one knows''.
-	Much depends on the semantics of \ARMv8's conditional-move
-	instruction.
-	While awaiting clarity on these semantics, \co{smp_store_release()}
-	is the safe choice.
+	这是一个很好的问题。
+	截至2021年末，答案是``没人知道''。
+	这在很大程度上取决于 \ARMv8 的条件移动指令的语义。
+	在等待这些语义明确之前，\co{smp_store_release()}
+	是安全的选择。
 	\end{fcvref}
 }\QuickQuizEndE
 }
 
-These sections have shown how axiomatic approaches can successfully
-model synchronization primitives such as locking and RCU in C-language
-litmus tests.
-Longer term, the hope is that the axiomatic approaches will model
-even higher-level software artifacts, producing exponential
-verification speedups.
-This could potentially allow axiomatic verification of much larger
-software systems, perhaps incorporating spatial-synchronization techniques
-from separation
-logic~\cite{AlexeyGotsman2013ESOPRCU,PeterWOHearn2001SeparationLogic}.
-Another alternative is to press the axioms of boolean logic into service,
-as described in the next section.
+这些章节展示了 axiomatic approaches 如何能够成功地
+在 C 语言 litmus test 中建模锁和 RCU 等同步原语。
+从更长远来看，希望 axiomatic approaches 能建模
+更高级别的软件工件，产生指数级的
+验证加速。
+这可能允许对更大的软件系统进行公理化验证，
+也许结合分离逻辑中的空间同步
+技术~\cite{AlexeyGotsman2013ESOPRCU,PeterWOHearn2001SeparationLogic}。
+另一种选择是将布尔逻辑的公理投入使用，
+如下一节所描述的。

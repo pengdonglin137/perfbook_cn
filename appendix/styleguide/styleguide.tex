@@ -2,27 +2,22 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\chapter{Style Guide}
+\chapter{风格指南}
 \label{chp:app:styleguide:Style Guide}
 %
-\Epigraph{De gustibus non est disputandum.}{Latin maxim}
+\Epigraph{De gustibus non est disputandum.（趣味无争辩。）}{拉丁格言}
 
-This appendix is a collection of style guides which is intended
-as a reference to improve consistency in perfbook.
-It also contains several suggestions and their experimental examples.
+本附录是风格指南的集合，旨在作为改善perfbook一致性的参考。
+它还包含若干建议及其实验示例。
 
-\Cref{sec:app:styleguide:Paul's Conventions} describes basic
-punctuation and spelling rules.
-\Cref{sec:app:styleguide:NIST Style Guide} explains rules
-related to unit symbols.
-\Cref{sec:app:styleguide:LaTeX Conventions} summarizes
-\LaTeX-specific conventions.
+\Cref{sec:app:styleguide:Paul's Conventions} 描述了基本的标点和拼写规则。
+\Cref{sec:app:styleguide:NIST Style Guide} 解释了与单位符号相关的规则。
+\Cref{sec:app:styleguide:LaTeX Conventions} 总结了\LaTeX 特有的约定。
 
-\section{Paul's Conventions}
+\section{Paul的约定}
 \label{sec:app:styleguide:Paul's Conventions}
 
-Following is the list of Paul's conventions assembled from his
-answers to Akira's questions regarding perfbook's punctuation policy.
+以下是Paul约定的列表，由他对Akira关于perfbook标点策略的提问的回答汇编而成。
 
 \begin{itemize}
 \item (On punctuations and quotations)
@@ -80,7 +75,7 @@ answers to Akira's questions regarding perfbook's punctuation policy.
   When introducing a new word, I use \verb|\emph{}|.
 \end{itemize}
 
-Following is a convention regarding punctuation in \LaTeX\ sources.
+以下是关于\LaTeX\ 源代码中标点符号的约定。
 
 \begin{itemize}
 \item Place a newline after a colon (\co{:}) and the end of a sentence.
@@ -89,17 +84,17 @@ Following is a convention regarding punctuation in \LaTeX\ sources.
   in the middle of long paragraphs.
 \end{itemize}
 
-\section{NIST Style Guide}
+\section{NIST风格指南}
 \label{sec:app:styleguide:NIST Style Guide}
 
-\subsection{Unit Symbol}
+\subsection{单位符号}
 \label{sec:app:styleguide:Unit Symbol}
 
-\subsubsection{SI Unit Symbol}
+\subsubsection{SI单位符号}
 \label{sec:app:styleguide:SI Unit Symbol}
 
 NIST style guide~\cite[Chapter 5]{NIST:SP:330:2019}
-states the following rules (rephrased for perfbook).
+规定了以下规则（为perfbook重新措辞）。
 
 \begin{itemize}
 \item When SI unit symbols such as ``ns'', ``MHz'', and ``K'' (kelvin)
@@ -138,11 +133,10 @@ An improper example:
   10\,$\mu $s (math mode \qco{\\mu})
 \end{quote}
 
-\subsubsection{Non-SI Unit Symbol}
+\subsubsection{非SI单位符号}
 \label{sec:app:styleguide:Non-SI Unit Symbol}
 
-Although NIST style guide does not cover non-SI unit symbols
-such as ``KB'', ``MB'', and ``GB'', the same rule should be followed.
+虽然NIST风格指南不涵盖非SI单位符号如"KB"、"MB"和"GB"，但应遵循相同的规则。
 
 Example:
 
@@ -178,7 +172,7 @@ Note that ``K'' and ``k'' represent $2^{10}$ and $10^3$, respectively.
 either $2^{30}$ or $10^9$.
 These ambiguities should not be confusing in discussing approximate order.
 
-\subsubsection{Degree Symbol}
+\subsubsection{度数符号}
 \label{sec:app:styleguide:Degree Symbol}
 
 The angular-degree symbol (\degree) does not require any space in front
@@ -195,7 +189,7 @@ Example:
   $45\degree$, rather than $45\,\degree$.
 \end{quote}
 
-\subsubsection{Percent Symbol}
+\subsubsection{百分号}
 \label{sec:app:styleguide:Percent Symbol}
 
 NIST style guide treats the percent symbol (\%) as the same as SI unit
@@ -205,7 +199,7 @@ symbols.
   50\pct\ possibility, rather than 50\% possibility.
 \end{quote}
 
-\subsubsection{Font Style}
+\subsubsection{字体样式}
 \label{sec:app:styleguide:Font Style}
 
 Quote from NIST check list~\cite[\#6]{NIST:UnitCheckList}:
@@ -235,13 +229,13 @@ For example,
 %  See \url{https://tex.stackexchange.com/questions/119248/}
 %  for the historical reason.}
 
-\subsection{NIST Guide Yet To Be Followed}
+\subsection{尚未遵循的NIST指南}
 \label{sec:app:styleguide:NIST Guides Yet To Be Followed}
 
 There are a few cases where NIST style guide is not followed.
 Other English conventions are followed in such cases.
 
-\subsubsection{Digit Grouping}
+\subsubsection{数字分组}
 \label{sec:app:styleguide:Digit Grouping}
 
 Quote from NIST checklist~\cite[\#16]{NIST:UnitCheckList}:
@@ -277,7 +271,7 @@ command as is shown in
 \begin{table}
 \small\centering
 \begin{tabular}{lrrr}\toprule
-  Style & \multicolumn{3}{c}{Outputs of \co{\\num\{\}}} \\
+  Style & \multicolumn{3}{c}{Outputs of \texttt{\textbackslash num\{\}}} \\
   \midrule
   NIST/SI (English) & \num[group-separator={\,},group-digits=integer]{\NumDigitGrpA} &
     \num[group-separator={\,},group-digits=integer]{\NumDigitGrpB} &
@@ -296,7 +290,7 @@ command as is shown in
       \num[group-separator={.},output-decimal-marker={,},group-digits=integer]{\NumDigitGrp} \\
 \bottomrule
 \end{tabular}
-\caption{Digit-Grouping Style}
+\caption{数字分组样式}
 \label{tab:app:styleguide:Digit-Grouping Style}
 \end{table}
 
@@ -312,25 +306,23 @@ the \LaTeX\ source would be exempted from any particular conventions.
 Because of its open-source policy, this approach should give
 more ``portability'' to perfbook.
 
-\section{\LaTeX\ Conventions}
+\section{\LaTeX\ 约定}
 \label{sec:app:styleguide:LaTeX Conventions}
 
-Good looking \LaTeX\ documents require further considerations
-on proper use of font styles, line break exceptions, etc.
-This section summarizes guidelines specific to \LaTeX.
+美观的\LaTeX\ 文档需要进一步考虑字体样式的正确使用、换行例外等。
+本节总结了\LaTeX\ 特有的准则。
 
-\subsection{Monospace Font}
+\subsection{等宽字体}
 \label{sec:app:styleguide:Monospace Font}
 
-Monospace font (or typewriter font) is heavily used in this textbook.
-First policy regarding monospace font in perfbook is to avoid
-directly using \qco{\\texttt} or \qco{\\tt} macro.
+等宽字体（或打字机字体）在本教材中被大量使用。
+perfbook中关于等宽字体的首要策略是避免直接使用 \qco{\\texttt} or \qco{\\tt} macro.
 It is highly recommended to use a macro or an environment
 indicating the reason why you want the font.
 
-This section explains the use cases of such macros and environments.
+本节解释了这些宏和环境的用例。
 
-\subsubsection{Code Snippet}
+\subsubsection{代码片段}
 \label{sec:app:styleguide:Code Snippet}
 
 Because the \qco{verbatim} environment is a primitive way to include
@@ -479,14 +471,14 @@ sample's file name.
 Meta commands which can be used in code samples are listed below:
 
 \begin{itemize}[noitemsep]
-\item \co{\\begin\{snippet\}[<options>]}
-\item \co{\\end\{snippet\}}
-\item \co{\\lnlbl\{<label string>\}}
-\item \co{\\fcvexclude}
-\item \co{\\fcvblank}
+\item \texttt{\textbackslash begin\{snippet\}[<options>]}
+\item \texttt{\textbackslash end\{snippet\}}
+\item \texttt{\textbackslash lnlbl\{<label string>\}}
+\item \texttt{\textbackslash fcvexclude}
+\item \texttt{\textbackslash fcvblank}
 \end{itemize}
 
-\qco{<options>} to the \co{\\begin\{snippet\}} meta command
+\qco{<options>} to the \texttt{\textbackslash begin\{snippet\}} meta command
 is a comma-spareted list of options shown below:
 
 \begin{itemize}[noitemsep]
@@ -498,7 +490,7 @@ is a comma-spareted list of options shown below:
 
 The \qco{labelbase} option is mandatory and the string given to it
 will be passed to the
-``\co{\\begin\{fcvlabel\}[<label base string>]}'' command as shown on
+``\texttt{\textbackslash begin\{fcvlabel\}[<label base string>]}'' command as shown on
 \clnrefr{ln:app:styleguide:LaTeX Source of Sample Code Snippet (Current):beg:fcvlabel} of
 \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Current)}.
 The \qco{keepcomment=yes} option tells \co{fcvextract.pl} to keep
@@ -522,7 +514,7 @@ Source lines with \qco{\\fcvexclude} are removed.
 \qco{\\fcvblank} can be used to keep blank lines when the
 \qco{gobbleblank=yes} option is specified.
 
-There can be multiple pairs of \co{\\begin\{snippet\}} and \co{\\end\{snippet\}}
+There can be multiple pairs of \texttt{\textbackslash begin\{snippet\}} and \texttt{\textbackslash end\{snippet\}}
 as long as they have unique \qco{labelbase} strings.
 
 Our naming scheme of \qco{labelbase} for unique name space is as follows:
@@ -655,10 +647,10 @@ exists (1:r2=0 /\ 0:r2=0)  \lnlbl{exists_}
 \end{fcvlabel}
 
 Note that each litmus test's source file can contain at most one
-pair of \co{\\begin[snippet]} and \co{\\end[snippet]} because of
+pair of \texttt{\textbackslash begin[snippet]} and \texttt{\textbackslash end[snippet]} because of
 the restriction of comments.
 
-\subsubsection{Code Snippet (Obsolete)}
+\subsubsection{代码片段（已废弃）}
 \label{sec:app:styleguide:Code Snippet (Obsolete)}
 
 Sample \LaTeX\ source of a code snippet coded using
@@ -696,7 +688,7 @@ to fit in a column.
 It is also used to avoid overwhelming \LaTeX\ with a lot of floating objects.
 They are being converted to the scheme using the \co{VerbatimN} environment.
 
-\subsubsection{Identifier}
+\subsubsection{标识符}
 \label{sec:app:styleguide:Identifier}
 
 We use ``\verb|\co{}|'' macro for inline identifiers.
@@ -711,7 +703,7 @@ Current definition permits a line break at an underscore (\tco{_}),
 two consecutive underscores (\tco{__}), a white space, or an
 operator \tco{->}.
 
-\subsubsection{Identifier inside Table and Heading}
+\subsubsection{表格和标题中的标识符}
 \label{sec:app:styleguide:Identifier inside Table and Heading}
 
 Although \verb|\co{}| command is convenient for inlining within text,
@@ -730,7 +722,7 @@ still frees us from escaping underscores.
 When used in text, \verb|\tco{}| permits line breaks at
 white spaces.
 
-\subsubsection{Other Use Cases of Monospace Font}
+\subsubsection{等宽字体的其他用例}
 \label{sec:app:styleguide:Other Use Cases of Monospace Font}
 
 For URLs, we use ``\verb|\url{}|'' command provided by the
@@ -749,7 +741,7 @@ at \qco{/}, \qco{-}, and \qco{.}.\footnote{
 For short monospace statements not to be line broken, we use
 the ``\verb|\nbco{}|'' (non-breakable co) macro.
 
-\subsubsection{Limitations}
+\subsubsection{限制}
 \label{sec:app:styleguide:Limitations}
 
 There are a few cases where macros introduced in this section
@@ -762,11 +754,11 @@ lists such limitations.
 \begin{tabular}{@{}lll@{}}\toprule
   Macro &  Need Escape & Should Avoid \\
   \midrule
-  \co{\\co}, \co{\\nbco} & \co{\\}, \%, \{, \} & \\
-  \co{\\tco}  & \# & \%, \{, \}, \co{\\} \\
+  \texttt{\textbackslash co}, \texttt{\textbackslash nbco} & \texttt{\textbackslash}, \%, \{, \} & \\
+  \texttt{\textbackslash tco}  & \# & \%, \{, \}, \texttt{\textbackslash} \\
   \bottomrule
 \end{tabular}
-\caption{Limitation of Monospace Macro}
+\caption{等宽字体宏的限制}
 \label{tab:app:styleguide:Limitation of Monospace Macro}
 \end{table}
 
@@ -780,16 +772,16 @@ they appear in the end result with the escape character.
 The \qco{\\verb} command can be used in running text if you
 need to use monospace font for a string which contains
 many characters to escape.\footnote{
-  The \co{\\verb} command is not almighty though.
+  The \texttt{\textbackslash verb} command is not almighty though.
   For example, you can't use it within a footnote.
   If you do so, you will see a fatal \LaTeX\ error.
-  A workaround would be a macro named \co{\\VerbatimFootnotes}
+  A workaround would be a macro named \texttt{\textbackslash VerbatimFootnotes}
   provided by the \co{fancyvrb} package.
   Unfortunately, perfbook can't employ it due to the interference
   with the \co{footnotebackref} package.
   }
 
-\subsection{Cross-reference}
+\subsection{交叉引用}
 \label{sec:app:styleguide:Cross-Reference}
 
 Cross-references to \namecrefs{chp:Introduction},
@@ -846,7 +838,7 @@ and the latter ``line''.
 Please refer to \co{cleveref}'s documentation for further
 info on its cleverness.
 
-\subsection{Non Breakable Spaces}
+\subsection{不可断空格}
 \label{sec:app:styleguide:Non Breakable Spaces}
 
 In \LaTeX\ conventions, proper use of non-breakable white spaces
@@ -878,10 +870,10 @@ are the following (inexhaustive).
   \end{quote}
 \end{itemize}
 
-\subsection{Hyphenation and Dashes}
+\subsection{连字符与破折号}
 \label{sec:app:styleguide:Hyphenation and Dashes}
 
-\subsubsection{Hyphenation in Compound Word}
+\subsubsection{复合词中的连字符}
 \label{sec:app:styleguide:Hyphenation in Compound Word}
 
 In plain \LaTeX, compound words such as ``high-frequency''
@@ -911,7 +903,7 @@ Example with \qco{\\-/}:
   high\-/frequency radio wave, high\-/frequency radio wave.
 \vspace{0.6\baselineskip}\end{minipage}\end{center}
 
-\subsubsection{Non Breakable Hyphen}
+\subsubsection{不可断连字符}
 \label{sec:app:styleguide:Non Breakable Hyphen}
 
 We want hyphenated compound terms such as ``x\=/coordinate'',
@@ -948,7 +940,7 @@ x-, y-, and z\=/coordinates; x-, y-, and z\=/coordinates;
 Note that \qco{\\=/} enables hyphenation in elements
 of compound words as the same as \qco{\\-/} does.
 
-\subsubsection{Em Dash}
+\subsubsection{长破折号}
 \label{sec:app:styleguide:Em Dash}
 
 Em dashes are used to indicate parenthetic expression.
@@ -961,7 +953,7 @@ Example (quote from \cref{sec:app:whymb:Cache Structure}):
   resulted in the multi-megabyte caches found on modern CPUs.
 \end{quote}
 
-\subsubsection{En Dash}
+\subsubsection{短破折号}
 \label{sec:app;styleguide:En Dash}
 
 In \LaTeX\ convention, en~dashes (\==) are used for ranges of (mostly)
@@ -969,7 +961,7 @@ numbers.
 Past revisions of perfbook didn't follow this rule and used
 plain dashes (\=/) for such cases.
 
-Now that \co{\\clnrefrange}, \co{\\crefrange},
+Now that \texttt{\textbackslash clnrefrange}, \texttt{\textbackslash crefrange},
 and their variants, which generate en~dashes, are used for ranges of
 cross\-/references, the remaining couple of tens of simple dashes
 of other types of ranges have been converted to en~dashes for
@@ -982,7 +974,7 @@ Example with a simple dash:
   Lines~\lnref{b}\=/\lnref{e} in
   \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Obsolete)}
   are the contents of the verbbox environment.
-  The box is output by the \co{\\theverbbox} macro on \clnref{theverbbox}.
+  The box is output by the \texttt{\textbackslash theverbbox} macro on \clnref{theverbbox}.
 \end{fcvref}
 \end{quote}
 
@@ -993,11 +985,11 @@ Example with an en dash:
   Lines~\lnref{b}\==\lnref{e} in
   \cref{lst:app:styleguide:LaTeX Source of Sample Code Snippet (Obsolete)}
   are the contents of the verbbox environment.
-  The box is output by the \co{\\theverbbox} macro on \clnref{theverbbox}.
+  The box is output by the \texttt{\textbackslash theverbbox} macro on \clnref{theverbbox}.
 \end{fcvref}
 \end{quote}
 
-\subsubsection{Numerical Minus Sign}
+\subsubsection{数字减号}
 \label{sec:app:styleguide:Numerical Minus Sign}
 
 Numerical minus signs should be coded as math mode minus signs,
@@ -1015,10 +1007,10 @@ For example,
   $-30$, rather than -30.
 \end{quote}
 
-\subsection{Punctuation}
+\subsection{标点符号}
 \label{sec:app:styleguide:Punctuation}
 
-\subsubsection{Ellipsis}
+\subsubsection{省略号}
 \label{sec:app:styleguide:Ellipsis}
 
 In monospace fonts, ellipses can be expressed by series of periods.
@@ -1038,10 +1030,10 @@ with tight spaces as follows:
 Standard \LaTeX\ defines the \verb|\dots| macro for this purpose.
 However, it has a kludge in the evenness of spaces.
 The ``ellipsis'' package redefines the \verb|\dots| macro to fix
-the issue.\footnote{To be exact, it is the \co{\\textellipsis} macro
+the issue.\footnote{To be exact, it is the \texttt{\textbackslash textellipsis} macro
   that is redefined.
-  The behavior of \co{\\dots} macro in math mode is not affected.
-  The ``amsmath'' package has another definition of \co{\\dots}.
+  The behavior of \texttt{\textbackslash dots} macro in math mode is not affected.
+  The ``amsmath'' package has another definition of \texttt{\textbackslash dots}.
   It is not used in perfbook at the moment.}
 By using \verb|\dots|, the above example is typeset as the following:
 
@@ -1071,7 +1063,7 @@ As you can see, extra space is placed before the comma.
 
 The \verb|\ldots| macro behaves the same as the \verb|\dots| macro.
 
-\subsubsection{Full Stop}
+\subsubsection{句号}
 \label{sec:app:styleguide:Full Stop}
 
 \LaTeX\ treats a full stop in front of a white space as an end of
@@ -1129,10 +1121,10 @@ the result will look as follows:
 	\item Mr.\@ Smith (good)
 \end{itemize}
 
-\subsection{Floating Object Format}
+\subsection{浮动对象格式}
 \label{sec:app:styleguide:Floating Object Format}
 
-\subsubsection{Ruled Line in Table}
+\subsubsection{表格中的线条}
 \label{sec:app:styleguide:Ruled Line in Table}
 
 They say that tables drawn by using ruled lines of plain \LaTeX\
@@ -1193,11 +1185,11 @@ IBM~Q	& $0.015$
 			& 19,500.0 \\
 \bottomrule
 \end{tabular}
-\caption{Refrigeration Power Consumption}
+\caption{制冷功耗}
 \label{tab:app:styleguide:Refrigeration Power Consumption}
 \end{table}
 
-\subsubsection{Position of Caption}
+\subsubsection{标题位置}
 \label{sec:app:styleguide:Position of Caption}
 
 In \LaTeX\ conventions, captions of tables are usually placed
@@ -1224,10 +1216,10 @@ which would also affect captions to figures.
 
 In the tables which use horizontal rules of ``booktabs'' package,
 the vertical skips between captions and tables are further reduced
-by setting a negative value to the \co{\\abovetopsep} variable,
-which controls the behavior of \co{\\toprule}.
+by setting a negative value to the \texttt{\textbackslash abovetopsep} variable,
+which controls the behavior of \texttt{\textbackslash toprule}.
 
-\subsection{Improvement Candidates}
+\subsection{改进候选}
 \label{sec:app:styleguide:Improvement Candidates}
 
 \begin{figure*}\centering
@@ -1320,11 +1312,10 @@ exists (1:r2=2 /\ 1:r3=0)
 }\hspace*{\fill}%
 \end{listing*}
 
-There are a few areas yet to be attempted in perfbook
-which would further improve its appearance.
-This section lists such candidates.
+在perfbook中还有一些领域有待尝试，这些改进将进一步改善其外观。
+本节列出了这些候选项。
 
-\subsubsection{Grouping Related Figures/Listings}
+\subsubsection{分组相关图表/代码清单}
 \label{sec:app:styleguide:Grouping Related Figures/Listings}
 
 To prevent a pair of closely related figures or listings
@@ -1335,7 +1326,7 @@ The ``subfig'' package provides the features to do so.\footnote{
   \LaTeX\ source.}
 
 Two floating objects can be placed side by side by using
-\co{\\parbox} or \co{minipage}.
+\texttt{\textbackslash parbox} or \co{minipage}.
 For example,
 \cref{fig:advsync:Timer Wheel at 1kHz,fig:advsync:Timer Wheel at 100kHz}
 can be grouped together by using a pair of \co{minipage}s
@@ -1370,11 +1361,10 @@ ahead of the definition of subfloats.
 Otherwise, the resulting caption number would be off by one
 from the actual number.
 
-\subsubsection{Table Layout Experiment}
+\subsubsection{表格布局实验}
 \label{sec:app:styleguide:Table Layout Experiment}
 
-This section presents some experimental tables
-using booktabs, xcolors, and arydshln packages.
+本节展示了一些使用booktabs、xcolors和arydshln包的实验性表格。
 The corresponding tables in the text have been converted using one of
 the format shown here.
 The source of this section can be regarded as a reference to be
@@ -1468,7 +1458,7 @@ since they are redundant there.
 		& M\textsubscript{A}: & Memory barriers required on acquire \\
   \end{tabular}
 }
-\caption{Synchronization and Reference Counting}
+\caption{同步与引用计数}
 \label{tab:app:styleguide:Synchronization and Reference Counting}
 \end{table}
 
@@ -1531,7 +1521,7 @@ is a sequence diagram drawn as a table.
 	\bottomrule
 \end{tabular}
 }
-\caption{Cache Coherence Example}
+\caption{缓存一致性示例}
 \label{tab:app:styleguide:Cache Coherence Example}
 \end{table*}
 
@@ -1779,7 +1769,7 @@ IBM~Q	& $0.015$
 			& 19,500.0 \\
 \bottomrule
 \end{tabular}
-\caption{Refrigeration Power Consumption}
+\caption{制冷功耗}
 \label{tab:app:styleguide:Refrigeration Power Consumption (arydshln)}
 \end{table}
 
@@ -1815,7 +1805,7 @@ IBM~Q	& $0.015$
 			& 19,500.0 \\
 \bottomrule
 \end{tabular}
-\caption{Refrigeration Power Consumption}
+\caption{制冷功耗}
 \label{tab:app:styleguide:Refrigeration Power Consumption (arydshln-2)}
 \end{table}
 

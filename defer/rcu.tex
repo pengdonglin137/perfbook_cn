@@ -2,83 +2,64 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Read-Copy Update (RCU)}
+\section{Read-Copy Update（RCU）}
 \label{sec:defer:Read-Copy Update (RCU)}
 %
-\epigraph{``Free'' is a \emph{very} good price!}{Tom Peterson}
+\epigraph{``免费''是一个\emph{非常}好的价格！}{Tom Peterson}
 
-All of the mechanisms discussed in the preceding sections
-used one of a number of approaches to defer specific actions
-until they may be carried out safely.
-The reference counters discussed in
-\cref{sec:defer:Reference Counting}
-use explicit counters to defer actions that could disturb readers,
-which results in read-side contention and thus poor scalability.
-The hazard pointers covered by
-\cref{sec:defer:Hazard Pointers}
-use implicit counters in the guise of per-thread lists of pointers.
-This avoids read-side contention, but requires readers to do stores and
-conditional branches, as well as either \IXhpl{full}{memory barrier}
-in read-side primitives or real-time-unfriendly \IXacrlpl{ipi} in
-update-side primitives.\footnote{
-	In some important special cases, this extra work can be avoided
-	by using link counting as exemplified by the UnboundedQueue
-	and ConcurrentHashMap data structures implemented in Folly
-	open-source library
-	(\url{https://github.com/facebook/folly}).}
-The sequence lock presented in
-\cref{sec:defer:Sequence Locks}
-also avoids read-side contention, but does not protect pointer
-traversals and, like hazard pointers, requires either full memory barriers
-in read-side primitives, or inter-processor interrupts in update-side
-primitives.
-These schemes' shortcomings raise the question of
-whether it is possible to do better.
+前面几节讨论的所有机制都使用了多种方法中的一种来推迟特定操作，
+直到它们可以安全执行。
+\cref{sec:defer:Reference Counting}中讨论的引用计数器
+使用显式计数器来延迟可能干扰读者的操作，
+这导致了读侧竞争，从而可扩展性差。
+\cref{sec:defer:Hazard Pointers}涵盖的 hazard pointers
+以每线程指针列表的形式使用隐式计数器。
+这避免了读侧竞争，但要求读者执行存储和条件分支，
+以及在读侧原语中使用\IXhpl{full}{memory barrier}
+或在更新侧原语中使用对实时不友好的\IXacrlpl{ipi}。\footnote{
+	在一些重要的特殊情况下，可以通过使用 link counting 来避免
+	这些额外工作，如 Folly 开源库中实现的 UnboundedQueue 和
+	ConcurrentHashMap 数据结构所示
+	（\url{https://github.com/facebook/folly}）。}
+\cref{sec:defer:Sequence Locks}中介绍的 sequence lock
+也避免了读侧竞争，但不保护指针遍历，
+并且像 hazard pointers 一样，需要在读侧原语中使用完整的 memory barriers，
+或在更新侧原语中使用处理器间中断。
+这些方案的不足引发了一个问题：是否可以做得更好。
 
-This section introduces \IXBacrfst{rcu}, which provides
-an API that allows readers to be associated with regions in the source code,
-rather than with expensive updates to frequently updated shared data.
-The remainder of this
-section examines RCU from a number of different perspectives.
-\Cref{sec:defer:Introduction to RCU} provides the classic
-introduction to RCU,
-\cref{sec:defer:RCU Fundamentals} covers fundamental RCU
-concepts,
-\cref{sec:defer:RCU Linux-Kernel API} presents the Linux-kernel
-API,
-\cref{sec:defer:RCU Usage} introduces some common RCU use cases,
-and finally
-\cref{sec:defer:RCU Related Work} covers recent work related
-to RCU.
+本节介绍\IXBacrfst{rcu}，它提供了一个 API，
+允许将读者与源代码中的区域关联，
+而不是与对频繁更新的共享数据的昂贵更新关联。
+本节的其余部分从多个不同角度审视 RCU。
+\Cref{sec:defer:Introduction to RCU}提供了经典的 RCU 介绍，
+\cref{sec:defer:RCU Fundamentals}涵盖基本的 RCU 概念，
+\cref{sec:defer:RCU Linux-Kernel API}介绍 Linux 内核 API，
+\cref{sec:defer:RCU Usage}介绍一些常见的 RCU 使用场景，
+最后
+\cref{sec:defer:RCU Related Work}涵盖与 RCU 相关的近期工作。
 
-Although RCU has gained a reputation for being subtle and difficult,
-when used properly, it is quite straightforward.
-In fact, no less an authority than Butler Lampson classifies it as easy
-concurrency~\cite[Chapter 3]{ButlerLampson2022ProgrammingConcurrentSystems}.
-And Lampson is quite right:
-The core concept behind RCU is nothing more than that updaters are
-guaranteed to wait for pre-existing (and \emph{only} pre-existing)
-readers to complete.
-For their part, Balmau, Guerraoui, Herlihy, and Zablotchi state
-``QSBR [a particular class of RCU implementations] is fast and can be
-applied to virtually any data structure''.
+虽然 RCU 以微妙和困难著称，但如果正确使用，它是相当直接的。
+事实上，Butler Lampson 这样的权威将其分类为简单的
+并发~\cite[Chapter 3]{ButlerLampson2022ProgrammingConcurrentSystems}。
+Lampson 是完全正确的：
+RCU 背后的核心概念不过是保证更新者等待先前存在的
+（且\emph{仅仅是}先前存在的）读者完成。
+Balmau、Guerraoui、Herlihy 和 Zablotchi 则指出
+``QSBR [一种特定类别的 RCU 实现] 速度快且几乎可以应用于
+任何数据结构''。
 
-On the other hand, making good use of RCU often requires that you think
-differently about concurrency in general and about your use case in
-particular.
-Much of the remainder of this section therefore provides a guide to
-mapping use cases onto RCU.
+另一方面，要充分利用 RCU 通常需要你以不同的方式思考
+一般的并发性和你的特定使用场景。
+因此，本节的大部分内容提供了将使用场景映射到 RCU 的指南。
 
 \QuickQuiz{
-	RCU cannot possibly be this simple!!!
-	And what on earth could you possibly do with a synchronization
-	primitive that is nothing more than a simple delay???
+	RCU 不可能这么简单！！！
+	而且你到底能用一个不过是简单延迟的同步原语做什么？？？
 }\QuickQuizAnswer{
-	I am sorry, but the core of RCU really is exactly that simple!
+	抱歉，但 RCU 的核心确实就是这么简单！
 
-	And you can do many amazing things with RCU's simple delay.
-	Please feel free to continue reading this section in order to
-	learn how.
+	而且你可以用 RCU 的简单延迟做许多令人惊叹的事情。
+	请继续阅读本节以了解具体方法。
 }\QuickQuizEnd
 
 \input{defer/rcuintro}

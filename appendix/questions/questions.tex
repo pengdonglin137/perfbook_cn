@@ -2,45 +2,41 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:app:Important Questions}{Important Questions}{qqzquestions}
+\QuickQuizChapter{chp:app:Important Questions}{重要问题}{qqzquestions}
 %
-\Epigraph{Ask me no questions, and I'll tell you no fibs.}
-	 {\emph{She Stoops to Conquer}, Oliver Goldsmith}
+\Epigraph{别问我问题，我就不会对你说谎。}
+	 {\emph{She Stoops to Conquer}，Oliver Goldsmith}
 
-The following sections discuss some important questions relating to
-SMP programming.
-Each section also shows how to avoid worrying about
-the corresponding question, which can be extremely important if
-your goal is to simply get your SMP code working as quickly and
-painlessly as possible---which is an excellent goal, by the way!
+以下各节讨论了与SMP编程相关的一些重要问题。
+每一节还展示了如何避免为相应问题而烦恼，
+如果你的目标只是尽可能快速、轻松地让SMP代码正常工作，
+这一点极为重要——顺便说一句，这是一个非常好的目标！
 
-Although the answers to these questions are often less
-intuitive than they would be in a single-threaded setting,
-with a bit of work, they are not that difficult to understand.
-If you managed to master recursion, there is nothing here that should
-pose an overwhelming challenge.
+尽管这些问题的答案通常不如在单线程环境中那么直观，
+但只要稍加努力，理解起来并不那么困难。
+如果你已经掌握了递归，这里的内容不会构成难以逾越的挑战。
 
-With that, here are the questions:
+话不多说，以下是这些问题：
 
 \begin{enumerate}
-\item	Why aren't parallel programs always faster?
+\item	为什么并行程序不总是更快？
 	(\cref{sec:app:questions:Why Aren't Parallel Programs Always Faster?})
-\item	Why not remove locking?
+\item	为什么不去掉锁？
 	(\cref{sec:app:questions:Why Not Remove Locking?})
-\item	What time is it?
+\item	现在几点了？
 	(\cref{sec:app:questions:What Time Is It?})
-\item	What does ``after'' mean?
+\item	"之后"是什么意思？
 	(\cref{sec:app:questions:What Does ``After'' Mean?})
-\item	How much ordering is needed?
+\item	需要多少排序？
 	(\cref{sec:app:questions:How Much Ordering Is Needed?})
-\item	What is the difference between ``concurrent'' and ``parallel''?
+\item	"并发"和"并行"有什么区别？
 	(\cref{sec:app:questions:What is the Difference Between ``Concurrent'' and ``Parallel''?})
-\item	Why is software buggy?
+\item	为什么软件会有bug？
 	(\cref{sec:app:questions:Why Is Software Buggy?})
 \end{enumerate}
 
-Read on to learn some answers.
-Improve upon these answers if you can!
+请继续阅读以了解一些答案。
+如果你能改进这些答案，那就更好了！
 
 \input{appendix/questions/parallelfaster}
 \input{appendix/questions/removelocking}

@@ -2,40 +2,31 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{What About Updates?}
+\section{更新操作怎么办？}
 \label{sec:defer:What About Updates?}
 %
-\epigraph{The only thing constant in life is change.}
+\epigraph{生活中唯一不变的就是变化。}
 	 {Fran\c{c}ois de la Rochefoucauld}
 
-The deferred-processing techniques called out in this chapter are most
-directly applicable to read-mostly situations, which begs the question
-``But what about updates?''
-After all, increasing the performance and scalability of readers is all
-well and good, but it is only natural to also want great performance and
-scalability for writers.
+本章所介绍的延迟处理技术最直接地适用于读多写少的场景，
+这不禁让人要问：``那更新操作怎么办？''
+毕竟，提升读者的性能和可扩展性固然很好，
+但人们自然也希望写者能获得同样出色的性能和可扩展性。
 
-We have already seen one situation featuring high performance and
-scalability for writers, namely the counting algorithms surveyed in
-\cref{chp:Counting}.
-These algorithms featured partially partitioned data structures so
-that updates can operate locally, while the more-expensive reads
-must sum across the entire data structure.
-Silas Boyd-Wickizer has generalized this notion to produce
-OpLog, which he has applied to
-Linux-kernel pathname lookup, VM reverse mappings, and the \co{stat()} system
-call~\cite{SilasBoydWickizerPhD}.
+我们已经见到了一种写者具有高性能和高可扩展性的情况，
+即\cref{chp:Counting}中介绍的计数算法。
+这些算法采用了部分分区的数据结构，使得更新操作可以在本地进行，
+而开销较大的读取操作则必须对整个数据结构求和。
+Silas Boyd-Wickizer 将这一概念推广为 OpLog，
+并将其应用于 Linux 内核的路径名查找、虚拟内存反向映射和
+\co{stat()} 系统调用~\cite{SilasBoydWickizerPhD}。
 
-Another approach, called ``Disruptor'', is designed for applications
-that process high-volume streams of input data.
-The approach is to rely on single-producer-single-consumer FIFO queues,
-minimizing the need for synchronization~\cite{AdrianSutton2013LCA:Disruptor}.
-For Java applications, Disruptor also has the virtue of minimizing use
-of the garbage collector.
+另一种方法称为``Disruptor''，专为处理大量输入数据流的应用而设计。
+其方法是依靠单生产者-单消费者 FIFO 队列，
+从而最大限度地减少同步需求~\cite{AdrianSutton2013LCA:Disruptor}。
+对于 Java 应用，Disruptor 还具有减少垃圾回收器使用的优点。
 
-And of course, where feasible, fully partitioned or ``sharded'' systems
-provide excellent performance and scalability, as noted in
-\cref{chp:Partitioning and Synchronization Design}.
+当然，在可行的情况下，完全分区或``分片''的系统能提供出色的性能和可扩展性，
+正如\cref{chp:Partitioning and Synchronization Design}中所述。
 
-The next chapter will look at updates in the context of several types
-of data structures.
+下一章将在几种不同类型的数据结构的背景下讨论更新操作。

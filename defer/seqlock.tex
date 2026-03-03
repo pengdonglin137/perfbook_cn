@@ -2,57 +2,47 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Sequence Locks}
+\section{顺序锁}
 \label{sec:defer:Sequence Locks}
 %
-\epigraph{It'll be just like starting over.}{John Lennon}
+\epigraph{就好像从头再来一样。}{John Lennon}
 
-The published sequence-lock
-record~\cite{10.1145/800212.806505,10.1145/359863.359878}
-extends back as far as that of reader-writer locking, but sequence locks
-nevertheless remain in relative obscurity.
-Sequence locks are used in the Linux kernel for read-mostly data that
-must be seen in a consistent state by readers.
-However, unlike reader-writer locking, readers do not exclude writers.
-Instead, like hazard pointers, sequence locks force readers to
-\emph{retry} an operation if they detect activity from a concurrent writer.
-As can be seen from
-\cref{fig:defer:Reader And Uncooperative Sequence Lock},
-it is important to design code using sequence locks so that readers
-very rarely need to retry.
+已发表的 sequence-lock
+记录~\cite{10.1145/800212.806505,10.1145/359863.359878}
+可以追溯到与读写锁一样远，但 sequence locks 仍然相对鲜为人知。
+Sequence locks 在 Linux 内核中用于必须被读者看到一致状态的
+读多数据。然而，与读写锁不同，读者不排斥写者。
+相反，像 hazard pointers 一样，sequence locks 迫使读者
+在检测到并发写者的活动时\emph{重试}操作。
+从\cref{fig:defer:Reader And Uncooperative Sequence Lock}可以看出，
+设计使用 sequence locks 的代码时，让读者很少需要重试是很重要的。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cartoons/r-2014-Start-over}}
-\caption{Reader And Uncooperative Sequence Lock}
+\caption{读者与不合作的 Sequence Lock}
 \label{fig:defer:Reader And Uncooperative Sequence Lock}
 \end{figure}
 
 \QuickQuiz{
-	Why isn't this sequence-lock discussion in \cref{chp:Locking},
-	you know, the one on \emph{locking}?
+	为什么这个 sequence-lock 讨论不在\cref{chp:Locking}中，
+	你知道的，关于\emph{锁}的那一章？
 }\QuickQuizAnswer{
-	The sequence-lock mechanism is really a combination of two
-	separate synchronization mechanisms, sequence counts and
-	locking.
-	In fact, the sequence-count mechanism is available separately
-	in the Linux kernel via the
-	\co{write_seqcount_begin()} and \co{write_seqcount_end()}
-	primitives.
+	sequence-lock 机制实际上是两种独立同步机制的组合，
+	即序列计数和锁。
+	事实上，序列计数机制在 Linux 内核中通过
+	\co{write_seqcount_begin()} 和 \co{write_seqcount_end()}
+	原语可以单独使用。
 
-	However, the combined \co{write_seqlock()} and
-	\co{write_sequnlock()} primitives are used much more heavily
-	in the Linux kernel.
-	More importantly, many more people will understand what you
-	mean if you say ``sequence lock'' than if you say
-	``sequence count''.
+	然而，组合的 \co{write_seqlock()} 和
+	\co{write_sequnlock()} 原语在 Linux 内核中使用得更多。
+	更重要的是，如果你说``sequence lock''，
+	比你说``sequence count''会有更多人理解你的意思。
 
-	So this section is entitled ``Sequence Locks'' so that people
-	will understand what it is about just from the title, and
-	it appears in the ``Deferred Processing'' because (1) of the
-	emphasis on the ``sequence count'' aspect of ``sequence locks''
-	and (2) because a ``sequence lock'' is much more than merely
-	a lock.
+	所以这一节标题为``Sequence Locks''以便人们仅从标题就能
+	理解它讲的是什么，
+	它出现在``延迟处理''中是因为 (1) 强调了``sequence locks''
+	的``sequence count''方面，(2) 因为``sequence lock''远不仅仅是一个锁。
 }\QuickQuizEnd
 
 \begin{listing}
@@ -62,7 +52,7 @@ do {
 	/* read-side access. */
 } while (read_seqretry(&test_seqlock, seq));
 \end{VerbatimL}
-\caption{Sequence-Locking Reader}
+\caption{Sequence-Locking 读者}
 \label{lst:defer:Sequence-Locking Reader}
 \end{listing}
 
@@ -72,370 +62,322 @@ write_seqlock(&test_seqlock);
 /* Update */
 write_sequnlock(&test_seqlock);
 \end{VerbatimL}
-\caption{Sequence-Locking Writer}
+\caption{Sequence-Locking 写者}
 \label{lst:defer:Sequence-Locking Writer}
 \end{listing}
 
-The key component of sequence locking is the sequence number, which has
-an even value in the absence of updaters and an odd value if there
-is an update in progress.
-Readers can then snapshot the value before and after each access.
-If either snapshot has an odd value, or if the two snapshots differ,
-there has been a concurrent update, and the reader must discard
-the results of the access and then retry it.
-Readers therefore use the \co{read_seqbegin()} and \co{read_seqretry()}
-functions shown in \cref{lst:defer:Sequence-Locking Reader}
-when accessing data protected by a sequence lock.
-Writers must increment the value before and after each update,
-and only one writer is permitted at a given time.
-Writers therefore use the \co{write_seqlock()} and \co{write_sequnlock()}
-functions shown in \cref{lst:defer:Sequence-Locking Writer}
-when updating data protected by a sequence lock.
+sequence locking 的关键组件是序列号，
+在没有更新者时具有偶数值，如果有更新正在进行则为奇数值。
+读者可以在每次访问前后快照该值。
+如果任一快照具有奇数值，或者两个快照不同，
+则发生了并发更新，读者必须丢弃访问结果然后重试。
+因此，读者使用 \co{read_seqbegin()} 和 \co{read_seqretry()}
+函数（如\cref{lst:defer:Sequence-Locking Reader}所示）
+来访问由 sequence lock 保护的数据。
+写者必须在每次更新前后递增该值，
+且同一时间只允许一个写者。
+因此，写者使用 \co{write_seqlock()} 和 \co{write_sequnlock()}
+函数（如\cref{lst:defer:Sequence-Locking Writer}所示）
+来更新由 sequence lock 保护的数据。
 
-As a result, sequence-lock-protected data can have an arbitrarily
-large number of concurrent readers, but only one writer at a time.
-Sequence locking is used in the Linux kernel to protect calibration
-quantities used for timekeeping.
-It is also used in pathname traversal to detect concurrent rename operations.
+结果是，受 sequence-lock 保护的数据可以有任意多个并发读者，
+但同一时间只能有一个写者。
+Sequence locking 在 Linux 内核中用于保护时间保持所用的校准量。
+它还在路径名遍历中用于检测并发重命名操作。
 
 \begin{listing}
 \input{CodeSamples/defer/seqlock@impl.fcv}
-\caption{Sequence-Locking Implementation}
+\caption{Sequence-Locking 实现}
 \label{lst:defer:Sequence-Locking Implementation}
 \end{listing}
 
-A simple implementation of sequence locks is shown in
-\cref{lst:defer:Sequence-Locking Implementation}
-(\path{seqlock.h}).
+\cref{lst:defer:Sequence-Locking Implementation}中
+展示了 sequence locks 的一个简单实现
+（\path{seqlock.h}）。
 \begin{fcvref}[ln:defer:seqlock:impl:typedef]
-The \co{seqlock_t} data structure is shown on
-\clnrefrange{b}{e}, and contains
-the sequence number along with a lock to serialize writers.
+\co{seqlock_t} 数据结构在\clnrefrange{b}{e}中展示，
+包含序列号和一个用于序列化写者的锁。
 \end{fcvref}
 \begin{fcvref}[ln:defer:seqlock:impl:init]
-\Clnrefrange{b}{e} show \co{seqlock_init()}, which, as the name indicates,
-initializes a \co{seqlock_t}.
+\Clnrefrange{b}{e}展示了 \co{seqlock_init()}，顾名思义，
+它初始化一个 \co{seqlock_t}。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:seqlock:impl:read_seqbegin]
-\Clnrefrange{b}{e} show \co{read_seqbegin()}, which begins a sequence-lock
-\IXh{read-side}{critical section}.
-\Clnref{fetch} takes a snapshot of the sequence counter, and
-\clnref{mb} orders
-this snapshot operation before the caller's critical section.
-Finally, \clnref{ret} returns the value of the snapshot (with the least-significant
-bit cleared), which the caller
-will pass to a later call to \co{read_seqretry()}.
+\Clnrefrange{b}{e}展示了 \co{read_seqbegin()}，
+它开始一个 sequence-lock
+\IXh{read-side}{critical section}。
+\Clnref{fetch}获取序列计数器的快照，
+\clnref{mb}将此快照操作排序在调用者的临界区之前。
+最后，\clnref{ret}返回快照的值（最低有效位被清除），
+调用者将把它传递给后续对 \co{read_seqretry()} 的调用。
 \end{fcvref}
 
 \QuickQuiz{
-	Why not have \co{read_seqbegin()} in
-	\cref{lst:defer:Sequence-Locking Implementation}
-	check whether the sequence-number value is odd, and, if so,
-	retry internally rather than entering a doomed read-side critical
-	section?
+	为什么不让\cref{lst:defer:Sequence-Locking Implementation}中的
+	\co{read_seqbegin()} 检查序列号值是否为奇数，
+	如果是，则在内部重试而不是进入注定失败的
+	读侧临界区？
 }\QuickQuizAnswer{
-	This would be a legitimate implementation.
+	这将是一个合法的实现。
 
-	But please keep in mind that
+	但请记住
 	\begin{enumerate*}[(1)]
-	\item	This added check is a relatively expensive conditional branch,
-	\item	It cannot be substituted for the later check done by
-		\tco{read_seqretry()}, which must happen after the
-		critical section completes, and
-	\item	Sequence locking is intended for read-mostly workloads,
-		which means that this extra check would slow down the
-		common case.
+	\item	这个额外检查是一个相对昂贵的条件分支，
+	\item	它不能替代 \tco{read_seqretry()} 后面的检查，
+		后者必须在临界区完成后发生，而且
+	\item	Sequence locking 是为读多工作负载设计的，
+		这意味着这个额外检查会减慢常见情况。
 	\end{enumerate*}
 
-	On the other hand, in an alternate universe having a sufficiently
-	large fraction of updates and sufficiently high-overhead readers,
-	having this internal-to-\co{read_seqbegin()} check might be
-	preferable.
+	另一方面，在一个具有足够大比例更新和足够高开销读者的
+	另一个世界中，在 \co{read_seqbegin()} 内部进行此检查
+	可能更可取。
 
 	\begin{fcvref}[ln:defer:seqlock:impl]
-	Of course, the full memory barriers
-	on \clnref{read_seqbegin:mb,read_seqretry:mb} of
-	\cref{lst:defer:Sequence-Locking Implementation}
-	are quite heavyweight as instructions go, which suggests that the
-	overhead of the added check might be negligible.
-	Except that, in userspace code, the \co{membarrier()} system
-	call~\cite{Corbet2010membarrier,MathieuDesnoyers2017membarrier,Linuxmanpage2018sys-membarrier}
-	can be used to eliminate that \co{smp_mb()} overhead on the
-	read side in exchange for the added overhead of \co{membarrier()}
-	on the update side.
-	This feature is on its way into the C++ standard under the name
-	of ``asymmetric fences''~\cite{DavidGoldblatt2022asymmetricFences}.
-	Either way, this trick eliminates the read-side \co{smp_mb()}
-	overhead, which in turn makes eliminating the check more
-	attractive, arriving again at the form of the code shown in
-	\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup}.
+	当然，\cref{lst:defer:Sequence-Locking Implementation}的
+	\clnref{read_seqbegin:mb,read_seqretry:mb}上的完整 memory barriers
+	作为指令来说是相当重量级的，这表明添加检查的开销可能
+	微不足道。
+	只是在用户空间代码中，\co{membarrier()} 系统
+	调用~\cite{Corbet2010membarrier,MathieuDesnoyers2017membarrier,Linuxmanpage2018sys-membarrier}
+	可以用来消除读侧的 \co{smp_mb()} 开销，
+	代价是更新侧 \co{membarrier()} 的额外开销。
+	此功能正以``非对称屏障''的名称进入 C++ 标准~\cite{DavidGoldblatt2022asymmetricFences}。
+	无论如何，这个技巧消除了读侧 \co{smp_mb()} 开销，
+	这反过来使消除检查更有吸引力，
+	再次回到\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup}中
+	展示的代码形式。
 	\end{fcvref}
 
-	This same trick may be applied to Linux-kernel code using tools
-	such as \co{smp_call_function()}, at least in non-realtime builds
-	of the Linux kernel.
+	同样的技巧也可以应用于 Linux 内核代码，使用
+	\co{smp_call_function()} 等工具，至少在 Linux 内核的
+	非实时构建中。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:defer:seqlock:impl:read_seqretry]
-\Clnrefrange{b}{e} show \co{read_seqretry()}, which returns \co{true} if there
-was at least one writer since the time of the corresponding
-call to \co{read_seqbegin()}.
-\Clnref{mb} orders the caller's prior critical section before \clnref{fetch}'s
-fetch of the new snapshot of the sequence counter.
-\Clnref{ret} checks whether the sequence counter has changed,
-in other words, whether there has been at least one writer, and returns
-\co{true} if so.
+\Clnrefrange{b}{e}展示了 \co{read_seqretry()}，
+如果自对应的 \co{read_seqbegin()} 调用以来至少有一个写者，
+则返回 \co{true}。
+\Clnref{mb}将调用者先前的临界区排序在\clnref{fetch}获取
+序列计数器的新快照之前。
+\Clnref{ret}检查序列计数器是否已更改，
+换句话说，是否至少有一个写者，如果是则返回 \co{true}。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why is the \co{smp_mb()} on
-	\clnrefr{ln:defer:seqlock:impl:read_seqretry:mb} of
-	\cref{lst:defer:Sequence-Locking Implementation}
-	needed?
+	为什么需要\cref{lst:defer:Sequence-Locking Implementation}
+	\clnrefr{ln:defer:seqlock:impl:read_seqretry:mb}上的 \co{smp_mb()}？
 }\QuickQuizAnswerB{
-	If it was omitted, both the compiler and the CPU would be
-	within their rights to move the critical section preceding
-	the call to \co{read_seqretry()} down below this function.
-	This would prevent the sequence lock from protecting the
-	critical section.
-	The \co{smp_mb()} primitive prevents such reordering.
+	如果省略它，编译器和 CPU 都有权将 \co{read_seqretry()} 调用
+	之前的临界区移到该函数之下。
+	这将阻止 sequence lock 保护临界区。
+	\co{smp_mb()} 原语防止此类重排序。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	Can't weaker memory barriers be used in the code in
-	\cref{lst:defer:Sequence-Locking Implementation}?
+	\cref{lst:defer:Sequence-Locking Implementation}中的代码
+	能否使用更弱的 memory barriers？
 }\QuickQuizAnswerM{
-	In older versions of the Linux kernel, no.
+	在较旧版本的 Linux 内核中，不能。
 
 	\begin{fcvref}[ln:defer:seqlock:impl]
-	In very new versions of the Linux kernel,
-	\clnref{read_seqbegin:fetch} could use
-	\co{smp_load_acquire()} instead of \co{READ_ONCE()}, which
-	in turn would allow the \co{smp_mb()} on
-	\clnref{read_seqbegin:mb} to be dropped.
-	Similarly, \clnref{write_sequnlock:inc} could use an
-	\co{smp_store_release()}, for
-	example, as follows:
+	在非常新的 Linux 内核版本中，
+	\clnref{read_seqbegin:fetch}可以使用
+	\co{smp_load_acquire()} 代替 \co{READ_ONCE()}，
+	这反过来允许删除\clnref{read_seqbegin:mb}上的 \co{smp_mb()}。
+	类似地，\clnref{write_sequnlock:inc}可以使用
+	\co{smp_store_release()}，例如如下：
 
 \begin{VerbatimU}
 smp_store_release(&slp->seq, READ_ONCE(slp->seq) + 1);
 \end{VerbatimU}
 
-	This would allow the \co{smp_mb()} on
-	\clnref{write_sequnlock:mb} to be dropped.
+	这将允许删除\clnref{write_sequnlock:mb}上的 \co{smp_mb()}。
 	\end{fcvref}
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	What prevents sequence-locking updaters from starving readers?
+	什么阻止了 sequence-locking 更新者饿死读者？
 }\QuickQuizAnswerE{
-	Nothing.
-	This is one of the weaknesses of sequence locking, and as a
-	result, you should use sequence locking only in read-mostly
-	situations.
-	Unless of course read-side starvation is acceptable in your
-	situation, in which case, go wild with the sequence-locking updates!
+	什么都没有。
+	这是 sequence locking 的弱点之一，
+	因此你应该只在读多情况下使用 sequence locking。
+	当然，除非读侧饥饿在你的场景中是可以接受的，
+	在这种情况下，尽情使用 sequence-locking 更新吧！
 }\QuickQuizEndE
 }
 
 \begin{fcvref}[ln:defer:seqlock:impl:write_seqlock]
-\Clnrefrange{b}{e} show \co{write_seqlock()}, which simply acquires the lock,
-increments the sequence number, and executes a memory barrier to ensure
-that this increment is ordered before the caller's critical section.
+\Clnrefrange{b}{e}展示了 \co{write_seqlock()}，
+它简单地获取锁，递增序列号，
+并执行 memory barrier 以确保此递增排序在调用者的临界区之前。
 \end{fcvref}
 \begin{fcvref}[ln:defer:seqlock:impl:write_sequnlock]
-\Clnrefrange{b}{e} show \co{write_sequnlock()}, which executes a memory barrier
-to ensure that the caller's critical section is ordered before the
-increment of the sequence number on \clnref{inc}, then releases the lock.
+\Clnrefrange{b}{e}展示了 \co{write_sequnlock()}，
+它执行 memory barrier 以确保调用者的临界区排序在
+\clnref{inc}上序列号的递增之前，然后释放锁。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	What if something else serializes writers, so that the lock
-	is not needed?
+	如果有其他东西序列化写者，那么锁就不需要了，
+	对吗？
 }\QuickQuizAnswerB{
-	In this case, the \co{->lock} field could be omitted, as it
-	is in \co{seqcount_t} in the Linux kernel.
+	在这种情况下，\co{->lock} 字段可以省略，
+	就像 Linux 内核中的 \co{seqcount_t} 那样。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why isn't \co{seq} on
-	\clnrefr{ln:defer:seqlock:impl:typedef:seq} of
-	\cref{lst:defer:Sequence-Locking Implementation}
-	\co{unsigned} rather than \co{unsigned long}?
-	After all, if \co{unsigned} is good enough for the Linux
-	kernel, shouldn't it be good enough for everyone?
+	为什么\cref{lst:defer:Sequence-Locking Implementation}
+	\clnrefr{ln:defer:seqlock:impl:typedef:seq}上的 \co{seq}
+	不是 \co{unsigned} 而是 \co{unsigned long}？
+	毕竟，如果 \co{unsigned} 对 Linux 内核来说足够好，
+	对每个人不应该也足够好吗？
 }\QuickQuizAnswerE{
-	Not at all.
-	The Linux kernel has a number of special attributes that allow
-	it to ignore the following sequence of events:
+	完全不是。
+	Linux 内核有许多特殊属性，使其可以忽略以下事件序列：
 	\begin{enumerate}
-	\item	Thread~0 executes \co{read_seqbegin()}, picking up
-		\co{->seq} in
-		\clnrefr{ln:defer:seqlock:impl:read_seqbegin:fetch},
-		noting that the value is even,
-		and thus returning to the caller.
-	\item	Thread~0 starts executing its read-side critical section,
-		but is then preempted for a long time.
-	\item	Other threads repeatedly invoke \co{write_seqlock()} and
-		\co{write_sequnlock()}, until the value of \co{->seq}
-		overflows back to the value that Thread~0 fetched.
-	\item	Thread~0 resumes execution, completing its read-side
-		critical section with inconsistent data.
-	\item	Thread~0 invokes \co{read_seqretry()}, which incorrectly
-		concludes that Thread~0 has seen a consistent view of
-		the data protected by the sequence lock.
+	\item	线程~0 执行 \co{read_seqbegin()}，在
+		\clnrefr{ln:defer:seqlock:impl:read_seqbegin:fetch}
+		中获取 \co{->seq}，
+		注意到该值为偶数，因此返回给调用者。
+	\item	线程~0 开始执行其读侧临界区，
+		但随后被抢占了很长时间。
+	\item	其他线程反复调用 \co{write_seqlock()} 和
+		\co{write_sequnlock()}，直到 \co{->seq} 的值
+		溢出回到线程~0 获取的值。
+	\item	线程~0 恢复执行，以不一致的数据完成
+		其读侧临界区。
+	\item	线程~0 调用 \co{read_seqretry()}，
+		它错误地得出结论认为线程~0 看到了
+		sequence lock 保护的数据的一致视图。
 	\end{enumerate}
 
-	The Linux kernel uses sequence locking for things that are
-	updated rarely, with time-of-day information being a case
-	in point.
-	This information is updated at most once per millisecond,
-	so that seven weeks would be required to overflow the counter.
-	If a kernel thread was preempted for seven weeks, the Linux
-	kernel's soft-lockup code would be emitting warnings every two
-	minutes for that entire time.
+	Linux 内核对很少更新的东西使用 sequence locking，
+	时间信息就是一个例子。
+	此信息每毫秒最多更新一次，
+	因此需要七周时间才能溢出计数器。
+	如果一个内核线程被抢占了七周，
+	Linux 内核的软锁检测代码会在整个期间
+	每两分钟发出警告。
 
-	In contrast, with a 64-bit counter, more than five centuries
-	would be required to overflow, even given an update every
-	\emph{nano}second.
-	Therefore, this implementation uses a type for \co{->seq}
-	that is 64 bits on 64-bit systems.
+	相比之下，使用 64 位计数器，
+	即使每\emph{纳秒}更新一次，
+	也需要超过五个世纪才能溢出。
+	因此，此实现使用在 64 位系统上为 64 位的类型作为 \co{->seq}。
 }\QuickQuizEndE
 }
 
 \begin{listing}
 \input{CodeSamples/defer/route_seqlock@lookup.fcv}
-\caption{Sequence-Locked Pre-BSD Routing Table Lookup (BUGGY!!!)}
+\caption{Sequence-Locked Pre-BSD 路由表查找（有缺陷！！！）}
 \label{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/route_seqlock@add_del.fcv}
-\caption{Sequence-Locked Pre-BSD Routing Table Add\slash Delete (BUGGY!!!)}
+\caption{Sequence-Locked Pre-BSD 路由表添加\slash 删除（有缺陷！！！）}
 \label{lst:defer:Sequence-Locked Pre-BSD Routing Table Add/Delete}
 \end{listing}
 
-So what happens when sequence locking is applied to the Pre-BSD
-routing table?
+那么当 sequence locking 应用于 Pre-BSD 路由表时会发生什么？
 \Cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup}
-shows the data structures and \co{route_lookup()}, and
+展示了数据结构和 \co{route_lookup()}，
 \cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Add/Delete}
-shows \co{route_add()} and \co{route_del()} (\path{route_seqlock.c}).
-This implementation is once again similar to its counterparts in earlier
-sections, so only the differences will be highlighted.
+展示了 \co{route_add()} 和 \co{route_del()}（\path{route_seqlock.c}）。
+此实现再次与前面几节中的对应物类似，因此只突出差异。
 
 \begin{fcvref}[ln:defer:route_seqlock:lookup]
-In
-\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup},
-\clnref{struct:re_freed} adds \co{->re_freed}, which is checked on
-\clnref{lookup:chk_freed,lookup:abort}.
-\Clnref{struct:sl} adds a sequence lock, which is used by \co{route_lookup()}
+在\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Lookup}中，
+\clnref{struct:re_freed}添加了 \co{->re_freed}，
+在\clnref{lookup:chk_freed,lookup:abort}中被检查。
+\Clnref{struct:sl}添加了 sequence lock，由 \co{route_lookup()} 使用
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_seqlock:lookup:lookup]
-on \clnref{r_sqbegin,r_sqretry1,r_sqretry2},
-with \clnref{goto_retry1,goto_retry2} branching back to
-the \co{retry} label on \clnref{retry}.
-The effect is to retry any lookup that runs concurrently with an update.
+在\clnref{r_sqbegin,r_sqretry1,r_sqretry2}上，
+\clnref{goto_retry1,goto_retry2}分支回到
+\clnref{retry}上的 \co{retry} 标签。
+效果是重试任何与更新并发运行的查找。
 \end{fcvref}
 
 \begin{fcvref}[ln:defer:route_seqlock:add_del]
-In
-\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Add/Delete},
+在\cref{lst:defer:Sequence-Locked Pre-BSD Routing Table Add/Delete}中，
 \clnref{add:w_sqlock,add:w_squnlock,del:w_sqlock,%
 del:w_squnlock1,del:w_squnlock2}
-acquire and release the sequence lock,
-while \clnref{add:clr_freed,del:set_freed} handle \co{->re_freed}.
-This implementation is therefore quite straightforward.
+获取和释放 sequence lock，
+而\clnref{add:clr_freed,del:set_freed}处理 \co{->re_freed}。
+因此此实现相当直接。
 \end{fcvref}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-seqlock}}
-\caption{Pre-BSD Routing Table Protected by Sequence Locking}
+\caption{受 Sequence Locking 保护的 Pre-BSD 路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by Sequence Locking}
 \end{figure}
 
-It also performs better on the read-only workload, as can be seen in
-\cref{fig:defer:Pre-BSD Routing Table Protected by Sequence Locking},
-though its performance is still far from ideal.
-Worse yet, it suffers use-after-free failures.
-The problem is that the reader might encounter a segmentation violation
-due to accessing an already-freed structure before \co{read_seqretry()}
-has a chance to warn of the concurrent update.
+它在只读工作负载上也表现更好，
+如\cref{fig:defer:Pre-BSD Routing Table Protected by Sequence Locking}所示，
+尽管其性能仍然远非理想。
+更糟糕的是，它遭受释放后使用失败。
+问题在于读者可能在 \co{read_seqretry()} 有机会警告并发更新之前，
+由于访问已释放的结构而遇到段错误。
 
 \QuickQuiz{
-	Can this bug be fixed?
-	In other words, can you use sequence locks as the \emph{only}
-	synchronization mechanism protecting a linked list supporting
-	concurrent addition, deletion, and lookup?
+	这个错误能修复吗？
+	换句话说，你能使用 sequence locks 作为\emph{唯一}
+	的同步机制来保护支持并发添加、删除和查找的链表吗？
 }\QuickQuizAnswer{
-	One trivial way of accomplishing this is to surround all
-	accesses, including the read-only accesses, with
-	\co{write_seqlock()} and \co{write_sequnlock()}.
-	Of course, this solution also prohibits all read-side
-	parallelism, resulting in massive lock contention,
-	and furthermore could just as easily be implemented
-	using simple locking.
+	一种微不足道的方式是用 \co{write_seqlock()} 和
+	\co{write_sequnlock()} 包围所有访问，包括只读访问。
+	当然，这个方案也禁止了所有读侧并行性，
+	导致大量锁竞争，而且可以用简单的锁来同样轻松地实现。
 
-	If you do come up with a solution that uses \co{read_seqbegin()}
-	and \co{read_seqretry()} to protect read-side accesses, make
-	sure that you correctly handle the following sequence of events:
+	如果你确实想出了一种使用 \co{read_seqbegin()} 和
+	\co{read_seqretry()} 来保护读侧访问的方案，
+	请确保正确处理以下事件序列：
 
 	\begin{enumerate}
-	\item	CPU~0 is traversing the linked list, and picks up a pointer
-		to list element~A.
-	\item	CPU~1 removes element~A from the list and frees it.
-	\item	CPU~2 allocates an unrelated data structure, and gets
-		the memory formerly occupied by element~A\@.
-		In this unrelated data structure, the memory previously
-		used for element~A's \co{->next} pointer is now occupied
-		by a floating-point number.
-	\item	CPU~0 picks up what used to be element~A's \co{->next}
-		pointer, gets random bits, and therefore gets a
-		segmentation fault.
+	\item	CPU~0 正在遍历链表，并获取了指向列表元素~A 的指针。
+	\item	CPU~1 从列表中移除元素~A 并释放它。
+	\item	CPU~2 分配了一个不相关的数据结构，
+		获得了之前被元素~A 占用的内存。
+		在这个不相关的数据结构中，
+		之前用于元素~A 的 \co{->next} 指针的内存
+		现在被一个浮点数占用。
+	\item	CPU~0 获取之前是元素~A 的 \co{->next} 指针的内容，
+		得到随机位，因此遇到段错误。
 	\end{enumerate}
 
-	One way to protect against this sort of problem requires use
-	of ``type-safe memory'', which will be discussed in
-	\cref{sec:defer:Type-Safe Memory}.
-	Roughly similar solutions are possible using the hazard pointers
-	discussed in
-	\cref{sec:defer:Hazard Pointers}.
-	But in either case, you would be using some other synchronization
-	mechanism in addition to sequence locks!
+	防止这类问题的一种方法需要使用``type-safe memory''，
+	这将在\cref{sec:defer:Type-Safe Memory}中讨论。
+	使用\cref{sec:defer:Hazard Pointers}中讨论的
+	hazard pointers 也可以实现大致类似的解决方案。
+	但无论哪种情况，你都将在 sequence locks 之外使用
+	其他同步机制！
 }\QuickQuizEnd
 
-As hinted on
-\cpageref{sec:defer:Mysteries sequence locking},
-both the read-side and write-side critical sections of a sequence lock
-can be thought of as transactions, and sequence locking therefore can
-be thought of as a limited form of transactional memory, which will be
-discussed in \cref{sec:future:Transactional Memory}.
-The limitations of sequence locking are:
+如\cpageref{sec:defer:Mysteries sequence locking}所暗示的，
+sequence lock 的读侧和写侧临界区都可以被视为事务，
+因此 sequence locking 可以被视为事务内存的一种受限形式，
+这将在\cref{sec:future:Transactional Memory}中讨论。
+Sequence locking 的局限性是：
 \begin{enumerate*}[(1)]
-\item Sequence locking restricts updates and
-\item Sequence locking does not permit traversal of pointers
-to objects that might be freed by updaters.
+\item Sequence locking 限制更新，
+\item Sequence locking 不允许遍历可能被更新者释放的对象的指针。
 \end{enumerate*}
-These limitations are of course overcome by transactional memory, but
-can also be overcome by combining other synchronization primitives
-with sequence locking.
+这些局限性当然可以被事务内存克服，
+但也可以通过将其他同步原语与 sequence locking 结合来克服。
 
-Sequence locks allow writers to defer readers, but not vice versa.
-This can result in \IX{unfairness} and even \IX{starvation}
-in writer-heavy workloads.\footnote{
-	Dmitry Vyukov describes one way to reduce (but, sadly, not eliminate)
-	reader starvation:
-	\url{http://www.1024cores.net/home/lock-free-algorithms/reader-writer-problem/improved-lock-free-seqlock}.}
-On the other hand, in the absence of writers, sequence-lock readers are
-reasonably fast and scale linearly.
-It is only human to want the best of both worlds:
-Fast readers without the possibility of read-side failure,
-let alone starvation.
-In addition, it would also be nice to overcome sequence locking's limitations
-with pointers.
-The following section presents a synchronization mechanism with exactly
-these properties.
+Sequence locks 允许写者延迟读者，但反之则不然。
+这可能导致\IX{unfairness}甚至在写密集型工作负载中的\IX{starvation}。\footnote{
+	Dmitry Vyukov 描述了一种减少（但遗憾的是不能消除）
+	读者饥饿的方法：
+	\url{http://www.1024cores.net/home/lock-free-algorithms/reader-writer-problem/improved-lock-free-seqlock}。}
+另一方面，在没有写者的情况下，sequence-lock 读者相当快且线性可扩展。
+人们自然想要两全其美：
+快速的读者且没有读侧失败的可能性，更不用说饥饿了。
+此外，克服 sequence locking 在指针方面的局限性也会很好。
+下一节将介绍一种恰好具有这些属性的同步机制。

@@ -2,207 +2,187 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{sec:advsync:Advanced Synchronization}{Advanced Synchronization}{qqzadvsync}
+\QuickQuizChapter{sec:advsync:Advanced Synchronization}{高级同步}{qqzadvsync}
 %
-\Epigraph{If a little knowledge is a dangerous thing, just think what
-	  you could do with a lot of knowledge!}{Unknown}
+\Epigraph{如果一知半解是件危险的事，想想拥有丰富的知识能做出什么！}{佚名}
 
-This chapter covers synchronization techniques used for lockless
-algorithms and parallel real-time systems.
+本章涵盖了用于无锁算法和并行real-time系统的同步技术。
 
-Although lockless algorithms can be quite helpful when faced with
-extreme requirements, they are no panacea.
-For example, as noted at the end of \cref{chp:Counting},
-you should thoroughly apply partitioning, batching, and
-well-tested packaged weak APIs
-(see \cref{chp:Data Ownership,chp:Deferred Processing})
-before even thinking about lockless algorithms.
+虽然无锁算法在面临极端需求时可以提供很大帮助，但它们绝不是万能的。
+例如，正如\cref{chp:Counting}末尾所指出的，
+你应该在考虑无锁算法之前，
+充分运用分区、批处理和经过充分测试的打包弱API
+（参见\cref{chp:Data Ownership,chp:Deferred Processing}）。
 
-But after doing all that, you still might find yourself needing the
-advanced techniques described in this chapter.
-To that end,
+但在完成所有这些工作之后，你可能仍然需要本章所描述的高级技术。
+为此，
 \cref{sec:advsync:Avoiding Locks}
-summarizes techniques used thus far for avoiding locks and
+总结了迄今为止用于避免锁的技术，
 \cref{sec:advsync:Non-Blocking Synchronization}
-gives a brief overview of non-blocking synchronization.
-Memory ordering is also quite important, but it warrants its own
-\lcnamecref{chp:Advanced Synchronization: Memory Ordering}, namely
-\cref{chp:Advanced Synchronization: Memory Ordering}.
+给出了non-blocking synchronization的简要概述。
+内存排序也非常重要，但它值得拥有自己的
+\lcnamecref{chp:Advanced Synchronization: Memory Ordering}，即
+\cref{chp:Advanced Synchronization: Memory Ordering}。
 
-The second form of advanced synchronization provides the stronger
-forward-progress guarantees needed for parallel real-time computing,
-which is the topic of
-\cref{sec:advsync:Parallel Real-Time Computing}.
+高级同步的第二种形式提供了并行real-time计算所需的更强的
+前进保证，这是
+\cref{sec:advsync:Parallel Real-Time Computing}的主题。
 
-\section{Avoiding Locks}
+\section{避免锁}
 \label{sec:advsync:Avoiding Locks}
 %
-\epigraph{We are confronted with insurmountable opportunities.}
+\epigraph{我们面临着不可逾越的机遇。}
 	 {Walt Kelly}
 
-Although locking is the workhorse of parallelism in production, in
-many situations performance, scalability, and real-time response can
-all be greatly improved through use of lockless techniques.
-A particularly impressive example of such a lockless technique is
-the statistical counters described in
-\cref{sec:count:Statistical Counters},
-which avoids not only locks, but also read-modify-write atomic operations,
-memory barriers, and even cache misses for counter increments.
-Other examples we have covered include:
+虽然锁是生产环境中并行性的主力，但在许多情况下，
+通过使用无锁技术可以大大改善性能、可扩展性和real-time响应。
+这种无锁技术的一个特别令人印象深刻的例子是
+\cref{sec:count:Statistical Counters}中描述的统计计数器，
+它不仅避免了锁，还避免了读-修改-写原子操作、
+内存屏障，甚至避免了计数器递增时的缓存未命中。
+我们已经涵盖的其他例子包括：
 
 \begin{enumerate}
-\item	The fastpaths through a number of other counting algorithms
-	in \cref{chp:Counting}.
-\item	The fastpath through resource allocator caches in
-	\cref{sec:SMPdesign:Resource Allocator Caches}.
-\item	The maze solver in \cref{sec:SMPdesign:Beyond Partitioning}.
-\item	The data-ownership techniques in \cref{chp:Data Ownership}.
-\item	The reference-counting, hazard-pointer, and RCU techniques
-	in \cref{chp:Deferred Processing}.
-\item	The lookup code paths in \cref{chp:Data Structures}.
-\item	Many of the techniques in \cref{chp:Putting It All Together}.
+\item	\cref{chp:Counting}中若干其他计数算法的快速路径。
+\item	\cref{sec:SMPdesign:Resource Allocator Caches}中
+	资源分配器缓存的快速路径。
+\item	\cref{sec:SMPdesign:Beyond Partitioning}中的迷宫求解器。
+\item	\cref{chp:Data Ownership}中的数据所有权技术。
+\item	\cref{chp:Deferred Processing}中的引用计数、hazard pointer和RCU技术。
+\item	\cref{chp:Data Structures}中的查找代码路径。
+\item	\cref{chp:Putting It All Together}中的许多技术。
 \end{enumerate}
 
-In short, lockless techniques are quite useful and are heavily used.
-However, it is best if lockless techniques are hidden behind a
-well-defined API, such as the \co{inc_count()}, \co{memblock_alloc()},
-\co{rcu_read_lock()}, and so on.
-The reason for this is that undisciplined use of lockless techniques
-is a good way to create difficult bugs.
-If you believe that finding and fixing such bugs is easier than avoiding
-them, please re-read
-\cref{chp:Validation,chp:Formal Verification}.
+简而言之，无锁技术非常有用且被大量使用。
+然而，最好是将无锁技术隐藏在定义良好的API之后，
+例如\co{inc_count()}、\co{memblock_alloc()}、
+\co{rcu_read_lock()}等。
+这样做的原因是，无纪律地使用无锁技术是制造
+难以发现的bug的好方法。
+如果你相信发现和修复这类bug比避免它们更容易，
+请重新阅读
+\cref{chp:Validation,chp:Formal Verification}。
 
-\section{Non-Blocking Synchronization}
+\section{非阻塞同步}
 \label{sec:advsync:Non-Blocking Synchronization}
 %
-\epigraph{Never worry about theory as long as the machinery does what
-	  it's supposed to do.}
+\epigraph{只要机器按预期工作，就永远不用担心理论。}
 	 {Robert A. Heinlein}
 
-The term \IXBacrfst{nbs}~\cite{MauriceHerlihy90a}
-describes eight classes of \IX{linearizable} algorithms with differing
-\emph{\IXBpl{forward-progress guarantee}}~\cite{DanAlitarh2013PracticalProgress},
-which are as follows:
+术语\IXBacrfst{nbs}~\cite{MauriceHerlihy90a}
+描述了具有不同\emph{\IXBpl{forward-progress guarantee}}的
+八类\IX{linearizable}算法~\cite{DanAlitarh2013PracticalProgress}，
+具体如下：
 
 \begin{enumerate}
-\item	\emph{\IXalth{Bounded population-oblivious wait-free}{bounded population-oblivious}{wait free} synchronization}:
-	Every thread will make progress within a specific finite period
-	of time, where this period of time is independent of the number
-	of threads~\cite{HerlihyShavit2008Textbook}.
-	This level is widely considered to be even less achievable than
-	bounded wait-free synchronization.
-\item	\emph{\IXalth{Bounded wait-free}{bounded}{wait free} synchronization}:
-	Every thread will make progress within
-	a specific finite period of time~\cite{Herlihy91}.
-	This level is widely considered to be unachievable, which might be why
-	Alitarh et al.\ omitted it~\cite{DanAlitarh2013PracticalProgress}.
-\item	\emph{\IXalt{Wait-free}{wait free} synchronization}:
-	Every thread will make progress
-	in finite time~\cite{Herlihy93}.
-\item	\emph{\IXalt{Lock-free}{lock free} synchronization}:
-	At least one thread will
-	make progress in finite time~\cite{Herlihy93}.
-\item	\emph{\IXalt{Obstruction-free}{obstruction free} synchronization}:
-	Every thread will make progress in finite time in the absence of
-	contention~\cite{HerlihyLM03}.
-\item	\emph{\IXalt{Clash-free}{clash free} synchronization}:
-	At least one thread will make progress in finite time in the absence of
-	contention~\cite{DanAlitarh2013PracticalProgress}.
-\item	\emph{\IXalt{Starvation-free}{starvation free} synchronization}:
-	Every thread will make progress in finite time in the absence of
-	failures~\cite{DanAlitarh2013PracticalProgress}.
-\item	\emph{\IXalt{Deadlock-free}{deadlock free} synchronization}:
-	At least one thread will make progress in finite time in the absence of
-	failures~\cite{DanAlitarh2013PracticalProgress}.
+\item	\emph{\IXalth{Bounded population-oblivious wait-free}{bounded population-oblivious}{wait free}同步}：
+	每个线程都将在特定的有限时间内取得进展，
+	且该时间段与线程数量无关~\cite{HerlihyShavit2008Textbook}。
+	人们普遍认为这个层次甚至比bounded wait-free同步更难实现。
+\item	\emph{\IXalth{Bounded wait-free}{bounded}{wait free}同步}：
+	每个线程都将在
+	特定的有限时间内取得进展~\cite{Herlihy91}。
+	人们普遍认为这个层次是不可实现的，这也许是
+	Alitarh等人将其省略的原因~\cite{DanAlitarh2013PracticalProgress}。
+\item	\emph{\IXalt{Wait-free}{wait free}同步}：
+	每个线程都将在
+	有限时间内取得进展~\cite{Herlihy93}。
+\item	\emph{\IXalt{Lock-free}{lock free}同步}：
+	至少有一个线程将在
+	有限时间内取得进展~\cite{Herlihy93}。
+\item	\emph{\IXalt{Obstruction-free}{obstruction free}同步}：
+	在没有竞争的情况下，每个线程都将在有限时间内
+	取得进展~\cite{HerlihyLM03}。
+\item	\emph{\IXalt{Clash-free}{clash free}同步}：
+	在没有竞争的情况下，至少有一个线程将在有限时间内
+	取得进展~\cite{DanAlitarh2013PracticalProgress}。
+\item	\emph{\IXalt{Starvation-free}{starvation free}同步}：
+	在没有故障的情况下，每个线程都将在有限时间内
+	取得进展~\cite{DanAlitarh2013PracticalProgress}。
+\item	\emph{\IXalt{Deadlock-free}{deadlock free}同步}：
+	在没有故障的情况下，至少有一个线程将在有限时间内
+	取得进展~\cite{DanAlitarh2013PracticalProgress}。
 \end{enumerate}
 
-NBS class~1 was formulated some time before 2015,
-classes~2, 3, and~4 were first formulated in the early 1990s,
-class~5 was first formulated in the early 2000s,
-and class~6 was first formulated in 2013.
-The final two classes have seen informal use for a great many decades,
-but were reformulated in 2013.
+NBS第1类是在2015年之前的某个时期提出的，
+第2、3、4类最初是在1990年代初期提出的，
+第5类最初是在2000年代初期提出的，
+第6类最初是在2013年提出的。
+最后两类已被非正式使用了很多年，
+但在2013年被重新表述。
 
 \QuickQuiz{
-	Given that there will always be a sharply limited number of
-	CPUs available, is population obliviousness really useful?
+	考虑到可用的CPU数量总是有严格限制的，
+	population obliviousness真的有用吗？
 }\QuickQuizAnswer{
-	Given the surprisingly limited scalability of any number of
-	NBS algorithms, population obliviousness can be surprisingly
-	useful.
-	Nevertheless, the overall point of the question is valid.
-	It is not normally helpful for an algorithm to scale beyond the
-	size of the largest system it is ever going to run on.
+	考虑到许多NBS算法令人惊讶的有限可扩展性，
+	population obliviousness可以出乎意料地有用。
+	尽管如此，这个问题的总体观点是正确的。
+	一个算法的扩展能力超过它将要运行的最大系统的规模，
+	通常是没有帮助的。
 }\QuickQuizEnd
 
-In theory, any parallel algorithm can be cast into wait-free form,
-but there are a relatively small subset of NBS algorithms that are
-in common use.
-A few of these are listed in the following section.
+理论上，任何并行算法都可以转换为wait-free形式，
+但在实际中常用的NBS算法只是相对较小的一个子集。
+下一节列出了其中的一些。
 
-\subsection{Simple NBS}
+\subsection{简单NBS}
 \label{sec:advsync:Simple NBS}
 
-Perhaps the simplest NBS algorithm is atomic update of an integer
-counter using fetch-and-add (\co{atomic_add_return()}) primitives.
-This section lists a few additional commonly used NBS algorithms in
-roughly increasing order of complexity.
+也许最简单的NBS算法是使用fetch-and-add
+（\co{atomic_add_return()}）原语对整数计数器进行原子更新。
+本节按大致递增的复杂度列出了一些其他常用的NBS算法。
 
-\subsubsection{NBS Sets}
+\subsubsection{NBS集合}
 \label{sec:advsync:NBS Sets}
 
-One simple NBS algorithm implements a set of integers in an array.
-Here the array index indicates a value that might be a member of the set
-and the array element indicates whether or not that value actually is
-a set member.
-The linearizability criterion for NBS algorithms requires that reads from
-and updates to the array either use atomic instructions or be accompanied
-by memory barriers, but in the not-uncommon case where linearizability
-is not important, simple volatile loads and stores suffice, for example,
-using \co{READ_ONCE()} and \co{WRITE_ONCE()}.
+一种简单的NBS算法使用数组实现整数集合。
+这里数组索引表示可能属于集合成员的值，
+数组元素表示该值是否确实是集合成员。
+NBS算法的linearizability准则要求对数组的读取和更新
+要么使用原子指令，要么配合内存屏障，
+但在linearizability不重要的常见情况下，
+简单的volatile加载和存储就足够了，
+例如使用\co{READ_ONCE()}和\co{WRITE_ONCE()}。
 
-An NBS set may also be implemented using a bitmap, where each value that
-might be a member of the set corresponds to one bit.
-Reads and updates must normally be carried out via atomic bit-manipulation
-instructions, although compare-and-swap (\co{cmpxchg()} or CAS)
-instructions can also be used.
+NBS集合也可以使用位图来实现，其中每个可能属于集合成员的值
+对应一个位。
+读取和更新通常必须通过原子位操作指令来进行，
+尽管compare-and-swap（\co{cmpxchg()}或CAS）
+指令也可以使用。
 
-\subsubsection{NBS Counters}
+\subsubsection{NBS计数器}
 \label{sec:advsync:NBS Counters}
 
-The statistical counters algorithm discussed in
-\cref{sec:count:Statistical Counters}
-can be considered to be bounded-wait-free, but only by using a cute
-definitional trick in which the sum is considered to be approximate
-rather than exact.\footnote{
-	Citation needed.
-	I heard of this trick verbally from Mark Moir.}
-Given sufficiently wide error bounds that are a function of the length
-of time that the \co{read_count()} function takes to sum the counters,
-it is not possible to prove that any non-linearizable behavior occurred.
-This definitely (if a bit artificially) classifies the statistical-counters
-algorithm as bounded wait-free.
-This algorithm is probably the most heavily used NBS algorithm in the
-Linux kernel.
+\cref{sec:count:Statistical Counters}中讨论的统计计数器算法
+可以被认为是bounded-wait-free的，但这只是通过一个巧妙的
+定义技巧实现的，即将求和视为近似值
+而非精确值。\footnote{
+	需要引用来源。
+	我从Mark Moir口中听到了这个技巧。}
+给定足够宽的误差范围（该范围是\co{read_count()}函数
+对计数器求和所需时间的函数），
+就不可能证明任何非linearizable行为发生了。
+这确实（虽然有些人为地）将统计计数器算法
+归类为bounded wait-free。
+这个算法可能是Linux内核中使用最广泛的NBS算法。
 
-\subsubsection{Half-NBS Queue}
+\subsubsection{半NBS队列}
 \label{sec:advsync:Half-NBS Queue}
 
 \begin{fcvref}[ln:advsync:NBS Enqueue Algorithm]
-Another common NBS algorithm is the atomic queue where elements are
-enqueued using an atomic exchange instruction~\cite{MagedMichael1993JPDC},
-followed by a store into the \co{->next} pointer of the new element's
-predecessor, as shown in \cref{lst:advsync:NBS Enqueue Algorithm},
-which shows the userspace-RCU library
-implementation~\cite{MathieuDesnoyers2009URCU}.
-\Clnref{tail} updates the tail pointer to reference the new element while
-returning a reference to its predecessor, which is stored in
-local variable \co{old_tail}.
-\Clnref{pred} then updates the predecessor's \co{->next} pointer to
-reference the newly added element, and finally \clnref{ret}
-returns an indication as to whether or not the queue was initially
-empty.
+另一种常见的NBS算法是原子队列，其中元素使用原子交换指令
+入队~\cite{MagedMichael1993JPDC}，
+然后存储到新元素的前驱节点的\co{->next}指针中，
+如\cref{lst:advsync:NBS Enqueue Algorithm}所示，
+该图展示了用户空间RCU库的
+实现~\cite{MathieuDesnoyers2009URCU}。
+\Clnref{tail}更新尾指针以引用新元素，同时返回
+对其前驱节点的引用，该引用存储在
+局部变量\co{old_tail}中。
+\Clnref{pred}然后更新前驱节点的\co{->next}指针以
+引用新添加的元素，最后\clnref{ret}
+返回队列最初是否为空的指示。
 
 \begin{listing}
 \begin{fcvlabel}[ln:advsync:NBS Enqueue Algorithm]
@@ -230,639 +210,593 @@ _cds_wfcq_enqueue(struct cds_wfcq_head *head,
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{NBS Enqueue Algorithm}
+\caption{NBS入队算法}
 \label{lst:advsync:NBS Enqueue Algorithm}
 \end{listing}
 
-Although mutual exclusion is required to dequeue a single element
-(so that dequeue is blocking), it is possible to carry out a non-blocking
-removal of the entire contents of the queue.
-What is not possible is to dequeue any given element in a non-blocking
-manner:
-The enqueuer might have failed between \clnref{tail,pred} of the
-listing, so that the element in question is only partially enqueued.
-This results in a half-NBS algorithm where enqueues are NBS but
-dequeues are blocking.
-This algorithm is nevertheless heavily used in practice, in part because
-most production software is not required to tolerate arbitrary fail-stop
-errors.
+虽然出队单个元素需要互斥（因此出队是阻塞的），
+但可以对队列的全部内容执行非阻塞移除。
+不可能做到的是以非阻塞方式出队任何给定元素：
+入队者可能在该清单的\clnref{tail,pred}之间失败，
+因此相关元素只是部分入队。
+这导致了一种半NBS算法，其中入队是NBS的，
+但出队是阻塞的。
+尽管如此，这个算法在实践中被大量使用，部分原因是
+大多数生产软件不需要容忍任意的fail-stop错误。
 \end{fcvref}
 
 \QuickQuiz{
-	Wait!
-	In order to dequeue all elements, both the \co{->head} and
-	\co{->tail} pointers must be changed, which cannot be done
-	atomically on typical computer systems.
-	So how is this supposed to work???
+	等一下！
+	为了出队所有元素，必须同时更改\co{->head}和
+	\co{->tail}指针，而这在典型的计算机系统上
+	无法原子地完成。
+	那么这应该怎么工作呢？？？
 }\QuickQuizAnswer{
-	One pointer at a time!
+	一次一个指针！
 
-	First, atomically exchange the \co{->head} pointer with \co{NULL}.
-	If the return value from the atomic exchange operation is \co{NULL},
-	the queue was empty and you are done.
-	And if someone else attempts a dequeue-all at this point,
-	they will get back a \co{NULL} pointer.
+	首先，原子地将\co{->head}指针与\co{NULL}交换。
+	如果原子交换操作的返回值是\co{NULL}，
+	则队列为空，操作完成。
+	如果此时其他人尝试出队全部，
+	他们将得到一个\co{NULL}指针。
 
-	Otherwise, atomically exchange the \co{->tail} pointer with a
-	pointer to the now-\co{NULL} \co{->head} pointer.
-	The return value from the atomic exchange operation is a pointer
-	to the \co{->next} field of the eventual last element on the list.
+	否则，原子地将\co{->tail}指针与指向
+	现在为\co{NULL}的\co{->head}指针的指针交换。
+	原子交换操作的返回值是指向列表最终最后一个
+	元素的\co{->next}字段的指针。
 
-	Producing and testing actual code is left as an exercise for the
-	interested and enthusiastic reader, as are strategies for handling
-	half-enqueued elements.
+	编写和测试实际代码留给感兴趣且有热情的读者作为练习，
+	处理半入队元素的策略也是如此。
 }\QuickQuizEnd
 
-\subsubsection{NBS Stack}
+\subsubsection{NBS栈}
 \label{sec:advsync:NBS Stack}
 
 \begin{fcvref}[ln:advsync:lifo_push:whole]
 \Cref{lst:advsync:NBS Stack Algorithm}
-shows the LIFO push algorithm, which boasts lock-free push and
-bounded wait-free pop (\path{lifo-push.c}), forming an NBS stack.
-The origins of this algorithm are unknown, but it was referred to in
-a patent granted in 1975~\cite{PaulJBrown1975LIFOpush}.
-This patent was filed in 1973, a few months before your editor
-saw his first computer, which had but one CPU\@.
+展示了LIFO push算法，该算法具有lock-free的push和
+bounded wait-free的pop（\path{lifo-push.c}），形成了一个NBS栈。
+这个算法的起源未知，但在1975年授予的一项专利中
+被引用过~\cite{PaulJBrown1975LIFOpush}。
+该专利于1973年提交，比本书编辑第一次见到计算机
+早几个月，而那台计算机只有一个CPU\@。
 
 \begin{listing}
 \input{CodeSamples/advsync/lifo_push@whole.fcv}
-\caption{NBS Stack Algorithm}
+\caption{NBS栈算法}
 \label{lst:advsync:NBS Stack Algorithm}
 \end{listing}
 
-\Clnrefrange{struct:b}{struct:e} show the \co{node_t} structure,
-which contains an arbitrary value and a pointer to the next structure
-on the stack and
-\clnref{top} shows the top-of-stack pointer.
+\Clnrefrange{struct:b}{struct:e}展示了\co{node_t}结构，
+其中包含一个任意值和一个指向栈中下一个结构的指针，
+\clnref{top}展示了栈顶指针。
 
-The \co{list_push()} function spans \clnrefrange{push:b}{push:e}.
-\Clnref{push:alloc} allocates a new node and
-\clnref{push:initialize} initializes it.
-\Clnref{push:next} initializes the newly allocated node's \co{->next}
-pointer, and \clnref{push:cmpxchg} attempts to push it on the stack.
-If \clnref{push:check} detects \co{cmpxchg()} failure, another pass
-through the loop retries.
-Otherwise, the new node has been successfully pushed, and this function
-returns to its caller.
-Note that \clnref{push:check} resolves races in which two concurrent
-instances of \co{list_push()} attempt to push onto the stack.
-The \co{cmpxchg()} will succeed for one and fail for the other,
-causing the other to retry, thereby selecting an arbitrary order for
-the two node on the stack.
+\co{list_push()}函数跨越\clnrefrange{push:b}{push:e}。
+\Clnref{push:alloc}分配一个新节点，
+\clnref{push:initialize}对其进行初始化。
+\Clnref{push:next}初始化新分配节点的\co{->next}
+指针，\clnref{push:cmpxchg}尝试将其压入栈中。
+如果\clnref{push:check}检测到\co{cmpxchg()}失败，
+则循环的另一次遍历重试。
+否则，新节点已成功压入，函数返回给调用者。
+注意\clnref{push:check}解决了两个并发
+\co{list_push()}实例试图压入栈时的竞争。
+\co{cmpxchg()}对其中一个成功，对另一个失败，
+导致另一个重试，从而为栈上的两个节点选择任意顺序。
 
-The \co{list_pop_all()} function spans \clnrefrange{popall:b}{popall:e}.
-The \co{xchg()} statement on \clnref{popall:xchg} atomically removes
-all nodes on the stack, placing the head of the resulting list in local
-variable \co{p} and setting \co{top} to \co{NULL}.
-This atomic operation serializes concurrent calls to \co{list_pop_all()}:
-One of them will get the list, and the other a \co{NULL} pointer, at
-least assuming that there were no concurrent calls to \co{list_push()}.
+\co{list_pop_all()}函数跨越\clnrefrange{popall:b}{popall:e}。
+\clnref{popall:xchg}上的\co{xchg()}语句原子地移除
+栈上的所有节点，将结果列表的头部放入局部
+变量\co{p}中，并将\co{top}设置为\co{NULL}。
+这个原子操作序列化了对\co{list_pop_all()}的并发调用：
+其中一个将获得列表，另一个获得\co{NULL}指针，
+至少假设没有对\co{list_push()}的并发调用。
 
-An instance of \co{list_pop_all()} that obtains a non-empty list in
-\co{p} processes this list in the loop spanning
-\clnrefrange{popall:loop:b}{popall:loop:e}.
-\Clnref{popall:next} prefetches the \co{->next} pointer,
-\clnref{popall:foo} invokes the function referenced by \co{foo()} on the
-current node,
-\clnref{popall:free} frees the current node, and
-\clnref{popall:pnext} sets up \co{p} for the next pass through the loop.
+获得非空列表的\co{list_pop_all()}实例
+在跨越\clnrefrange{popall:loop:b}{popall:loop:e}的循环中
+处理此列表。
+\Clnref{popall:next}预取\co{->next}指针，
+\clnref{popall:foo}对当前节点调用\co{foo()}引用的函数，
+\clnref{popall:free}释放当前节点，
+\clnref{popall:pnext}为循环的下一次遍历设置\co{p}。
 
-But suppose that a pair of \co{list_push()} instances run concurrently
-with a \co{list_pop_all()} with a list initially containing a single
-\Node{A}.
-Here is one way that this scenario might play out:
+但假设一对\co{list_push()}实例与一个\co{list_pop_all()}
+并发运行，且列表最初包含一个单独的\Node{A}。
+以下是这种场景可能发生的一种方式：
 
 \begin{enumerate}
-\item	The first \co{list_push()} instance pushes a new \Node{B},
-	executing through \clnref{push:next}, having just stored
-	a pointer to \Node{A} into \Node{B}'s \co{->next} pointer.
-\item	The \co{list_pop_all()} instance runs to completion,
-	setting \co{top} to \co{NULL} and freeing \Node{A}.
-\item	The second \co{list_push()} instance runs to completion,
-	pushing a new \Node{C}, but happens to allocate the memory
-	that used to belong to \Node{A}.
-\item	The first \co{list_push()} instance executes the \co{cmpxchg()}
-	on \clnref{push:cmpxchg}.
-	Because new \Node{C} has the same address as the newly freed \Node{A},
-	this \co{cmpxchg()} succeeds and this \co{list_push()} instance
-	runs to completion.
+\item	第一个\co{list_push()}实例压入一个新的\Node{B}，
+	执行到\clnref{push:next}，刚刚将
+	指向\Node{A}的指针存储到\Node{B}的\co{->next}指针中。
+\item	\co{list_pop_all()}实例运行完成，
+	将\co{top}设置为\co{NULL}并释放\Node{A}。
+\item	第二个\co{list_push()}实例运行完成，
+	压入一个新的\Node{C}，但恰好分配了
+	原来属于\Node{A}的内存。
+\item	第一个\co{list_push()}实例执行
+	\clnref{push:cmpxchg}上的\co{cmpxchg()}。
+	因为新\Node{C}与新释放的\Node{A}具有相同的地址，
+	此\co{cmpxchg()}成功，且此\co{list_push()}实例
+	运行完成。
 \end{enumerate}
 
-Note that both pushes and the popall all ran successfully despite the
-reuse of \Node{A}'s memory.
-This is an unusual property:
-Most data structures require protection against what is often called
-the ABA problem.
+注意，尽管\Node{A}的内存被重新使用，
+两次push和一次popall都成功运行了。
+这是一个不寻常的属性：
+大多数数据结构需要对通常称为ABA问题的情况进行保护。
 
-But this property holds only for algorithm written in assembly
-language.
-The sad fact is that most languages (including C and C++) do not support
-pointers to lifetime-ended objects, such as the pointer to the old \Node{A}
-contained in \Node{B}'s \co{->next} pointer.
-In fact, compilers are within their rights to assume that if two pointers
-(call them \co{p} and \co{q}) were returned from two different calls to
-\co{malloc()}, then those pointers must not be equal.
-Real compilers really will generate the constant \co{false} in
-response to a \co{p==q} comparison.
-A pointer to an object that has been freed, but whose memory has been
-reallocated for a compatibly typed object is termed a \emph{zombie pointer}.
+但这个属性仅适用于用汇编语言编写的算法。
+令人遗憾的事实是，大多数语言（包括C和C++）不支持
+指向生存期已结束对象的指针，例如\Node{B}的
+\co{->next}指针中包含的指向旧\Node{A}的指针。
+事实上，编译器有权假设如果两个指针（称之为\co{p}和\co{q}）
+是从两次不同的\co{malloc()}调用返回的，
+那么这些指针必定不相等。
+真正的编译器确实会在响应\co{p==q}比较时
+生成常量\co{false}。
+指向已释放但其内存已被重新分配给兼容类型对象的指针
+被称为\emph{僵尸指针}。
 
-Many concurrent applications avoid this problem by carefully hiding the
-memory allocator from the compiler, thus preventing the compiler from
-making inappropriate assumptions.
-This obfuscatory approach currently works in practice, but might well
-one day fall victim to increasingly aggressive optimizers.
-There is work underway in both the C and C++ standards committees
-to address this
-problem~\cite{PaulEMcKenney2019PointerLifetimeEndZap,PaulEMcKenney2020PointerLifetimeEndZapCpp}.
-In the meantime, please exercise great care when coding ABA-tolerant
-algorithms.
+许多并发应用程序通过精心对编译器隐藏内存分配器
+来避免这个问题，从而防止编译器做出不恰当的假设。
+这种混淆方法目前在实践中有效，但很可能有一天
+会成为日益激进的优化器的牺牲品。
+C和C++标准委员会中都有正在进行的工作来解决这个
+问题~\cite{PaulEMcKenney2019PointerLifetimeEndZap,PaulEMcKenney2020PointerLifetimeEndZapCpp}。
+在此期间，请在编写ABA容忍算法时格外小心。
 \end{fcvref}
 
 \QuickQuiz{
-	So why not ditch antique languages like C and C++ for something
-	more modern?
+	那为什么不抛弃像C和C++这样的古老语言，
+	转而使用更现代的东西呢？
 }\QuickQuizAnswer{
-	That won't help unless the more-modern languages proponents
-	are energetic enough to write their own compiler backends.
-	The usual practice of re-using existing backends also reuses
-	charming properties such as refusal to support pointers to
-	lifetime-ended objects.
+	这没有帮助，除非更现代语言的支持者
+	有足够的精力编写自己的编译器后端。
+	重用现有后端的常见做法也会重用
+	诸如拒绝支持指向生存期已结束对象的指针
+	等迷人属性。
 }\QuickQuizEnd
 
-\subsection{Applicability of NBS Benefits}
+\subsection{NBS优势的适用性}
 \label{sec:advsync:Applicability of NBS Benefits}
 
-The most heavily cited NBS benefits stem from its forward-progress
-guarantees, its tolerance of fail-stop bugs, and from its linearizability.
-Each of these is discussed in one of the following sections.
+NBS最被广泛引用的优势来源于其前进保证、
+对fail-stop错误的容忍以及其linearizability。
+以下各节分别讨论其中每一项。
 
-\subsubsection{NBS Forward Progress Guarantees}
+\subsubsection{NBS前进保证}
 \label{sec:advsync:NBS Forward Progress Guarantees}
 
-NBS's forward-progress guarantees have caused many to suggest its use in
-real-time systems, and NBS algorithms are in fact used in a great many
-such systems.
-However, it is important to note that forward-progress guarantees are
-largely orthogonal to those that form the basis of real-time programming:
+NBS的前进保证使许多人建议将其用于real-time系统，
+NBS算法事实上也在大量此类系统中使用。
+然而，重要的是要注意，前进保证与构成real-time编程基础的
+保证在很大程度上是正交的：
 
 \begin{enumerate}
-\item	Real-time forward-progress guarantees usually have some
-	definite time associated with them, for example,
-	``\IXh{scheduling}{latency} must be less than 100 microseconds.''
-	In contrast, the most popular forms of NBS only guarantees
-	that progress will be made in finite time, with no definite
-	bound.
-\item	Real-time forward-progress guarantees are often
-	probabilistic, as in the soft-real-time guarantee that
-	``at least 99.9\pct\ of the time, scheduling latency must
-	be less than 100 microseconds.''
-	In contrast, many of NBS's forward-progress guarantees are
-	unconditional, which can impose additional unnecessary complexity
-	and performance degradation.
-\item	Real-time forward-progress guarantees are often conditioned on
-	environmental constraints, for example, only being honored:
+\item	Real-time前进保证通常有某个确定的时间与之关联，
+	例如，``\IXh{scheduling}{latency}必须小于100微秒。''
+	相比之下，最流行的NBS形式只保证
+	将在有限时间内取得进展，没有确定的界限。
+\item	Real-time前进保证通常是概率性的，
+	如soft-real-time保证
+	``至少99.9\pct{}的时间，调度延迟必须
+	小于100微秒。''
+	相比之下，许多NBS的前进保证是
+	无条件的，这可能带来额外的不必要复杂性
+	和性能下降。
+\item	Real-time前进保证通常以环境约束为条件，
+	例如，仅在以下情况下才被尊重：
 	\begin{enumerate*}[(1)]
-	\item For the highest-priority tasks,
-	\item When each CPU spends at least a certain fraction of its time idle,
-	and
-	\item When I/O rates are below some specified maximum.
+	\item 对于最高优先级的任务，
+	\item 当每个CPU至少将一定比例的时间花在空闲上，
+	以及
+	\item 当I/O速率低于某个指定的最大值时。
 	\end{enumerate*}
-	In contrast, NBS's forward-progress guarantees are often
-	unconditional, again incurring unnecessary complexity and
-	performance degradation.
-	On the other hand, some recent NBS work accommodates some
-	conditional
-	guarantees~\cite{DanAlitarh2013PracticalProgress}.
-\item	An important component of a real-time program's environment
-	is the scheduler.
-	NBS algorithms assume a worst-case \emph{demonic scheduler},
-	though for whatever reason, not a scheduler so demonic that
-	it simply refuses to ever run the application housing the NBS
-	algorithm.
-	In contrast, real-time systems assume that the scheduler is
-	doing its level best to satisfy any scheduling constraints
-	it knows about, and, in the absence of such constraints,
-	its level best to honor process priorities and to provide
-	fair scheduling to processes of the same priority.
-	Non-demonic schedulers allow real-time programs to use simpler
-	algorithms than those required for
-	NBS~\cite{DanAlitarh2013PracticalProgress,BjoernBrandenburgPhD}.
-\item	The progress guarantees provided by non-blocking synchronization
-	are most useful in overload conditions.
-	However, overload conditions are most likely to cause queueing
-	delays that, in many real-world systems, will cause the program
-	(or even the system running that program) to be terminated
-	with prejudice.
-	As a rough rule of thumb, latency increases as the reciprocal
-	of the idle time.
-	In other words, if a nearly idle system has
-	latency $T$, then a 50\pct\ idle system will have latency $2 T$, a
-	10\pct\ idle (90\pct\ utilized) system will have latency $10 T$, a 1\pct\
-	idle system (99\pct\ utilized) will have latency $100 T$, and so on.
-	This situation means that many latency-sensitive systems will
-	actively limit load, for example, to 50\pct.
-\item	In the not-uncommon case where a given computed result is nice
-	to have rather than critically important, use of timeouts can
-	cause a blocking operation to have non-blocking properties that
-	are often sufficient in practice.
-\item	NBS forward-progress guarantee classes assume that a number of
-	underlying operations (such as system calls) are lock-free or
-	even wait-free, when in fact these operations are blocking on
-	common-case computer systems.
-\item	NBS forward-progress guarantees are often achieved by subdividing
-	operations.
-	For example, in order to avoid a blocking dequeue operation,
-	an NBS algorithm might substitute a non-blocking polling
-	operation.
-	This is fine in theory, but not helpful in practice to real-world
-	programs that require an element to propagate through the queue
-	in a timely fashion.
-\item	Real-time forward-progress guarantees usually apply only
-	in the absence of software bugs.
-	In contrast, many classes of NBS guarantees apply even in the
-	face of fail-stop bugs, though obviously not in the face of
-	software bugs in the general arbitrarily misbehaving case.
-\item	NBS forward-progress guarantee classes imply linearizability.
-	In contrast, real-time forward progress guarantees usually do
-	not require ordering constraints such as linearizability.
-	Once again, providing linearizability when it is not needed
-	can unnecessarily increase complexity and decrease performance.
-\item	Although the simpler NBS algorithms combine exemplary simplicity,
-	forward-progress, guarantees, and performance, other
-	NBS algorithms are quite complex.
-	This added complexity can result in increased development
-	and maintenance costs, decreased performance, and decreased
-	reliability.
+	相比之下，NBS的前进保证通常是
+	无条件的，再次导致不必要的复杂性和
+	性能下降。
+	另一方面，一些近期的NBS工作适应了某些
+	有条件的
+	保证~\cite{DanAlitarh2013PracticalProgress}。
+\item	Real-time程序环境的一个重要组成部分
+	是调度器。
+	NBS算法假设最坏情况下的\emph{恶魔调度器}，
+	尽管出于某种原因，不会假设调度器恶魔到
+	完全拒绝运行包含NBS算法的应用程序。
+	相比之下，real-time系统假设调度器
+	正在尽最大努力满足它所知道的任何调度约束，
+	并且在没有此类约束的情况下，
+	尽最大努力尊重进程优先级并为
+	相同优先级的进程提供公平调度。
+	非恶魔调度器允许real-time程序使用比
+	NBS所需的更简单的
+	算法~\cite{DanAlitarh2013PracticalProgress,BjoernBrandenburgPhD}。
+\item	Non-blocking synchronization提供的前进保证
+	在过载条件下最为有用。
+	然而，过载条件最有可能导致排队
+	延迟，在许多实际系统中，这会导致程序
+	（甚至运行该程序的系统）被强制终止。
+	作为一个粗略的经验法则，延迟随空闲时间的
+	倒数增长。
+	换句话说，如果一个几乎空闲的系统有
+	延迟$T$，那么50\pct{}空闲的系统将有延迟$2 T$，
+	10\pct{}空闲（90\pct{}利用率）的系统将有延迟$10 T$，1\pct{}
+	空闲（99\pct{}利用率）的系统将有延迟$100 T$，依此类推。
+	这种情况意味着许多延迟敏感的系统会
+	主动限制负载，例如限制到50\pct{}。
+\item	在给定的计算结果只是锦上添花而非至关重要的
+	常见情况下，使用超时可以使阻塞操作具有
+	在实践中通常足够的非阻塞属性。
+\item	NBS前进保证类别假设许多底层操作（如系统调用）
+	是lock-free甚至wait-free的，
+	但事实上这些操作在常见的计算机系统上是阻塞的。
+\item	NBS前进保证通常通过细分操作来实现。
+	例如，为了避免阻塞的出队操作，
+	NBS算法可能会用非阻塞的轮询操作来替代。
+	这在理论上是可以的，但对于需要元素及时通过队列
+	传播的实际程序来说并没有帮助。
+\item	Real-time前进保证通常仅在
+	没有软件bug的情况下适用。
+	相比之下，许多类别的NBS保证即使在
+	面对fail-stop错误时也适用，尽管显然不适用于
+	一般性的任意错误行为的软件bug。
+\item	NBS前进保证类别隐含着linearizability。
+	相比之下，real-time前进保证通常不需要
+	linearizability这样的排序约束。
+	同样，在不需要linearizability时提供它
+	可能会不必要地增加复杂性并降低性能。
+\item	虽然更简单的NBS算法兼具典范的简洁性、
+	前进保证和性能，但其他NBS算法相当复杂。
+	这种增加的复杂性可能导致开发和维护成本增加、
+	性能降低和可靠性下降。
 \end{enumerate}
 
 \QuickQuiz{
-	Why does anyone care about demonic schedulers?
+	为什么有人会关心恶魔调度器？
 }\QuickQuizAnswer{
-	A demonic scheduler is one way to model an insanely overloaded
-	system.
-	After all, if you have an algorithm that you can prove runs
-	reasonably given a demonic scheduler, mere overload should
-	be no problem, right?
+	恶魔调度器是模拟极端过载系统的一种方式。
+	毕竟，如果你有一个算法可以证明在恶魔调度器下
+	运行合理，那么仅仅是过载应该没有问题，对吧？
 
-	On the other hand, it is only reasonable to ask if a demonic
-	scheduler is really the best way to model overload conditions.
-	And perhaps it is time for more accurate models.
-	For one thing, a system might be overloaded in any of a number
-	of ways.
-	After all, an NBS algorithm that works fine on a demonic scheduler
-	might or might not do well in out-of-memory conditions, when
-	mass storage fills, or when the network is congested.
+	另一方面，合理地问一下恶魔调度器是否真的是
+	模拟过载条件的最佳方式也是合理的。
+	也许是时候使用更准确的模型了。
+	首先，系统可能以多种方式过载。
+	毕竟，一个在恶魔调度器上工作良好的NBS算法
+	在内存不足条件下、大容量存储填满时或
+	网络拥塞时可能表现得好或不好。
 
-	Except that systems' core counts have been increasing, which
-	means that an overloaded system is quite likely to be running
-	more than one concurrent program.\footnote{
-		As a point of reference, back in the mid-1990s, Paul
-		witnessed a 16-CPU system running about 20 instances
-		of a certain high-end proprietary database.}
-	In that case, even if a demonic scheduler is not so demonic
-	as to inject idle cycles while there are runnable tasks,
-	it is easy to imagine such a scheduler consistently favoring
-	the other program over yours.
-	If both programs could consume all available CPU, then this
-	scheduler might not run your program at all.
+	但系统的核心数一直在增加，这意味着
+	过载系统很可能同时运行多个并发程序。\footnote{
+		作为参考，在1990年代中期，Paul
+		亲眼看到一个16-CPU系统运行了大约20个
+		某个高端专有数据库的实例。}
+	在这种情况下，即使恶魔调度器不会在有可运行任务时
+	恶魔到注入空闲周期，
+	也很容易想象这样的调度器持续偏向
+	其他程序而不是你的程序。
+	如果两个程序都可以消耗所有可用的CPU，那么
+	这个调度器可能根本不运行你的程序。
 
-	One way to avoid these issues is to simply avoid overload
-	conditions.
-	This is often the preferred approach in production, where load
-	balancers direct traffic away from overloaded systems.
-	And if all systems are overloaded, it is not unheard of to simply
-	\emph{shed load}, that is, to drop the low-priority incoming requests.
-	Nor is this approach limited to computing, as those who have
-	suffered through a rolling blackout can attest.
-	But load-shedding is often considered a bad thing by those
-	whose load is being shed.
+	避免这些问题的一种方法是简单地避免过载条件。
+	这通常是生产环境中的首选方法，负载均衡器
+	将流量从过载系统引导走。
+	如果所有系统都过载，简单地\emph{丢弃负载}，
+	即丢弃低优先级的传入请求，也并非闻所未闻。
+	这种方法也不仅限于计算领域，经历过
+	轮流停电的人可以证明这一点。
+	但负载丢弃通常被那些负载被丢弃的人视为坏事。
 
-	As always, choose wisely!
+	一如既往，明智地选择！
 }\QuickQuizEnd
 
-To reiterate, despite these differences, workarounds, and objections,
-a number of NBS algorithms are extremely useful and are heavily used
-in practice.
-As always, use the right tool for the job!
+再次强调，尽管存在这些差异、变通方法和反对意见，
+许多NBS算法极其有用且在实践中被大量使用。
+一如既往，使用正确的工具做正确的事！
 
-\subsubsection{NBS Underlying Operations}
+\subsubsection{NBS底层操作}
 \label{sec:advsync:NBS Underlying Operations}
 
-An NBS algorithm can be truly non-blocking only if the underlying
-operations that it uses are also non-blocking.
-In a surprising number of cases, this is not the case in practice.
+一个NBS算法只有在其使用的底层操作也是非阻塞的情况下
+才能真正是非阻塞的。
+在数量惊人的案例中，实践中并非如此。
 
-For example, non-blocking algorithms often allocate memory.
-In theory, this is fine, given the existence of lock-free
-memory allocators~\cite{MagedMichael04NBSmalloc}.
-But in practice, most environments must eventually obtain memory from
-operating-system kernels, which commonly use locking.
-Therefore, unless all the memory that will ever be needed is somehow
-preallocated, a ``non-blocking'' algorithm that allocates memory will not
-be non-blocking when running on common-case real-world computer systems.
+例如，非阻塞算法通常分配内存。
+理论上，这没问题，因为存在lock-free的
+内存分配器~\cite{MagedMichael04NBSmalloc}。
+但在实践中，大多数环境最终必须从操作系统内核获取内存，
+而内核通常使用锁。
+因此，除非以某种方式预先分配了所有将来需要的内存，
+否则分配内存的"非阻塞"算法在常见的实际计算机系统上
+运行时将不是非阻塞的。
 
-This same point clearly also applies to algorithms performing I/O
-operations or otherwise interacting with their environment.
+同样的观点显然也适用于执行I/O操作或以其他方式
+与环境交互的算法。
 
-Perhaps surprisingly, this point also applies to ostensibly non-blocking
-algorithms that do only plain loads and stores, such as the counters
-discussed in \cref{sec:advsync:NBS Counters}.
-And at first glance, those loads and stores that can be compiled into
-single load and store instructions, respectively, would seem to be
-not just non-blocking, but bounded population-oblivious wait free.
+也许令人惊讶的是，这一点也适用于表面上只进行
+普通加载和存储的非阻塞算法，例如
+\cref{sec:advsync:NBS Counters}中讨论的计数器。
+乍一看，那些可以分别编译为单个加载和存储指令的
+加载和存储，似乎不仅是非阻塞的，
+而且是bounded population-oblivious wait free的。
 
-Except that load and store instructions are not necessarily either
-fast or deterministic.
-For example, as noted in \cref{chp:Hardware and its Habits}, cache misses
-can consume thousands of CPU cycles.
-Worse yet, the measured cache-miss latencies can be a function of the
-number of CPUs, as illustrated in
-\cref{fig:count:Atomic Increment Scalability on x86}.
-It is only reasonable to assume that these latencies also depend on
-the details of the system's interconnect.
-In addition, given that hardware vendors generally do not publish
-upper bounds for cache-miss latencies, it seems brave to assume that
-memory-reference instructions are in fact wait-free in modern computer
-systems.
-And the antique systems for which such bounds are available suffer from
-profound overall slowness.
+然而，加载和存储指令不一定是快速的或确定性的。
+例如，正如\cref{chp:Hardware and its Habits}中所指出的，
+缓存未命中可能消耗数千个CPU周期。
+更糟糕的是，测量到的缓存未命中延迟可能是
+CPU数量的函数，如
+\cref{fig:count:Atomic Increment Scalability on x86}所示。
+可以合理地假设这些延迟还取决于系统互连的细节。
+此外，鉴于硬件供应商通常不公布缓存未命中延迟的上界，
+假设内存引用指令在现代计算机系统中实际上是wait-free的
+似乎是勇敢的。
+而那些可获得此类上界的古老系统则存在
+深刻的整体慢速问题。
 
-Furthermore, hardware is not the only source of slowness for
-memory-reference instructions.
-For example, when running on typical computer systems, both loads and
-stores can result in page faults.
-Which cause in-kernel page-fault handlers to be invoked.
-Which might acquire locks, or even do I/O, potentially even using
-something like network file system (NFS)\@.
-All of which are most emphatically blocking operations.
+此外，硬件不是内存引用指令慢速的唯一来源。
+例如，在典型的计算机系统上运行时，
+加载和存储都可能导致页面错误。
+这会导致内核中的页面错误处理程序被调用。
+处理程序可能获取锁，甚至执行I/O，
+可能甚至使用网络文件系统（NFS）之类的东西\@。
+所有这些都是明确的阻塞操作。
 
-Nor are page faults the only kernel-induced hazard.
-A given CPU might be interrupted at any time, and the interrupt
-handler might run for some time.
-During this time, the user-mode ostensibly non-blocking algorithm
-will not be running at all.
-This situation raises interesting questions about the forward-progress
-guarantees provided by system calls relying on interrupts, for example,
-the \co{membarrier()} system call.
+页面错误也不是唯一的内核引起的危害。
+给定的CPU可能随时被中断，
+而中断处理程序可能运行一段时间。
+在此期间，用户态的名义上非阻塞算法
+将完全不运行。
+这种情况引发了关于依赖中断的系统调用
+所提供的前进保证的有趣问题，例如
+\co{membarrier()}系统调用。
 
-Things do look bleak, but the non-blocking nature of such algorithms
-can be at least partially redeemed using a number of approaches:
+情况看起来确实很黯淡，但可以通过多种方法
+至少部分恢复此类算法的非阻塞性质：
 
 \begin{enumerate}
-\item	Run on bare metal, with paging disabled.
-	If you are both brave and confident that you can write code that
-	is free of wild-pointer bugs, this approach might be for you.
-\item	Run on a non-blocking operating-system kernel~\cite{Cheriton96a}.
-	Such kernels are quite rare, in part because they have
-	traditionally completely failed to provide the hoped-for
-	performance and scalability advantages over lock-based kernels.
-	But perhaps you should write one.
-\item	Use facilities such as \co{mlockall()} to avoid page faults,
-	while also ensuring that your program preallocates all the
-	memory it will ever need at boot time.
-	This can work well, but at the expense of severe common-case
-	underutilization of memory.
-	In environments that are cost-constrained or power-limited,
-	this approach is not likely to be feasible.
-\item	Use facilities such as the Linux kernel's
-	\co{NO_HZ_FULL} tickless mode~\cite{JonCorbet2013NO-HZ-FULL}.
-	In recent versions of the Linux kernel, this mode directs
-	interrupts away from a designated set of CPUs.
-	However, this can sharply limit throughput for applications that
-	are I/O bound during even part of their operation.
+\item	在裸机上运行，禁用分页。
+	如果你既勇敢又有信心能编写没有野指针bug的代码，
+	这种方法可能适合你。
+\item	在非阻塞操作系统内核上运行~\cite{Cheriton96a}。
+	此类内核非常罕见，部分原因是它们传统上
+	完全未能提供期望的性能和可扩展性优势
+	相对于基于锁的内核。
+	但也许你应该写一个。
+\item	使用\co{mlockall()}等设施来避免页面错误，
+	同时确保你的程序在启动时预先分配
+	所有将来需要的内存。
+	这可以工作得很好，但代价是内存在常见情况下
+	严重未被充分利用。
+	在成本受限或功耗有限的环境中，
+	这种方法不太可能是可行的。
+\item	使用Linux内核的
+	\co{NO_HZ_FULL}无滴答模式等设施~\cite{JonCorbet2013NO-HZ-FULL}。
+	在最近版本的Linux内核中，该模式将中断
+	引导离指定的CPU集合。
+	然而，对于在其运行的某个阶段是I/O密集型的应用程序来说，
+	这可能会严重限制吞吐量。
 \end{enumerate}
 
-Given these considerations, it is no surprise that non-blocking
-synchronization is far more important in theory than it is in practice.
+鉴于这些考虑，non-blocking synchronization
+在理论上远比在实践中重要也就不足为奇了。
 
-\subsubsection{NBS Subdivided Operations}
+\subsubsection{NBS细分操作}
 \label{sec:advsync:NBS Subdivided Operations}
 
-One common trick that provides a given algorithm a loftier place on
-the NBS ranking is to replace blocking operations with a polling API\@.
-For example, instead of having a reliable dequeue operation that might be
-merely lock-free or even blocking, instead provide a dequeue operation
-that will spuriously fail in a wait-free manner rather than exhibiting
-dreaded lock-free or blocking behaviors.
+一种常见的技巧是通过将阻塞操作替换为轮询API来使
+给定算法在NBS排名中获得更高的位置\@。
+例如，不是提供一个可能仅仅是lock-free甚至是阻塞的
+可靠出队操作，而是提供一个会以wait-free方式
+虚假失败的出队操作，而不是展示
+可怕的lock-free或阻塞行为。
 
-This can work well in theory, but a common effect in practice is to
-merely move the lock-free or blocking behavior out of that specific
-algorithm and into the hapless code making use of that algorithm.
-In such cases, not only has nothing has been gained by this trick, but
-this trick has increased the complexity of all users of this algorithm.
+这在理论上可以很好地工作，但在实践中的一个常见效果是
+仅仅将lock-free或阻塞行为从特定算法中
+移到使用该算法的不幸代码中。
+在这种情况下，这个技巧不仅没有带来任何收益，
+而且增加了该算法所有用户的复杂性。
 
-With concurrent algorithms as elsewhere, maximizing a specific metric
-is no substitute for thinking carefully about the needs of one's users.
+与并发算法中的其他情况一样，最大化特定指标
+不能替代对用户需求的仔细思考。
 
-\subsubsection{NBS Fail-Stop Tolerance}
+\subsubsection{NBS Fail-Stop容忍}
 \label{sec:advsync:NBS Fail-Stop Tolerance}
 
-Of the classes of NBS algorithms, wait-free synchronization (bounded or
-otherwise), lock-free synchronization, obstruction-free synchronization,
-and clash-free synchronization guarantee forward progress even in the
-presence of fail-stop bugs.
-An example fail-stop bug might cause some thread to be preempted indefinitely.
-As we will see, this fail-stop-tolerant property can be useful, but the
-fact is that composing a set of fail-stop-tolerant mechanisms does not
-necessarily result in a fail-stop-tolerant system.
-To see this, consider a system made up of a series of wait-free queues,
-where an element is removed from one queue in the series, processed,
-and then added to the next queue.
+在NBS算法的各类中，wait-free同步（不论是否有界）、
+lock-free同步、obstruction-free同步
+和clash-free同步即使在存在fail-stop错误的情况下
+也能保证前进。
+一个fail-stop错误的例子可能导致某个线程被无限期地抢占。
+正如我们将看到的，这种fail-stop容忍属性可以是有用的，
+但事实是，组合一组fail-stop容忍机制
+不一定会产生一个fail-stop容忍系统。
+为了说明这一点，考虑一个由一系列wait-free队列组成的系统，
+其中一个元素从系列中的一个队列中移除、处理，
+然后添加到下一个队列。
 
-If a thread is preempted in the midst of a queuing operation, in theory
-all is well because the wait-free nature of the queue will guarantee
-forward progress.
-But in practice, the element being processed is lost because the
-fail-stop-tolerant nature of the wait-free queues does not extend to
-the code using those queues.
+如果一个线程在队列操作过程中被抢占，理论上
+一切都好，因为队列的wait-free性质将保证
+前进。
+但在实践中，正在处理的元素会丢失，因为
+wait-free队列的fail-stop容忍性质不会扩展到
+使用这些队列的代码。
 
-Nevertheless, there are a few applications where NBS's rather limited
-fail-stop-tolerance is useful.
-For example, in some network-based or web applications, a fail-stop
-event will eventually result in a retransmission, which will restart
-any work that was lost due to the fail-stop event.
-Systems running such applications can therefore be heavily loaded, even
-to the point where the scheduler can no longer provide any reasonable
-fairness guarantee.
-In constrast, if a thread fail-stops while holding a lock, the application
-might need to be restarted.
-Nevertheless, NBS is not a panacea even within this restricted area,
-due to the possibility of spurious retransmissions due to pure scheduling
-delays.
-In some cases, it may be more efficient to reduce the load to avoid
-queueing delays, which will also improve the scheduler's ability to
-provide fair access, reducing or even eliminating the fail-stop events,
-thus reducing the number of retry operations, in turn further reducing
-the load.
+尽管如此，仍有少数应用程序中NBS相当有限的
+fail-stop容忍性是有用的。
+例如，在某些基于网络或Web的应用程序中，
+fail-stop事件最终会导致重传，
+这将重新启动因fail-stop事件而丢失的任何工作。
+因此，运行此类应用程序的系统可以承受很重的负载，
+甚至到调度器不再能提供任何合理的
+公平性保证的程度。
+相比之下，如果一个线程在持有锁时fail-stop，
+应用程序可能需要重新启动。
+尽管如此，即使在这个受限的领域内，NBS也不是万能的，
+因为纯调度延迟可能导致虚假重传。
+在某些情况下，降低负载以避免排队延迟
+可能更有效，这也将改善调度器提供公平访问的能力，
+减少甚至消除fail-stop事件，
+从而减少重试操作的数量，进而进一步降低负载。
 
 \subsubsection{NBS Linearizability}
 \label{sec:advsync:NBS Linearizability}
 
-It is important to note that linearizability can be quite useful,
-especially when analyzing concurrent code made up of strict locking
-and fully ordered atomic operations.\footnote{
-	For example, the Linux kernel's value-returning atomic operations.}
-Furthermore, this handling of fully ordered atomic operations
-automatically covers simple NBS algorithms.
+重要的是要注意，linearizability可以非常有用，
+特别是在分析由严格锁定和完全有序原子操作
+组成的并发代码时。\footnote{
+	例如，Linux内核的返回值原子操作。}
+此外，这种对完全有序原子操作的处理
+自动涵盖了简单的NBS算法。
 
-However, the linearization points of a complex NBS algorithms are often
-buried deep within that algorithm, and thus not visible to users of
-a library function implementing a part of such an algorithm.
-Therefore, any claims that users benefit from the linearizability properties
-of complex NBS algorithms should be regarded with deep
-suspicion~\cite{AndreasHaas2012FIFOisnt}.
+然而，复杂NBS算法的线性化点通常
+深埋在算法内部，因此对实现此类算法一部分的
+库函数的用户来说不可见。
+因此，任何声称用户从复杂NBS算法的linearizability属性
+中受益的说法都应该被深度
+怀疑~\cite{AndreasHaas2012FIFOisnt}。
 
-It is sometimes asserted that linearizability is necessary for developers
-to produce proofs of correctness for their concurrent code.
-However, such proofs are the exception rather than the rule, and modern
-developers who do produce proofs often use modern proof techniques that
-do not depend on linearizability.
-Furthermore, developers frequently use modern proof techniques that do
-not require a full specification, given that developers often learn
-their specification after the fact, one bug at a time.
-A few such proof techniques were discussed in
-\cref{chp:Formal Verification}.\footnote{
-	A memorable verbal discussion with an advocate of linearizability
-	resulted in question:
-	``So the reason linearizability is important is to rescue 1980s
-	proof techniques?''
-	The advocate immediately replied in the affirmative, then spent
-	some time disparaging a particular modern proof technique.
-	Oddly enough, that technique was one of those successfully
-	applied to Linux-kernel RCU\@.}
+有时有人断言linearizability是开发者
+为其并发代码生成正确性证明所必需的。
+然而，此类证明是例外而非常规，现代开发者
+如果确实生成证明，通常使用不依赖于
+linearizability的现代证明技术。
+此外，开发者经常使用不需要完整规约的
+现代证明技术，因为开发者通常是在事后才了解
+其规约的，每次一个bug。
+\cref{chp:Formal Verification}中讨论了
+一些这样的证明技术。\footnote{
+	与一位linearizability的倡导者进行的一次令人难忘的口头讨论
+	产生了这个问题：
+	``所以linearizability重要的原因是为了
+	挽救1980年代的证明技术？''
+	该倡导者立即肯定地回答，然后花了一些时间
+	贬低某种特定的现代证明技术。
+	奇怪的是，那种技术正是成功应用于
+	Linux内核RCU的技术之一\@。}
 
-It is often asserted that linearizability maps well to sequential
-specifications, which are said to be more natural than are concurrent
-specifications~\cite{SergioRajsbaum2020HistoryLinearizability}.
-But this assertion fails to account for our highly concurrent objective
-universe.
-This universe can only be expected to select for ability to cope with
-concurrency, especially for those participating in team sports or
-overseeing small children.
-In addition, given that the teaching of sequential
-computing is still believed to be somewhat of a black
-art~\cite{ElizabethPatitsas2020GradesNotBimodal}, it is reasonable
-to expect that teaching of concurrent computing is in a similar state
-of disarray.
-Therefore, focusing on only one proof technique is unlikely to be a
-good way forward.
+经常有人断言linearizability很好地映射到顺序规约，
+据称这比并发规约更
+自然~\cite{SergioRajsbaum2020HistoryLinearizability}。
+但这种断言未能考虑到我们高度并发的客观世界。
+这个世界只能被期望选择应对并发的能力，
+特别是对于参加团队运动或
+照看小孩子的人来说。
+此外，鉴于顺序计算的教学
+仍被认为是某种黑魔法~\cite{ElizabethPatitsas2020GradesNotBimodal}，
+合理地预期并发计算的教学处于类似的
+混乱状态。
+因此，只关注一种证明技术不太可能是
+一条好的前进道路。
 
-Again, please understand that linearizability is quite useful in many
-situations.
-Then again, so is that venerable tool, the hammer.
-But there comes a point in the field of computing where one should put
-down the hammer and pick up a keyboard.
-Similarly, it appears that there are times when linearizability is not
-the best tool for the job.
+再次强调，请理解linearizability在许多情况下
+非常有用。
+话虽如此，那个古老的工具——锤子——也是如此。
+但在计算领域总有一个时刻，人们应该放下
+锤子，拿起键盘。
+同样，似乎在某些时候linearizability不是
+最适合工作的工具。
 
-To their credit, there are some linearizability advocates who are aware
-of some of its shortcomings~\cite{SergioRajsbaum2020HistoryLinearizability}.
-There are also proposals to extend linearizability, for example,
-interval-linearizability, which is intended to handle the common case
-of operations that require non-zero time to
-complete~\cite{10.1145/3266457}.
-It remains to be seen whether these proposals will result in theories
-able to handle modern concurrent software artifacts, especially given
-that several of the proof techniques discussed in \cref{chp:Formal
-Verification} already handle many modern concurrent software artifacts.
+值得赞扬的是，一些linearizability的倡导者意识到了
+它的一些缺点~\cite{SergioRajsbaum2020HistoryLinearizability}。
+也有扩展linearizability的提议，例如，
+interval-linearizability，旨在处理操作需要
+非零时间才能完成的常见
+情况~\cite{10.1145/3266457}。
+这些提议是否会产生能够处理现代并发软件制品的理论
+仍有待观察，特别是考虑到\cref{chp:Formal
+Verification}中讨论的几种证明技术已经能处理
+许多现代并发软件制品。
 
-\subsection{NBS Discussion}
+\subsection{NBS讨论}
 \label{sec:advsync:NBS Discussion}
 
-It is possible to create fully non-blocking queues~\cite{MichaelScott96},
-however, such queues are much more complex than the half-NBS algorithm
-outlined above.
-The lesson here is to carefully consider your actual requirements.
-Relaxing irrelevant requirements can often result in great
-improvements in simplicity, performance, and scalability.
+创建完全非阻塞的队列是可能的~\cite{MichaelScott96}，
+然而，这种队列比上面概述的半NBS算法复杂得多。
+这里的教训是仔细考虑你的实际需求。
+放宽不相关的需求通常可以带来
+简洁性、性能和可扩展性的巨大改进。
 
-Recent research points to another important way to relax requirements.
-It turns out that systems providing fair scheduling can enjoy most
-of the benefits of wait-free synchronization even when running
-algorithms that provide only non-blocking
-synchronization, both in theory~\cite{DanAlitarh2013PracticalProgress}
-and in practice~\cite{SamyAlBahra2013NBS}.
-Because most schedulers used in production do in fact provide fairness,
-the more-complex algorithms providing wait-free synchronization usually
-provide no practical advantages over simpler and faster non-wait-free
-algorithms.
+最近的研究指出了另一种放宽需求的重要方式。
+事实证明，提供公平调度的系统可以享受
+wait-free同步的大部分好处，即使运行
+仅提供non-blocking同步的算法，
+无论是在理论上~\cite{DanAlitarh2013PracticalProgress}
+还是在实践中~\cite{SamyAlBahra2013NBS}。
+因为大多数生产中使用的调度器确实提供公平性，
+提供wait-free同步的更复杂算法通常
+比更简单、更快的非wait-free算法没有实际优势。
 
-Interestingly enough, fair scheduling is but one beneficial
-constraint that is often respected in practice.
-Other sets of constraints can permit blocking algorithms to
-achieve deterministic real-time response.
-For example, given:
+有趣的是，公平调度只是实践中经常被遵守的
+一个有益约束。
+其他约束集合可以允许阻塞算法
+实现确定性的real-time响应。
+例如，给定：
 \begin{enumerate*}[(1)]
-\item Fair locks granted in FIFO order within a given priority level,
-\item Priority inversion avoidance (for example, priority
+\item 在给定优先级内按FIFO顺序授予的公平锁，
+\item priority inversion避免（例如，priority
 inheritance~\cite{Takada:1995:RSN:527074.828566,Cai-DongWang1996PrioInherLock}
-or priority ceiling),
-\item A bounded number of threads,
-\item Bounded critical section durations,
-\item Bounded load,
-and
-\item Absence of fail-stop bugs,
+或priority ceiling），
+\item 有界的线程数，
+\item 有界的临界区持续时间，
+\item 有界的负载，
+以及
+\item 没有fail-stop错误，
 \end{enumerate*}
-lock-based applications can provide deterministic
-response times~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}.
-This approach of course blurs the distinction between blocking and wait-free
-synchronization, which is all to the good.
-Hopefully theoretical frameworks will continue to improve their ability
-to describe software actually used in practice.
+基于锁的应用程序可以提供确定性的
+响应时间~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}。
+这种方法当然模糊了阻塞和wait-free同步之间的区别，
+这完全是好事。
+希望理论框架能继续改进其描述
+实际使用的软件的能力。
 
-Those who feel that theory should lead the way are referred to the
-inimitable Peter Denning, who said of operating systems:
-``Theory follows practice''~\cite{Denning:2015:POF:2830903.2830904},
-or to the eminent Tony Hoare, who said of the whole of engineering:
-``In all branches of engineering science, the engineering starts before
-the science; indeed, without the early products of engineering, there
-would be nothing for the scientist to
-study!''~\cite{RichardMorris2007TonyHoareInterview}.
-Of course, once an appropriate body of theory becomes available, it is
-wise to make use of it.
-However, note well that the first \emph{appropriate} body of theory
-is often one thing and the first \emph{proposed} body of theory quite
-another.
+那些认为理论应该引领道路的人可以参考
+无与伦比的Peter Denning，他在谈论操作系统时说：
+``理论跟随实践''~\cite{Denning:2015:POF:2830903.2830904}，
+或者杰出的Tony Hoare，他在谈论整个工程学时说：
+``在所有工程科学分支中，工程先于科学开始；
+事实上，没有早期的工程产品，
+科学家就没有什么可以
+研究的！''~\cite{RichardMorris2007TonyHoareInterview}。
+当然，一旦适当的理论体系可用，
+明智地利用它是明智的。
+然而，请注意，第一个\emph{适当的}理论体系
+往往是一回事，而第一个\emph{被提出的}理论体系
+则往往是另一回事。
 
 \QuickQuiz{
-	It seems like the various members of the NBS hierarchy are
-	rather useless.
-	So why bother with them at all???
+	NBS层次结构的各个成员似乎相当无用。
+	那为什么还要费心了解它们呢？？？
 }\QuickQuizAnswer{
-	One advantage of the members of the NBS hierarchy is that they
-	are reasonably simple to define and use from a theoretical viewpoint.
-	We can hope that work done in the NBS arena will help lay the
-	groundwork for analysis of real-world forward-progress guarantees
-	for concurrent real-time programs.
-	However, as of 2022 it appears that trace-based methodologies
-	are in the lead~\cite{DanielBristot2019RTtrace}.
+	NBS层次结构成员的一个优势是，从理论角度来看，
+	它们相当容易定义和使用。
+	我们可以希望NBS领域的工作将有助于为
+	并发real-time程序的实际前进保证分析
+	奠定基础。
+	然而，截至2022年，基于trace的方法论
+	似乎处于领先地位~\cite{DanielBristot2019RTtrace}。
 
-	So why bother learning about NBS at all?
+	那为什么还要学习NBS呢？
 
-	Because a great many people know of it, and are vaguely aware that
-	it is somehow related to real-time computing.
-	Their response to your carefully designed real-time constraints
-	might well be of the form ``Bah, just use wait-free algorithms!''.
-	In the all-too-common case where they are very convincing to your
-	management, you will need to understand NBS in order to bring
-	the discussion back to reality.
-	I hope that this section has provided you with the required
-	depth of understanding.
+	因为很多人知道它，并且模糊地意识到
+	它与real-time计算有某种关系。
+	他们对你精心设计的real-time约束的反应
+	很可能是``呸，用wait-free算法就行了！''
+	在他们对你的管理层非常有说服力的
+	常见情况下，你需要理解NBS才能
+	将讨论拉回现实。
+	我希望本节为你提供了所需的深度理解。
 
-	Another thing to note is that learning about the NBS hierarchy
-	is probably no more harmful than learning about transfinite
-	numbers of the computational-complexity hierarchy.
-	In all three cases, it is important to avoid over-applying
-	the theory.
-	Which is in and of itself good practice!
+	另一件需要注意的事情是，学习NBS层次结构
+	可能并不比学习超限数或计算复杂性层次结构
+	更有害。
+	在所有三种情况下，重要的是避免过度
+	应用理论。
+	这本身就是一种好的实践！
 }\QuickQuizEnd
 
-Proponents of NBS algorithms sometimes call out real-time computing as
-an important NBS beneficiary.
-The next section looks more deeply at the forward-progress needs of
-real-time systems.
+NBS算法的支持者有时将real-time计算称为
+NBS的重要受益者。
+下一节更深入地探讨real-time系统的前进需求。
 
 \input{advsync/rt}
 

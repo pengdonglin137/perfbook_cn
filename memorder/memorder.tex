@@ -2,461 +2,389 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Advanced Synchronization: Memory Ordering}{Advanced Synchronization: Memory Ordering}{qqzmemorder}
+\QuickQuizChapter{chp:Advanced Synchronization: Memory Ordering}{高级同步：内存排序}{qqzmemorder}
 \OriginallyPublished{chp:Advanced Synchronization: Memory Ordering}{Advanced Synchronization: Memory Ordering}{the Linux kernel}{Howells2009membartxt}
 \OriginallyPublished{chp:Advanced Synchronization: Memory Ordering}{Advanced Synchronization: Memory Ordering}{Linux Weekly News}{JadeAlglave2017LWN-LKMM-1,JadeAlglave2017LWN-LKMM-2}
 \OriginallyPublished{chp:Advanced Synchronization: Memory Ordering}{Advanced Synchronization: Memory Ordering}{ASPLOS '18}{Alglave:2018:FSC:3173162.3177156}
 %
-\Epigraph{The art of progress is to preserve order amid change and to preserve change amid order.}{Alfred North Whitehead}
+\Epigraph{进步的艺术在于在变化中保持秩序，在秩序中保持变化。}{Alfred North Whitehead}
 
-Causality and sequencing are deeply intuitive, and hackers often
-have a strong grasp of these concepts.
-These intuitions can be quite helpful when writing, analyzing, and
-debugging not only sequential code, but also parallel code that makes
-use of standard mutual-exclusion mechanisms such as locking.
-Unfortunately, these intuitions break down completely in complex
-concurrent code, such as that in  the Linux-kernel, which often uses
-weakly ordered atomic operations and memory barriers.
-One example of such code implements the standard mutual-exclusion
-mechanisms themselves, while another example implements fast
-paths that use weaker synchronization.
-Insults to intuition notwithstanding, some argue that weakness is a
-virtue~\cite{JadeAlglave2013-WeaknessIsVirtue}.
-Vice or virtue, this chapter will help you gain an understanding of
-memory ordering, that, with practice, will be sufficient to implement
-synchronization primitives and performance-critical fast paths.
+因果关系和顺序性是深度直觉性的概念，程序员通常
+对这些概念有很强的把握。
+这些直觉在编写、分析和调试顺序代码时非常有帮助，
+对于使用标准互斥机制（如锁）的并行代码也同样如此。
+不幸的是，在复杂的并发代码中这些直觉完全失效，
+例如Linux内核中经常使用弱序原子操作和memory barrier的代码。
+这类代码的一个例子是标准互斥机制本身的实现，
+另一个例子是使用较弱同步的快速路径。
+尽管对直觉构成了冒犯，有些人认为弱序是一种
+美德~\cite{JadeAlglave2013-WeaknessIsVirtue}。
+无论是缺陷还是美德，本章将帮助你获得对memory ordering的理解，
+通过实践，这将足以实现同步原语和性能关键的快速路径。
 
-First, \cref{sec:memorder:Memory-Model Intuitions}
-provides some reliable intuitions and useful rules of thumb, which can
-often provide a useful alternative to learning the full Linux-kernel
-memory model (LKMM)\@.
-However, those working on fast-paths or concurrency primitives will
-need the additional detail provided by the following sections.
+首先，\cref{sec:memorder:Memory-Model Intuitions}
+提供了一些可靠的直觉和有用的经验法则，
+这些通常可以作为学习完整Linux内核
+memory model (LKMM)的有用替代方案\@。
+然而，从事快速路径或并发原语工作的人将
+需要后续章节提供的额外细节。
 \Cref{sec:memorder:Ordering: Why and How?}
-will demonstrate that real computer systems can reorder memory references,
-give some reasons why they do so, and provide some information on how
-to prevent undesired reordering.
+将演示真实计算机系统可以重排内存引用，
+给出这样做的一些原因，并提供关于如何
+防止不需要的重排的信息。
 \Cref{sec:memorder:Tricks and Traps,%
 sec:memorder:Compile-Time Consternation}
-will cover the types of pain that hardware and compilers, respectively,
-can inflict on unwary parallel programmers.
+将分别涵盖硬件和编译器可能给
+粗心的并行程序员带来的各种痛苦。
 \Cref{sec:memorder:Higher-Level Primitives}
-gives an overview of the benefits of modeling memory ordering at
-higher levels of abstraction.
-Finally,
+概述了在更高抽象层次建模memory ordering的好处。
+最后，
 \cref{sec:memorder:Hardware Specifics}
-follows up with more detail on a few representative hardware platforms.
+对几个代表性硬件平台提供了更多细节。
 
 \QuickQuiz{
-	This chapter has been rewritten since the first edition,
-	and heavily edited since the second edition.
-	Did memory ordering change all \emph{that} since 2014,
-	let alone since 2021?
+	本章自第一版以来已经重写，
+	自第二版以来也经过了大量编辑。
+	Memory ordering自2014年以来真的变化了\emph{那么}多吗，
+	更不用说自2021年以来？
 }\QuickQuizAnswer{
-	The earlier memory-ordering section had its roots in a pair of
-	Linux Journal articles~\cite{PaulMcKenney2005i,PaulMcKenney2005j}
-	dating back to 2005.
-	Since then, the C and C++ memory models~\cite{PeteBecker2011N3242}
-	have been formalized
+	早期的memory ordering章节根植于一对
+	Linux Journal文章~\cite{PaulMcKenney2005i,PaulMcKenney2005j}，
+	可以追溯到2005年。
+	从那以后，C和C++内存模型~\cite{PeteBecker2011N3242}
+	已经被形式化
 	(and critiqued~\cite{MarkBatty2013OOTA-WorkingNote,Boehm:2014:OGA:2618128.2618134,Vafeiadis:2015:CCO:2775051.2676995,conf/esop/BattyMNPS15,Lahav:2017:RSC:3140587.3062352,OlivierGiroux2017-P0668R1}),
-	executable formal memory models for computer systems have become the
+	计算机系统的可执行形式内存模型已经成为了
 	norm~\cite{Maranget2012TutorialARMPower,PaulEMcKenney2011ppcmem,test6-pdf,JadeAlglave2011ppcmem,Alglave:2013:SVW:2450268.2450306,JadeAlglave2013-cav,Alglave:2014:HCM:2594291.2594347,PaulEMcKenney2014weakaxiom,Flur:2017:MCA:3093333.3009839,ARMv8A:2017},
-	and there is even a memory model for the Linux
+	甚至还有一个Linux
 	kernel~\cite{JadeAlglave2017LWN-LKMM-1,JadeAlglave2017LWN-LKMM-2,Alglave:2018:FSC:3173162.3177156},
-	along with a paper describing differences between the C11 and
-	Linux memory models~\cite{PaulEMcKenney2016P0124R6-LKMM}.
+	以及一篇描述C11和Linux内存模型差异的
+	论文~\cite{PaulEMcKenney2016P0124R6-LKMM}。
 
 	The \IXacrf{kcsan}~\cite{MarcoElver2020FearDataRaceDetector1,MarcoElver2020FearDataRaceDetector2},
 	based in part on
 	RacerD~\cite{SamBlackshear2018RacerD}
 	and implementing \IXalthmr{\acr{lkmm}}{Linux kernel}{memory model},
-	has also been added to the Linux kernel
-	and is now heavily used.
+	也已被添加到Linux内核中
+	并已被大量使用。
 
-	Finally, there are now better ways of describing the Linux-kernel
-	memory model (LKMM).
+	最后，现在有更好的方式来描述Linux内核
+	memory model (LKMM)。
 
-	Given all this progress, substantial change was required.
+	鉴于所有这些进展，实质性的变化是必要的。
 }\QuickQuizEnd
 
-\section{Memory-Model Intuitions}
+\section{内存模型直觉}
 \label{sec:memorder:Memory-Model Intuitions}
 %
-\epigraph{Almost all people are intelligent.
-	  It is method that they lack.}
+\epigraph{几乎所有人都是聪明的。
+	  他们缺乏的是方法。}
 	 {F. W. Nichol}
 
-This section is for people who would like to avoid learning all the
-details of the \IXalthmr{Linux-kernel memory model (\acr{lkmm})}
-{Linux kernel}{memory model}, the better
-to get on with their concurrency lives.
-The good news is that learning a very small fraction of LKMM can get
-you most of its benefits.
+本节面向那些希望避免学习\IXalthmr{Linux-kernel memory model (\acr{lkmm})}
+{Linux kernel}{memory model}所有细节
+以便更好地继续其并发编程生活的人。
+好消息是，学习LKMM的很小一部分就能获得
+其大部分好处。
 % @@@ \cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
 % @@@ and \cref{sec:memorder:Basic Rules of Thumb},
 % @@@ summarizing the intervening discussion with some appeals to transitive
 % @@@ intuitions and with more sophisticated rules of thumb.
 
-But first, it is necessary to understand that useful ordering is a
-property not of any single component of the system, but of the system
-as a whole.
-For example, it does not help for the hardware to preserve ordering if
-the compiler does not also do so.
-Nor does it help for both the hardware and compiler to provide ways
-to preserve ordering if developers fail to use them.
-The Linux kernel adds architecture-specific assembly-language primitives
-to the mix, which must also preserve the required orderings.
-In short, all the components of the system must work together to provide
-any needed ordering.
+但首先，有必要理解有用的排序不是系统任何单个
+组件的属性，而是系统整体的属性。
+例如，如果编译器不同时保持排序，
+硬件保持排序也没有帮助。
+同样，如果开发者不使用它们，硬件和编译器都提供了
+保持排序的方法也没有帮助。
+Linux内核在此基础上添加了特定于架构的汇编语言原语，
+这些原语也必须保持所需的排序。
+简而言之，系统的所有组件必须协同工作才能提供
+任何所需的排序。
 
-Next, it is necessary to understand the temporal and non-temporal
-nature of communication from one thread to another when using memory
-as the communications medium, as will be discussed in detail in
+接下来，有必要理解使用内存作为通信媒介时，
+从一个线程到另一个线程的通信的时序性和非时序性，
+这将在以下章节中详细讨论：
 \cref{sec:memorder:Multicopy Atomicity}.
-The key point is that although loads and stores are conceptually simple,
-on real multicore hardware significant periods of time are required for
-their effects to become visible to all other threads.
-Strange though it might seem, this means that a given store's value
-might not be returned by a load that happens later in wall-clock time,
-and it also means that a given store's value might be overwritten by a
-store that happens earlier in wall-clock time.
+关键点在于，虽然load和store在概念上很简单，
+但在真实的多核硬件上，需要相当长的时间
+其效果才能对所有其他线程可见。
+虽然看起来很奇怪，但这意味着给定store的值
+可能不会被在挂钟时间上稍后发生的load返回，
+同时也意味着给定store的值可能被在
+挂钟时间上更早发生的store覆盖。
 
-The simple and intuitive case occurs when one thread loads a value that
-some other thread stored.
-This straightforward cause-and-effect case exhibits temporal behavior, so
-that the software can safely assume that the store instruction completed
-before the load instruction started.
-In real life, the load instruction might well have started quite some
-time before the store instruction did, but all modern hardware must
-carefully hide such cases from the software.
-Software will thus see the expected temporal cause-and-effect
-behavior when one thread loads a value that some other thread stores,
-as will be discussed in \cref{sec:memorder:Happens-Before}.
+简单且直觉的情况发生在一个线程加载另一个线程
+所存储的值时。
+这种直接的因果情况表现出时序行为，因此
+软件可以安全地假设store指令在load指令开始之前完成。
+在现实中，load指令可能在store指令之前很长时间就已经开始，
+但所有现代硬件必须仔细地向软件隐藏这种情况。
+因此，当一个线程加载另一个线程存储的值时，
+软件将看到预期的时序因果行为，
+这将在\cref{sec:memorder:Happens-Before}中讨论。
 
-This intuitive temporal behavior provides the basis for the next section's
-transitive intuitions.
+这种直觉的时序行为为下一节的传递性直觉提供了基础。
 
-\subsection{Transitive Intuitions}
+\subsection{传递性直觉}
 \label{sec:memorder:Transitive Intuitions}
 
-This section lists intuitions regarding single threads or variables,
-locking, release-acquire chains, RCU, and fully ordered code.
+本节列出了关于单线程或单变量、锁、release-acquire链、
+RCU和完全有序代码的直觉。
 
-\subsubsection{Singular Intuitive Bliss}
+\subsubsection{单一性的直觉福音}
 \label{sec:memorder:Singular Intuitive Bliss}
 
-A program that has only one variable or only one thread will see
-all accesses in order.
-There is quite a bit of code that can attain adequate performance
-when running single-threaded on modern computer systems, but
-this book is primarily about software that needs multiple CPUs.
-On, then, to the next section.
+只有一个变量或只有一个线程的程序将按顺序看到
+所有访问。
+有相当多的代码在现代计算机系统上单线程运行时
+可以获得足够的性能，但本书主要关注
+需要多个CPU的软件。
+那么，让我们继续看下一节。
 
-\subsubsection{Locking Intuitions}
+\subsubsection{锁的直觉}
 \label{sec:memorder:Locking Intuitions}
 
-Another transitive intuition involves that much-maligned workhorse,
-locking, as will be described in more detail in
+另一个传递性直觉涉及那个饱受诟病的工作马——
+锁，这将在以下章节中更详细地描述：
 \cref{sec:memorder:Locking},
 to say nothing of
 \cref{chp:Locking}.
-This section contains a graphical description followed by a verbal
-description.
+本节包含图形描述和文字描述。
 
 \begin{figure*}
 \centering
 \resizebox{\onecolumntextwidth}{!}{\includegraphics{memorder/locktrans}}
-\caption{Locking Intuitions}
+\caption{锁的直觉}
 \label{fig:memorder:Locking Intuitions}
 \end{figure*}
 
-The graphical description is shown in
+图形描述如
 \cref{fig:memorder:Locking Intuitions},
-which shows a lock being acquired and released by CPUs~0, 1, and~2
-in that order.
-The solid black arrows depict the unlock-lock ordering.
-The dotted lines emanating from them to the wide green arrows
-show the effects on ordering.
-In particular:
+所示，显示了CPU~0、1和~2按此顺序获取和释放一个锁。
+实心黑色箭头描绘了unlock-lock排序。
+从它们延伸到宽绿色箭头的虚线
+显示了对排序的影响。
+具体来说：
 
 \begin{enumerate}
-\item	The fact that CPU~0's unlock precedes CPU~1's lock ensures that
-	any access executed by CPU~0 within or before its critical
-	section will be seen by accesses executed by CPU~1 within
-	and after its critical section.
-\item	The fact that CPU~0's unlock precedes CPU~2's lock ensures that
-	any access executed by CPU~0 within or before its critical
-	section will be seen by accesses executed by CPU~2 within
-	and after its critical section.
-\item	The fact that CPU~1's unlock precedes CPU~2's lock ensures that
-	any access executed by CPU~1 within or before its critical
-	section will be seen by accesses executed by CPU~2 within and
-	after its critical section.
+\item	CPU~0的unlock先于CPU~1的lock这一事实确保了
+	CPU~0在其临界区内或之前执行的任何访问
+	都将被CPU~1在其临界区内和之后执行的访问所看到。
+\item	CPU~0的unlock先于CPU~2的lock这一事实确保了
+	CPU~0在其临界区内或之前执行的任何访问
+	都将被CPU~2在其临界区内和之后执行的访问所看到。
+\item	CPU~1的unlock先于CPU~2的lock这一事实确保了
+	CPU~1在其临界区内或之前执行的任何访问
+	都将被CPU~2在其临界区内和之后执行的访问所看到。
 \end{enumerate}
 
-In short, lock-based ordering is transitive through CPUs~0, 1, and~2.
-A key point is that this ordering extends beyond the critical sections,
-so that everything before an earlier lock release is seen by everything
-after a later lock acquisition.
+简而言之，基于锁的排序在CPU~0、1和~2之间是传递的。
+一个关键点是这种排序延伸到临界区之外，
+因此更早的锁释放之前的所有内容都被
+更晚的锁获取之后的所有内容所看到。
 
-For those who prefer words to diagrams, code holding a given lock will
-see the accesses in all prior critical sections for that same lock,
-transitively.
-And if such code sees the accesses in a given critical section, it will
-also see the accesses in all of that CPU's code preceding
-that critical section.
-In other words, when a CPU releases a given lock, all
-of that lock's subsequent critical sections will see the accesses in
-all of that CPU's code preceding that lock release.
+对于那些更喜欢文字而非图表的人来说，持有给定锁的代码
+将会传递性地看到该锁所有先前临界区中的访问。
+如果这样的代码看到了给定临界区中的访问，
+它也将看到该CPU在该临界区之前的所有代码中的访问。
+换句话说，当一个CPU释放给定的锁时，
+该锁所有后续的临界区将看到该CPU在锁释放之前的所有代码中的访问。
 
-Inversely, code holding a given lock will be protected from seeing the
-accesses in any subsequent critical sections for that same lock, again,
-transitively.
-And if such code is protected against seeing the accesses in a given
-critical section, it will also be protected against seeing the accesses
-in all of that CPU's code following that critical section.
-In other words, when a CPU acquires a given lock, all of
-that lock's previous critical sections will be protected from seeing
-the accesses in all of that CPU's code following that lock
-acquisition.
+反过来，持有给定锁的代码将被保护免于看到
+该锁任何后续临界区中的访问，同样是传递性的。
+如果这样的代码被保护免于看到给定临界区中的访问，
+它也将被保护免于看到该CPU在该临界区之后的所有代码中的访问。
+换句话说，当一个CPU获取给定的锁时，
+该锁所有先前的临界区将被保护免于看到
+该CPU在锁获取之后的所有代码中的访问。
 
-But what does it mean to ``see accesses'' and exactly what accesses
-are seen?
+但是``看到访问''到底是什么意思？究竟看到了哪些访问？
 
-To start, an access is either a load or a store, possibly occurring as part
-of a read-modify-write operation.
+首先，一个访问要么是load，要么是store，可能作为
+read-modify-write操作的一部分而发生。
 
-If a CPU's code prior to its release of a given lock contains
-an access A to a given variable, then for an access B to that same variable
-contained in any CPU's code following a later acquisition
-of that same lock:
+如果一个CPU在释放给定锁之前的代码包含
+对给定变量的访问A，而对同一变量的访问B
+包含在任何CPU在随后获取同一锁之后的代码中：
 
 \begin{enumerate}
-\item	If A and B are both loads, then B will return either the same
-	value that A did or some later value.
-\item	If A is a load and B is a store, then B will overwrite either the
-	value loaded by A or some later value.
-\item	If A is a store and B is a load, then B will return either the
-	value stored by A or some later value.
-\item	If A and B are both stores, then B will overwrite either the value
-	stored by A or some later value.
+\item	如果A和B都是load，那么B将返回与A相同的值或某个更晚的值。
+\item	如果A是load而B是store，那么B将覆盖A所load的值或某个更晚的值。
+\item	如果A是store而B是load，那么B将返回A所store的值或某个更晚的值。
+\item	如果A和B都是store，那么B将覆盖A所store的值或某个更晚的值。
 \end{enumerate}
 
-Here, ``some later value'' is shorthand for ``the value stored by some
-intervening access''.
+这里，``某个更晚的值''是``某个中间访问所store的值''的简写。
 
 \QuickQuiz{
-	But what about reader-writer locking?
+	那reader-writer锁呢？
 }\QuickQuizAnswer{
-	Reader-writer locking works the same as does exclusive locking,
-	with the proviso that ordering is guaranteed only between a
-	pair of conflicting critical sections.
-	This means that a read-side critical section will be ordered
-	before a later write-side critical section and vice versa.
-	But this also means that there is no guarantee of ordering
-	between a pair of read-side critical sections unless there is
-	an intervening write-side critical section.
+	Reader-writer锁的工作方式与排他锁相同，
+	但有一个条件：排序仅在一对冲突的临界区之间得到保证。
+	这意味着读侧临界区将排在后续的写侧临界区之前，反之亦然。
+	但这也意味着，除非存在一个中间的写侧临界区，
+	否则一对读侧临界区之间不保证排序。
 
-	As of mid-2023, LKMM does not yet model reader-writer locking,
-	but this is on the to-do list.
+	截至2023年中期，LKMM尚未对reader-writer锁建模，
+	但这在待办事项列表中。
 }\QuickQuizEnd
 
-Locking is strongly intuitive, which is one reason why it has survived
-so many attempts to eliminate it.
-This is also one reason why you should use it where it applies.
+锁具有很强的直觉性，这是它经受住了这么多次
+试图消除它的努力而幸存下来的原因之一。
+这也是你应该在适用的地方使用它的原因之一。
 
-\subsubsection{Release-Acquire Intuitions}
+\subsubsection{Release-Acquire直觉}
 \label{sec:memorder:Release-Acquire Intuitions}
 
-Release-acquire chains also behave in a transitively intuitive manner
-not unlike that of locking, except that release-acquire chains do not
-provide mutual exclusion.
-This section also contains a graphical description followed by a verbal
-description.
+Release-acquire链也以传递性直觉的方式运行，
+与锁并无不同，只是release-acquire链不提供互斥。
+本节同样包含一个图形描述，后面跟着一个文字描述。
 
 \begin{figure*}
 \centering
 \resizebox{\onecolumntextwidth}{!}{\includegraphics{memorder/relacqtrans}}
-\caption{Release-Acquire Intuitions}
+\caption{Release-Acquire直觉}
 \label{fig:memorder:Release-Acquire Intuitions}
 \end{figure*}
 
-The graphical description is shown in
-\cref{fig:memorder:Release-Acquire Intuitions},
-which shows a release-acquire chain extending through CPUs~0, 1, and~2.
-The solid black arrows depict the release-acquire ordering.
-The dotted lines emanating from them to the wide green arrows show the
-effects on ordering.
+图形描述如\cref{fig:memorder:Release-Acquire Intuitions}所示，
+它展示了一个贯穿CPU~0、1和~2的release-acquire链。
+实心黑色箭头描绘了release-acquire排序。
+从它们延伸到宽绿色箭头的虚线显示了对排序的影响。
 
 \begin{enumerate}
-\item	The fact that CPU~0's release of A is read by CPU~1's acquire of A
-	ensures that any accesses executed by CPU~0 prior to its release
-	will be seen by any accesses executed by CPU~1 after its acquire.
-\item	The fact that CPU~1's release of B is read by CPU~2's acquire of B
-	ensures that any accesses executed by CPU~1 prior to its release
-	will be seen by any accesses executed by CPU~2 after its acquire.
-\item	Note also that CPU~0's release of A is read by CPU~1's acquire of
-	A, which precedes CPU 1's release of B, which is read by CPU~2's
-	acquire of B\@.
-	Taken together, all this ensures that any accesses executed by
-	CPU~0 prior to its release will be seen by any accesses executed
-	by CPU~2 after its acquire.
+\item	CPU~0对A的release被CPU~1对A的acquire所读取这一事实
+	确保了CPU~0在其release之前执行的任何访问
+	都将被CPU~1在其acquire之后执行的任何访问所看到。
+\item	CPU~1对B的release被CPU~2对B的acquire所读取这一事实
+	确保了CPU~1在其release之前执行的任何访问
+	都将被CPU~2在其acquire之后执行的任何访问所看到。
+\item	还要注意，CPU~0对A的release被CPU~1对A的acquire所读取，
+	而后者先于CPU~1对B的release，而后者又被CPU~2对B的
+	acquire所读取。
+	综合起来，所有这些确保了CPU~0在其release之前执行的
+	任何访问都将被CPU~2在其acquire之后执行的任何访问所看到。
 \end{enumerate}
 
-This illustrates that properly constructed release-acquire ordering is
-transitive through CPUs~0, 1, and~2, and in fact may be extended through
-as many CPUs as needed.\footnote{
-	But please note that stray stores to either A or B can break
-	the release-acquire chain, as illustrated by
-	\cref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}.}
+这说明正确构建的release-acquire排序在CPU~0、1和~2之间是传递性的，
+实际上可以扩展到任意多个CPU。\footnote{
+	但请注意，对A或B的杂散store可能会破坏release-acquire链，
+	如\cref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}所示。}
 
-For those who prefer words to diagrams, when an acquire loads the value
-stored by a release, discussed in
-\cref{sec:memorder:Release-Acquire Chains},
-then the code following that release will see all accesses preceding
-the acquire.
-More precisely, if CPU~0 does an acquire that loads the value stored by
-CPU~1's release, than all the subsequent accesses executed by CPU~0 will
-see the all of CPU~1's accesses prior to its release.
+对于那些更喜欢文字而非图表的人来说，当一个acquire load了
+release所store的值时（在\cref{sec:memorder:Release-Acquire Chains}中讨论），
+那么release之后的代码将看到acquire之前的所有访问。
+更准确地说，如果CPU~0执行了一个acquire，load了CPU~1的release所store的值，
+那么CPU~0随后执行的所有访问将看到CPU~1在其release之前的所有访问。
 
-Similarly, the accesses preceding that release access will be protected
-from seeing the accesses following the acquire access.
-(More precision is left as an exercise to the reader.)
+类似地，release访问之前的访问将被保护免于看到
+acquire访问之后的访问。
+（更精确的表述留给读者作为练习。）
 
-Releases and acquires can be chained, for example CPU~0's release
-stores the value loaded by CPU~1's acquire, a later release by CPU~1
-stores the value loaded by CPU~2's acquire, and so on.
-The accesses following a given acquire will see the accesses preceding
-each prior release in the chain, and, inversely, the accesses preceding a
-given release will be protected from seeing the accesses following each
-later acquire in the chain.
-Some long-chain examples will be illustrated by
+Release和acquire可以被链接起来，例如CPU~0的release
+store了CPU~1的acquire所load的值，CPU~1随后的release
+store了CPU~2的acquire所load的值，依此类推。
+给定acquire之后的访问将看到链中每个先前release之前的访问，
+反过来，给定release之前的访问将被保护免于看到
+链中每个后续acquire之后的访问。
+一些长链示例将由
 \cref{lst:memorder:Long LB Release-Acquire Chain,%
 lst:memorder:Long ISA2 Release-Acquire Chain,%
 lst:memorder:Long Z6.2 Release-Acquire Chain}
-on
-\cpagerefrange{lst:memorder:Long LB Release-Acquire Chain}{lst:memorder:Long Z6.2 Release-Acquire Chain},
-respectively.
+在\cpagerefrange{lst:memorder:Long LB Release-Acquire Chain}{lst:memorder:Long Z6.2 Release-Acquire Chain}上分别说明。
 
-The seeing and not seeing of accesses works the same way as described in
-\cref{sec:memorder:Locking Intuitions}.
+看到和没有看到访问的工作方式与\cref{sec:memorder:Locking Intuitions}中描述的相同。
 
-However, as will be illustrated by
-\cref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}
-on
-\cpageref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)},
-the acquire access must load exactly what was stored by the release access.
-Any intervening store that is not itself part of that same release-acquire
-chain will break the chain.
-And again, release-acquire chains do not provide mutual exclusion.
+然而，正如\cpageref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}上的
+\cref{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}所说明的，
+acquire访问必须恰好load release访问所store的值。
+任何不属于同一release-acquire链的中间store都会破坏该链。
+再说一次，release-acquire链不提供互斥。
 
-Nevertheless, properly constructed release-acquire chains are transitive,
-intuitive, and useful.
+尽管如此，正确构建的release-acquire链是传递性的、
+直觉的，而且是有用的。
 
-\subsubsection{RCU Intuitions}
+\subsubsection{RCU直觉}
 \label{sec:memorder:RCU Intuitions}
 
-As noted in \cref{sec:defer:RCU Fundamentals} on
-\cpageref{sec:defer:RCU Fundamentals}, RCU provides a number
-of ordering guarantees.
+如\cpageref{sec:defer:RCU Fundamentals}上的
+\cref{sec:defer:RCU Fundamentals}所述，RCU提供了多项排序保证。
 
-The first is the publish-subscribe mechanism described in
-\cref{sec:defer:Publish-Subscribe Mechanism}
-on
-\cpageref{sec:defer:Publish-Subscribe Mechanism}.
-This resembles the acquire-release chains discussed in the previous
-section, but substitutes a member of the \co{rcu_dereference()} family
-of primitives for the \co{smp_load_acquire()}.
-Unlike \co{smp_load_acquire()}, the ordering implied by
-\co{rcu_dereference()} applies only to subsequent accesses that
-dereference the pointer returned by that \co{rcu_dereference()}
-as shown in
-\cref{fig:defer:Publication/Subscription Constraints}
-on
-\cpageref{fig:defer:Publication/Subscription Constraints}.
+第一个是\cpageref{sec:defer:Publish-Subscribe Mechanism}上的
+\cref{sec:defer:Publish-Subscribe Mechanism}中描述的
+发布-订阅机制。
+这类似于前一节讨论的acquire-release链，
+但用\co{rcu_dereference()}系列原语替代了\co{smp_load_acquire()}。
+与\co{smp_load_acquire()}不同，
+\co{rcu_dereference()}所隐含的排序仅适用于
+解引用该\co{rcu_dereference()}返回的指针的后续访问，
+如\cpageref{fig:defer:Publication/Subscription Constraints}上的
+\cref{fig:defer:Publication/Subscription Constraints}所示。
 
-The second guarantee says that if any part of an RCU read-side
-critical section precedes the beginning of a grace period, then
-the entirety of that critical section precedes the end of that
-grace period, as shown in
-\cref{fig:defer:RCU Reader and Later Grace Period}
-on
-\cpageref{fig:defer:RCU Reader and Later Grace Period}.
+第二个保证是，如果RCU读侧临界区的任何部分
+先于grace period的开始，那么该临界区的全部
+都先于该grace period的结束，
+如\cpageref{fig:defer:RCU Reader and Later Grace Period}上的
+\cref{fig:defer:RCU Reader and Later Grace Period}所示。
 
-The third guarantee says that if any part of an RCU read-side critical
-section follows the end of a grace period, then the entirety of that
-critical section follows the beginning of that grace period, as shown in
-\cref{fig:defer:RCU Reader and Earlier Grace Period}
-on
-\cpageref{fig:defer:RCU Reader and Earlier Grace Period}.
+第三个保证是，如果RCU读侧临界区的任何部分
+在grace period结束之后，那么该临界区的全部
+都在该grace period开始之后，
+如\cpageref{fig:defer:RCU Reader and Earlier Grace Period}上的
+\cref{fig:defer:RCU Reader and Earlier Grace Period}所示。
 
-Both of these two guarantees are discussed in
-\cref{sec:defer:Wait For Pre-Existing RCU Readers}
-on
-\cpageref{sec:defer:Wait For Pre-Existing RCU Readers},
-with more examples shown in
+这两个保证都在\cpageref{sec:defer:Wait For Pre-Existing RCU Readers}上的
+\cref{sec:defer:Wait For Pre-Existing RCU Readers}中讨论，
+更多示例见\cpageref{fig:defer:RCU Reader Within Grace Period,fig:defer:Summary of RCU Grace-Period Ordering Guarantees}上的
 \cref{fig:defer:RCU Reader Within Grace Period,%
-fig:defer:Summary of RCU Grace-Period Ordering Guarantees}
-on
-\cpageref{fig:defer:RCU Reader Within Grace Period,fig:defer:Summary of RCU Grace-Period Ordering Guarantees}.
-These two guarantees have further version-maintenance consequences that
-are discussed in
-\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}
-on
-\cpageref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}.
+fig:defer:Summary of RCU Grace-Period Ordering Guarantees}。
+这两个保证还有进一步的版本维护后果，在\cpageref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}上的
+\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}中讨论。
 
-These guarantees will be discussed somewhat more formally in
-\cref{sec:memorder:RCU}
-on
-\cpageref{sec:memorder:RCU}.
+这些保证将在\cpageref{sec:memorder:RCU}上的
+\cref{sec:memorder:RCU}中以更正式的方式讨论。
 
-Much of the sophistication of RCU lies not in its guarantees, but in its
-use cases, which are the subject of
-\cref{sec:defer:RCU Usage}
-starting on
-\cpageref{sec:defer:RCU Usage}.
+RCU的大部分复杂性不在于其保证，而在于其使用场景，
+这是\cpageref{sec:defer:RCU Usage}起的
+\cref{sec:defer:RCU Usage}的主题。
 
-\subsubsection{Fully Ordered Intuitions}
+\subsubsection{完全有序直觉}
 \label{sec:memorder:Fully Ordered Intuitions}
 
-A more extreme example of transitivity places at least one \co{smp_mb()}
-between each pair of accesses.
-All accesses seen by any given access will also be seen by all later
-accesses.
+传递性的一个更极端的例子是在每对访问之间至少放置一个\co{smp_mb()}。
+任何给定访问所看到的所有访问也将被所有后续访问所看到。
 
-The resulting program will be fully ordered, if somewhat slow.
-Such programs will be sequentially consistent and much loved by
-formal-verification experts who specialize in tried-and-true 1980s
-proof techniques.
-But slow or not, \co{smp_mb()} is always there when you need it!
+由此产生的程序将是完全有序的，尽管有些慢。
+这样的程序将是顺序一致的，并且深受
+专注于久经考验的1980年代证明技术的形式化验证专家的喜爱。
+但无论快慢，当你需要时\co{smp_mb()}总是在那里！
 
-Nevertheless, there are situations that cannot be addressed by these
-intuitive approaches.
-The next section therefore presents a more complete, if less transitive,
-set of rules of thumb.
+然而，有些情况是这些直觉方法无法处理的。
+因此下一节将呈现一组更完整（尽管传递性较低）的经验法则。
 
-\subsection{Rules of Thumb}
+\subsection{经验法则}
 \label{sec:memorder:Rules of Thumb}
 
-The transitive intuitions presented in the previous section are
-very appealing, at least as \IX{memory model}s go.
-Unfortunately, hardware is under no obligation to provide temporal
-cause-and-effect illusions when one thread's store overwrites a value either
-loaded or stored by some other thread.
-It is quite possible that, from the software's viewpoint, an earlier store
-will overwrite a later store's value, but only if those two stores were
-executed by different threads, as will be illustrated by
+前一节中提出的传递性直觉是非常有吸引力的，
+至少就\IX{memory model}而言是这样。
+不幸的是，当一个线程的store覆盖了另一个线程
+加载或存储的值时，硬件没有义务提供
+时序因果假象。
+从软件的角度来看，很有可能一个较早的store
+会覆盖一个较晚store的值，但只有当这两个store
+由不同的线程执行时才会发生，这将由以下内容说明：
 \cref{fig:memorder:Store-to-Store is Counter-Temporal}
 on
 \cpageref{fig:memorder:Store-to-Store is Counter-Temporal}.
-Similarly, a later load might well read a value overwritten by an
-earlier store, but again only if that load and store were executed by
-different threads, as will be illustrated by
+类似地，一个较晚的load很可能读到被较早store
+覆盖的值，但同样只有当该load和store由
+不同的线程执行时才会发生，这将由以下内容说明：
 \cref{fig:memorder:Load-to-Store is Counter-Temporal}
 on
 \cpageref{fig:memorder:Load-to-Store is Counter-Temporal}.
-This counter-intuitive behavior occurs due to the need to buffer
-stores in order to achieve adequate performance, as will be discussed in
+这种反直觉的行为是由于需要缓冲store以获得
+足够性能而发生的，这将在以下章节中讨论：
 \cref{sec:memorder:Propagation}
 on
 \cpageref{sec:memorder:Propagation}.
@@ -464,244 +392,208 @@ on
 \begin{figure}
 \centering
 \resizebox{.5\onecolumntextwidth}{!}{\includegraphics{memorder/ifthen}}
-\caption{If-Then Nature of Memory Ordering}
+\caption{Memory Ordering的If-Then性质}
 \label{fig:memorder:If-Then Nature of Memory Ordering}
 \end{figure}
 
-As a result, situations where one thread reads a value written by some
-other thread can make do with far weaker ordering than can situations
-where one thread overwrites a value loaded or stored by some other thread.
-These differences are captured by the following rules of thumb.
-However, it is important to note that none of these rules involve
-mutual exclusion.
-There is instead an if-then nature to these rules, as illustrated by
+因此，一个线程读取另一个线程写入的值的情况
+可以使用远比一个线程覆盖另一个线程加载或存储的值的情况
+更弱的排序。
+这些差异被以下经验法则所捕获。
+然而，重要的是要注意这些规则都不涉及互斥。
+这些规则具有if-then的性质，如以下所示：
 \cref{fig:memorder:If-Then Nature of Memory Ordering}.
-In the figure, if CPU~1's reference to Y follows that of CPU~0,
-and if both CPUs provide sufficient ordering between their two
-accesses, then CPU~0's access to X will also precede that of
-CPU~1.
+在图中，如果CPU~1对Y的引用在CPU~0之后，
+并且两个CPU在它们的两个访问之间提供了足够的排序，
+那么CPU~0对X的访问也将先于CPU~1的访问。
 
-The first rule of thumb is that memory-ordering operations are only
-required where there is a possibility of interaction between at least
-two variables shared among at least two threads, which underlies the
-singular intuitive bliss presented in
+第一条经验法则是，memory-ordering操作仅在
+至少两个线程共享的至少两个变量之间有可能
+交互时才是必需的，这是以下章节中提出的单一性直觉福音的基础：
 \cref{sec:memorder:Singular Intuitive Bliss}.
-In light of the intervening material, this single sentence encapsulates
-many of the basic rules of thumb that will be presented in
-\cref{sec:memorder:Basic Rules of Thumb}
-on
-\cpageref{sec:memorder:Basic Rules of Thumb},
-for example, keeping in mind that ``memory-barrier pairing'' is a
-two-thread special case of ``cycle''.
-And, as always, if a single-threaded program will provide sufficient
-performance, why bother with parallelism?\footnote{
-	Hobbyists and researchers should of course feel free to ignore
-	this and many other cautions.}
-After all, avoiding parallelism also avoids the added cost and complexity
-of memory-ordering operations.
+鉴于中间的材料，这一句话概括了将在
+\cpageref{sec:memorder:Basic Rules of Thumb}上的
+\cref{sec:memorder:Basic Rules of Thumb}中呈现的
+许多基本经验法则，
+例如，请记住``memory-barrier配对''是``cycle''的双线程特殊情况。
+而且，一如既往，如果单线程程序能提供足够的
+性能，为什么要费心并行化呢？\footnote{
+	当然，爱好者和研究人员可以随意忽略这个和许多其他警告。}
+毕竟，避免并行也避免了memory-ordering操作的额外成本和复杂性。
 
-The second rule of thumb involves load-buffering situations:
-If all thread-to-thread communication in a given cycle use store-to-load
-links (that is, the next thread's load returns the value stored by
-the previous thread), minimal ordering suffices.
-Minimal ordering includes dependencies and acquires as well as all stronger
-ordering operations.
-Because a lock acquisition must load the lock-word value stored by any
-prior release of that lock, this rule of thumb underlies the locking
-intuitions presented in
+第二条经验法则涉及load-buffering情况：
+如果给定cycle中的所有线程间通信使用store-to-load
+链接（即下一个线程的load返回上一个线程存储的值），
+最小的排序就足够了。
+最小排序包括dependencies和acquire以及所有更强的
+排序操作。
+因为锁获取必须加载该锁任何先前释放所存储的lock-word值，
+这条经验法则是以下章节中提出的锁直觉的基础：
 \cref{sec:memorder:Locking Intuitions}.
 
-The third rule of thumb involves release-acquire chains:
-If all but one of the links in a given cycle is a store-to-load
-link, it is sufficient to use release-acquire pairs for each of
-those store-to-load links, as will be illustrated by
+第三条经验法则涉及release-acquire链：
+如果给定cycle中除一个之外的所有链接都是store-to-load
+链接，那么对每个store-to-load链接使用release-acquire对
+就足够了，这将由以下内容说明：
 \cref{lst:memorder:Long ISA2 Release-Acquire Chain,%
 lst:memorder:Long Z6.2 Release-Acquire Chain}
 starting on
 \cpageref{lst:memorder:Long ISA2 Release-Acquire Chain}.
-This rule underlies the release-acquire intuitions presented in
+这条规则是以下章节中提出的release-acquire直觉的基础：
 \cref{sec:memorder:Release-Acquire Intuitions}.
 
-You can replace a given acquire with a dependency in environments permitting
-this, keeping in mind that the
-\IXalthmr{C11 standard's memory model}{C11}{memory model} does \emph{not}
-fully respect dependencies.
-Therefore, a dependency leading to a load must be headed by
-a \co{READ_ONCE()} or an \co{rcu_dereference()}:
-A plain C-language load is not sufficient.
-In addition, carefully review
+在允许的环境中，你可以用dependency替换给定的acquire，
+但要记住\IXalthmr{C11标准的memory model}{C11}{memory model}
+\emph{并不}完全尊重dependency。
+因此，通向load的dependency必须以
+\co{READ_ONCE()}或\co{rcu_dereference()}开头：
+普通的C语言load是不够的。
+此外，请仔细查阅\cpageref{sec:memorder:Address- and Data-Dependency Difficulties,%
+sec:memorder:Control-Dependency Calamities}上的
 \cref{sec:memorder:Address- and Data-Dependency Difficulties,%
-sec:memorder:Control-Dependency Calamities},
-on
-\cpageref{sec:memorder:Address- and Data-Dependency Difficulties,%
-sec:memorder:Control-Dependency Calamities},
-because a dependency broken by your compiler will not order anything.
-The two threads sharing the sole non-store-to-load link can
-sometimes substitute \co{WRITE_ONCE()} plus \co{smp_wmb()} for
-\co{smp_store_release()} on the one hand,
-and \co{READ_ONCE()} plus \co{smp_rmb()} for \co{smp_load_acquire()}
-on the other.
-However, the wise developer will check such substitutions carefully,
-for example, using the \co{herd} tool as described in
-\cref{sec:formal:Axiomatic Approaches}
-on
-\cpageref{sec:formal:Axiomatic Approaches}.
+sec:memorder:Control-Dependency Calamities}，
+因为被编译器破坏的dependency不会对任何东西排序。
+共享唯一非store-to-load链接的两个线程有时可以
+用\co{WRITE_ONCE()}加\co{smp_wmb()}替代\co{smp_store_release()}，
+用\co{READ_ONCE()}加\co{smp_rmb()}替代\co{smp_load_acquire()}。
+然而，明智的开发者会仔细检查这种替换，
+例如使用\cpageref{sec:formal:Axiomatic Approaches}上的
+\cref{sec:formal:Axiomatic Approaches}中描述的\co{herd}工具。
 
 \QuickQuiz{
-	Why is it necessary to use heavier-weight ordering for
-	load-to-store and store-to-store links, but not for
-	store-to-load links?
-	What on earth makes store-to-load links so special???
+	为什么对于load-to-store和store-to-store链接需要使用更重量级的排序，
+	而对于store-to-load链接则不需要？
+	store-to-load链接到底有什么特别之处？？？
 }\QuickQuizAnswer{
-	Recall that load-to-store and store-to-store links can be
-	counter-temporal, as illustrated by
+	回想一下，load-to-store和store-to-store链接可以是反时序的，
+	如\cref{sec:memorder:Propagation}中的
 	\cref{fig:memorder:Load-to-Store is Counter-Temporal,%
-	fig:memorder:Store-to-Store is Counter-Temporal} in
-	\cref{sec:memorder:Propagation}.
-	This counter-temporal nature of load-to-store and store-to-store
-	links necessitates strong ordering.
+	fig:memorder:Store-to-Store is Counter-Temporal}所示。
+	load-to-store和store-to-store链接的这种反时序性
+	需要强排序。
 
-	In constrast, store-to-load links are temporal, as illustrated by
-	\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test,%
-	lst:memorder:Load-Buffering Control-Dependency Litmus Test}.
-	This temporal nature of store-to-load links permits use of
-	minimal ordering.
+	相比之下，store-to-load链接是时序性的，
+	如\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test,%
+	lst:memorder:Load-Buffering Control-Dependency Litmus Test}所示。
+	store-to-load链接的这种时序性允许使用最小排序。
 }\QuickQuizEnd
 
-The fourth and final rule of thumb identifies where full memory barriers
-(or stronger) are required:
-If a given cycle contains two or more non-store-to-load links (that is, a
-total of two or more links that are either load-to-store or store-to-store
-links), you will need at least one full barrier between each pair of
-non-store-to-load links in that cycle, as will be illustrated by
-\cref{lst:memorder:W+WRC Litmus Test With More Barriers}
-on
-\cpageref{lst:memorder:W+WRC Litmus Test With More Barriers}
-and most especially by the example presented in
-\cref{sec:memorder:A Counter-Intuitive Case Study}
-on
-\cpageref{sec:memorder:A Counter-Intuitive Case Study}.
+第四条也是最后一条经验法则确定了需要full memory barrier
+（或更强）的场合：
+如果给定的cycle包含两个或更多non-store-to-load链接
+（即总共两个或更多load-to-store或store-to-store链接），
+你将需要在该cycle中每对non-store-to-load链接之间
+至少有一个full barrier，
+如\cpageref{lst:memorder:W+WRC Litmus Test With More Barriers}上的
+\cref{lst:memorder:W+WRC Litmus Test With More Barriers}所示，
+尤其是\cpageref{sec:memorder:A Counter-Intuitive Case Study}上的
+\cref{sec:memorder:A Counter-Intuitive Case Study}中呈现的示例。
 % @@@ \cref{lst:memorder:W+WRC Litmus Test With More Barriers}
 % @@@ as well as in the answer to
 % @@@ \QuickQuizARef{\MemorderQQLitmusTestR}.
-Full barriers include \co{smp_mb()}, successful full-strength non-\co{void}
-atomic RMW operations, and other atomic RMW operations in conjunction with
-either \co{smp_mb__before_atomic()} or \co{smp_mb__after_atomic()}.
-Any of RCU's grace-period-wait primitives (\co{synchronize_rcu()} and
-friends) also act as full barriers, but at far greater expense than
-\co{smp_mb()}.
-With strength comes expense, though full barriers
-usually hurt performance more than they hurt scalability.
-The extreme logical endpoint of this rule of thumb underlies the
-fully ordered intuitions presented in
-\cref{sec:memorder:Fully Ordered Intuitions}.
+Full barrier包括\co{smp_mb()}、成功的全强度非\co{void}
+原子RMW操作，以及与\co{smp_mb__before_atomic()}或
+\co{smp_mb__after_atomic()}结合使用的其他原子RMW操作。
+任何RCU的grace-period等待原语（\co{synchronize_rcu()}及其同族）
+也作为full barrier起作用，但代价远比\co{smp_mb()}高。
+力量伴随着代价，尽管full barrier通常对性能的损害
+大于对可扩展性的损害。
+这条经验法则的极端逻辑终点是
+\cref{sec:memorder:Fully Ordered Intuitions}中提出的完全有序直觉的基础。
 
-Recapping the rules:
+回顾这些规则：
 
 \begin{enumerate}
-\item	Memory-ordering operations are required only if at least
-	two variables are shared by at least two threads.
-\item	If all links in a cycle are store-to-load links, then
-	minimal ordering suffices.
-\item	If all but one of the links in a cycle are store-to-load links,
-	then each store-to-load link may use a release-acquire pair.
-\item	Otherwise, at least one full barrier is required between
-	each pair of non-store-to-load links.
+\item	Memory-ordering操作仅在至少两个线程共享至少两个变量时才是必需的。
+\item	如果一个cycle中的所有链接都是store-to-load链接，
+	那么最小排序就足够了。
+\item	如果一个cycle中除一个之外的所有链接都是store-to-load链接，
+	那么每个store-to-load链接可以使用一个release-acquire对。
+\item	否则，每对non-store-to-load链接之间至少需要一个full barrier。
 \end{enumerate}
 
-Note that an architecture is permitted to provide stronger guarantees, as
-will be discussed in
+注意，架构被允许提供更强的保证，这将在以下章节中讨论：
 \cref{sec:memorder:Hardware Specifics},
-but these guarantees may only be relied upon in code that runs only for
-that architecture.
-In addition, more accurate
-\IX{memory model}s~\cite{Alglave:2018:FSC:3173162.3177156}
-may give stronger guarantees with lower-overhead operations than do
-these rules of thumb, albeit at the expense of greater complexity.
-In these more formal memory-ordering papers, a store-to-load link is an
-example of a reads-from (rf) link, a load-to-store link is an example
-of a from-reads (fr) link, and a store-to-store link is an example of
-a coherence (co) link.
+但这些保证只能在仅为该架构运行的代码中依赖。
+此外，更精确的\IX{memory model}~\cite{Alglave:2018:FSC:3173162.3177156}
+可能以比这些经验法则更低开销的操作提供更强的保证，
+尽管代价是更大的复杂性。
+在这些更正式的memory-ordering论文中，store-to-load链接是
+reads-from (rf)链接的一个例子，load-to-store链接是
+from-reads (fr)链接的一个例子，store-to-store链接是
+coherence (co)链接的一个例子。
 
-One final word of advice:
-Use of raw memory-ordering primitives is a last resort.
-It is almost always better to use existing primitives, such as locking
-or RCU, thus letting those primitives do the memory ordering for you.
+最后一个建议：
+使用原始memory-ordering原语是最后的手段。
+使用现有的原语（如锁或RCU）几乎总是更好的选择，
+这样让这些原语为你处理memory ordering。
 
-With that said, the next section describes why hardware misorders memory
-references and some of the things that you can do about it.
+话虽如此，下一节描述了为什么硬件会对内存引用乱序
+以及你可以采取的一些对策。
 
-\section{Ordering:
-		   Why and How?}
+\section{排序：
+		   为什么以及如何？}
 \label{sec:memorder:Ordering: Why and How?}
 %
-\epigraph{Nothing is orderly till people take hold of it.
-	  Everything in creation lies around loose.}
+\epigraph{在人们掌控之前，没有什么是有序的。
+	  创世万物皆散乱无章。}
 	 {Henry Ward Beecher, updated}
 
-One motivation for memory ordering can be seen in the trivial-seeming
-litmus test in
+Memory ordering的一个动机可以从以下看似简单的
+litmus test中看到：
 \cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}
 (\path{C-SB+o-o+o-o.litmus}),
-which at first glance might
-appear to guarantee that the \co{exists} clause never triggers.\footnote{
-	Purists would instead insist that the \co{exists} clause is
-	never \emph{satisfied}, but we use ``trigger'' here by
-	analogy with assertions.}
-After all, if \nbco{0:r2=0} as shown in the \co{exists} clause,\footnote{
-	That is, Thread~\co{P0()}'s instance of local variable \co{r2}
-	equals zero.
-	See \cref{sec:formal:Anatomy of a Litmus Test}
-	for documentation of litmus-test nomenclature.}
-we might hope that Thread~\co{P0()}'s load from~\co{x1} into \co{r2}
-must have happened before Thread~\co{P1()}'s store to~\co{x1}, which
-might raise further hopes that Thread~\co{P1()}'s load from~\co{x0}
-into \co{r2} must happen after Thread~\co{P0()}'s store to~\co{x0},
-so that \nbco{1:r2=2}, thus never triggering the \co{exists} clause.
-The example is symmetric, so similar reasoning might lead
-us to hope that \nbco{1:r2=0} guarantees that \nbco{0:r2=2}.
-Unfortunately, the lack of memory barriers dashes these hopes.
-The CPU is within its rights to reorder
-the statements within both Thread~\co{P0()} and Thread~\co{P1()},
-even on relatively strongly ordered systems such as x86.
+乍一看可能会
+以为\co{exists}子句永远不会触发。\footnote{
+	纯粹主义者会坚持说\co{exists}子句永远不会被\emph{满足}，
+	但我们这里用``触发''来类比断言。}
+毕竟，如果\co{exists}子句中所示的\nbco{0:r2=0}，\footnote{
+	即Thread~\co{P0()}的局部变量\co{r2}实例等于零。
+	关于litmus test命名法的文档，
+	请参见\cref{sec:formal:Anatomy of a Litmus Test}。}
+我们可能希望Thread~\co{P0()}从~\co{x1}到\co{r2}的load
+一定发生在Thread~\co{P1()}对~\co{x1}的store之前，
+这可能进一步让我们希望Thread~\co{P1()}从~\co{x0}
+到\co{r2}的load一定发生在Thread~\co{P0()}对~\co{x0}的store之后，
+从而\nbco{1:r2=2}，因此永远不会触发\co{exists}子句。
+该示例是对称的，因此类似的推理可能
+让我们希望\nbco{1:r2=0}保证\nbco{0:r2=2}。
+不幸的是，缺少memory barrier打破了这些希望。
+CPU有权重排Thread~\co{P0()}和Thread~\co{P1()}中的语句，
+即使在x86这样相对强序的系统上也是如此。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-SB+o-o+o-o@whole.fcv}
-\caption{Memory Misordering:
+\caption{内存乱序：
 			     Store-Buffering Litmus Test}
 \label{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}
 \end{listing}
 
 \QuickQuiz{
-	The compiler can also reorder Thread~\co{P0()}'s and
-	Thread~\co{P1()}'s memory accesses in
-	\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test},
-	right?
+	编译器也可以重排Thread~\co{P0()}和Thread~\co{P1()}在
+	\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}中的
+	内存访问，对吗？
 }\QuickQuizAnswer{
-	In general, compiler optimizations carry out more extensive
-	and profound reorderings than CPUs can.
-	However, in this case, the volatile accesses in
-	\co{READ_ONCE()} and \co{WRITE_ONCE()}
-	prevent the compiler from reordering.
-	And also from doing much else as well, so the examples in this
-	chapter will be making heavy use of
-	\co{READ_ONCE()} and \co{WRITE_ONCE()}.
-	See \cref{sec:memorder:Compile-Time Consternation}
-	for more detail on the need for \co{READ_ONCE()} and \co{WRITE_ONCE()}.
+	一般来说，编译器优化比CPU进行的重排更广泛、更深入。
+	然而，在这种情况下，\co{READ_ONCE()}和\co{WRITE_ONCE()}
+	中的volatile访问阻止了编译器重排。
+	而且也阻止了其他许多事情，因此本章的示例将大量使用
+	\co{READ_ONCE()}和\co{WRITE_ONCE()}。
+	有关\co{READ_ONCE()}和\co{WRITE_ONCE()}必要性的更多细节，
+	请参见\cref{sec:memorder:Compile-Time Consternation}。
 }\QuickQuizEnd
 
-This willingness to reorder can be confirmed using tools such as
+这种重排的可能性可以使用以下工具确认：
 \co{litmus7}~\cite{Alglave:2014:HCM:2594291.2594347},
-which found that the counter-intuitive ordering happened
-314 times out of 100,000,000 trials on an x86 laptop.
-Oddly enough, the perfectly legal outcome where both loads return the
-value 2 occurred less frequently, in this case, only 167 times.\footnote{
-	Please note that results are sensitive to the exact hardware
-	configuration,
-	how heavily the system is loaded, and much else besides.
-	So why not try it out on your own system?}
-The lesson here is clear:
-Increased counter-intuitivity does not necessarily imply decreased probability!
+在x86笔记本电脑上的100,000,000次试验中，
+发现反直觉的排序发生了314次。
+奇怪的是，两个load都返回值2这个完全合法的结果发生得更少，
+在这种情况下只有167次。\footnote{
+	请注意，结果对确切的硬件配置、系统负载程度
+	以及许多其他因素都很敏感。
+	所以为什么不在你自己的系统上试试呢？}
+这里的教训很清楚：
+反直觉性增加并不一定意味着概率降低！
 % Run on June 23, 2017:
 % litmus7 -r 1000 -carch X86 C-SB+o-o+o-o.litmus
 % Test C-SB+o-o+o-o Allowed
@@ -711,122 +603,105 @@ Increased counter-intuitivity does not necessarily imply decreased probability!
 % 49999894:>0:r2=0; 1:r2=2;
 % 167   :>0:r2=2; 1:r2=2;
 
-The following sections show exactly how this intuition breaks down,
-and then put forward some mental models of memory ordering that can help
-you avoid these pitfalls.
+以下章节准确展示了这种直觉是如何失效的，
+然后提出了一些memory ordering的思维模型，可以帮助
+你避免这些陷阱。
 
 \Cref{sec:memorder:Why Hardware Misordering?}
-gives a brief overview of why hardware misorders memory accesses, and then
+简要概述了为什么硬件会对内存访问乱序，然后
 \cref{sec:memorder:How to Force Ordering?}
-gives an equally brief overview of how you can thwart such misordering.
-Finally, \cref{sec:memorder:Basic Rules of Thumb}
-lists some basic rules of thumb, which will be further refined in
-later sections.
-These sections focus on hardware reordering, but rest assured that compilers
-reorder much more aggressively than hardware ever dreamed of doing.
-Compiler-induced reordering will be taken up in
+同样简要概述了你如何阻止这种乱序。
+最后，\cref{sec:memorder:Basic Rules of Thumb}
+列出了一些基本经验法则，这些将在后续章节中进一步细化。
+这些章节重点关注硬件重排，但请放心，编译器
+的重排比硬件曾经梦想的要积极得多。
+编译器引起的重排将在以下章节中讨论：
 \cref{sec:memorder:Compile-Time Consternation}.
 
-\subsection{Why Hardware Misordering?}
+\subsection{为什么硬件会乱序？}
 \label{sec:memorder:Why Hardware Misordering?}
 
-But why does memory misordering happen in the first place?
-Can't CPUs keep track of ordering on their own?
-Isn't that why we have computers in the first place, to keep track of things?
+但为什么内存乱序会首先发生？
+CPU不能自行跟踪排序吗？
+这不就是我们首先拥有计算机的原因吗，为了跟踪事物？
 
 \begin{figure*}
 \centering
 \resizebox{\textwidth}{!}{\includegraphics{memorder/Intel_Core2_arch}}
-\caption{Intel Core 2 Architecture}
+\caption{Intel Core 2架构}
 \ContributedBy{fig:memorder:Intel Core 2 Architecture}{Wikipedia user “I, Appaloosa” CC BY-SA 3.0, reformatted}
 \end{figure*}
 
-Many people do indeed expect their computers to keep track of things,
-but many also insist that they keep track of things quickly.
-In fact, so intense is the focus on performance that modern CPUs
-are extremely complex, as can be seen in the simplified block diagram in
+许多人确实期望他们的计算机跟踪事物，
+但许多人也坚持要求它们快速地跟踪。
+事实上，对性能的关注如此强烈，以至于现代CPU
+极其复杂，这可以从以下简化框图中看出：
 \cref{fig:memorder:Intel Core 2 Architecture}.
-Those needing to squeeze the last few percent of performance from their
-systems will in turn need to pay close attention to the fine details of this
-figure when tuning their software.
-Except that this close attention to detail means that when a given CPU
-degrades with age, the software will no longer run quickly on it.
-For example, if the leftmost ALU fails, software tuned to take full
-advantage of all of the ALUs might well run more slowly than untuned
-software.
-One solution to this problem is to take systems out of service as soon
-as any of their CPUs start degrading.
+那些需要从系统中榨取最后几个百分点性能的人
+在调优软件时需要密切关注这个图的细节。
+但是，对细节的密切关注意味着当给定的CPU
+随着老化而退化时，软件将不再在其上快速运行。
+例如，如果最左边的ALU失败，为充分利用所有ALU而调优的软件
+可能比未调优的软件运行得更慢。
+这个问题的一个解决方案是一旦CPU开始退化就将系统退出服务。
 
 \begin{figure*}
 \centering
 \resizebox{\textwidth}{!}{\includegraphics{memorder/Intel_Core2_arch-simplified}}
-\caption{Intel Core 2 Architecture Simplified}
+\caption{简化的Intel Core 2架构}
 \ContributedBy{fig:memorder:Intel Core 2 Architecture Simplified}{Wikipedia user “I, Appaloosa” CC BY-SA 3.0, reformatted}
 \end{figure*}
 
-Another option is to recall the lessons of
-\cref{chp:Hardware and its Habits},
-especially the lesson that for many important workloads, main memory
-cannot keep up with modern CPUs, which can execute hundreds of
-instructions in the time required to fetch a single variable from memory.
-For such workloads, the detailed internal structure of the CPU is
-irrelevant, and the CPU can instead be approximated by the blue shapes in
-\cref{fig:memorder:Intel Core 2 Architecture Simplified}
-labeled CPU, store buffer, and cache.
+另一个选择是回忆\cref{chp:Hardware and its Habits}中的教训，
+特别是对于许多重要的工作负载，主存跟不上现代CPU，
+现代CPU可以在从内存获取单个变量所需的时间内
+执行数百条指令。
+对于这样的工作负载，CPU的详细内部结构是无关紧要的，
+CPU可以用\cref{fig:memorder:Intel Core 2 Architecture Simplified}中
+标记为CPU、store buffer和cache的蓝色形状来近似。
 
-Because of these data-intensive workloads, CPUs sport increasingly large
-caches, as was seen back in
-\cref{fig:cpu:System Hardware Architecture},
-which means that although the first load by a given CPU from a given
-variable will result in an expensive \emph{cache miss} as was discussed in
-\cref{sec:cpu:Cache Misses}, subsequent
-repeated loads from that variable by that CPU might execute
-very quickly because the initial cache miss will have loaded that
-variable into that CPU's cache.
+由于这些数据密集型工作负载，CPU配备了越来越大的cache，
+如\cref{fig:cpu:System Hardware Architecture}中所见，
+这意味着虽然给定CPU从给定变量的第一次load
+会导致昂贵的\emph{cache miss}（如\cref{sec:cpu:Cache Misses}中讨论的），
+但该CPU对该变量的后续重复load可能执行得非常快，
+因为初始的cache miss已经将该变量加载到了该CPU的cache中。
 
-However, it is also necessary to accommodate frequent concurrent stores
-from multiple CPUs to a set of shared variables.
-In cache-coherent systems, if the caches hold multiple copies of a given
-variable, all the copies of that variable must have the same value.
-This works extremely well for concurrent loads, but not so well for
-concurrent stores:
-Each store must do something about all copies of the old value
-(another cache miss!), which, given the finite speed of light and
-the atomic nature of matter, will be slower than impatient software
-hackers would like.
-And these strings of stores are the reason for the blue block
-labelled store buffer in
-\cref{fig:memorder:Intel Core 2 Architecture Simplified}.
+然而，也有必要适应多个CPU对一组共享变量的频繁并发store。
+在cache-coherent系统中，如果cache持有给定变量的多个副本，
+该变量的所有副本必须具有相同的值。
+这对于并发load工作得非常好，但对于并发store就不那么好了：
+每个store都必须处理旧值的所有副本（又一个cache miss！），
+考虑到有限的光速和物质的原子特性，
+这将比不耐烦的软件工程师所期望的要慢。
+这些连续的store就是\cref{fig:memorder:Intel Core 2 Architecture Simplified}中
+标记为store buffer的蓝色块的原因。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{memorder/SystemArchSB}}
-\caption{System Architecture With Store Buffers}
+\caption{带Store Buffer的系统架构}
 \label{fig:memorder:System Architecture With Store Buffers}
 \end{figure}
 
-Removing the internal CPU complexity from
-\cref{fig:memorder:Intel Core 2 Architecture Simplified},
-adding a second CPU, and showing main memory results in
-\cref{fig:memorder:System Architecture With Store Buffers}.
-When a given CPU stores to a variable
-not present in that CPU's cache, then the new value
-is instead placed in that CPU's store buffer.
-The CPU can then proceed immediately, without having to wait for the
-store to do something about all the old values of that variable
-residing in other CPUs' caches.
+从\cref{fig:memorder:Intel Core 2 Architecture Simplified}中
+移除CPU内部复杂性，添加第二个CPU，并显示主存，
+结果得到\cref{fig:memorder:System Architecture With Store Buffers}。
+当给定CPU store到一个不在该CPU的cache中的变量时，
+新值会被放入该CPU的store buffer中。
+然后CPU可以立即继续执行，不必等待store处理
+驻留在其他CPU的cache中的该变量的所有旧值。
 
 \begin{figure}
 \centering
 \resizebox{2.4in}{!}{\includegraphics{cartoons/r-2014-Out-of-order}}
-\caption{CPUs Can Do Things Out of Order}
+\caption{CPU可以乱序执行}
 \ContributedBy{fig:memorder:CPUs Can Do Things Out of Order}{Melissa Broussard}
 \end{figure}
 
-Although store buffers can greatly increase performance, they can cause
-instructions and memory references to execute out of order, which can
-in turn cause serious confusion, as fancifully illustrated in
-\cref{fig:memorder:CPUs Can Do Things Out of Order}.
+虽然store buffer可以大大提高性能，但它们可能导致
+指令和内存引用乱序执行，这反过来可能造成严重的混乱，
+如\cref{fig:memorder:CPUs Can Do Things Out of Order}中夸张地所示。
 
 \begin{table*}
 \rowcolors{6}{}{lightgray}
@@ -854,140 +729,119 @@ in turn cause serious confusion, as fancifully illustrated in
 	\bottomrule
 \end{tabular}
 }
-\caption{Memory Misordering:
-			     Store-Buffering Sequence of Events}
+\caption{内存乱序：
+			     Store-Buffering事件序列}
 \label{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}
 \end{table*}
 
-In particular, store buffers cause the memory misordering
-illustrated by
-\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}.
+具体来说，store buffer导致了
+\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}所示的内存乱序。
 \Cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}
-shows the steps leading to this misordering.
-Row~1 shows the initial state, where CPU~0 has \co{x1} in its cache
-and CPU~1 has \co{x0} in its cache, both variables having a value of zero.
+显示了导致这种乱序的步骤。
+第1行显示初始状态，其中CPU~0在其cache中有\co{x1}，
+CPU~1在其cache中有\co{x0}，两个变量的值都为零。
 \begin{fcvref}[ln:formal:C-SB+o-o+o-o:whole]
-Row~2 shows the state change due to each CPU's store (\clnref{st0,st1} of
-\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}).
-Because neither CPU has the stored-to variable in its cache, both CPUs
-record their stores in their respective store buffers.
+第2行显示了由每个CPU的store（\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}的\clnref{st0,st1}）
+导致的状态变化。
+因为两个CPU的cache中都没有被store的变量，
+所以两个CPU都将它们的store记录在各自的store buffer中。
 \end{fcvref}
 
 \QuickQuiz{
-	But wait!!!
-	On row~2 of
-	\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}
-	both \co{x0} and \co{x1} each have two values at the same time,
-	namely zero and two.
-	How can that possibly work???
+	等等！！！
+	在\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}
+	的第2行中，\co{x0}和\co{x1}每个同时有两个值，即零和二。
+	这怎么可能工作？？？
 }\QuickQuizAnswer{
-	There is an underlying cache-coherence protocol that straightens
-	things out, which are discussed in
-	\cref{sec:app:whymb:Cache-Coherence Protocols}.
-	But if you think that a given variable having two values at
-	the same time is surprising, just wait until you get to
-	\cref{sec:memorder:Variables With Multiple Values}!
+	有一个底层的cache-coherence协议可以理顺这些事情，
+	这在\cref{sec:app:whymb:Cache-Coherence Protocols}中讨论。
+	但如果你认为一个变量同时具有两个值很令人惊讶，
+	那就等到你看到\cref{sec:memorder:Variables With Multiple Values}吧！
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:formal:C-SB+o-o+o-o:whole]
-Row~3 shows the two loads (\clnref{ld0,ld1} of
-\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}).
-Because the variable being loaded by each CPU is in that CPU's cache,
-each load immediately returns the cached value, which in both cases
-is zero.
+第3行显示了两个load（\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}的\clnref{ld0,ld1}）。
+因为每个CPU加载的变量都在该CPU的cache中，
+每个load立即返回缓存的值，在两种情况下都是零。
 \end{fcvref}
 
-But the CPUs are not done yet:
-Sooner or later, they must empty their store buffers.
-Because caches move data around in relatively large blocks called
-\emph{cachelines}, and because each cacheline can hold several
-variables, each CPU must get the cacheline into its own cache so
-that it can update the portion of that cacheline corresponding
-to the variable in its store buffer, but without disturbing any
-other part of the cacheline.
-Each CPU must also ensure that the cacheline is not present in any other
-CPU's cache, for which a read-invalidate operation is used.
-As shown on row~4, after both read-invalidate operations complete,
-the two CPUs have traded cachelines, so that CPU~0's cache now contains
-\co{x0} and CPU~1's cache now contains \co{x1}.
-Once these two variables are in their new homes, each CPU can flush
-its store buffer into the corresponding \IX{cache line}, leaving each
-variable with its final value as shown on row~5.
+但CPU还没有完成：
+迟早，它们必须清空各自的store buffer。
+因为cache以被称为\emph{cacheline}的相对较大的块来移动数据，
+并且每个cacheline可以容纳多个变量，每个CPU必须将cacheline
+放入自己的cache中，以便更新该cacheline中与其store buffer中
+的变量对应的部分，同时不干扰cacheline的其他部分。
+每个CPU还必须确保该cacheline不存在于任何其他CPU的cache中，
+为此使用了read-invalidate操作。
+如第4行所示，在两个read-invalidate操作完成后，
+两个CPU交换了cacheline，因此CPU~0的cache现在包含\co{x0}，
+CPU~1的cache现在包含\co{x1}。
+一旦这两个变量到达它们的新位置，每个CPU就可以将其store buffer
+刷入对应的\IX{cache line}，使每个变量具有如第5行所示的最终值。
 
 \QuickQuiz{
-	But don't the values also need to be flushed from the cache
-	to main memory?
+	但是这些值不也需要从cache刷到主存吗？
 }\QuickQuizAnswer{
-	Perhaps surprisingly, not necessarily!
-	On some systems,
-	if the two variables are being used heavily, they might
-	be bounced back and forth between the CPUs' caches and never
-	land in main memory.
+	也许令人惊讶的是，不一定！
+	在某些系统上，如果这两个变量被频繁使用，
+	它们可能在CPU的cache之间来回弹跳，永远不会落到主存中。
 }\QuickQuizEnd
 
-In summary, store buffers are needed to allow CPUs to handle
-store instructions efficiently, but they can result in
-counter-intuitive memory misordering.
+总之，store buffer是CPU高效处理store指令所需的，
+但它们可能导致反直觉的内存乱序。
 
-But what do you do if your algorithm really needs its memory
-references to be ordered?
-For example, suppose that you are communicating with a driver using
-a pair of flags, one that says whether or not the driver is running
-and the other that says whether there is a request pending for that
-driver.
-The requester needs to set the request-pending flag, then check
-the driver-running flag, and if false, wake the driver.
-Once the driver has serviced all the pending requests that it knows about,
-it needs to clear its driver-running flag, then check the request-pending
-flag to see if it needs to restart.
-This very reasonable approach cannot work unless there is some way
-to make sure that the hardware processes the stores and loads in order.
-This is the subject of the next section.
+但如果你的算法确实需要其内存引用有序怎么办？
+例如，假设你正在使用一对标志与一个驱动程序通信，
+一个标志表示驱动程序是否正在运行，
+另一个标志表示是否有待处理的请求。
+请求者需要设置请求待处理标志，然后检查驱动程序运行标志，
+如果为假，则唤醒驱动程序。
+一旦驱动程序处理了它所知道的所有待处理请求，
+它需要清除其驱动程序运行标志，然后检查请求待处理标志
+以确定是否需要重新启动。
+这种非常合理的方法无法工作，除非有某种方式
+确保硬件按顺序处理store和load。
+这是下一节的主题。
 
-\subsection{How to Force Ordering?}
+\subsection{如何强制排序？}
 \label{sec:memorder:How to Force Ordering?}
 
-It turns out that there are compiler directives and synchronization
-primitives (such as locking and RCU) that are responsible for maintaining
-the illusion of ordering through use of \emph{\IXBpl{memory barrier}} (for
-example, \co{smp_mb()} in the Linux kernel).
-These memory barriers can be explicit instructions, as they are on
-\ARM, \Power{}, Itanium, and Alpha, or they can be implied by other instructions,
-as they often are on x86.
-Since these standard synchronization primitives preserve the illusion of
-ordering, your path of least resistance is to simply use these primitives,
-thus allowing you to stop reading this section.
+事实证明，有编译器指令和同步原语（如锁和RCU）
+负责通过使用\emph{\IXBpl{memory barrier}}
+（例如Linux内核中的\co{smp_mb()}）来维持排序的假象。
+这些memory barrier可以是显式指令，如在\ARM、\Power{}、Itanium和Alpha上，
+也可以由其他指令隐含，如在x86上经常出现的情况。
+由于这些标准同步原语保持了排序的假象，
+你最省力的路径就是简单地使用这些原语，
+从而允许你停止阅读本节。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-SB+o-mb-o+o-mb-o@whole.fcv}
-\caption{Memory Ordering:
+\caption{内存排序：
 			  Store-Buffering Litmus Test}
 \label{lst:memorder:Memory Ordering: Store-Buffering Litmus Test}
 \end{listing}
 
-However, if you need to implement the synchronization primitives
-themselves, or if you are simply interested in understanding how memory
-ordering works, read on!
-The first stop on the journey is
+然而，如果你需要实现同步原语本身，或者你只是
+对理解memory ordering的工作原理感兴趣，请继续阅读！
+旅程的第一站是
 \cref{lst:memorder:Memory Ordering: Store-Buffering Litmus Test}
-(\path{C-SB+o-mb-o+o-mb-o.litmus}),
-which places an \co{smp_mb()} Linux-kernel \IXh{full}{memory barrier} between
-the store and load in both \co{P0()} and \co{P1()}, but is otherwise
-identical to
-\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}.
+(\path{C-SB+o-mb-o+o-mb-o.litmus})，
+它在\co{P0()}和\co{P1()}的store和load之间各放置了一个
+\co{smp_mb()} Linux内核\IXh{full}{memory barrier}，
+其他方面与\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}相同。
 % Test C-SB+o-mb-o+o-mb-o Allowed
 % Histogram (3 states)
 % 49553298:>0:r2=2; 1:r2=0;
 % 49636449:>0:r2=0; 1:r2=2;
 % 810253:>0:r2=2; 1:r2=2;
 % No
-These barriers prevent the counter-intuitive outcome from happening
-on 100,000,000 trials on my x86 laptop.
-Interestingly enough, the added overhead due to these barriers causes the
-legal outcome where both loads return the value two to happen more
-than 800,000 times, as opposed to only 167 times for the
-barrier-free code in
-\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}.
+这些barrier在我的x86笔记本电脑上100,000,000次试验中
+阻止了反直觉结果的发生。
+有趣的是，这些barrier带来的额外开销导致
+两个load都返回值2这个合法结果发生了超过800,000次，
+而\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}中
+无barrier代码只有167次。
 
 \begin{table*}
 \rowcolors{6}{}{lightgray}
@@ -1017,31 +871,27 @@ barrier-free code in
 	\bottomrule
 \end{tabular}
 }
-\caption{Memory Ordering:
-			  Store-Buffering Sequence of Events}
+\caption{内存排序：
+			  Store-Buffering事件序列}
 \label{tab:memorder:Memory Ordering: Store-Buffering Sequence of Events}
 \end{table*}
 
-These barriers have a profound effect on ordering, as can be seen in
-\cref{tab:memorder:Memory Ordering: Store-Buffering Sequence of Events}.
-Although the first two rows are the same as in
-\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}
-and although the \co{smp_mb()} instructions on row~3
-do not change state
-in and of themselves, they do cause the stores to complete
-(rows~4 and~5) before the
-loads (row~6), which rules out the counter-intuitive outcome shown in
-\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}.
-Note that variables \co{x0} and \co{x1} each still have more than one
-value on row~2, however, as promised earlier, the \co{smp_mb()}
-invocations straighten things out in the end.
+这些barrier对排序有深远的影响，
+如\cref{tab:memorder:Memory Ordering: Store-Buffering Sequence of Events}所示。
+虽然前两行与\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}相同，
+虽然第3行的\co{smp_mb()}指令本身不改变状态，
+但它们确实导致store在
+load（第6行）之前完成（第4行和第5行），
+从而排除了\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events}中
+显示的反直觉结果。
+注意变量\co{x0}和\co{x1}在第2行仍然各有多个值，
+然而，如前所述，\co{smp_mb()}调用最终把事情理顺了。
 
-Although full barriers such as \co{smp_mb()} have extremely strong
-ordering guarantees, their strength comes at a high price in terms
-of foregone hardware and compiler optimizations.
-A great many situations can be handled with much weaker ordering guarantees
-that use much cheaper memory-ordering instructions, or, in some case, no
-memory-ordering instructions at all.
+虽然像\co{smp_mb()}这样的full barrier具有极强的
+排序保证，但它们的强度以放弃硬件和编译器优化为高昂代价。
+很多情况可以用弱得多的排序保证来处理，
+这些保证使用便宜得多的memory-ordering指令，
+或者在某些情况下根本不需要memory-ordering指令。
 
 \begin{table*}
 \small
@@ -1105,246 +955,208 @@ memory-ordering instructions at all.
 \end{tabular}
 }\OneColumnHSpace{-0.9in}
 }
-\caption{Linux-Kernel Memory-Ordering Cheat Sheet}
+\caption{Linux内核Memory-Ordering速查表}
 \label{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
 \end{table*}
 
 \Cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
-provides a cheatsheet of the Linux kernel's ordering primitives and their
-guarantees.
-Each row corresponds to a primitive or category of primitives that might
-or might not provide ordering, with the columns labeled
-``Prior Ordered Operation'' and ``Subsequent Ordered Operation''
-being the operations that might (or might not) be ordered against.
-Cells containing ``Y'' indicate that ordering is supplied unconditionally,
-while other characters indicate that ordering is supplied only partially or
-conditionally.
-Blank cells indicate that no ordering is supplied.
+提供了Linux内核排序原语及其保证的速查表。
+每一行对应一个原语或一类原语，它们可能提供也可能不提供排序，
+标记为``Prior Ordered Operation''和``Subsequent Ordered Operation''的列
+是可能（或可能不）被排序的操作。
+包含``Y''的单元格表示无条件提供排序，
+而其他字符表示仅部分或有条件地提供排序。
+空白单元格表示不提供排序。
 
-The ``Store'' row also covers the store portion of an
-\IXalt{atomic RMW operation}{atomic read-modify-write operation}.
-In addition, the ``Load'' row covers the load
-component of a successful value-returning \co{_relaxed()} RMW atomic
-operation, although the combined ``\co{_relaxed()} RMW operation''
-line provides a convenient combined reference in the value-returning case.
-A CPU executing unsuccessful value-returning atomic RMW operations must
-invalidate the corresponding variable from all other CPUs' caches.
-Therefore, unsuccessful value-returning atomic RMW operations have many
-of the properties of a store, which means that the ``\co{_relaxed()}
-RMW operation'' line also applies to unsuccessful value-returning atomic
-RMW operations.
+``Store''行也涵盖了\IXalt{atomic RMW operation}{atomic read-modify-write operation}的store部分。
+此外，``Load''行涵盖了成功的返回值的\co{_relaxed()} RMW原子操作
+的load部分，尽管组合的``\co{_relaxed()} RMW operation''行
+在返回值的情况下提供了方便的组合参考。
+执行不成功的返回值原子RMW操作的CPU必须
+从所有其他CPU的cache中使相应变量无效。
+因此，不成功的返回值原子RMW操作具有store的许多属性，
+这意味着``\co{_relaxed()} RMW operation''行也适用于
+不成功的返回值原子RMW操作。
 
-The \co{*_acquire} row covers \co{smp_load_acquire()},
-\co{cmpxchg_acquire()}, \co{xchg_acquire()}, and so on; the \co{*_release}
-row covers \co{smp_store_release()}, \co{rcu_assign_pointer()},
-\co{cmpxchg_release()}, \co{xchg_release()}, and so on; and
-the ``Successful full-strength non-\co{void} RMW'' row covers
-\co{atomic_add_return()}, \co{atomic_add_unless()}, \co{atomic_dec_and_test()},
-\co{cmpxchg()}, \co{xchg()}, and so on.
-The ``Successful'' qualifiers apply to primitives such as
-\co{atomic_add_unless()}, \co{cmpxchg_acquire()}, and \co{cmpxchg_release()},
-which have no effect on either memory or on ordering when they indicate
-failure, as indicated by the earlier ``\co{_relaxed()} RMW operation'' row.
+\co{*_acquire}行涵盖\co{smp_load_acquire()}、
+\co{cmpxchg_acquire()}、\co{xchg_acquire()}等；\co{*_release}行涵盖
+\co{smp_store_release()}、\co{rcu_assign_pointer()}、
+\co{cmpxchg_release()}、\co{xchg_release()}等；
+``Successful full-strength non-\co{void} RMW''行涵盖
+\co{atomic_add_return()}、\co{atomic_add_unless()}、
+\co{atomic_dec_and_test()}、\co{cmpxchg()}、\co{xchg()}等。
+``Successful''限定符适用于诸如\co{atomic_add_unless()}、
+\co{cmpxchg_acquire()}和\co{cmpxchg_release()}等原语，
+当它们指示失败时对内存或排序没有任何影响，
+如前面的``\co{_relaxed()} RMW operation''行所示。
 
-Column ``C'' indicates cumulativity and propagation, as explained in
-\cref{sec:memorder:Cumulativity,%
-sec:memorder:Propagation}.
-In the meantime, this column can usually be ignored when there
-are at most two threads involved.
+列``C''表示cumulativity和propagation，
+如\cref{sec:memorder:Cumulativity,%
+sec:memorder:Propagation}中所解释的。
+在此期间，当最多涉及两个线程时，通常可以忽略此列。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	The rows in
-	\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
-	seem quite random and confused.
-	Whatever is the conceptual basis of this table???
+	\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}中的行
+	看起来相当随意和混乱。
+	这个表的概念基础到底是什么？？？
 }\QuickQuizAnswerB{
-	The rows correspond roughly to hardware mechanisms of increasing
-	power and overhead.
+	这些行大致对应于功能和开销递增的硬件机制。
 
-	The \co{WRITE_ONCE()} row captures the fact that accesses to
-	a single variable are always fully ordered, as indicated by
-	the ``SV'' column.
-	Note that all other operations providing ordering against accesses
-	to multiple variables also provide this same-variable ordering.
+	\co{WRITE_ONCE()}行捕获了对单个变量的访问总是完全有序的这一事实，
+	如``SV''列所示。
+	注意，所有其他提供对多个变量访问排序的操作
+	也提供这种同变量排序。
 
-	The \co{READ_ONCE()} row captures the fact that (as of 2021) compilers
-	and CPUs do not indulge in user-visible speculative stores, so that
-	any store whose address, data, or execution depends on a prior load
-	is guaranteed to happen after that load completes.
-	However, this guarantee assumes that these dependencies have
-	been constructed carefully, as described in
-	\cref{sec:memorder:Address- and Data-Dependency Difficulties,%
-	sec:memorder:Control-Dependency Calamities}.
+	\co{READ_ONCE()}行捕获了这样一个事实：（截至2021年）编译器
+	和CPU不会进行用户可见的推测性store，
+	因此任何地址、数据或执行依赖于先前load的store
+	保证在该load完成之后发生。
+	然而，这个保证假设这些dependency已经被仔细构建，
+	如\cref{sec:memorder:Address- and Data-Dependency Difficulties,%
+	sec:memorder:Control-Dependency Calamities}中所述。
 
-	The ``\co{_relaxed()} RMW operation'' row captures the fact
-	that a value-returning \co{_relaxed()} RMW has done a load and a
-	store, which are every bit as good as a \co{READ_ONCE()} and a
-	\co{WRITE_ONCE()}, respectively.
+	``\co{_relaxed()} RMW operation''行捕获了这样一个事实：
+	返回值的\co{_relaxed()} RMW执行了一个load和一个store，
+	它们分别与\co{READ_ONCE()}和\co{WRITE_ONCE()}一样好。
 
-	The \co{*_dereference()} row captures the address and data
-	dependency ordering provided by \co{rcu_dereference()} and friends.
-	Again, these dependencies must been constructed carefully,
-	as described in
-	\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
+	\co{*_dereference()}行捕获了\co{rcu_dereference()}及其同族
+	提供的地址和数据dependency排序。
+	同样，这些dependency必须被仔细构建，
+	如\cref{sec:memorder:Address- and Data-Dependency Difficulties}中所述。
 
-	The ``Successful \co{*_acquire()}'' row captures the fact that many
-	CPUs have special ``acquire'' forms of loads and of atomic RMW
-	instructions,
-	and that many other CPUs have lightweight memory-barrier
-	instructions that order prior loads against subsequent loads
-	and stores.
+	``Successful \co{*_acquire()}''行捕获了这样一个事实：
+	许多CPU具有load和原子RMW指令的特殊``acquire''形式，
+	而许多其他CPU具有轻量级memory-barrier指令，
+	可以对先前的load相对于后续的load和store进行排序。
 
-	The ``Successful \co{*_release()}'' row captures the fact that many
-	CPUs have special ``release'' forms of stores and of atomic RMW
-	instructions, and that many other CPUs have lightweight memory-barrier
-	instructions that order prior loads and stores against
-	subsequent stores.
+	``Successful \co{*_release()}''行捕获了这样一个事实：
+	许多CPU具有store和原子RMW指令的特殊``release''形式，
+	而许多其他CPU具有轻量级memory-barrier指令，
+	可以对先前的load和store相对于后续的store进行排序。
 
-	The \co{smp_rmb()} row captures the fact that many CPUs have
-	lightweight memory-barrier instructions that order prior loads against
-	subsequent loads.
-	Similarly,
-	the \co{smp_wmb()} row captures the fact that many CPUs have
-	lightweight memory-barrier instructions that order prior stores against
-	subsequent stores.
+	\co{smp_rmb()}行捕获了许多CPU具有轻量级memory-barrier指令
+	的事实，这些指令对先前的load相对于后续的load进行排序。
+	类似地，
+	\co{smp_wmb()}行捕获了许多CPU具有轻量级memory-barrier指令
+	的事实，这些指令对先前的store相对于后续的store进行排序。
 
-	None of the ordering operations thus far require prior stores to be
-	ordered against subsequent loads, which means that these operations
-	need not interfere with store buffers, whose main purpose in life
-	is in fact to reorder prior stores against subsequent loads.
-	The lightweight nature of these operations is precisely due to
-	their policy of store-buffer non-interference.
-	However, as noted earlier, it is sometimes necessary to interfere
-	with the store buffer in order to prevent prior stores from being
-	reordered against later stores, which brings us to the remaining
-	rows in this table.
+	到目前为止，所有排序操作都不要求先前的store
+	相对于后续的load进行排序，这意味着这些操作
+	不需要干扰store buffer，而store buffer的主要目的
+	实际上就是将先前的store相对于后续的load进行重排。
+	这些操作的轻量级性质正是由于它们不干扰store buffer的策略。
+	然而，如前所述，有时有必要干扰store buffer
+	以防止先前的store相对于后续的load被重排，
+	这就引出了此表中的其余行。
 
-	The \co{smp_mb()} row corresponds to the \IXh{full}{memory barrier}
-	available on most platforms, with Itanium being the exception
-	that proves the rule.
-	However, even on Itanium, \co{smp_mb()} provides full ordering
-	with respect to \co{READ_ONCE()} and \co{WRITE_ONCE()},
-	as discussed in \cref{sec:memorder:Itanium}.
+	\co{smp_mb()}行对应于大多数平台上可用的\IXh{full}{memory barrier}，
+	Itanium是证明规则的例外。
+	然而，即使在Itanium上，\co{smp_mb()}也提供了
+	相对于\co{READ_ONCE()}和\co{WRITE_ONCE()}的完全排序，
+	如\cref{sec:memorder:Itanium}中所讨论的。
 
-	The ``Successful full-strength non-\co{void} RMW'' row captures
-	the fact that on some platforms (such as x86) atomic RMW instructions
-	provide full ordering both before and after.
-	The Linux kernel therefore requires that full-strength non-\co{void}
-	atomic RMW operations provide full ordering in cases where these
-	operations succeed.
-	(Full-strength atomic RMW operation's names do not end in
-	\co{_relaxed}, \co{_acquire}, or \co{_release}.)
-	As noted earlier, the case where these operations do not succeed
-	is covered by the ``\co{_relaxed()} RMW operation'' row.
+	``Successful full-strength non-\co{void} RMW''行捕获了
+	在某些平台上（如x86）原子RMW指令在前后都提供完全排序的事实。
+	因此Linux内核要求全强度non-\co{void}
+	原子RMW操作在这些操作成功的情况下提供完全排序。
+	（全强度原子RMW操作的名称不以
+	\co{_relaxed}、\co{_acquire}或\co{_release}结尾。）
+	如前所述，这些操作不成功的情况
+	由``\co{_relaxed()} RMW operation''行涵盖。
 
-	However, the Linux kernel does not require that either \co{void}
-	or \co{_relaxed()} atomic RMW operations provide any ordering
-	whatsoever, with the canonical example being \co{atomic_inc()}.
-	Therefore, these operations, along with failing non-\co{void}
-	atomic RMW operations may be preceded by \co{smp_mb__before_atomic()}
-	and followed by \co{smp_mb__after_atomic()} to provide full
-	ordering for any accesses preceding or following both.
-	No ordering need be provided for accesses between the
-	\co{smp_mb__before_atomic()} (or, similarly, the
-	\co{smp_mb__after_atomic()}) and the atomic RMW operation, as
-	indicated by the ``a'' entries on the \co{smp_mb__before_atomic()}
-	and \co{smp_mb__after_atomic()} rows of the table.
+	然而，Linux内核不要求\co{void}
+	或\co{_relaxed()}原子RMW操作提供任何排序，
+	典型的例子是\co{atomic_inc()}。
+	因此，这些操作以及失败的non-\co{void}
+	原子RMW操作可以在前面加上\co{smp_mb__before_atomic()}，
+	在后面加上\co{smp_mb__after_atomic()}，
+	以为前后的所有访问提供完全排序。
+	不需要为\co{smp_mb__before_atomic()}（或类似地，
+	\co{smp_mb__after_atomic()}）与原子RMW操作之间的访问提供排序，
+	如表中\co{smp_mb__before_atomic()}和\co{smp_mb__after_atomic()}
+	行上的``a''条目所示。
 
-	In short, the structure of this table is dictated by the
-	properties of the underlying hardware, which are constrained by
-	nothing other than the laws of physics, which were covered back in
-	\cref{chp:Hardware and its Habits}.
-	That is, the table is not random, although it is quite possible
-	that you are confused.
+	简而言之，此表的结构由底层硬件的属性决定，
+	这些属性仅受物理定律的约束，
+	而物理定律在\cref{chp:Hardware and its Habits}中已经介绍过。
+	也就是说，表不是随机的，尽管你很可能感到困惑。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why is
-	\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
-	missing \co{smp_mb__after_unlock_lock()} and
-	\co{smp_mb__after_spinlock()}?
+	为什么\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
+	缺少\co{smp_mb__after_unlock_lock()}和
+	\co{smp_mb__after_spinlock()}？
 }\QuickQuizAnswerE{
-	These two primitives are rather specialized, and at present
-	seem difficult to fit into
-	\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}.
-	The \co{smp_mb__after_unlock_lock()} primitive is intended to be placed
-	immediately after a lock acquisition, and ensures that all CPUs
-	see all accesses in prior critical sections as happening before
-	all accesses following the \co{smp_mb__after_unlock_lock()}
-	and also before all accesses in later critical sections.
-	Here ``all CPUs'' includes those CPUs not holding that lock,
-	and ``prior critical sections'' includes all prior critical sections
-	for the lock in question as well as all prior critical sections
-	for all other locks that were released by the same CPU that executed
-	the  \co{smp_mb__after_unlock_lock()}.
+	这两个原语相当专业化，目前似乎很难放入
+	\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}中。
+	\co{smp_mb__after_unlock_lock()}原语旨在紧接在锁获取之后放置，
+	并确保所有CPU看到先前临界区中的所有访问
+	发生在\co{smp_mb__after_unlock_lock()}之后的所有访问之前，
+	也发生在后续临界区中的所有访问之前。
+	这里的``所有CPU''包括那些没有持有该锁的CPU，
+	``先前临界区''包括相关锁的所有先前临界区，
+	以及执行\co{smp_mb__after_unlock_lock()}的同一CPU
+	释放的所有其他锁的所有先前临界区。
 
-	The \co{smp_mb__after_spinlock()} provides the same guarantees
-	as does \co{smp_mb__after_unlock_lock()}, but also provides
-	additional visibility guarantees for other accesses performed
-	by the CPU that executed the \co{smp_mb__after_spinlock()}.
-	Given any store S performed prior to any earlier lock acquisition
-	and any load L performed after the \co{smp_mb__after_spinlock()},
-	all CPUs will see S as happening before~L\@.
-	In other words, if a CPU performs a store S, acquires a lock,
-	executes an \co{smp_mb__after_spinlock()}, then performs a
-	load L, all CPUs will see S as happening before~L\@.
+	\co{smp_mb__after_spinlock()}提供与
+	\co{smp_mb__after_unlock_lock()}相同的保证，
+	但还为执行\co{smp_mb__after_spinlock()}的CPU
+	执行的其他访问提供额外的可见性保证。
+	给定在任何较早锁获取之前执行的store S
+	和在\co{smp_mb__after_spinlock()}之后执行的load L，
+	所有CPU将看到S发生在L之前。
+	换句话说，如果一个CPU执行store S，获取一个锁，
+	执行\co{smp_mb__after_spinlock()}，然后执行load L，
+	所有CPU将看到S发生在L之前。
 }\QuickQuizEndE
 }
 
-It is important to note that this table is just a cheat sheet,
-and is therefore in no way a replacement for a good understanding
-of memory ordering.
-To begin building such an understanding, the next section will
-present some basic rules of thumb.
+重要的是要注意，这个表只是一个速查表，
+因此绝不能替代对memory ordering的良好理解。
+为了开始建立这样的理解，下一节将提出一些基本经验法则。
 
-\subsection{Basic Rules of Thumb}
+\subsection{基本经验法则}
 \label{sec:memorder:Basic Rules of Thumb}
 
-This section presents some basic rules of thumb that are ``good and
-sufficient'' for a great many situations.
-In fact, you could write a great deal of concurrent code having
-excellent performance and scalability without needing anything more
-than these rules of thumb.
-More sophisticated rules of thumb will be presented in
+本节提出了一些对许多情况"足够好"的基本经验法则。
+事实上，你可以编写大量具有优异性能和可扩展性的
+并发代码，而只需要这些经验法则。
+更复杂的经验法则将在以下章节中提出：
 \cref{sec:memorder:Memory-Model Intuitions}.
 
 \QuickQuiz{
-	But how can I know that a given project can be designed
-	and coded within the confines of these rules of thumb?
+	但我怎么知道给定项目可以在这些经验法则的
+	范围内设计和编码？
 }\QuickQuizAnswer{
-	Much of the purpose of the remainder of this chapter is
-	to answer exactly that question!
+	本章其余部分的大部分目的正是
+	回答这个问题！
 }\QuickQuizEnd
 
-\paragraph{A given thread sees its own accesses in order.}
-This rule assumes that loads and stores from/to shared variables use
-\co{READ_ONCE()} and \co{WRITE_ONCE()}, respectively.
-Otherwise, the compiler can profoundly scramble\footnote{
-	Many compiler writers prefer the word ``optimize''.}
-your code, and sometimes the CPU can do a bit of scrambling as well,
-as discussed in \cref{sec:memorder:Itanium}.
+\paragraph{给定线程按顺序看到自己的访问。}
+此规则假设对共享变量的load和store分别使用
+\co{READ_ONCE()}和\co{WRITE_ONCE()}。
+否则，编译器可以深度打乱\footnote{
+	许多编译器开发者更喜欢用``优化''这个词。}
+你的代码，有时CPU也可以做一些打乱，
+如\cref{sec:memorder:Itanium}中所讨论的。
 
-\paragraph{Interrupts and signal handlers are part of a thread.}
-Both interrupt and signal handlers happen between a pair of adjacent
-instructions in a thread.
-This means that a given handler appears to execute atomically
-from the viewpoint of the interrupted thread, at least at the
-assembly-language level.
-However, the C and C++ languages do not define the results of handlers
-and interrupted threads sharing plain variables.
-Instead, such shared variables must be \co{sig_atomic_t}, lock-free
-atomics, or \co{volatile}.
+\paragraph{中断和信号处理程序是线程的一部分。}
+中断和信号处理程序都发生在线程中一对相邻指令之间。
+这意味着从被中断线程的角度来看，给定的处理程序
+似乎是原子执行的，至少在汇编语言级别是这样。
+然而，C和C++语言没有定义处理程序和被中断线程
+共享普通变量的结果。
+相反，这样的共享变量必须是\co{sig_atomic_t}、无锁原子操作
+或\co{volatile}。
 
-On the other hand, because the handler executes within the interrupted
-thread's context, the memory ordering used to synchronize communication
-between the handler and the thread can be extremely lightweight.
-For example, the counterpart of an acquire load is a \co{READ_ONCE()}
-followed by a \co{barrier()} compiler directive and the counterpart
-of a release store is a \co{barrier()} followed by a \co{WRITE_ONCE()}.
-The counterpart of a full memory barrier is \co{barrier()}.
-Finally, disabling interrupts or signals (as the case may be) within
-the thread excludes handlers.
+另一方面，因为处理程序在被中断线程的上下文中执行，
+用于同步处理程序和线程之间通信的memory ordering可以非常轻量级。
+例如，acquire load的对应物是\co{READ_ONCE()}
+后跟\co{barrier()}编译器指令，release store的对应物是
+\co{barrier()}后跟\co{WRITE_ONCE()}。
+Full memory barrier的对应物是\co{barrier()}。
+最后，在线程中禁用中断或信号（视情况而定）可以排除处理程序。
 
 % @@@ Using flags to avoid expensive interrupt-disabling instructions
 % @@@ and signal-blocking system calls.  Harder than it looks!
@@ -1352,174 +1164,158 @@ the thread excludes handlers.
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{memorder/memorybarrier}}
-\caption{Memory Barriers Provide Conditional If-Then Ordering}
+\caption{Memory Barrier提供条件性的If-Then排序}
 \label{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
 \end{figure}
 
-\paragraph{Ordering has conditional if-then semantics.}
+\paragraph{排序具有条件性的if-then语义。}
 \Cref{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
-illustrates this for memory barriers.
-Assuming that both memory barriers are strong enough, if CPU~1's access
-Y1 happens after CPU~0's access Y0, then CPU~1's access X1 is guaranteed
-to happen after CPU~0's access X0.
+为memory barrier说明了这一点。
+假设两个memory barrier都足够强，如果CPU~1的访问Y1
+发生在CPU~0的访问Y0之后，那么CPU~1的访问X1
+保证发生在CPU~0的访问X0之后。
 
 \QuickQuiz{
-	How can you tell which memory barriers are strong enough for
-	a given use case?
+	你怎么知道哪些memory barrier对给定用例
+	足够强？
 }\QuickQuizAnswer{
-	Ah, that is a deep question whose answer requires most of the
-	rest of this chapter.
-	But the short answer is that \co{smp_mb()} is almost always
-	strong enough, albeit at some cost.
+	啊，这是一个深层次的问题，其答案需要本章的
+	大部分内容。
+	但简短的答案是\co{smp_mb()}几乎总是
+	足够强的，尽管有一些开销。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:formal:C-SB+o-mb-o+o-mb-o:whole]
 \Cref{lst:memorder:Memory Ordering: Store-Buffering Litmus Test}
-is a case in point.
-The \co{smp_mb()} on \clnref{P0:mb,P1:mb} serve as the barriers,
-the store to \co{x0} on \clnref{P0:st} as X0, the load from \co{x1}
-on \clnref{P0:ld} as Y0, the store to \co{x1} on \clnref{P1:st} as Y1,
-and the load from \co{x0} on \clnref{P1:ld} as X1.
-Applying the if-then rule step by step, we know that the store to
-\co{x1} on \clnref{P1:st} happens after the load from \co{x1} on \clnref{P0:ld} if
-\co{P0()}'s local variable \co{r2} is set to the value zero.
-The if-then rule would then state that the load from \co{x0} on
-\clnref{P1:ld} happens after the store to \co{x0} on \clnref{P0:st}.
-In other words,
-\co{P1()}'s local variable \co{r2} is guaranteed
-to end up with the value two \emph{only if}
-\co{P0()}'s local variable \co{r2} ends up with the value zero.
-This underscores the point that memory ordering guarantees are
-conditional, not absolute.
+就是一个很好的例子。
+\clnref{P0:mb,P1:mb}上的\co{smp_mb()}作为barrier，
+\clnref{P0:st}上对\co{x0}的store作为X0，\clnref{P0:ld}上
+从\co{x1}的load作为Y0，\clnref{P1:st}上对\co{x1}的store作为Y1，
+\clnref{P1:ld}上从\co{x0}的load作为X1。
+逐步应用if-then规则，我们知道如果\co{P0()}的局部变量\co{r2}
+被设置为值零，那么\clnref{P1:st}上对\co{x1}的store
+发生在\clnref{P0:ld}上从\co{x1}的load之后。
+if-then规则随后将声明\clnref{P1:ld}上从\co{x0}的load
+发生在\clnref{P0:st}上对\co{x0}的store之后。
+换句话说，
+\co{P1()}的局部变量\co{r2}保证
+最终值为2，\emph{仅当}
+\co{P0()}的局部变量\co{r2}最终值为零时。
+这强调了memory ordering保证是有条件的，而非绝对的。
 \end{fcvref}
 
-Although
-\cref{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
-specifically mentions memory barriers, this same if-then rule applies
-to the rest of the Linux kernel's ordering operations.
+虽然\cref{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
+特别提到了memory barrier，但同样的if-then规则
+适用于Linux内核其余的排序操作。
 
-\paragraph{Ordering operations must be paired.}
-If you carefully order the operations in one thread, but then fail to do
-so in another thread, then there is no ordering.
-Both threads must provide ordering for the if-then rule to apply.\footnote{
-	In \cref{sec:memorder:Propagation}, pairing will be
-	generalized to cycles.}
+\paragraph{排序操作必须成对。}
+如果你仔细地排序了一个线程中的操作，但在另一个
+线程中没有这样做，那么就没有排序。
+两个线程都必须提供排序才能使if-then规则适用。\footnote{
+	在\cref{sec:memorder:Propagation}中，配对将被推广为cycle。}
 
-\paragraph{Ordering operations almost never speed things up.}
-If you find yourself tempted to add a memory barrier in an attempt
-to force a prior store to be flushed to memory faster, resist!
-Adding ordering usually slows things down.
-Of course, there are situations where adding instructions speeds things
-up, as was shown by
-\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR} on
-\cpageref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR},
-but careful benchmarking is required in such cases.
-And even then, it is quite possible that although you sped things up
-a little bit on \emph{your} system, you might well have slowed things
-down significantly on your users' systems.
-Or on your future system.
+\paragraph{排序操作几乎从不加速执行。}
+如果你发现自己想添加一个memory barrier来尝试
+强制先前的store更快地刷新到内存，请抵制这种冲动！
+添加排序通常会使事情变慢。
+当然，也有添加指令能加快速度的情况，
+如\cpageref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR}上的
+\cref{fig:defer:Pre-BSD Routing Table Protected by RCU QSBR}所示，
+但在这种情况下需要仔细的基准测试。
+即便如此，虽然你可能在\emph{你的}系统上稍微加快了速度，
+但很可能在你的用户系统上显著降低了速度。
+或者在你未来的系统上也是如此。
 
-\paragraph{Ordering operations are not magic.}
-When your program is failing due to some \IX{race condition}, it is often
-tempting to toss in a few memory-ordering operations in an attempt
-to barrier your bugs out of existence.
-A far better reaction is to use higher-level primitives in a carefully
-designed manner.
-With concurrent programming, it is almost always better to design your
-bugs out of existence than to hack them down to lower probabilities.
+\paragraph{排序操作不是魔法。}
+当你的程序由于某些\IX{race condition}而失败时，
+通常会想扔几个memory-ordering操作来
+试图将bug屏障出去。
+一个好得多的反应是以精心设计的方式
+使用更高层次的原语。
+在并发编程中，通过设计消除bug几乎总是
+比将它们降低到更低概率更好。
 
-\paragraph{These are only rough rules of thumb.}
-Although these rules of thumb cover the vast majority of situations
-seen in actual practice, as with any set of rules of thumb, they
-do have their limits.
-The next section will demonstrate some of these limits by introducing
-trick-and-trap litmus tests that are intended to insult your
-intuition while increasing your understanding.
-These litmus tests will also illuminate many of the concepts
-represented by the Linux-kernel memory-ordering cheat sheet shown in
-\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet},
-and can be automatically analyzed given proper
-tooling~\cite{Alglave:2018:FSC:3173162.3177156}.
-\Cref{sec:memorder:Memory-Model Intuitions} will
-circle back to this cheat sheet, presenting a more sophisticated set of
-rules of thumb in light of learnings from all the intervening tricks
-and traps.
+\paragraph{这些只是粗略的经验法则。}
+虽然这些经验法则涵盖了实际实践中看到的绝大多数情况，
+但与任何一组经验法则一样，它们确实有其局限性。
+下一节将通过引入技巧和陷阱litmus test来展示这些
+局限性，这些test旨在冒犯你的直觉
+同时增加你的理解。
+这些litmus test还将阐明
+\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}中所示的
+Linux内核memory ordering速查表中表示的许多概念，
+并且可以在适当的工具支持下自动分析~\cite{Alglave:2018:FSC:3173162.3177156}。
+\Cref{sec:memorder:Memory-Model Intuitions}将回到这个速查表，
+根据从所有中间的技巧和陷阱中学到的知识，
+提出一套更复杂的经验法则。
 
 \QuickQuiz{
-	Wait!!!
-	Where do I find this tooling that automatically analyzes
-	litmus tests???
+	等等！！！
+	我在哪里能找到自动分析
+	litmus test的工具？？？
 }\QuickQuizAnswer{
-	Get version v4.17 (or later) of the Linux-kernel source code,
-	then follow the instructions in \path{tools/memory-model/README}
-	to install the needed tools.
-	Then follow the further instructions to run these tools on the
-	litmus test of your choice.
+	获取v4.17（或更高版本）的Linux内核源代码，
+	然后按照\path{tools/memory-model/README}中的说明
+	安装所需的工具。
+	然后按照进一步的说明在你选择的
+	litmus test上运行这些工具。
 }\QuickQuizEnd
 
-\section{Tricks and Traps}
+\section{技巧与陷阱}
 \label{sec:memorder:Tricks and Traps}
 %
-\epigraph{Knowing where the trap is---that's the first step in evading it.}
+\epigraph{知道陷阱在哪里------这是避开它的第一步。}
 	 {Duke Leto Atreides, \emph{Dune}, Frank Herbert}
 
-Now that you know that hardware can reorder memory accesses and that you
-can prevent it from doing so, the next step is to get you to admit
-that your intuition has a problem.
-This painful task is taken up by
+现在你知道硬件可以重排内存访问，并且你可以阻止它
+这样做，下一步是让你承认你的直觉有问题。
+这个痛苦的任务由以下章节承担：
 \cref{sec:memorder:Variables With Multiple Values},
-which presents some code demonstrating that scalar variables can
-take on multiple values simultaneously,
-and by
-\crefthro{sec:memorder:Memory-Reference Reordering}
-{sec:memorder:Multicopy Atomicity},
-which show a series of intuitively correct code fragments that fail miserably
-on real hardware.
-Once your intuition has made it through the grieving process, later
-sections will summarize the basic rules that memory ordering follows.
+展示了一些代码，演示标量变量可以
+同时拥有多个值，
+以及\crefthro{sec:memorder:Memory-Reference Reordering}
+{sec:memorder:Multicopy Atomicity}，
+展示了一系列直觉正确但在真实硬件上
+惨败的代码片段。
+一旦你的直觉经历了悲伤过程，后续章节将
+总结memory ordering遵循的基本规则。
 
-But first, let's take a quick look at just how many values a single
-variable might have at a single point in time.
+但首先，让我们快速看看一个单一变量在单一
+时间点可能有多少个值。
 
-\subsection{Variables With Multiple Values}
+\subsection{具有多个值的变量}
 \label{sec:memorder:Variables With Multiple Values}
 
-It is natural to think of a variable as taking on a well-defined
-sequence of values in a well-defined, global order.
-Unfortunately, the next stop on the journey says ``goodbye'' to this comforting fiction.
-Hopefully, you already started to say ``goodbye'' in response to row~2 of
-\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events,%
-tab:memorder:Memory Ordering: Store-Buffering Sequence of Events},
-and if so, the purpose of this section is to drive this point home.
+自然而然地会认为变量以明确定义的全局顺序
+接受一系列明确定义的值。
+不幸的是，旅程的下一站要对这个令人安慰的假象说"再见"。
+希望你在看到\cref{tab:memorder:Memory Misordering: Store-Buffering Sequence of Events,%
+tab:memorder:Memory Ordering: Store-Buffering Sequence of Events}的第2行时
+已经开始说``再见''了，如果是这样，本节的目的是进一步强调这一点。
 
 \begin{fcvref}[ln:memorder:Software Logic Analyzer]
-To this end, consider the program fragment shown in
-\cref{lst:memorder:Software Logic Analyzer}.
-This code fragment is executed in parallel by several CPUs.
-\Clnref{setid} sets a shared variable to the current CPU's ID, \clnref{init}
-initializes several variables from a \co{gettb()} function that
-delivers the value of a fine-grained hardware ``timebase'' counter that is
-synchronized among all CPUs (not available from all CPU architectures,
-unfortunately!), and the loop from \clnrefrange{loop:b}{loop:e}
-records the length of
-time that the variable retains the value that this CPU assigned to it.
-Of course, one of the CPUs will ``win'', and would thus never exit
-the loop if not for the check on \clnrefrange{iftmout}{break}.
+为此，考虑\cref{lst:memorder:Software Logic Analyzer}中显示的程序片段。
+这段代码由多个CPU并行执行。
+\Clnref{setid}将一个共享变量设置为当前CPU的ID，
+\clnref{init}从\co{gettb()}函数初始化几个变量，
+该函数返回一个在所有CPU之间同步的细粒度硬件``时间基准''计数器的值
+（不幸的是，并非所有CPU架构都提供！），
+从\clnrefrange{loop:b}{loop:e}的循环记录
+变量保持该CPU赋予它的值的时间长度。
+当然，其中一个CPU会``获胜''，因此如果不是
+\clnrefrange{iftmout}{break}上的检查，它将永远不会退出循环。
 \end{fcvref}
 
 \QuickQuiz{
-	What assumption is the code fragment
-	in \cref{lst:memorder:Software Logic Analyzer}
-	making that might not be valid on real hardware?
+	\cref{lst:memorder:Software Logic Analyzer}中的代码片段
+	做了什么假设可能在真实硬件上无效？
 }\QuickQuizAnswer{
-	The code assumes that as soon as a given CPU stops
-	seeing its own value, it will immediately see the
-	final agreed-upon value.
-	On real hardware, some of the CPUs might well see several
-	intermediate results before converging on the final value.
-	The actual code used to produce the data in the figures
-	discussed later in this section was therefore somewhat more
-	complex.
+	代码假设一旦给定CPU停止看到自己的值，
+	它将立即看到最终一致同意的值。
+	在真实硬件上，某些CPU可能会在收敛到最终值之前
+	看到几个中间结果。
+	因此，用于生成本节后面讨论的图中数据的实际代码
+	要更加复杂一些。
 }\QuickQuizEnd
 
 \begin{listing}
@@ -1535,73 +1331,63 @@ while (state.variable == mycpu) {	\lnlbl[loop:b]
 }					\lnlbl[loop:e]
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Software Logic Analyzer}
+\caption{软件逻辑分析仪}
 \label{lst:memorder:Software Logic Analyzer}
 \end{listing}
 
-Upon exit from the loop, \co{firsttb} will hold a timestamp
-taken shortly after the assignment and \co{lasttb} will hold
-a timestamp taken before the last sampling of the shared variable
-that still retained the assigned value, or a value equal to \co{firsttb}
-if the shared variable had changed before entry into the loop.
-This allows us to plot each CPU's view of the value of \co{state.variable}
-over a 532-nanosecond time period, as shown in
-\cref{fig:memorder:A Variable With Multiple Simultaneous Values}.
-This data was collected in 2006 on 1.5\,GHz \Power{5} system with 8 cores,
-each containing a pair of hardware threads.
-CPUs~1, 2, 3, and~4 recorded the values, while CPU~0 controlled the test.
-The timebase counter period was about 5.32\,ns, sufficiently fine-grained
-to allow observations of intermediate cache states.
+退出循环时，\co{firsttb}将保存赋值后不久获取的时间戳，
+\co{lasttb}将保存在共享变量仍保留赋值值的最后一次采样之前
+获取的时间戳，如果共享变量在进入循环之前就已更改，
+则其值等于\co{firsttb}。
+这允许我们绘制每个CPU对\co{state.variable}值的视图
+在532纳秒时间段内的变化，如\cref{fig:memorder:A Variable With Multiple Simultaneous Values}所示。
+这些数据于2006年在1.5\,GHz \Power{5}系统上收集，
+该系统有8个核心，每个核心包含一对硬件线程。
+CPU~1、2、3和~4记录了值，而CPU~0控制测试。
+时间基准计数器周期约为5.32\,ns，足够精细
+以允许观察中间cache状态。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{memorder/MoreThanOneValue}}
-\caption{A Variable With Multiple Simultaneous Values}
+\caption{同时具有多个值的变量}
 \label{fig:memorder:A Variable With Multiple Simultaneous Values}
 \end{figure}
 
-Each horizontal bar represents the observations of a given CPU over time,
-with the gray regions to the left indicating the time before the
-corresponding CPU's first measurement.
-During the first 5\,ns, only CPU~3 has an opinion about the value of the
-variable.
-During the next 10\,ns, CPUs~2 and~3 disagree on the value of the variable,
-but thereafter agree that the value is~``2'', which is in fact
-the final agreed-upon value.
-However, CPU~1 believes that the value is~``1'' for almost 300\,ns, and
-CPU~4 believes that the value is~``4'' for almost 500\,ns.
+每个水平条代表给定CPU随时间的观察，
+左侧灰色区域表示相应CPU首次测量之前的时间。
+在最初的5\,ns内，只有CPU~3对变量的值有意见。
+在接下来的10\,ns内，CPU~2和~3对变量的值不一致，
+但之后它们一致认为值为``2''，这实际上就是最终一致同意的值。
+然而，CPU~1认为值为``1''持续了将近300\,ns，
+CPU~4认为值为``4''持续了将近500\,ns。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How could CPUs possibly have different views of the
-	value of a single variable \emph{at the same time?}
+	CPU怎么可能\emph{在同一时间}对单个变量的值有不同的看法？
 }\QuickQuizAnswerB{
-	As discussed in
-	\cref{sec:memorder:Why Hardware Misordering?},
-	many CPUs have store buffers that record the values of
-	recent stores, which do not become globally visible until
-	the corresponding cache line makes its way to the CPU\@.
-	Therefore, it is quite possible for each CPU to see its own value
-	for a given variable (in its own store buffer) at a single point
-	in time---and for main memory to hold yet another value.
-	One of the reasons that memory barriers were invented was
-	to allow software to deal gracefully with situations like
-	this one.
+	如\cref{sec:memorder:Why Hardware Misordering?}中所讨论的，
+	许多CPU具有store buffer来记录最近store的值，
+	这些值在对应的cache line到达CPU之前不会变得全局可见。
+	因此，在单个时间点上，每个CPU完全可能看到给定变量
+	的自己的值（在自己的store buffer中），
+	而主存可能持有另一个值。
+	发明memory barrier的原因之一就是允许软件
+	优雅地处理这样的情况。
 
-	Fortunately, software rarely cares about the fact that multiple
-	CPUs might see multiple values for the same variable.
+	幸运的是，软件很少关心多个CPU可能同时看到
+	同一变量的多个值这一事实。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Why do CPUs~2 and~3 come to agreement so quickly, when it
-	takes so long for CPUs~1 and~4 to come to the party?
+	为什么CPU~2和~3这么快就达成一致，
+	而CPU~1和~4要花这么长时间才跟上来？
 }\QuickQuizAnswerE{
-	CPUs~2 and~3 are a pair of hardware threads on the same
-	core, sharing the same cache hierarchy, and therefore have
-	very low communications latencies.
-	This is a \IXacr{numa}, or, more accurately, a \IXacr{nuca} effect.
+	CPU~2和~3是同一核心上的一对硬件线程，
+	共享相同的cache层次结构，因此通信延迟非常低。
+	这是\IXacr{numa}，或者更准确地说，是\IXacr{nuca}效应。
 
-	This leads to the question of why CPUs~2 and~3 ever disagree
+	这引出了一个问题：为什么CPU~2和~3会不一致
 	at all.
 	One possible reason is that they each might have a small amount
 	of private cache in addition to a larger shared cache.
@@ -1615,16 +1401,13 @@ And if you think that the situation with four CPUs was intriguing, consider
 \cref{fig:memorder:A Variable With More Simultaneous Values},
 which shows the same situation, but with 15~CPUs each assigning their
 number to a single shared variable at time~$t=0$. Both diagrams in the
-figure are drawn in the same way as
-\cref{fig:memorder:A Variable With Multiple Simultaneous Values}.
-The only difference is that the unit of horizontal axis is timebase ticks,
-with each tick lasting about 5.3~nanoseconds.
-The entire sequence therefore lasts a bit longer than the events recorded in
-\cref{fig:memorder:A Variable With Multiple Simultaneous Values},
-consistent with the increase in number of CPUs.
-The upper diagram shows the overall picture, while the lower one zooms
-in on the first 50~timebase ticks.
-Again, CPU~0 coordinates the test, so does not record any values.
+图与\cref{fig:memorder:A Variable With Multiple Simultaneous Values}的绘制方式相同。
+唯一的区别是水平轴的单位是时间基准tick，
+每个tick持续约5.3纳秒。
+因此整个序列比\cref{fig:memorder:A Variable With Multiple Simultaneous Values}中
+记录的事件持续时间稍长，这与CPU数量的增加是一致的。
+上面的图显示了整体情况，而下面的图放大了前50个时间基准tick。
+同样，CPU~0协调测试，因此不记录任何值。
 
 \begin{figure*}
 \centering
@@ -1633,224 +1416,200 @@ Again, CPU~0 coordinates the test, so does not record any values.
 }{
 \resizebox{5in}{!}{\includegraphics{memorder/MoreThanOneValue-15CPU}}
 }
-\caption{A Variable With More Simultaneous Values}
+\caption{同时具有更多值的变量}
 \ContributedBy{fig:memorder:A Variable With More Simultaneous Values}{Akira Yokosawa}
 \end{figure*}
 
-All CPUs eventually agree on the final value of~9, but not before
-the values~15 and~12 take early leads.
-Note that there are fourteen different opinions on the variable's value
-at time~21 indicated by the vertical line in the lower diagram.
-Note also that all CPUs see sequences whose orderings are consistent with
-the directed graph shown in
-\cref{fig:memorder:Possible Global Orders With More Simultaneous Values}.
-Nevertheless, these figures underscore the importance of
-proper use of memory-ordering operations.
+所有CPU最终都同意最终值为~9，但在此之前
+值~15和~12一度领先。
+注意，在下图中垂直线所示的时间~21处，
+对变量值有十四种不同的看法。
+还要注意，所有CPU看到的序列的排序与
+\cref{fig:memorder:Possible Global Orders With More Simultaneous Values}
+中显示的有向图一致。
+尽管如此，这些图强调了正确使用memory ordering操作的重要性。
 
 \begin{figure}
 \centering
 \resizebox{2.0in}{!}{\includegraphics{memorder/store15tred}}
-\caption{Possible Global Orders With More Simultaneous Values}
+\caption{更多同时值的可能全局顺序}
 \label{fig:memorder:Possible Global Orders With More Simultaneous Values}
 \end{figure}
 
-How many values can a single variable take on at a single point in
-time?
-As many as one per store buffer in the system!
-We have therefore entered a regime where we must bid a fond farewell to
-comfortable intuitions about values of variables and the passage of time.
-This is the regime where memory-ordering operations are needed.
+一个变量在单一时间点可以有多少个值？
+系统中每个store buffer一个！
+因此我们已经进入了一个必须告别关于变量值和
+时间流逝的舒适直觉的领域。
+这就是需要memory-ordering操作的领域。
 
-But remember well the lessons from
+但请牢记以下章节的教训：
 \cref{chp:Hardware and its Habits,%
 chp:Partitioning and Synchronization Design}.
-Having all CPUs store concurrently to the same variable
-is no way to design a parallel program, at least
-not if performance and scalability are at all important to you.
+让所有CPU同时存储到同一变量
+绝不是设计并行程序的方式，至少
+如果性能和可扩展性对你很重要的话不是。
 
-Unfortunately, memory ordering has many other ways of insulting your
-intuition, and not all of these ways conflict with performance and
-scalability.
-The next section overviews reordering of unrelated memory reference.
+不幸的是，memory ordering还有许多其他方式
+冒犯你的直觉，并非所有这些方式都与性能和
+可扩展性冲突。
+下一节概述了不相关内存引用的重排。
 
-\subsection{Memory-Reference Reordering}
+\subsection{内存引用重排}
 \label{sec:memorder:Memory-Reference Reordering}
 
 \Cref{sec:memorder:Why Hardware Misordering?}
-showed that even relatively strongly ordered systems like x86
-can reorder prior stores with later loads, at least when the
-store and load are to different variables.
-This section builds on that result, looking at the other combinations of
-loads and stores.
+显示了即使像x86这样相对强序的系统也可以
+将先前的store与后续的load重排，至少当
+store和load针对不同的变量时。
+本节在该结果的基础上，考察load和store的
+其他组合。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-wmb-o+o-o@whole.fcv}
-\caption{Message-Passing Litmus Test (No Ordering)}
+\caption{消息传递Litmus Test（无排序）}
 \label{lst:memorder:Message-Passing Litmus Test (No Ordering)}
 \end{listing}
 
-\subsubsection{Load Followed By Load}
+\subsubsection{Load后跟Load}
 \label{sec:memorder:Load Followed By Load}
 
 \begin{fcvref}[ln:formal:C-MP+o-wmb-o+o-o:whole]
 \Cref{lst:memorder:Message-Passing Litmus Test (No Ordering)}
 (\path{C-MP+o-wmb-o+o-o.litmus})
-shows the classic \emph{message-passing} litmus test, where \co{x0} is
-the message and \co{x1} is a flag indicating whether or not a message
-is available.
-In this test, the \co{smp_wmb()} forces \co{P0()} stores to be ordered,
-but no ordering is specified for the loads.
-Relatively strongly ordered architectures, such as x86, do enforce ordering.
-However, weakly ordered architectures often do
-not~\cite{JadeAlglave2011ppcmem}.
-Therefore, the \co{exists} clause on \clnref{exists} of the listing \emph{can}
-trigger.
+显示了经典的\emph{消息传递}litmus test，其中\co{x0}是
+消息，\co{x1}是指示消息是否可用的标志。
+在此test中，\co{smp_wmb()}强制\co{P0()}的store有序，
+但没有为load指定排序。
+相对强序的架构（如x86）确实强制排序。
+然而，弱序架构通常不会
+不会~\cite{JadeAlglave2011ppcmem}。
+因此，列表中\clnref{exists}上的\co{exists}子句\emph{可以}被触发。
 \end{fcvref}
 
-One rationale for reordering loads from different locations is that doing
-so allows execution to proceed when an earlier load misses the cache,
-but the values for later loads are already present.
+从不同位置重排load的一个理由是，这样做
+允许在较早的load未命中缓存时继续执行，
+而较晚load的值已经存在。
 
 \QuickQuiz{
-	But why make load-load reordering visible to the user?
-	Why not just use speculative execution to allow execution to
-	proceed in the common case where there are no intervening
-	stores, in which case the reordering cannot be visible anyway?
+	但为什么要让load-load重排对用户可见？
+	为什么不直接使用推测执行来允许在常见情况下
+	（没有中间store，在这种情况下重排无论如何不可见）
+	继续执行？
 }\QuickQuizAnswer{
 	They can and many do, otherwise systems containing
-	strongly ordered CPUs would be slow indeed.
-	However, speculative execution does have its downsides, especially
-	if speculation must be rolled back frequently, particularly
-	on battery-powered systems.
-	Speculative execution can also introduce side channels, which
-	might in turn be exploited to exfiltrate information.
-	But perhaps future systems will be able to overcome these
-	disadvantages.
-	Until then, we can expect vendors to continue producing
-	weakly ordered CPUs.
+	强序CPU确实会很慢。
+	然而，推测执行确实有其缺点，特别是
+	如果推测必须频繁回滚，尤其是在电池供电的系统上。
+	推测执行还可能引入侧信道，
+	这些侧信道又可能被利用来窃取信息。
+	但也许未来的系统将能够克服这些缺点。
+	在那之前，我们可以预期供应商将继续生产弱序CPU。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-wmb-o+o-rmb-o@whole.fcv}
-\caption{Enforcing Order of Message-Passing Litmus Test}
+\caption{强制消息传递Litmus Test的排序}
 \label{lst:memorder:Enforcing Order of Message-Passing Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-MP+o-wmb-o+o-rmb-o:whole]
-Thus, portable code relying on ordered loads must
-add explicit ordering, for example, the \co{smp_rmb()} shown on
+因此，依赖于有序load的可移植代码必须
+添加显式排序，例如以下显示的\co{smp_rmb()}：
 \clnref{rmb} of
 \cref{lst:memorder:Enforcing Order of Message-Passing Litmus Test}
-(\path{C-MP+o-wmb-o+o-rmb-o.litmus}), which prevents
-the \co{exists} clause from triggering.
+(\path{C-MP+o-wmb-o+o-rmb-o.litmus})，
+这阻止了\co{exists}子句被触发。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-o+o-o@whole.fcv}
-\caption{Load-Buffering Litmus Test (No Ordering)}
+\caption{Load-Buffering Litmus Test（无排序）}
 \label{lst:memorder:Load-Buffering Litmus Test (No Ordering)}
 \end{listing}
 
-\subsubsection{Load Followed By Store}
+\subsubsection{Load后跟Store}
 \label{sec:memorder:Load Followed By Store}
 
 \begin{fcvref}[ln:formal:C-LB+o-o+o-o:whole]
 \Cref{lst:memorder:Load-Buffering Litmus Test (No Ordering)}
 (\path{C-LB+o-o+o-o.litmus})
-shows the classic \emph{load-buffering} litmus test.
-Although relatively strongly ordered systems such as x86
-or the IBM Mainframe do not reorder prior loads with subsequent stores,
-many weakly ordered architectures really do allow such
-reordering~\cite{JadeAlglave2011ppcmem}.
-Therefore, the \co{exists} clause on \clnref{exists} really can trigger.
+显示了经典的\emph{load-buffering} litmus test。
+虽然像x86或IBM大型机这样相对强序的系统不会
+将先前的load与后续的store重排，
+但许多弱序架构确实允许这种
+重排~\cite{JadeAlglave2011ppcmem}。
+因此，\clnref{exists}上的\co{exists}子句确实可以被触发。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-r+a-o@whole.fcv}
-\caption{Enforcing Ordering of Load-Buffering Litmus Test}
+\caption{强制Load-Buffering Litmus Test的排序}
 \label{lst:memorder:Enforcing Ordering of Load-Buffering Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-LB+o-r+a-o:whole]
-Although it is rare for actual hardware to
-exhibit this reordering~\cite{LucMaranget2017aarch64},
-one situation where it might be desirable to do so is when a load
-misses the cache, the store buffer is nearly full, and the cacheline for
-a subsequent store is ready at hand.
-Therefore, portable code must enforce any required ordering, for example,
-as shown in
+虽然实际硬件很少表现出这种
+重排~\cite{LucMaranget2017aarch64}，
+但一种可能希望这样做的情况是当load未命中cache，
+store buffer几乎已满，而后续store的cacheline已经在手边时。
+因此，可移植代码必须强制任何所需的排序，例如
 \cref{lst:memorder:Enforcing Ordering of Load-Buffering Litmus Test}
-(\path{C-LB+o-r+a-o.litmus}).
-The \co{smp_store_release()} and \co{smp_load_acquire()} guarantee that
-the \co{exists} clause on \clnref{exists} never triggers.
+(\path{C-LB+o-r+a-o.litmus})所示。
+\co{smp_store_release()}和\co{smp_load_acquire()}保证
+\clnref{exists}上的\co{exists}子句永远不会触发。
 \end{fcvref}
 
 \QuickQuiz{
-	Why should it be rare for systems to reorder prior loads with
-	later stores?
+	为什么系统将先前的load与后续的store重排应该是罕见的？
 }\QuickQuizAnswer{
-	Keep in mind that conventional computer systems are not permitted
-	to make a given CPU's speculative stores visible to other CPUs.
+	请记住，传统计算机系统不允许使给定CPU的推测性store
+	对其他CPU可见。
 
-	This constraint has consequences.
+	这个约束有其后果。
 
-	For example, suppose that address translation has not yet completed
-	for that prior load.
-	In that case, it is quite possible that this address translation
+	例如，假设先前load的地址转换尚未完成。
+	在这种情况下，这个地址转换很可能
 	will result in a segmentation violation, which might in turn mean
-	that the later store would never execute.
-	Therefore, a given store cannot make its value visible to other
-	CPUs until address translation has completed for each and every
-	prior load.
+	会导致后续store永远不会执行。
+	因此，给定store在每一个先前load的地址转换完成之前
+	都不能使其值对其他CPU可见。
 
-	Of course, memory latencies can be quite long compared to
-	address-translation delays, especially if all the information
-	required for a given address translation is already present
-	in the translation lookaside buffer (TLB)\@.
-	Although these long memory latencies should provide ample
-	opportunity for store-to-load reordering, the fact its that such
-	reordering is demonstrably rare, especially on the large systems
-	that would be expected to have the longest memory latencies.
+	当然，与地址转换延迟相比，内存延迟可能相当长，
+	特别是如果给定地址转换所需的所有信息
+	已经存在于转换后备缓冲区（TLB）中时。
+	虽然这些长内存延迟应该为store-to-load重排提供充分的机会，
+	但事实是这种重排可证明是罕见的，
+	特别是在预期具有最长内存延迟的大型系统上。
 
-	And the reason for that is that large systems are most likely
-	to have parity or error-correcting code (ECC) checking on memory.
+	其原因是大型系统最有可能对内存进行
+	奇偶校验或纠错码（ECC）检查。
 
-	An uncorrectable parity or ECC error would cause a load to take a
-	fault, which would prevent subsequent stores from ever executing
-	just as surely as would a segmentation violation.
-	Therefore, on systems featuring parity or ECC, a subsequent store
-	cannot expose its value to other CPUs until after parity or
-	ECC checking has completed for all prior loads.
-	A given load's checking clearly cannot be carried out until that
-	load's value has been returned (check bits and all), which has
-	the side effect of prohibiting reordering of prior loads with
-	later stores.
+	不可纠正的奇偶校验或ECC错误会导致load触发故障，
+	这将像段错误一样阻止后续store的执行。
+	因此，在具有奇偶校验或ECC的系统上，
+	后续store在所有先前load的奇偶校验或ECC检查完成之前
+	不能向其他CPU暴露其值。
+	给定load的检查显然在该load的值返回之前
+	（包括检查位）无法进行，
+	这产生了禁止先前load与后续store重排的副作用。
 
-	So the only systems that can exhibit load-to-store reordering are
-	those lacking both parity and ECC, for example, small embedded
-	systems and GPGPUs.
+	因此，唯一能表现出load-to-store重排的系统
+	是那些同时缺少奇偶校验和ECC的系统，
+	例如小型嵌入式系统和GPGPU。
 
-	Given that load-to-store reordering is not possible on common-case
-	computer systems, why do hardware memory models continue to
-	permit it?
-	Only CPU architects know for sure, but here are some possible
-	reasons:
+	鉴于load-to-store重排在常见计算机系统上不可能发生，
+	为什么硬件memory model继续允许它？
+	只有CPU架构师才确切知道，但以下是一些可能的原因：
 
 	\begin{enumerate}
-	\item	There might be increased demand for small systems that
-		do not require parity or ECC.
-	\item	Memory might become more reliable, so that larger systems
-		no longer require parity or ECC.
-	\item	Systems having multiple hardware threads per core might
-		permit cross-hardware-thread speculation, which would
-		permit speculative stores to make their values visible
-		to other threads in that core.
-	\item	Operating systems and hardware might work together to
-		terminate any processes affected by an uncorrectable
-		parity or ECC error.
-		This might allow speculative stores to make their
-		values visible to other CPUs, give or take things
-		like debuggers and assertions.
+	\item	对不需要奇偶校验或ECC的小型系统的需求可能会增加。
+	\item	内存可能变得更可靠，使得较大的系统不再需要奇偶校验或ECC。
+	\item	每个核心有多个硬件线程的系统可能允许跨硬件线程推测，
+		这将允许推测性store使其值对该核心中的其他线程可见。
+	\item	操作系统和硬件可能协同工作，终止受不可纠正的
+		奇偶校验或ECC错误影响的任何进程。
+		这可能允许推测性store使其值对其他CPU可见，
+		不考虑调试器和断言等因素。
 	\end{enumerate}
 
 	In all of these cases, there might well be compelling performance
@@ -1859,113 +1618,100 @@ the \co{exists} clause on \clnref{exists} never triggers.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-o+o-rmb-o@whole.fcv}
-\caption{Message-Passing Litmus Test, No Writer Ordering (No Ordering)}
+\caption{消息传递Litmus Test，无写者排序（无排序）}
 \label{lst:memorder:Message-Passing Litmus Test; No Writer Ordering (No Ordering)}
 \end{listing}
 
-\subsubsection{Store Followed By Store}
+\subsubsection{Store后跟Store}
 \label{sec:memorder:Store Followed By Store}
 
 \Cref{lst:memorder:Message-Passing Litmus Test; No Writer Ordering (No Ordering)}
 (\path{C-MP+o-o+o-rmb-o.litmus})
-once again shows the classic message-passing litmus test, with the
-\co{smp_rmb()} providing ordering for \co{P1()}'s loads, but without
-any ordering for \co{P0()}'s stores.
-Again, the relatively strongly ordered architectures do enforce ordering,
-but weakly ordered architectures do not necessarily do
-so~\cite{JadeAlglave2011ppcmem}, which means that the
-\co{exists} clause can trigger.
-One situation in which such reordering could be beneficial is when
-the store buffer is full, another store is ready to execute, but the
-cacheline needed by the oldest store is not yet available.
-In this situation, allowing stores to complete out of order would
-allow execution to proceed.
-Therefore, portable code must explicitly order the stores, for
-example, as shown in
+再次显示了经典的消息传递litmus test，
+\co{smp_rmb()}为\co{P1()}的load提供排序，
+但没有为\co{P0()}的store提供任何排序。
+同样，相对强序的架构确实强制排序，
+但弱序架构不一定
+如此~\cite{JadeAlglave2011ppcmem}，这意味着
+\co{exists}子句可以被触发。
+这种重排可能有益的一种情况是当store buffer已满，
+另一个store准备好执行，但最旧store所需的cacheline尚不可用。
+在这种情况下，允许store乱序完成将允许执行继续进行。
+因此，可移植代码必须显式排序store，
+例如以下所示：
 \cref{lst:memorder:Enforcing Order of Message-Passing Litmus Test},
-thus preventing the \co{exists} clause from triggering.
+从而阻止\co{exists}子句被触发。
 
 \QuickQuiz{
-	Why should strongly ordered systems pay the performance price
-	of unnecessary \co{smp_rmb()} and \co{smp_wmb()} invocations?
-	Shouldn't weakly ordered systems shoulder the full cost of
-	their misordering choices???
+	为什么强序系统要为不必要的\co{smp_rmb()}和\co{smp_wmb()}
+	调用付出性能代价？弱序系统不应该承担其乱序选择的
+	全部成本吗？？？
 }\QuickQuizAnswer{
-	That is in fact exactly what happens.
-	On strongly ordered systems, \co{smp_rmb()} and \co{smp_wmb()}
-	emit no instructions, but instead just constrain the compiler.
-	Thus, in this case, weakly ordered systems do in fact shoulder
-	the full cost of their memory-ordering choices.
+	事实上确实如此。
+	在强序系统上，\co{smp_rmb()}和\co{smp_wmb()}
+	不产生任何指令，而只是约束编译器。
+	因此，在这种情况下，弱序系统确实承担了
+	其memory ordering选择的全部成本。
 }\QuickQuizEnd
 
 \subsection{Address Dependencies}
 \label{sec:memorder:Address Dependencies}
 
-An \emph{\IXBh{address}{dependency}} occurs when the value returned by a load
-instruction is used to compute the address used by a later memory-reference
-instruction.
-This means that the exact same sequence of instructions used to traverse
-a linked data structure in single-threaded code provides weak but extremely
-useful ordering in concurrent code.
+\emph{\IXBh{address}{dependency}}发生在一个load指令返回的值
+被用于计算后续内存引用指令所使用的地址时。
+这意味着在单线程代码中用于遍历链式数据结构的完全相同的指令序列
+在并发代码中提供了弱但极其有用的排序。
 
 \QuickQuiz{
-	Must an address dependency begin with a load instruction?
-	Why not something like \co{xchg_relaxed()}, which also loads
-	a value from memory?
+	address dependency必须以load指令开始吗？
+	为什么不能是像\co{xchg_relaxed()}这样也从内存加载值的东西？
 }\QuickQuizAnswer{
-	Yes, pretty much any instruction that loads a value from memory
-	can start an address dependency, including certain atomic operations
-	such as \co{xchg_relaxed()}.
-	The same is true of the control and data dependencies discussed in
-	\cref{sec:memorder:Control Dependencies,sec:memorder:Data Dependencies}.
+	是的，几乎任何从内存load值的指令都可以开始一个address dependency，
+	包括某些原子操作如\co{xchg_relaxed()}。
+	\cref{sec:memorder:Control Dependencies,sec:memorder:Data Dependencies}中
+	讨论的control和data dependency也是如此。
 
-	However, in all three cases, it is often the case that if you
-	are going to start your dependency with an atomic operation,
-	it will be more convenient and maintainable to instead use
-	an atomic operation with acquire semantics, in this example,
-	\co{xchg_acquire()} or maybe even just the fully ordered
-	\co{xchg()}.
+	然而，在所有三种情况下，如果你打算用原子操作开始你的dependency，
+	通常更方便和更易维护的做法是使用具有acquire语义的原子操作，
+	在这个例子中是\co{xchg_acquire()}，
+	甚至可能只是完全有序的\co{xchg()}。
 }\QuickQuizEnd
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-wmb-o+o-addr-o@whole.fcv}
-\caption{Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}
+\caption{消息传递Address Dependency Litmus Test（v4.15之前无排序）}
 \label{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-MP+o-wmb-o+o-addr-o:whole]
 \Cref{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}
 (\path{C-MP+o-wmb-o+o-addr-o.litmus})
-shows a linked variant of the message-passing pattern.
-The head pointer is \co{x1}, which initially
-references the \co{int} variable \co{y} (\clnref{init:x1}), which is in turn
-initialized to the value $1$ (\clnref{init:y}).
-\co{P0()} updates head pointer \co{x1} to reference \co{x0} (\clnref{P0:x1}),
-but only after initializing it to $2$ (\clnref{P0:x0}) and forcing ordering
-(\clnref{P0:wmb}).
-\co{P1()} picks up the head pointer \co{x1} (\clnref{P1:x1}), and then loads
-the referenced value (\clnref{P1:ref}).
-There is thus an address dependency from the load on \clnref{P1:x1} to the
-load on \clnref{P1:ref}.
-In this case, the value returned by \clnref{P1:x1} is exactly the address
-used by \clnref{P1:ref}, but many variations are possible,
+展示了消息传递模式的一个链式变体。
+头指针是\co{x1}，最初引用\co{int}变量\co{y}（\clnref{init:x1}），
+后者又被初始化为值$1$（\clnref{init:y}）。
+\co{P0()}更新头指针\co{x1}以引用\co{x0}（\clnref{P0:x1}），
+但仅在将其初始化为$2$（\clnref{P0:x0}）
+并强制排序（\clnref{P0:wmb}）之后。
+\co{P1()}获取头指针\co{x1}（\clnref{P1:x1}），
+然后load被引用的值（\clnref{P1:ref}）。
+因此从\clnref{P1:x1}上的load到\clnref{P1:ref}上的load
+存在一个address dependency。
+在这种情况下，\clnref{P1:x1}返回的值恰好是
+\clnref{P1:ref}使用的地址，但许多变体是可能的，
 \end{fcvref}
-including field access using the C-language \co{->} operator,
-addition, subtraction, and array indexing.\footnote{
-	But note that in the Linux kernel, the address dependency must
-	be carried through the pointer to the array, not through the
-	array index.}
+包括使用C语言\co{->}运算符的字段访问、
+加法、减法和数组索引。\footnote{
+	但请注意，在Linux内核中，address dependency必须通过
+	指向数组的指针传递，而不是通过数组索引。}
 
 \begin{fcvref}[ln:formal:C-MP+o-wmb-o+o-addr-o:whole]
-One might hope that \clnref{P1:x1}'s load from the head pointer would be ordered
-before \clnref{P1:ref}'s dereference, which is in fact the case on Linux v4.15
-and later.
-However, prior to v4.15, this was not the case on DEC Alpha, which could
-in effect use a speculated value for the dependent load, as described
-in more detail in \cref{sec:memorder:Alpha}.
-Therefore, on older versions of Linux,
-\cref{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}'s
-\co{exists} clause \emph{can} trigger.
+人们可能希望\clnref{P1:x1}从头指针的load在\clnref{P1:ref}的解引用之前排序，
+这在Linux v4.15及更高版本上确实如此。
+然而，在v4.15之前，在DEC Alpha上并非如此，它实际上可以
+为依赖的load使用推测的值，如\cref{sec:memorder:Alpha}中更详细地描述。
+因此，在较旧版本的Linux上，
+\cref{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}的
+\co{exists}子句\emph{可以}被触发。
 \end{fcvref}
 
 \begin{listing}
@@ -1995,7 +1741,7 @@ P1(int** x1) {
 exists (1:r2=x0 /\ 1:r3=1)
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}
+\caption{强制消息传递Address Dependency Litmus Test的排序（v4.15之前）}
 \label{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}
 \end{listing}
 
@@ -2003,192 +1749,173 @@ exists (1:r2=x0 /\ 1:r3=1)
 \Cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}
 % \path{C-MP+o-wmb-o+ld-addr-o.litmus} available at commit bc4b1c3f3b35
 % ("styleguide: Loosen restriction on comment in litmus test")
-shows how to make this work reliably on pre-v4.15 Linux kernels running on
-DEC Alpha, by replacing \co{READ_ONCE()} on \clnref{P1:x1} of
-\cref{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}
-with \apikh{lockless_dereference()},\footnote{
-	Note that \co{lockless_dereference()} is not needed on v4.15 and
-	later, and therefore is not available in these later Linux kernels.
-	Nor is it needed in versions of this book containing this footnote.}
-which acts like \co{READ_ONCE()} on all platforms other than DEC Alpha,
-where it acts like a \co{READ_ONCE()} followed by an \co{smp_mb()},
-thereby forcing the required ordering on all platforms, in turn
-preventing the \co{exists} clause from triggering.
+展示了如何在运行于DEC Alpha上的v4.15之前的Linux内核上可靠地实现这一点，
+通过将\cref{lst:memorder:Message-Passing Address-Dependency Litmus Test (No Ordering Before v4.15)}的
+\clnref{P1:x1}上的\co{READ_ONCE()}替换为
+\apikh{lockless_dereference()}，\footnote{
+	注意\co{lockless_dereference()}在v4.15及更高版本上不需要，
+	因此在这些更高版本的Linux内核中不可用。
+	在包含此脚注的本书版本中也不需要。}
+它在除DEC Alpha之外的所有平台上都像\co{READ_ONCE()}一样工作，
+在DEC Alpha上则像\co{READ_ONCE()}后跟一个\co{smp_mb()}，
+从而在所有平台上强制所需的排序，
+进而阻止\co{exists}子句被触发。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-S+o-wmb-o+o-addr-o@whole.fcv}
-\caption{S Address-Dependency Litmus Test}
+\caption{S Address Dependency Litmus Test}
 \label{lst:memorder:S Address-Dependency Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-S+o-wmb-o+o-addr-o:whole]
-But what happens if the dependent operation is a store rather than
-a load, for example, in the \emph{S}
-litmus test~\cite{JadeAlglave2011ppcmem} shown in
-\cref{lst:memorder:S Address-Dependency Litmus Test}
-(\path{C-S+o-wmb-o+o-addr-o.litmus})?
-Because no production-quality platform speculates stores,
-it is not possible for the \co{WRITE_ONCE()} on \clnref{P0:x0} to overwrite
-the \co{WRITE_ONCE()} on \clnref{P1:r2}, meaning that the \co{exists}
-clause on \clnref{exists} cannot trigger, even on DEC Alpha, even
-in pre-v4.15 Linux kernels.
+但如果依赖的操作是store而不是load会发生什么，
+例如，在\cref{lst:memorder:S Address-Dependency Litmus Test}
+(\path{C-S+o-wmb-o+o-addr-o.litmus})中所示的
+\emph{S} litmus test~\cite{JadeAlglave2011ppcmem}中？
+因为没有生产级平台对store进行推测，
+\clnref{P0:x0}上的\co{WRITE_ONCE()}不可能覆盖
+\clnref{P1:r2}上的\co{WRITE_ONCE()}，这意味着
+\clnref{exists}上的\co{exists}子句不能被触发，
+即使在DEC Alpha上，即使在v4.15之前的Linux内核中。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	But how do we know that \emph{all} platforms really avoid
-	triggering the \co{exists} clauses in
+	但我们怎么知道\emph{所有}平台真的避免触发
 	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15),%
-	lst:memorder:S Address-Dependency Litmus Test}?
+	lst:memorder:S Address-Dependency Litmus Test}中的
+	\co{exists}子句？
 }\QuickQuizAnswerB{
-	Answering this requires identifying three major groups of platforms:
+	回答这个问题需要识别三大类平台：
 	\begin{enumerate*}[(1)]
-	\item Total-store-order (TSO) platforms,
-	\item Weakly ordered platforms, and
-	\item DEC Alpha.
+	\item Total-store-order (TSO)平台，
+	\item 弱序平台，以及
+	\item DEC Alpha。
 	\end{enumerate*}
 
 	\begin{fcvref}[ln:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)]
-	The TSO platforms order all pairs of memory references except for
-	prior stores against later loads.
-	Because the address dependency on \clnref{deref,read} of
-	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}
-	is instead a load followed by another load, TSO platforms preserve
-	this address dependency.
+	TSO平台对除先前store与后续load之外的所有内存引用对进行排序。
+	因为\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}的
+	\clnref{deref,read}上的address dependency是一个load后跟另一个load，
+	所以TSO平台保留了这个address dependency。
 	\end{fcvref}
 	\begin{fcvref}[ln:formal:C-S+o-wmb-o+o-addr-o:whole]
-	They also preserve the address dependency on \clnref{P1:x1,P1:r2} of
-	\cref{lst:memorder:S Address-Dependency Litmus Test}
-	because this is a load followed by a store.
-	Because address dependencies must start with a load, TSO platforms
-	implicitly but completely respect them, give or take compiler
-	optimizations, hence the need for \co{READ_ONCE()}.
+	它们也保留了\cref{lst:memorder:S Address-Dependency Litmus Test}的
+	\clnref{P1:x1,P1:r2}上的address dependency，
+	因为这是一个load后跟一个store。
+	因为address dependency必须从load开始，
+	TSO平台隐式但完全地尊重它们，不考虑编译器优化，
+	因此需要\co{READ_ONCE()}。
 	\end{fcvref}
 
-	Weakly ordered platforms don't necessarily maintain ordering of
-	unrelated accesses.
-	However, the address dependencies in
-	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15),%
-	lst:memorder:S Address-Dependency Litmus Test} are not unrelated:
-	There is an address dependency.
-	The hardware tracks dependencies and maintains the needed
-	ordering.
+	弱序平台不一定维护无关访问的排序。
+	然而，\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15),%
+	lst:memorder:S Address-Dependency Litmus Test}中的
+	address dependency并非无关的：
+	存在一个address dependency。
+	硬件跟踪dependency并维护所需的排序。
 
 	\begin{fcvref}[ln:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)]
-	There is one (famous) exception to this rule for weakly ordered
-	platforms, and that exception is DEC Alpha for load-to-load
-	address dependencies.
-	And this is why, in Linux kernels predating v4.15, DEC Alpha
-	requires the explicit memory barrier supplied for it by the
-	now-obsolete \apikh{lockless_dereference()} on \clnref{deref} of
-	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}.
+	对于弱序平台，这条规则有一个（著名的）例外，
+	那就是DEC Alpha对于load-to-load address dependency的情况。
+	这就是为什么在v4.15之前的Linux内核中，DEC Alpha
+	需要现已过时的\apikh{lockless_dereference()}在
+	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}的
+	\clnref{deref}上为其提供的显式memory barrier。
 	\end{fcvref}
 	\begin{fcvref}[ln:formal:C-S+o-wmb-o+o-addr-o:whole]
-	However, DEC Alpha does track load-to-store address dependencies,
-	which is why \clnref{P1:x1} of
-	\cref{lst:memorder:S Address-Dependency Litmus Test}
-	does not need a \co{lockless_dereference()}, even in Linux
-	kernels predating v4.15.
+	然而，DEC Alpha确实跟踪load-to-store address dependency，
+	这就是为什么\cref{lst:memorder:S Address-Dependency Litmus Test}的
+	\clnref{P1:x1}不需要\co{lockless_dereference()}，
+	即使在v4.15之前的Linux内核中。
 	\end{fcvref}
 
-	To sum up, current platforms either respect address dependencies
-	implicitly, as is the case for TSO platforms (x86, mainframe,
-	SPARC,~\dots), have hardware tracking for address dependencies
-	(\ARM, PowerPC, MIPS,~\dots), have the required memory barriers
-	supplied by \co{READ_ONCE()} (DEC Alpha in Linux kernel v4.15 and
-	later), or supplied by
-	\co{rcu_dereference()} (DEC Alpha in Linux kernel v4.14 and earlier).
+	总结一下，当前平台要么隐式地尊重address dependency，
+	如TSO平台（x86、大型机、SPARC等），
+	要么具有address dependency的硬件跟踪
+	（\ARM、PowerPC、MIPS等），要么具有所需的memory barrier
+	（由\co{READ_ONCE()}提供，DEC Alpha在Linux内核v4.15及更高版本上），
+	或者由\co{rcu_dereference()}提供
+	（DEC Alpha在Linux内核v4.14及更早版本上）。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	Why the use of \co{smp_wmb()} in
-	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15),%
-	lst:memorder:S Address-Dependency Litmus Test}?
-	Wouldn't \co{smp_store_release()} be a better choice?
+	为什么在\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15),%
+	lst:memorder:S Address-Dependency Litmus Test}中使用\co{smp_wmb()}？
+	\co{smp_store_release()}不是更好的选择吗？
 }\QuickQuizAnswerM{
-	In most cases, \co{smp_store_release()} is indeed a better choice.
-	However, \co{smp_wmb()} was there first in the Linux kernel,
-	so it is still good to understand how to use it.
+	在大多数情况下，\co{smp_store_release()}确实是更好的选择。
+	然而，\co{smp_wmb()}在Linux内核中出现得更早，
+	因此了解如何使用它仍然很有价值。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	SP, MP, LB, and now~S\@.
-	Where do all these litmus-test abbreviations come from and
-	how can anyone keep track of them?
+	SP、MP、LB，现在又是~S。
+	所有这些litmus test缩写从哪里来，
+	如何跟踪它们？
 }\QuickQuizAnswerE{
-	The best scorecard is the infamous
-	\co{test6.pdf}~\cite{test6-pdf}.
-	Unfortunately, not all of the abbreviations have catchy
-	expansions like SB (store buffering), MP (message passing),
-	and LB (load buffering), but at least the list of abbreviations
-	is readily available.
+	最好的记分卡是著名的
+	\co{test6.pdf}~\cite{test6-pdf}。
+	不幸的是，并非所有缩写都有像SB（store buffering）、
+	MP（message passing）和LB（load buffering）这样易记的展开，
+	但至少缩写列表是容易获得的。
 }\QuickQuizEndE
 }
 
-However, it is important to note that address dependencies can
-be fragile and easily broken by compiler optimizations, as discussed in
-\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
+然而，重要的是要注意address dependency可能是脆弱的，
+容易被编译器优化破坏，
+如\cref{sec:memorder:Address- and Data-Dependency Difficulties}中所讨论的。
 
 \subsection{Data Dependencies}
 \label{sec:memorder:Data Dependencies}
 
-A \emph{\IXBh{data}{dependency}} occurs when the value returned by a load
-instruction is used to compute the data stored by a later store
-instruction.
-Note well the ``data'' above:
-If the value returned by a load was instead used to compute the address
-used by a later store instruction, that would instead be an address
-dependency, which was covered in
-\cref{sec:memorder:Address Dependencies}.
-However, the existence of data dependencies means that the exact same
-sequence of instructions used to update a linked data structure in
-single-threaded code provides weak but extremely useful ordering in
-concurrent code.
+\emph{\IXBh{data}{dependency}}发生在load指令返回的值
+被用于计算后续store指令所存储的数据时。
+注意上面的``数据''：
+如果load返回的值被用于计算后续store指令使用的地址，
+那将是address dependency，
+已在\cref{sec:memorder:Address Dependencies}中介绍。
+然而，data dependency的存在意味着
+在单线程代码中用于更新链式数据结构的完全相同的指令序列
+在并发代码中提供了弱但极其有用的排序。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-r+o-data-o@whole.fcv}
-\caption{Load-Buffering Data-Dependency Litmus Test}
+\caption{Load-Buffering Data Dependency Litmus Test}
 \label{lst:memorder:Load-Buffering Data-Dependency Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-LB+o-r+o-data-o:whole]
 \Cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test}
 (\path{C-LB+o-r+o-data-o.litmus})
-is similar to
-\cref{lst:memorder:Enforcing Ordering of Load-Buffering Litmus Test},
-except that \co{P1()}'s ordering between \clnref{ld,st} is
-enforced not by an \IX{acquire load}, but instead by a data dependency:
-The value loaded by \clnref{ld} is what \clnref{st} stores.
-The ordering provided by this data dependency is sufficient to prevent
-the \co{exists} clause from triggering.
+类似于\cref{lst:memorder:Enforcing Ordering of Load-Buffering Litmus Test}，
+不同之处在于\co{P1()}在\clnref{ld,st}之间的排序
+不是由\IX{acquire load}强制的，而是由data dependency强制的：
+\clnref{ld}load的值就是\clnref{st}所store的值。
+这个data dependency提供的排序足以阻止\co{exists}子句被触发。
 \end{fcvref}
 
-Just as with address dependencies, data dependencies are
-fragile and can be easily broken by compiler optimizations, as discussed in
-\cref{sec:memorder:Address- and Data-Dependency Difficulties}.
-In fact, data dependencies can be even more fragile than are address
-dependencies.
-The reason for this is that address dependencies normally involve
-pointer values.
-In contrast, as shown in
-\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test},
-it is tempting to carry data dependencies through integral values,
-which the compiler has much more freedom to optimize into nonexistence.
-For but one example, if the integer loaded was multiplied by the constant
-zero, the compiler would know that the result was zero, and could therefore
-substitute the constant zero for the value loaded, thus breaking
-the dependency.
+与address dependency一样，data dependency是脆弱的，
+容易被编译器优化破坏，
+如\cref{sec:memorder:Address- and Data-Dependency Difficulties}中所讨论的。
+事实上，data dependency可能比address dependency更加脆弱。
+其原因是address dependency通常涉及指针值。
+相比之下，如\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test}所示，
+通过整数值传递data dependency很有诱惑力，
+但编译器有更大的自由将其优化到不存在。
+举一个例子，如果load的整数乘以常量零，
+编译器会知道结果为零，因此可以用常量零替代load的值，
+从而破坏dependency。
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:C-LB+o-r+o-data-o:whole]
-	But wait!!!
-	\Clnref{ld} of
-	\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test}
-	uses \co{READ_ONCE()}, which marks the load as volatile,
-	which means that the compiler absolutely must emit the load
-	instruction even if the value is later multiplied by zero.
-	So how can the compiler possibly break this data dependency?
+	等等！！！
+	\cref{lst:memorder:Load-Buffering Data-Dependency Litmus Test}的
+	\Clnref{ld}使用了\co{READ_ONCE()}，
+	它将load标记为volatile，
+	这意味着即使值后来乘以零，编译器也绝对必须生成load指令。
+	那么编译器怎么可能破坏这个data dependency？
 	\end{fcvref}
 }\QuickQuizAnswer{
 	Yes, the compiler absolutely must emit a load instruction for
@@ -2198,94 +1925,87 @@ the dependency.
 	result of that multiplication, which will break the data
 	dependency on many platforms.
 
-	Worse yet, if the dependent store does not use \co{WRITE_ONCE()},
-	the compiler could hoist it above the load, which would cause
-	even TSO platforms to fail to provide ordering.
+	更糟的是，如果依赖的store不使用\co{WRITE_ONCE()}，
+	编译器可以将其提升到load之上，这甚至会导致
+	TSO平台也无法提供排序。
 }\QuickQuizEnd
 
-In short, you can rely on data dependencies only if you prevent the
-compiler from breaking them.
+简而言之，只有当你阻止编译器破坏data dependency时，
+你才能依赖它们。
 
 \subsection{Control Dependencies}
 \label{sec:memorder:Control Dependencies}
 
-A \emph{\IXBh{control}{dependency}} occurs when the value returned by a load
-instruction is tested to determine whether or not a later store instruction
-is executed.
-In other words, a simple conditional branch or conditional-move
-instruction can act as a weak but low-overhead memory-barrier instruction.
-However, note well the ``later store instruction'':
-Although all platforms respect load-to-store dependencies, many platforms
-do \emph{not} respect load-to-load control dependencies.
+\emph{\IXBh{control}{dependency}}发生在load指令返回的值
+被测试以确定后续store指令是否执行时。
+换句话说，一个简单的条件分支或条件移动指令
+可以充当弱但低开销的memory-barrier指令。
+然而，请注意``后续store指令''：
+虽然所有平台都尊重load-to-store dependency，
+但许多平台\emph{不}尊重load-to-load control dependency。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-r+o-ctrl-o@whole.fcv}
-\caption{Load-Buffering Control-Dependency Litmus Test}
+\caption{Load-Buffering Control Dependency Litmus Test}
 \label{lst:memorder:Load-Buffering Control-Dependency Litmus Test}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-LB+o-r+o-ctrl-o:whole]
 \Cref{lst:memorder:Load-Buffering Control-Dependency Litmus Test}
 (\path{C-LB+o-r+o-ctrl-o.litmus})
-shows another load-buffering example, this time using a control
-dependency (\clnref{if}) to order the load on \clnref{ld} and the store on
-\clnref{st}.
-The ordering is sufficient to prevent the \co{exists} from triggering.
+展示了另一个load-buffering示例，这次使用control
+dependency（\clnref{if}）来排序\clnref{ld}上的load和
+\clnref{st}上的store。
+排序足以阻止\co{exists}被触发。
 \end{fcvref}
 
-However, control dependencies are even more susceptible to being optimized
-out of existence than are data dependencies, and
+然而，control dependency比data dependency更容易被优化到不存在，
 \cref{sec:memorder:Control-Dependency Calamities}
-describes some of the rules that must be followed in order to prevent
-your compiler from breaking your control dependencies.
+描述了为防止编译器破坏你的control dependency
+而必须遵循的一些规则。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-r+o-ctrl-o@whole.fcv}
-\caption{Message-Passing Control-Dependency Litmus Test (No Ordering)}
+\caption{消息传递Control Dependency Litmus Test（无排序）}
 \label{lst:memorder:Message-Passing Control-Dependency Litmus Test (No Ordering)}
 \end{listing}
 
 \begin{fcvref}[ln:formal:C-MP+o-r+o-ctrl-o:whole]
-It is worth reiterating that control dependencies provide ordering only
-from loads to stores.
-Therefore, the load-to-load control dependency shown on \clnrefrange{ld1}{ld2} of
-\cref{lst:memorder:Message-Passing Control-Dependency Litmus Test (No Ordering)}
-(\path{C-MP+o-r+o-ctrl-o.litmus})
-does \emph{not} provide ordering, and therefore does \emph{not}
-prevent the \co{exists} clause from triggering.
+值得重申的是，control dependency仅提供从load到store的排序。
+因此，\cref{lst:memorder:Message-Passing Control-Dependency Litmus Test (No Ordering)}
+(\path{C-MP+o-r+o-ctrl-o.litmus})的
+\clnrefrange{ld1}{ld2}上显示的load-to-load control dependency
+\emph{不}提供排序，因此\emph{不能}
+阻止\co{exists}子句被触发。
 \end{fcvref}
 
-In summary, control dependencies can be useful, but they are
-high-maintenance items.
-You should therefore use them only when performance considerations
-permit no other solution.
+总之，control dependency可以很有用，但它们是高维护成本的项目。
+因此，你应该仅在性能考虑不允许其他解决方案时才使用它们。
 
 \QuickQuiz{
-	Wouldn't control dependencies be more robust if they were
-	mandated by language standards???
+	如果control dependency被语言标准强制要求，
+	它们不会更加健壮吗？？？
 }\QuickQuizAnswer{
-	But of course!
-	And perhaps in the fullness of time they will be so mandated.
+	当然会！
+	也许随着时间的推移，它们会被如此强制要求。
 }\QuickQuizEnd
 
 \subsection{Cache Coherence}
 \label{sec:memorder:Cache Coherence}
 
-On cache-coherent platforms, all CPUs agree on the order of loads and
-stores to a given variable.
-Fortunately, when \co{READ_ONCE()} and \co{WRITE_ONCE()} are used,
-almost all platforms are cache-coherent, as indicated by the ``SV''
-column of the cheat sheet shown in
-\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}.
-Unfortunately, this property is so popular that it has been named
-multiple times, with ``single-variable SC'',\footnote{
-	Recall that SC stands for sequentially consistent.}
-``single-copy atomic''~\cite{Stone:1995:SP:623262.623912},
-and just plain ``coherence''~\cite{JadeAlglave2011ppcmem}
-having seen use.
-Rather than further compound the confusion by inventing yet another term
-for this concept, this book uses ``\IX{cache coherence}'' and ``coherence''
-interchangeably.
+在cache-coherent平台上，所有CPU对给定变量的load和store顺序达成一致。
+幸运的是，当使用\co{READ_ONCE()}和\co{WRITE_ONCE()}时，
+几乎所有平台都是cache-coherent的，
+如\cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}中
+速查表的``SV''列所示。
+不幸的是，这个属性太受欢迎了，以至于被命名了多次，
+``single-variable SC''、\footnote{
+	回忆一下SC代表顺序一致。}
+``single-copy atomic''~\cite{Stone:1995:SP:623262.623912}
+和简单的``coherence''~\cite{JadeAlglave2011ppcmem}
+都有使用。
+本书使用``\IX{cache coherence}''和``coherence''互换使用，
+而不是通过为这个概念发明另一个术语来进一步增加混乱。
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-CCIRIW+o+o+o-o+o-o@whole.fcv}
@@ -2296,48 +2016,42 @@ interchangeably.
 \begin{fcvref}[ln:formal:C-CCIRIW+o+o+o-o+o-o:whole]
 \Cref{lst:memorder:Cache-Coherent IRIW Litmus Test}
 (\path{C-CCIRIW+o+o+o-o+o-o.litmus})
-shows a litmus test that tests for cache coherence,
-where ``IRIW'' stands
+展示了一个测试cache coherence的litmus test，
+其中``IRIW''代表
 for ``independent reads of independent writes''.
 Because this litmus test uses only one variable,
 \co{P2()} and \co{P3()} must agree
 on the order of \co{P0()}'s and \co{P1()}'s stores.
-In other words, if \co{P2()} believes that \co{P0()}'s store
-came first, then \co{P3()} had better not believe that
-\co{P1()}'s store came first.
-And in fact the \co{exists} clause on \clnref{exists} will trigger if this
-situation arises.
+换句话说，如果\co{P2()}认为\co{P0()}的store先到，
+那么\co{P3()}最好不要认为\co{P1()}的store先到。
+事实上，如果这种情况发生，
+\clnref{exists}上的\co{exists}子句将被触发。
 \end{fcvref}
 
 \QuickQuiz{
-	But in
-	\cref{lst:memorder:Cache-Coherent IRIW Litmus Test},
-	wouldn't be just as bad if \co{P2()}'s \co{r1} and \co{r2}
-	obtained the values~2 and~1, respectively, while \co{P3()}'s
-	\co{r3} and \co{r4} obtained the values~1 and~2, respectively?
+	但在\cref{lst:memorder:Cache-Coherent IRIW Litmus Test}中，
+	如果\co{P2()}的\co{r1}和\co{r2}分别获得值~2和~1，
+	而\co{P3()}的\co{r3}和\co{r4}分别获得值~1和~2，
+	不是一样糟糕吗？
 }\QuickQuizAnswer{
-	Yes, it would.
-	Feel free to modify the \co{exists} clause to
-	check for that outcome and see what happens.
+	是的，一样糟糕。
+	请随意修改\co{exists}子句来检查该结果，看看会发生什么。
 }\QuickQuizEnd
 
-It is tempting to speculate that different-sized overlapping loads
-and stores to a single region of memory (as might be set up using
-the C-language \co{union} keyword) would provide similar ordering
-guarantees.
-However, Flur et al.~\cite{Flur:2017:MCA:3093333.3009839} discovered some
-surprisingly simple litmus tests that demonstrate that such guarantees
-can be violated on real hardware.
-It is therefore necessary to restrict code to non-overlapping
-same-sized aligned accesses to a given variable, at least if portability
-is a consideration.\footnote{
-	There is reason to believe that using atomic RMW operations
-	(for example, \co{xchg()}) for all the stores will
-	provide sequentially consistent ordering, but this has not
-	yet been proven either way.}
+人们很容易推测，对单个内存区域的不同大小的重叠load和store
+（如可能使用C语言\co{union}关键字设置的那样）
+会提供类似的排序保证。
+然而，Flur等人~\cite{Flur:2017:MCA:3093333.3009839}发现了一些
+令人惊讶的简单litmus test，证明这种保证
+在真实硬件上可以被违反。
+因此，至少如果可移植性是一个考虑因素，
+有必要将代码限制为对给定变量的非重叠的同大小对齐访问。\footnote{
+	有理由相信对所有store使用原子RMW操作
+	（例如\co{xchg()}）将提供顺序一致的排序，
+	但这尚未被证明或证伪。}
 
-Adding more variables and threads increases the scope for reordering
-and other counter-intuitive behavior, as discussed in the next section.
+添加更多变量和线程会增加重排和其他反直觉行为的范围，
+如下一节所讨论的。
 
 \subsection{Multicopy Atomicity}
 \label{sec:memorder:Multicopy Atomicity}
@@ -2345,28 +2059,24 @@ and other counter-intuitive behavior, as discussed in the next section.
 \begin{figure}
 \centering
 \resizebox{3.0in}{!}{\includegraphics{memorder/SystemArchBus}}
-\caption{Global System Bus And Multi-Copy Atomicity}
+\caption{全局系统总线与Multi-Copy Atomicity}
 \label{fig:memorder:Global System Bus And Multi-Copy Atomicity}
 \end{figure}
 
-Threads running on a fully
-\emph{multicopy atomic}~\cite{Stone:1995:SP:623262.623912}
-platform are guaranteed
-to agree on the order of stores, even to different variables.
-A useful mental model of such a system is the single-bus architecture
-shown in
-\cref{fig:memorder:Global System Bus And Multi-Copy Atomicity}.
-If each store resulted in a message on the bus, and if the bus could
-accommodate only one store at a time, then any pair of CPUs would
-agree on the order of all stores that they observed.
-Unfortunately, building a computer system as shown in the figure, without
-store buffers or even caches, would result in glacially slow computation.
-Most CPU vendors interested in providing
-\IXBalt{multicopy atomicity}{multi-copy atomic} therefore
-instead provide the slightly weaker
-\emph{other-multicopy atomicity}~\cite[Section B2.3]{ARMv8A:2017},
-which excludes the CPU doing a given store from the requirement that all
-CPUs agree on the order of all stores.\footnote{
+在完全\emph{multicopy atomic}~\cite{Stone:1995:SP:623262.623912}
+平台上运行的线程保证对store的顺序达成一致，
+即使是对不同变量的store。
+这样一个系统的有用思维模型是
+\cref{fig:memorder:Global System Bus And Multi-Copy Atomicity}中
+所示的单总线架构。
+如果每个store都导致总线上的一个消息，并且总线一次只能容纳一个store，
+那么任何一对CPU都会就它们观察到的所有store的顺序达成一致。
+不幸的是，如图所示构建一个没有store buffer甚至cache的计算机系统
+会导致极其缓慢的计算。
+大多数有兴趣提供\IXBalt{multicopy atomicity}{multi-copy atomic}的CPU厂商
+因此转而提供略弱的
+\emph{other-multicopy atomicity}~\cite[Section B2.3]{ARMv8A:2017}，
+它将执行给定store的CPU从所有CPU必须就所有store的顺序达成一致的要求中排除。\footnote{
 	As of early 2021, \ARMv8 and x86 provide other-multicopy atomicity,
 	IBM mainframe provides full multicopy atomicity, and PPC
 	provides no multicopy atomicity at all.
@@ -2374,13 +2084,13 @@ CPUs agree on the order of all stores.\footnote{
 	\cref{tab:memorder:Summary of Memory Ordering}
 	on
 	\cpageref{tab:memorder:Summary of Memory Ordering}.}
-This means that if only a subset of CPUs are doing stores, the
-other CPUs will agree on the order of stores, hence the ``other''
-in ``\IXBalthy{other-multicopy atomicity}{other-}{multi-copy atomic}''.
-Unlike multicopy-atomic platforms, within other-multicopy-atomic platforms,
-the CPU doing the store is permitted to observe its
-store early, which allows its later loads to obtain the newly stored
-value directly from the store buffer, which improves performance.
+这意味着如果只有一部分CPU在执行store，
+其他CPU将就store的顺序达成一致，因此在
+``\IXBalthy{other-multicopy atomicity}{other-}{multi-copy atomic}''中有``other''。
+与multicopy-atomic平台不同，在other-multicopy-atomic平台中，
+执行store的CPU被允许提前观察到自己的store，
+这允许其后续的load直接从store buffer获取新存储的值，
+从而提高性能。
 
 \QuickQuiz{
 	Can you give a specific example showing different behavior for
@@ -2393,7 +2103,7 @@ value directly from the store buffer, which improves performance.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP-OMCA+o-o-o+o-rmb-o@whole.fcv}
-\caption{Litmus Test Distinguishing Multicopy Atomic From Other Multicopy Atomic}
+\caption{区分Multicopy Atomic与Other Multicopy Atomic的Litmus Test}
 \label{lst:memorder:Litmus Test Distinguishing Multicopy Atomic From Other Multicopy Atomic}
 \end{listing}
 
@@ -2426,7 +2136,7 @@ platforms do exist, and so software must deal with them.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-WRC+o+o-data-o+o-rmb-o@whole.fcv}
-\caption{WRC Litmus Test With Dependencies (No Ordering)}
+\caption{带Dependencies的WRC Litmus Test（无排序）}
 \label{lst:memorder:WRC Litmus Test With Dependencies (No Ordering)}
 \end{listing}
 
@@ -2452,7 +2162,7 @@ might reach \co{P2()} before \co{P0()}'s store does.
 \begin{figure}
 \centering
 \resizebox{3.0in}{!}{\includegraphics{memorder/NonMCAplatform}}
-\caption{Shared Store Buffers And Multi-Copy Atomicity}
+\caption{共享Store Buffer与Multi-Copy Atomicity}
 \label{fig:memorder:Shared Store Buffers And Multi-Copy Atomicity}
 \end{figure}
 
@@ -2514,8 +2224,8 @@ line} to carry this new value to them.
 	\bottomrule
 \end{tabular}
 }
-\caption{Memory Ordering:
-			  WRC Sequence of Events}
+\caption{内存排序：
+			  WRC事件序列}
 \label{tab:memorder:Memory Ordering: WRC Sequence of Events}
 \end{table*}
 
@@ -2642,7 +2352,7 @@ same variable.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-WRC+o+o-r+a-o@whole.fcv}
-\caption{WRC Litmus Test With Release}
+\caption{带Release的WRC Litmus Test}
 \label{lst:memorder:WRC Litmus Test With Release}
 \end{listing}
 
@@ -2710,7 +2420,7 @@ This means that the \co{exists} clause on \clnref{exists} really can trigger.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-W+RWC+o-r+a-o+o-mb-o@whole.fcv}
-\caption{W+RWC Litmus Test With Release (No Ordering)}
+\caption{带Release的W+RWC Litmus Test（无排序）}
 \label{lst:memorder:W+RWC Litmus Test With Release (No Ordering)}
 \end{listing}
 
@@ -2722,7 +2432,7 @@ This means that the \co{exists} clause on \clnref{exists} really can trigger.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-R+o-wmb-o+o-mb-o@whole.fcv}
-\caption{R Litmus Test With Write Memory Barrier (No Ordering)}
+\caption{带Write Memory Barrier的R Litmus Test（无排序）}
 \label{lst:memorder:R Litmus Test With Write Memory Barrier (No Ordering)}
 \end{listing}
 
@@ -2747,7 +2457,7 @@ This means that the \co{exists} clause on \clnref{exists} really can trigger.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{memorder/fr}}
-\caption{Load-to-Store is Counter-Temporal}
+\caption{Load-to-Store是反时序的}
 \label{fig:memorder:Load-to-Store is Counter-Temporal}
 \end{figure}
 
@@ -2791,7 +2501,7 @@ the cycle is said to be \emph{prohibited}.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-W+RWC+o-mb-o+a-o+o-mb-o@whole.fcv}
-\caption{W+WRC Litmus Test With More Barriers}
+\caption{带更多Barrier的W+WRC Litmus Test}
 \label{lst:memorder:W+WRC Litmus Test With More Barriers}
 \end{listing}
 
@@ -2841,7 +2551,7 @@ The result is shown in
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{memorder/co}}
-\caption{Store-to-Store is Counter-Temporal}
+\caption{Store-to-Store是反时序的}
 \label{fig:memorder:Store-to-Store is Counter-Temporal}
 \end{figure}
 
@@ -2870,7 +2580,7 @@ counter-temporal nature of load-to-store and store-to-store ordering.\footnote{
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-2+2W+o-wmb-o+o-wmb-o@whole.fcv}
-\caption{2+2W Litmus Test With Write Barriers}
+\caption{带Write Barrier的2+2W Litmus Test}
 \label{lst:memorder:2+2W Litmus Test With Write Barriers}
 \end{listing}
 
@@ -2902,7 +2612,7 @@ counter-temporal nature of load-to-store and store-to-store ordering.\footnote{
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-2+2W+o-o+o-o@whole.fcv}
-\caption{2+2W Litmus Test (No Ordering)}
+\caption{2+2W Litmus Test（无排序）}
 \label{lst:memorder:2+2W Litmus Test (No Ordering)}
 \end{listing}
 
@@ -2946,7 +2656,7 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{CodeSamples/cpu/data/coe-nvals}}
-\caption{x86 CPUs Can Disagree}
+\caption{x86 CPU可能存在分歧}
 \label{fig:memorder:x86 CPUs Can Disagree}
 \end{figure}
 
@@ -2968,7 +2678,7 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{.85\twocolumnwidth}{!}{\includegraphics{memorder/co-hopes}}
-\caption{Is Store-to-Store Counter-Temporal on x86?}
+\caption{x86上Store-to-Store是反时序的吗？}
 \label{fig:memorder:Is Store-to-Store Counter-Temporal on x86?}
 \end{figure}
 
@@ -2992,7 +2702,7 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{CodeSamples/cpu/data/coe}}
-\caption{Store-to-Store is Counter-Temporal on x86}
+\caption{x86上Store-to-Store是反时序的}
 \label{fig:memorder:Store-to-Store is Counter-Temporal on x86}
 \end{figure}
 
@@ -3015,7 +2725,7 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{.6\twocolumnwidth}{!}{\includegraphics{memorder/fr-hopes}}
-\caption{Is Load-to-Store Counter-Temporal on x86?}
+\caption{x86上Load-to-Store是反时序的吗？}
 \label{fig:memorder:Is Load-to-Store Counter-Temporal on x86?}
 \end{figure}
 
@@ -3033,7 +2743,7 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{CodeSamples/cpu/data/fre}}
-\caption{Load-to-Store is Counter-Temporal on x86}
+\caption{x86上Load-to-Store是反时序的}
 \label{fig:memorder:Load-to-Store is Counter-Temporal on x86}
 \end{figure}
 
@@ -3055,14 +2765,14 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{memorder/rf-hopes}}
-\caption{Is Store-to-Load Counter-Temporal on x86?}
+\caption{x86上Store-to-Load是反时序的吗？}
 \label{fig:memorder:Is Store-to-Load Counter-Temporal on x86?}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{CodeSamples/cpu/data/rfe}}
-\caption{Store-to-Load is Temporal on x86}
+\caption{x86上Store-to-Load是时序的}
 \label{fig:memorder:Store-to-Load is Temporal on x86}
 \end{figure}
 
@@ -3109,13 +2819,13 @@ passage of time itself as a memory-ordering operation.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{memorder/rf}}
-\caption{Store-to-Load is Temporal}
+\caption{Store-to-Load是时序的}
 \label{fig:memorder:Store-to-Load is Temporal}
 \end{figure}
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+a-o+o-data-o+o-data-o@whole.fcv}
-\caption{LB Litmus Test With One Acquire}
+\caption{带一个Acquire的LB Litmus Test}
 \label{lst:memorder:LB Litmus Test With One Acquire}
 \end{listing}
 
@@ -3149,7 +2859,7 @@ suffice to prevent the \co{exists} clause from triggering.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-data-o+o-data-o+o-data-o@whole.fcv}
-\caption{LB Litmus Test With No Acquires}
+\caption{不带Acquire的LB Litmus Test}
 \label{lst:memorder:LB Litmus Test With No Acquires}
 \end{listing}
 }\QuickQuizEnd
@@ -3157,7 +2867,7 @@ suffice to prevent the \co{exists} clause from triggering.
 An important use of time for ordering memory accesses is covered in the
 next section.
 
-\subsubsection{Release-Acquire Chains}
+\subsubsection{Release-Acquire链}
 \label{sec:memorder:Release-Acquire Chains}
 
 A minimal release-acquire chain was shown in
@@ -3173,7 +2883,7 @@ involved, the corresponding \co{exists} clause cannot trigger.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+a-r+a-r+a-r+a-r@whole.fcv}
-\caption{Long LB Release-Acquire Chain}
+\caption{长LB Release-Acquire链}
 \label{lst:memorder:Long LB Release-Acquire Chain}
 \end{listing}
 
@@ -3206,7 +2916,7 @@ be true:
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-ISA2+o-r+a-r+a-r+a-o@whole.fcv}
-\caption{Long ISA2 Release-Acquire Chain}
+\caption{长ISA2 Release-Acquire链}
 \label{lst:memorder:Long ISA2 Release-Acquire Chain}
 \end{listing}
 
@@ -3229,7 +2939,7 @@ load-to-store link, as was seen in
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-Z6.2+o-r+a-r+a-r+a-o@whole.fcv}
-\caption{Long Z6.2 Release-Acquire Chain}
+\caption{长Z6.2 Release-Acquire链}
 \label{lst:memorder:Long Z6.2 Release-Acquire Chain}
 \end{listing}
 
@@ -3245,7 +2955,7 @@ prevents the \co{exists} clause on \clnref{exists} from triggering.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-Z6.2+o-r+a-o+o-mb-o@whole.fcv}
-\caption{Z6.2 Release-Acquire Chain (Ordering?)}
+\caption{Z6.2 Release-Acquire链（有排序吗？）}
 \label{lst:memorder:Z6.2 Release-Acquire Chain (Ordering?)}
 \end{listing}
 
@@ -3273,13 +2983,13 @@ prevents the \co{exists} clause on \clnref{exists} from triggering.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MP+o-r+a-o@whole.fcv}
-\caption{A Release-Acquire Chain Ordering Multiple Accesses}
+\caption{排序多个访问的Release-Acquire链}
 \label{lst:memorder:A Release-Acquire Chain Ordering Multiple Accesses}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-MPO+o-r+a-o+o@whole.fcv}
-\caption{A Release-Acquire Chain With Added Store (Ordering?)}
+\caption{添加了Store的Release-Acquire链（有排序吗？）}
 \label{lst:memorder:A Release-Acquire Chain With Added Store (Ordering?)}
 \end{listing}
 
@@ -3325,7 +3035,7 @@ In short, properly constructed release-acquire chains form a peaceful
 island of intuitive bliss surrounded by a strongly counter-intuitive
 sea of more complex memory-ordering constraints.
 
-\subsection{A Counter-Intuitive Case Study}
+\subsection{一个反直觉的案例研究}
 \label{sec:memorder:A Counter-Intuitive Case Study}
 
 This section will revisit
@@ -3454,14 +3164,14 @@ to produce the required strong global ordering.
 \begin{figure*}[tbp]
 \centering
 \resizebox{\textwidth}{!}{\includegraphics{memorder/PPCMEM0.png}}
-\caption{PPCMEM Initial R State}
+\caption{PPCMEM初始R状态}
 \label{fig:memorder:PPCMEM Initial R State}
 \end{figure*}
 
 \begin{figure*}[tbp]
 \centering
 \resizebox{\textwidth}{!}{\includegraphics{memorder/PPCMEM1.png}}
-\caption{PPCMEM First R Step}
+\caption{PPCMEM第一个R步骤}
 \label{fig:memorder:PPCMEM First R Step}
 \end{figure*}
 
@@ -3530,7 +3240,7 @@ can be satisfied:
 \begin{figure*}[tbp]
 \centering
 \resizebox{\textwidth}{!}{\includegraphics{memorder/PPCMEMfinal.png}}
-\caption{PPCMEM Final R State}
+\caption{PPCMEM最终R状态}
 \label{fig:memorder:PPCMEM Final R State}
 \end{figure*}
 
@@ -3561,25 +3271,24 @@ Or perhaps more accurately, destroy some counter-productive intuitions.
 % @@@ Exercises?
 % @@@ Hardware details from Appendix?
 
-\section{Compile-Time Consternation}
+\section{编译时的惊慌}
 \label{sec:memorder:Compile-Time Consternation}
 %
-\epigraph{Science increases our power in proportion as it lowers our pride.}
+\epigraph{科学在降低我们骄傲的同时，按比例增加了我们的力量。}
 	 {Claude Bernard}
 
-Most languages, including C, were developed on uniprocessor systems
-by people with little or no parallel-programming experience.
-As a result, unless explicitly told otherwise, these languages assume
-that the current CPU is the only thing that is reading or writing memory.
-This in turn means that these languages' compilers' optimizers
-are ready, willing, and oh so able to make dramatic changes to the
-order, number, and sizes of memory references that your program
-executes.
-In fact, the reordering carried out by hardware can seem quite tame
-by comparison.
+大多数语言，包括C，是由几乎没有并行编程经验的人
+在单处理器系统上开发的。
+因此，除非被明确告知，这些语言假设
+当前CPU是唯一读写内存的东西。
+这又意味着这些语言的编译器优化器
+随时准备好、愿意、并且非常能够对程序执行的
+内存引用的顺序、数量和大小进行巨大的改变。
+事实上，与之相比，硬件进行的重排可能显得
+相当温和。
 
-This section will help you tame your compiler, thus avoiding a great
-deal of compile-time consternation.
+本节将帮助你驯服编译器，从而避免
+大量编译时的惊慌。
 \Cref{sec:memorder:Memory-Reference Restrictions}
 describes how to keep the compiler from destructively optimizing
 your code's memory references,
@@ -3589,7 +3298,7 @@ and finally,
 \cref{sec:memorder:Control-Dependency Calamities}
 describes how to protect those delicate control dependencies.
 
-\subsection{Memory-Reference Restrictions}
+\subsection{内存引用限制}
 \label{sec:memorder:Memory-Reference Restrictions}
 
 As noted in \cref{sec:toolsoftrade:Accessing Shared Variables},
@@ -3695,7 +3404,7 @@ However, in my experience, developers need to use things like
 they do, and the overhead of unnecessary uses is quite low.
 In contrast, the penalty for failing to use them when needed can be quite high.
 
-\subsection{Address- and Data-Dependency Difficulties}
+\subsection{Address和Data Dependency的困难}
 \label{sec:memorder:Address- and Data-Dependency Difficulties}
 \OriginallyPublished{sec:memorder:Address- and Data-Dependency Difficulties}{Address- and Data-Dependency Difficulties}{the Linux kernel}{PaulEMcKenney2014rcu-dereference}
 
@@ -3711,7 +3420,7 @@ them~\cite{PaulEMcKennneyConsumeP0190R4,PaulEMcKenney2017markconsumeP0462R1}.
 In the meantime, it is necessary to be very careful in order to prevent
 your compiler from breaking your dependencies.
 
-\subsubsection{Give your dependency chain a good start}
+\subsubsection{给你的依赖链一个好的开始}
 The load that heads your dependency chain must use proper
 ordering, for example \co{rcu_dereference()} or \co{READ_ONCE()}.
 Failure to follow this rule can have serious side effects:
@@ -3740,7 +3449,7 @@ Failure to follow this rule can have serious side effects:
 	dependency chain~\cite{PaulEMcKennneyConsumeP0190R4}.
 \end{enumerate}
 
-\subsubsection{Avoid arithmetic dependency breakage}
+\subsubsection{避免算术运算破坏依赖}
 Although it is just fine to do some arithmetic operations on a pointer in
 your dependency chain, you need to be careful to avoid giving the
 compiler too much information.
@@ -3762,7 +3471,7 @@ if (p == &reserve_int)		\lnlbl[cmp]
 do_something_with(*p); /* buggy! */
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Breakable Dependencies With Comparisons}
+\caption{可被比较破坏的Dependencies}
 \label{lst:memorder:Breakable Dependencies With Comparisons}
 \end{listing}
 
@@ -3782,7 +3491,7 @@ if (p == &reserve_int) {
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Broken Dependencies With Comparisons}
+\caption{被比较破坏的Dependencies}
 \label{lst:memorder:Broken Dependencies With Comparisons}
 \end{listing}
 
@@ -3860,7 +3569,7 @@ if (p == q)
 do_something_with(*p);
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Breakable Dependencies With Non-Constant Comparisons}
+\caption{可被非常量比较破坏的Dependencies}
 \label{lst:memorder:Breakable Dependencies With Non-Constant Comparisons}
 \end{listing}%
 %
@@ -3881,7 +3590,7 @@ if (p == q) {
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Broken Dependencies With Non-Constant Comparisons}
+\caption{被非常量比较破坏的Dependencies}
 \label{lst:memorder:Broken Dependencies With Non-Constant Comparisons}
 \end{listing}%
 %
@@ -3913,7 +3622,7 @@ the exact value, again breaking the dependency.
 Pointers to elements in arrays are especially susceptible to this latter
 form of dependency breakage.
 
-\subsubsection{Safe comparison of dependent pointers}
+\subsubsection{依赖指针的安全比较}
 It turns out that there are several safe ways to compare dependent
 pointers:
 
@@ -3984,7 +3693,7 @@ void reader(void)		\lnlbl[read:b]
 }				\lnlbl[read:e]
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Broken Dependencies With Pointer Comparisons}
+\caption{被指针比较破坏的Dependencies}
 \label{lst:memorder:Broken Dependencies With Pointer Comparisons}
 \end{listing}
 
@@ -4056,7 +3765,7 @@ In short, great care is required to ensure that dependency
 chains in your source code are still dependency chains in the
 compiler-generated assembly code.
 
-\subsection{Control-Dependency Calamities}
+\subsection{Control Dependency灾难}
 \label{sec:memorder:Control-Dependency Calamities}
 
 The \IXalth{control dependencies}{control}{dependency} described in
@@ -4316,7 +4025,7 @@ of~\co{x} and~\co{y} both being zero.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-LB+o-cgt-o+o-cgt-o@whole.fcv}
-\caption{LB Litmus Test With Control Dependency}
+\caption{带Control Dependency的LB Litmus Test}
 \label{lst:memorder:LB Litmus Test With Control Dependency}
 \end{listing}
 
@@ -4332,7 +4041,7 @@ would guarantee the related \co{exists} clause never to trigger.
 
 \begin{listing}
 \input{CodeSamples/formal/litmus/C-WWC+o-cgt-o+o-cgt-o+o@whole.fcv}
-\caption{WWC Litmus Test With Control Dependency (Cumulativity?)}
+\caption{带Control Dependency的WWC Litmus Test（有Cumulativity吗？）}
 \label{lst:memorder:WWC Litmus Test With Control Dependency (Cumulativity?)}
 \end{listing}
 
@@ -4411,19 +4120,18 @@ in mind.
 Successful multithreaded use of these languages requires you to pay
 special attention to your memory references and dependencies.
 
-\section{Higher-Level Primitives}
+\section{更高层次的原语}
 \label{sec:memorder:Higher-Level Primitives}
 %
-\epigraph{Method will teach you to win time.}
+\epigraph{方法将教会你赢得时间。}
 	 {Johann Wolfgang von Goethe}
 
-The answer to one of the quick quizzes in
+以下章节中一个Quick Quiz的答案：
 \cref{sec:formal:Axiomatic Approaches and Locking}
-demonstrated exponential speedups due to verifying programs
-modeled at higher levels of abstraction.
-This section will look into how higher levels of abstraction can
-also provide a deeper understanding of the synchronization primitives
-themselves.
+展示了由于在更高抽象层次验证程序模型而
+获得的指数级加速。
+本节将探讨更高抽象层次如何也能提供
+对同步原语本身更深层的理解。
 \Cref{sec:memorder:Memory Allocation}
 takes a look at memory allocation,
 \cref{sec:memorder:Locking}
@@ -4431,7 +4139,7 @@ examines the surprisingly varied semantics of locking, and
 \cref{sec:memorder:RCU}
 digs more deeply into RCU\@.
 
-\subsection{Memory Allocation}
+\subsection{内存分配}
 \label{sec:memorder:Memory Allocation}
 
 \Cref{sec:SMPdesign:Parallel Fastpath for Resource Allocation}
@@ -4496,7 +4204,7 @@ Therefore, the ordering required by conventional uses of memory allocation
 can be provided solely by non-fastpath locking, allowing the fastpath to
 remain synchronization-free.
 
-\subsection{Locking}
+\subsection{锁}
 \label{sec:memorder:Locking}
 
 Locking is a well-known synchronization primitive with which the
@@ -4540,20 +4248,20 @@ answers to all of these questions.
 Therefore, the following sections address these questions in the context
 of the Linux kernel.
 
-\subsubsection{Accesses Into Critical Sections?}
+\subsubsection{访问可以移入临界区吗？}
 \label{sec:memorder:Accesses Into Critical Sections?}
 
 Can memory accesses be reordered into lock-based critical sections?
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-before-into@whole.fcv}
-\caption{Prior Accesses Into Critical Section (Ordering?)}
+\caption{之前的访问移入临界区（有排序吗？）}
 \label{lst:memorder:Prior Accesses Into Critical Section (Ordering?)}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-after-into@whole.fcv}
-\caption{Subsequent Accesses Into Critical Section (Ordering?)}
+\caption{之后的访问移入临界区（有排序吗？）}
 \label{lst:memorder:Subsequent Accesses Into Critical Section (Ordering?)}
 \end{listing}
 
@@ -4612,7 +4320,7 @@ sections could also result in excessive lock contention.
 Therefore, the Linux kernel prohibits the compiler (but not the CPU)
 from moving accesses into lock-based critical sections.
 
-\subsubsection{Accesses Outside of Critical Section?}
+\subsubsection{临界区外的访问？}
 \label{sec:memorder:Accesses Outside of Critical Section?}
 
 If a given CPU or thread holds a given lock, it is guaranteed to see
@@ -4624,7 +4332,7 @@ that same lock.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-outside-across@whole.fcv}
-\caption{Accesses Outside of Critical Sections}
+\caption{临界区外的访问}
 \label{lst:memorder:Accesses Outside of Critical Sections}
 \end{listing}
 
@@ -4653,7 +4361,7 @@ Similarly, the ordering provided by \co{spin_unlock()} extends not
 only throughout the critical section, but also indefinitely beyond the
 beginning of that critical section.
 
-\subsubsection{Ordering for Non-Lock Holders?}
+\subsubsection{非锁持有者的排序？}
 \label{sec:memorder:Ordering for Non-Lock Holders?}
 
 Does a CPU or thread that is not holding a given lock see that lock's
@@ -4661,7 +4369,7 @@ critical sections as being ordered?
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-across-unlock-lock-1@whole.fcv}
-\caption{Accesses Between Same-CPU Critical Sections (Ordering?)}
+\caption{同一CPU临界区之间的访问（有排序吗？）}
 \label{lst:memorder:Accesses Between Same-CPU Critical Sections (Ordering?)}
 \end{listing}
 
@@ -4686,7 +4394,7 @@ But what if the two critical sections run on different CPUs or threads?
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-across-unlock-lock-2@whole.fcv}
-\caption{Accesses Between Different-CPU Critical Sections (Ordering?)}
+\caption{不同CPU临界区之间的访问（有排序吗？）}
 \label{lst:memorder:Accesses Between Different-CPU Critical Sections (Ordering?)}
 \end{listing}
 
@@ -4711,7 +4419,7 @@ sections runs on a different CPU or thread.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-across-unlock-lock-3@whole.fcv}
-\caption{Accesses Between Multiple Different-CPU Critical Sections}
+\caption{多个不同CPU临界区之间的访问}
 \label{lst:memorder:Accesses Between Multiple Different-CPU Critical Sections}
 \end{listing}
 
@@ -4743,7 +4451,7 @@ care.
 This approach also allows certain weakly ordered systems to implement
 locks more efficiently.
 
-\subsubsection{Ordering for \tco{spin_is_locked()}?}
+\subsubsection{\tco{spin_is_locked()}的排序？}
 \label{sec:memorder:Ordering for spin-is-locked()?}
 
 The Linux kernel's \co{spin_is_locked()} primitive returns
@@ -4784,7 +4492,7 @@ corresponding lock.
 	acquired the corresponding lock.
 }\QuickQuizEnd
 
-\subsubsection{Why Mathematically Model Locking?}
+\subsubsection{为什么要数学建模锁？}
 \label{sec:memorder:Why Mathematically Model Locking?}
 
 Given all these possible choices, why model locking in general?
@@ -4835,19 +4543,19 @@ RCU callback invocation in the lower left.\footnote{
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{memorder/RCUGPordering}}
-\caption{RCU Grace-Period Ordering Guarantees}
+\caption{RCU Grace Period排序保证}
 \label{fig:memorder:RCU Grace-Period Ordering Guarantees}
 \end{figure}
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+rl-o-o-rul@whole.fcv}
-\caption{RCU Fundamental Property}
+\caption{RCU基本性质}
 \label{lst:memorder:RCU Fundamental Property}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+i-rl-o-o-rul@whole.fcv}
-\caption{RCU Fundamental Property and Reordering}
+\caption{RCU基本性质与重排}
 \label{lst:memorder:RCU Fundamental Property and Reordering}
 \end{listing}
 
@@ -4892,7 +4600,7 @@ list of questions:\footnote{
 
 These questions are addressed in the following sections.
 
-\subsubsection{RCU Read-Side Ordering}
+\subsubsection{RCU读侧排序}
 \label{sec:memorder:RCU Read-Side Ordering}
 
 On their own, RCU's read-side primitives \co{rcu_read_lock()} and
@@ -4906,7 +4614,7 @@ Both instances of the \co{r1} register can have final values of 1.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-LB+rl-o-o-rul+rl-o-o-rul@whole.fcv}
-\caption{RCU Readers Provide No Lock-Like Ordering}
+\caption{RCU读者不提供类锁排序}
 \label{lst:memorder:RCU Readers Provide No Lock-Like Ordering}
 \end{listing}
 
@@ -4919,7 +4627,7 @@ This litmus test's cycle is also allowed.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-LB+o-rl-rul-o+o-rl-rul-o@whole.fcv}
-\caption{RCU Readers Provide No Barrier-Like Ordering}
+\caption{RCU读者不提供类Barrier排序}
 \label{lst:memorder:RCU Readers Provide No Barrier-Like Ordering}
 \end{listing}
 
@@ -4927,7 +4635,7 @@ Of course, lack of ordering in both these litmus tests should be absolutely
 no surprise, given that both \co{rcu_read_lock()} and \co{rcu_read_unlock()}
 are no-ops in the \IXacr{qsbr} implementation of RCU\@.
 
-\subsubsection{RCU Update-Side Ordering}
+\subsubsection{RCU更新侧排序}
 \label{sec:memorder:RCU Update-Side Ordering}
 
 In contrast with RCU readers, the RCU update-side functions
@@ -4942,12 +4650,12 @@ This should be no surprise given the information presented in
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+o-rcusync-o@whole.fcv}
-\caption{RCU Updaters Provide Full Ordering}
+\caption{RCU更新者提供完全排序}
 \label{lst:memorder:RCU Updaters Provide Full Ordering}
 \end{listing}
 
-\subsubsection{RCU Readers:
-			    Before and After}
+\subsubsection{RCU读者：
+			    前后关系}
 \label{sec:memorder:RCU Readers: Before and After}
 
 Before reading this section, it would be well to reflect on the distinction
@@ -4958,7 +4666,7 @@ more exotic RCU guarantees.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+o-rl-o-rul@whole.fcv}
-\caption{What Happens Before RCU Readers?}
+\caption{RCU读者之前发生了什么？}
 \label{lst:memorder:What Happens Before RCU Readers?}
 \end{listing}
 
@@ -5000,7 +4708,7 @@ must precede the end of that same grace period.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+rl-o-rul-o@whole.fcv}
-\caption{What Happens After RCU Readers?}
+\caption{RCU读者之后发生了什么？}
 \label{lst:memorder:What Happens After RCU Readers?}
 \end{listing}
 
@@ -5016,7 +4724,7 @@ and is left as an exercise for the reader.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+o-rl-rul-o@whole.fcv}
-\caption{What Happens With Empty RCU Readers?}
+\caption{空的RCU读者会怎样？}
 \label{lst:memorder:What Happens With Empty RCU Readers?}
 \end{listing}
 
@@ -5074,7 +4782,7 @@ In both cases, the critical section's emptiness is irrelevant.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+o-o@whole.fcv}
-\caption{What Happens With No RCU Readers?}
+\caption{没有RCU读者会怎样？}
 \label{lst:memorder:What Happens With No RCU Readers?}
 \end{listing}
 
@@ -5123,7 +4831,7 @@ Therefore, this litmus test's cycle is allowed.
 	exercise for the reader.
 }\QuickQuizEnd
 
-\subsubsection{Multiple RCU Readers and Updaters}
+\subsubsection{多个RCU读者和更新者}
 \label{sec:memorder:Multiple RCU Readers and Updaters}
 
 Because \co{synchronize_rcu()} has ordering semantics that are at least
@@ -5146,13 +4854,13 @@ This section takes up that question.
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+rl-o-o-rul+rl-o-o-rul@whole.fcv}
-\caption{One RCU Grace Period and Two Readers}
+\caption{一个RCU Grace Period和两个读者}
 \label{lst:memorder:One RCU Grace Period and Two Readers}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-SB+o-rcusync-o+o-rcusync-o+rl-o-o-rul+rl-o-o-rul@whole.fcv}
-\caption{Two RCU Grace Periods and Two Readers}
+\caption{两个RCU Grace Period和两个读者}
 \label{lst:memorder:Two RCU Grace Periods and Two Readers}
 \end{listing}
 
@@ -5168,14 +4876,14 @@ good to know \emph{why}.\footnote{
 \begin{figure*}
 \centering
 \resizebox{0.75\onecolumntextwidth}{!}{\includegraphics{memorder/RCU1G2R}}
-\caption{Cycle for One RCU Grace Period and Two RCU Readers}
+\caption{一个RCU Grace Period和两个RCU读者的Cycle}
 \label{fig:memorder:Cycle for One RCU Grace Period and Two RCU Readers}
 \end{figure*}
 
 \begin{figure*}
 \centering
 \resizebox{\onecolumntextwidth}{!}{\includegraphics{memorder/RCU2G2R}}
-\caption{No Cycle for Two RCU Grace Periods and Two RCU Readers}
+\caption{两个RCU Grace Period和两个RCU读者无Cycle}
 \label{fig:memorder:No Cycle for Two RCU Grace Periods and Two RCU Readers}
 \end{figure*}
 
@@ -5234,7 +4942,7 @@ the cycle is forbidden.\footnote{
 	this seemingly more general result, which is called the RCU
 	axiom~\cite{Alglave:2018:FSC:3173162.3177156}.}
 
-\subsubsection{RCU and Other Ordering Mechanisms}
+\subsubsection{RCU与其他排序机制}
 \label{sec:memorder:RCU and Other Ordering Mechanisms}
 
 But what about litmus tests that combine RCU with other ordering
@@ -5259,7 +4967,7 @@ pair would prevail, thus forbidding the cycle.
 \begin{figure*}
 \centering
 \resizebox{0.75\onecolumntextwidth}{!}{\includegraphics{memorder/RCU1G2Rmb}}
-\caption{Cycle for One RCU Grace Period, Two RCU Readers, and Memory Barrier}
+\caption{一个RCU Grace Period、两个RCU读者和Memory Barrier的Cycle}
 \label{fig:memorder:Cycle for One RCU Grace Period; Two RCU Readers; and Memory Barrier}
 \end{figure*}
 
@@ -5302,8 +5010,8 @@ formalized~\cite{PaulMcKenney2005RCUSemantics,MathieuDesnoyers2012URCU,AlexeyGot
 
 % When augmented by \co{smp_mb__after_srcu_read_unlock()}.
 
-\subsection{Higher-Level Primitives:
-	    Discussion}
+\subsection{更高层次原语：
+	    讨论}
 \label{sec:memorder:Higher-Level Primitives: Discussion}
 
 It is quite beneficial to verify code in terms of a higher-level primitive
@@ -5320,14 +5028,14 @@ It is hoped that verifying against detailed semantics for higher-level
 primitives will greatly increase the effectiveness of static analysis
 and model checking.
 
-\section{Hardware Specifics}
+\section{硬件细节}
 \label{sec:memorder:Hardware Specifics}
 \OriginallyPublished{sec:memorder:Hardware Specifics}{Memory-Barrier Instructions For Specific CPUs}{Linux Journal}{PaulMcKenney2005i,PaulMcKenney2005j}
 %
-\epigraph{Rock beats paper!}{Derek Williams}
+\epigraph{石头赢纸！}{Derek Williams}
 
-Each CPU family has its own peculiar approach to memory ordering, which
-can make portability a challenge, as you can see in
+每个CPU家族都有自己独特的memory ordering方法，
+这可能使可移植性成为挑战，正如你在以下内容中看到的：
 \cref{tab:memorder:Summary of Memory Ordering}.
 
 \begin{table*}[tb] % @@@ Omitting 'p' prevents unordered floats in 2c builds
@@ -5412,18 +5120,17 @@ can make portability a challenge, as you can see in
 \end{tabular}
 }
 }\OneColumnHSpace{-0.4in}
-\caption{Summary of Memory Ordering}
+\caption{Memory Ordering总结}
 \label{tab:memorder:Summary of Memory Ordering}
 \end{table*}
 
-In fact, some software environments simply prohibit
-direct use of memory-ordering operations, restricting the programmer
-to mutual-exclusion primitives that incorporate them to the extent that
-they are required.
-Please note that this section is not intended to be a reference manual
-covering all (or even most) aspects of each CPU family, but rather
-a high-level overview providing a rough comparison.
-For full details, see the reference manual for the CPU of interest.
+事实上，某些软件环境甚至完全禁止
+直接使用memory-ordering操作，将程序员限制于
+在需要的范围内包含这些操作的互斥原语。
+请注意，本节并非旨在成为涵盖每个CPU家族
+所有（甚至大多数）方面的参考手册，而是
+提供粗略比较的高层概述。
+有关完整详细信息，请参见感兴趣的CPU的参考手册。
 
 Getting back to
 \cref{tab:memorder:Summary of Memory Ordering},
@@ -5633,7 +5340,7 @@ struct el *search(long searchkey)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Insert and Lock-Free Search (No Ordering)}
+\caption{插入和无锁搜索（无排序）}
 \label{lst:memorder:Insert and Lock-Free Search (No Ordering)}
 \end{listing}
 
@@ -5687,7 +5394,7 @@ in Alpha's heyday.
 \begin{figure}
 \centering
 \resizebox{\twocolumnwidth}{!}{\includegraphics{memorder/Alpha}}
-\caption{Why \tco{smp_read_barrier_depends()} is Required in Pre-v4.15 Linux Kernels}
+\caption{为什么Pre-v4.15 Linux内核需要\tco{smp_read_barrier_depends()}}
 \label{fig:memorder:fig:memorder:Why smp-read-barrier-depends() is Required in Pre-v4.15 Linux Kernels}
 \end{figure}
 
@@ -5755,7 +5462,7 @@ struct el *search(long searchkey)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Safe Insert and Lock-Free Search}
+\caption{安全的插入和无锁搜索}
 \label{lst:memorder:Safe Insert and Lock-Free Search}
 \end{listing}
 
@@ -5883,7 +5590,7 @@ Note that inserting an additional \co{ISB} instruction somewhere between
 \begin{figure}
 \centering
 \resizebox{2in}{!}{\includegraphics{cartoons/r-2014-LDLAR}}
-\caption{Half Memory Barrier}
+\caption{半Memory Barrier}
 \ContributedBy{fig:memorder:Half Memory Barrier}{Melissa Brossard}
 \end{figure}
 
@@ -6012,7 +5719,7 @@ void synchronize_rcu(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{Userspace RCU Code Reordering}
+\caption{用户空间RCU代码重排}
 \label{lst:memorder:Userspace RCU Code Reordering}
 \end{listing}
 
@@ -6406,17 +6113,15 @@ The z~Systems instruction set provides a large set of serializing instructions,
 including compare-and-swap, some types of branches (for example, the
 aforementioned \qco{bcr 15,0} instruction), and test-and-set.
 
-\subsection{Hardware Specifics:
-	    Discussion}
+\subsection{硬件细节：
+	    讨论}
 \label{sec:memorder:Hardware Specifics: Discussion}
 
-There is considerable variation among these CPU families, and this section
-only scratched the surface of a few families that are either heavily used
-or historically significant.
-Those wishing more detail are invited to consult the reference manuals.
+这些CPU家族之间存在相当大的差异，本节
+仅触及了几个被大量使用或具有历史意义的家族的表面。
+想要更多细节的人可以参考相关的参考手册。
 
-However, perhaps the biggest benefit of the Linux-kernel memory model is
-that you can ignore these details when writing architecture-independent
-Linux-kernel code.
+然而，Linux内核memory model的最大好处可能是
+在编写与架构无关的Linux内核代码时可以忽略这些细节。
 
 \QuickQuizAnswersChp{qqzmemorder}

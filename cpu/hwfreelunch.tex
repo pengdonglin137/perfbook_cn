@@ -2,326 +2,260 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Hardware Free Lunch?}
+\section{硬件的免费午餐？}
 \label{sec:cpu:Hardware Free Lunch?}
 %
-\epigraph{The great trouble today is that there are too many people looking
-	  for someone else to do something for them.
-	  The solution to most of our troubles is to be found in everyone
-	  doing something for themselves.}
-	 {Henry Ford, updated}
+\epigraph{当今最大的问题是有太多人在寻找别人来为自己做些什么。
+	  大多数问题的解决之道在于每个人为自己做些什么。}
+	 {Henry Ford，改编}
 
-The major reason that concurrency has been receiving so much focus over
-the past few years is the end of \IXaltr{Moore's-Law}{Moore's Law}
-induced single-threaded
-performance increases
-(or ``free lunch''~\cite{HerbSutter2008EffectiveConcurrency}),
-as shown in
-\cref{fig:intro:Clock-Frequency Trend for Intel CPUs} on
-\cpageref{fig:intro:Clock-Frequency Trend for Intel CPUs}.
-This section briefly surveys a few ways that hardware designers
-might bring back the ``free lunch''.
+近年来并发性受到如此多关注的主要原因是
+\IXaltr{Moore's-Law}{Moore's Law}驱动的单线程性能提升
+（或曰``免费午餐''~\cite{HerbSutter2008EffectiveConcurrency}）的终结，
+如\cref{fig:intro:Clock-Frequency Trend for Intel CPUs}
+（第~\cpageref{fig:intro:Clock-Frequency Trend for Intel CPUs}页）所示。
+本节简要介绍硬件设计师可能恢复``免费午餐''的几种方式。
 
-However, the preceding section presented some substantial hardware
-obstacles to exploiting concurrency.
-One severe physical limitation that hardware designers face is the
-finite speed of light.
-As noted in
-\cref{fig:cpu:System Hardware Architecture} on
-\cpageref{fig:cpu:System Hardware Architecture},
-light can manage only about an 8-centimeters round trip in a vacuum
-during the duration of a 1.8\,GHz clock period.
-This distance drops to about 3~centimeters for a 5\,GHz clock.
-Both of these distances are relatively small compared to the size
-of modern computer systems.
+然而，前一节展示了利用并发性所面临的一些重大硬件障碍。
+硬件设计师面临的一个严重的物理限制是有限的光速。
+如\cref{fig:cpu:System Hardware Architecture}
+（第~\cpageref{fig:cpu:System Hardware Architecture}页）所述，
+在1.8\,GHz时钟周期内，光在真空中只能完成约8厘米的往返。
+对于5\,GHz时钟，这个距离降到约3厘米。
+与现代计算机系统的尺寸相比，这两个距离都相对较小。
 
-To make matters even worse, electric waves in silicon move from three to
-thirty times more slowly than does light in a vacuum, and common
-clocked logic constructs run still more slowly, for example, a
-memory reference may need to wait for a local cache lookup to complete
-before the request may be passed on to the rest of the system.
-Furthermore, relatively low speed and high power drivers are required
-to move electrical signals from one silicon die to another, for example,
-to communicate between a CPU and main memory.
+更糟糕的是，硅中的电波传播速度比真空中的光速慢3到30倍，
+而常见的时钟逻辑结构运行得更慢，例如，
+一次内存引用可能需要等待本地cache查找完成后才能将请求传递给系统的其余部分。
+此外，将电信号从一个硅芯片传送到另一个（例如CPU与主存之间的通信）
+需要相对低速且高功耗的驱动器。
 
 \QuickQuiz{
-	But individual electrons don't move anywhere near that fast,
-	even in conductors!!!
-	The electron drift velocity in a conductor under semiconductor
-	voltage levels is on the order of only one \emph{millimeter}
-	per second.
-	What gives???
+	但单个电子的移动速度远没有那么快，即使在导体中也是如此！
+	在半导体电压水平下，导体中电子的漂移速度仅为每秒
+	约一\emph{毫米}。
+	这是怎么回事？
 }\QuickQuizAnswer{
-	Electron drift velocity tracks the long-term movement of individual
-	electrons.
-	It turns out that individual electrons bounce around quite
-	randomly, so that their instantaneous speed is very high, but
-	over the long term, they don't move very far.
-	In this, electrons resemble long-distance commuters, who
-	might spend most of their time traveling at full highway
-	speed, but over the long term go nowhere.
-	These commuters' speed might be 70 miles per hour
-	(113 kilometers per hour), but their long-term drift velocity
-	relative to the planet's surface is zero.
+	电子漂移速度追踪的是单个电子的长期运动。
+	事实上，单个电子的运动相当随机，
+	因此它们的瞬时速度很高，
+	但从长期来看，它们并没有移动多远。
+	在这一点上，电子类似于长途通勤者，
+	他们可能大部分时间以全高速公路速度行驶，
+	但从长期来看却哪里也没去。
+	这些通勤者的速度可能是每小时70英里（每小时113公里），
+	但他们相对于地球表面的长期漂移速度是零。
 
-	Therefore, we should pay attention not to the electrons'
-	drift velocity, but to their instantaneous velocities.
-	However, even their instantaneous velocities are nowhere near
-	a significant fraction of the speed of light.
-	Nevertheless, the measured velocity of electric waves
-	in conductors \emph{is} a substantial fraction of the
-	speed of light, so we still have a mystery on our hands.
+	因此，我们应该关注的不是电子的漂移速度，
+	而是它们的瞬时速度。
+	然而，即使是它们的瞬时速度也远不及光速的很大一部分。
+	尽管如此，导体中电波的实测速度\emph{确实}是光速的相当大一部分，
+	所以我们手头仍有一个谜。
 
-	The other trick is that electrons interact with each other at
-	significant distances (from an atomic perspective, anyway),
-	courtesy of their negative charge.
-	This interaction is carried out by photons, which \emph{do}
-	move at the speed of light.
-	So even with electricity's electrons, it is photons
-	doing most of the fast footwork.
+	另一个诀窍是，电子之间在相当大的距离上
+	（至少从原子的角度来看）相互作用，
+	这要归功于它们的负电荷。
+	这种相互作用由光子承载，而光子\emph{确实}以光速运动。
+	所以即使在电学中的电子那里，
+	大部分高速工作也是由光子完成的。
 
-	Extending the commuter analogy, a driver might use a smartphone
-	to inform other drivers of an accident or congestion, thus
-	allowing a change in traffic flow to propagate much faster
-	than the instantaneous velocity of the individual cars.
-	Summarizing the analogy between electricity and traffic flow:
+	推广通勤者的类比，一个司机可能使用智能手机
+	通知其他司机有关事故或拥堵的情况，
+	从而使交通流量的变化传播速度远快于
+	单个汽车的瞬时速度。
+	总结电学与交通流的类比：
 
 	\begin{enumerate}
-	\item	The (very low) drift velocity of an electron is similar
-		to the long-term velocity of a commuter, both being
-		very nearly zero.
-	\item	The (still rather low) instantaneous velocity of
-		an electron is similar to the instantaneous velocity
-		of a car in traffic.
-		Both are much higher than the drift velocity, but
-		quite small compared to the rate at which changes
-		propagate.
-	\item	The (much higher) propagation velocity of an electric
-		wave is primarily due to photons transmitting
-		electromagnetic force among the electrons.
-		Similarly, traffic patterns can change quite quickly
-		due to communication among drivers.
-		Not that this is necessarily of much help to the
-		drivers already stuck in traffic, any more than it
-		is to the electrons already pooled in a given capacitor.
+	\item	电子的（非常低的）漂移速度类似于通勤者的长期速度，
+		两者都非常接近于零。
+	\item	电子的（仍然相当低的）瞬时速度类似于
+		交通中汽车的瞬时速度。
+		两者都远高于漂移速度，
+		但与变化传播速度相比仍然很小。
+	\item	电波的（高得多的）传播速度主要是由于光子
+		在电子之间传递电磁力。
+		同样，由于司机之间的通信，
+		交通模式可以相当快地改变。
+		当然，这对已经堵在路上的司机不一定有多大帮助，
+		就像对已经聚集在某个电容器中的电子一样。
 	\end{enumerate}
 
-	To fully understand this topic, study electrodynamics.
+	要完全理解这个主题，请学习电动力学。
 }\QuickQuizEnd
 
-In fact, Stephen Hawking is said to have claimed that semiconductor
-manufacturers have but two fundamental problems:
+事实上，据说Stephen Hawking曾声称半导体制造商只有两个根本问题：
 \begin{enumerate*}[(1)]
-\item The finite speed of light and
-\item The atomic nature of matter~\cite{BryanGardiner2007}.
+\item 有限的光速，以及
+\item 物质的原子性质~\cite{BryanGardiner2007}。
 \end{enumerate*}
-That is right, light is too slow and atoms are too big!!!
+没错，光太慢而原子太大！
 
-There are nevertheless some technologies (both hardware and software)
-that might help improve matters:
+尽管如此，仍有一些技术（包括硬件和软件）可能有助于改善现状：
 
 \begin{enumerate}
-\item	Novel materials and processes,
-\item	Substituting light for electricity,
-\item	3D integration,
-\item	Special-purpose accelerators, and
-\item	Existing parallel software.
+\item	新型材料和工艺，
+\item	用光代替电，
+\item	3D集成，
+\item	专用加速器，以及
+\item	现有的并行软件。
 \end{enumerate}
 
-Each of these is described in one of the following sections.
+以下各节分别介绍上述每一项。
 
-\subsection{Novel Materials and Processes}
+\subsection{新型材料和工艺}
 \label{sec:cpu:Novel Materials and Processes}
 
-It is possible that Stephen Hawking is right, and that semiconductor
-manufacturers are approaching the limits implied by the finite speed of
-light and the non-zero sizes of atoms.
-However, there are a few avenues of research and development focused on
-working around these fundamental laws of physics.
+Stephen Hawking可能是对的，半导体制造商正在接近有限光速和
+非零原子尺寸所隐含的极限。
+然而，仍有一些研究和开发方向致力于绕过这些基本物理定律。
 
-One workaround for the atomic nature of matter are so-called
-``high-K dielectric'' materials, which allow larger devices to mimic the
-electrical properties of infeasibly small devices.
-These materials pose some severe fabrication challenges, but nevertheless
-may help push the frontiers out a bit farther.
-Another more-exotic workaround stores multiple bits in a single electron,
-relying on the fact that a given electron can exist at a number of
-energy levels.
-It remains to be seen if this particular approach can be made to work
-reliably in production semiconductor devices.
+针对物质原子性质的一种变通方法是所谓的``高K介电''材料，
+它允许较大的器件模拟不可行的微小器件的电学特性。
+这些材料带来了一些严峻的制造挑战，
+但仍然可能有助于将前沿推得更远一些。
+另一种更奇特的变通方法是在单个电子中存储多个比特，
+利用给定电子可以存在于多个能量级别的事实。
+这种特定方法能否在量产半导体器件中可靠地工作还有待观察。
 
-Another proposed workaround is the ``quantum dot'' approach that
-allows much smaller device sizes, but which is still in the research
-stage.
-Yet another proposed workaround is to replace the atoms making up the
-base of a traditional transistor with a vacuum, resulting in the
-vacuum-gap transistor.
+另一种提出的变通方法是``量子点''方法，
+它允许更小的器件尺寸，但仍处于研究阶段。
+还有一种提出的变通方法是用真空代替传统晶体管底部的原子，
+从而得到真空间隙晶体管。
 
-One challenge is that many recent hardware-device-level breakthroughs
-require very tight control of which atoms are placed
-where~\cite{MichaelJKelly2017DeviceLevel}.
-It therefore seems likely that whoever finds a good way to hand-place
-atoms on each of the billions of devices on a chip will have most
-excellent bragging rights, if nothing else!
+一个挑战是，许多最近的硬件器件级突破
+需要非常精确地控制哪个原子放在
+哪里~\cite{MichaelJKelly2017DeviceLevel}。
+因此，找到在芯片上数十亿个器件中逐个放置原子的好方法的人，
+即使别无所获，至少也能获得最出色的吹牛资本！
 
-\subsection{Light, Not Electrons}
+\subsection{光，而非电子}
 \label{sec:cpu:Light; Not Electrons}
 
-Although the speed of light would be a hard limit, the fact is that
-semiconductor devices are limited by the speed of electricity rather
-than that of light, given that electric waves in semiconductor materials
-move at between 3\pct\ and 30\pct\ of the speed of light in a vacuum.
-The use of copper connections on silicon devices is one way to increase
-the speed of electricity, and it is quite possible that additional
-advances will push closer still to the actual speed of light.
-In addition, there have been some experiments with tiny optical fibers
-as interconnects within and between chips, based on the fact that
-the speed of light in glass is more than 60\pct\ of the speed of light
-in a vacuum.
-One obstacle to such optical fibers is the inefficiency conversion
-between electricity and light and vice versa, resulting in both
-power-consumption and heat-dissipation problems.
+虽然光速是一个硬限制，但事实是半导体器件受限于电的速度
+而非光的速度，因为半导体材料中的电波传播速度仅为
+真空光速的3\pct 到30\pct。
+在硅器件上使用铜连接是提高电速度的一种方法，
+而且很有可能进一步的进展将更加接近实际光速。
+此外，已经有一些实验使用微型光纤作为芯片内部和芯片之间的互连，
+这基于玻璃中的光速超过真空光速60\pct 的事实。
+这种光纤互连的一个障碍是电与光之间转换的低效率，
+导致功耗和散热问题。
 
-That said, absent some fundamental advances in the field of physics,
-any exponential increases in the speed of data flow
-will be sharply limited by the actual speed of light in a vacuum.
+话虽如此，除非物理学领域出现某些根本性突破，
+数据流速度的任何指数增长都将受到真空光速的严格限制。
 
-\subsection{3D Integration}
+\subsection{3D集成}
 \label{sec:cpu:3D Integration}
 
-3-dimensional integration (3DI) is the practice of bonding
-very thin silicon dies to each other in a vertical stack.
-This practice provides potential benefits, but also poses
-significant fabrication challenges~\cite{JohnKnickerbocker2008:3DI}.
+三维集成（3DI）是将非常薄的硅芯片垂直堆叠粘合在一起的做法。
+这种做法提供了潜在的好处，但也带来了
+重大的制造挑战~\cite{JohnKnickerbocker2008:3DI}。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cpu/3DI}}
-\caption{Latency Benefit of 3D Integration}
+\caption{3D集成的延迟优势}
 \label{fig:cpu:Latency Benefit of 3D Integration}
 \end{figure}
 
-Perhaps the most important benefit of 3DI is decreased path length through
-the system, as shown in
-\cref{fig:cpu:Latency Benefit of 3D Integration}.
-A 3-centimeter silicon die is replaced with a stack of four 1.5-centimeter
-dies, in theory decreasing the maximum path through the system by a factor
-of two, keeping in mind that each layer is quite thin.
-In addition, given proper attention to design and placement,
-long horizontal electrical connections (which are both slow and
-power hungry) can be replaced by short vertical electrical connections,
-which are both faster and more power efficient.
+3DI最重要的好处也许是缩短了系统中的路径长度，
+如\cref{fig:cpu:Latency Benefit of 3D Integration}所示。
+一个3厘米的硅芯片被替换为四个1.5厘米芯片的堆叠，
+理论上将系统中的最大路径缩短了一倍，
+要记住每层都相当薄。
+此外，如果在设计和布局上给予适当注意，
+长距离水平电连接（既慢又耗电）可以被短距离垂直电连接取代，
+后者既更快又更节能。
 
-If you cannot make light go faster, make your devices smaller!
+如果你不能让光跑得更快，就把你的器件做得更小！
 
-However, delays due to levels of clocked logic will not be decreased
-by 3D integration, and significant manufacturing, testing, power-supply,
-and heat-dissipation problems must be solved for 3D integration to
-reach production while still delivering on its promise.
-The heat-dissipation problems might be solved using
-semiconductors based on diamond, which is a good conductor
-for heat, but an electrical insulator.
-That said, it remains difficult to grow large single diamond crystals,
-to say nothing of slicing them into wafers.
-In addition, it seems unlikely that any of these technologies will be able to
-deliver the exponential increases to which some people have become accustomed.
-That said, they may be necessary steps on the path to the late Jim Gray's
-``smoking hairy golf balls''~\cite{JimGray2002SmokingHairyGolfBalls}.
+然而，时钟逻辑层级导致的延迟不会因3D集成而减少，
+而且在3D集成能够投入生产并兑现其承诺之前，
+必须解决重大的制造、测试、供电和散热问题。
+散热问题可能通过使用基于金刚石的半导体来解决，
+金刚石是热的良导体但却是电绝缘体。
+话虽如此，生长大尺寸的单晶金刚石仍然很困难，
+更不用说将其切割成晶圆了。
+此外，这些技术似乎都不太可能提供某些人已经习以为常的指数增长。
+不过，它们可能是通往已故Jim Gray所说的
+``冒烟的毛茸茸的高尔夫球''~\cite{JimGray2002SmokingHairyGolfBalls}道路上的必要步骤。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{cpu/High_Bandwidth_Memory_schematic}}
-\caption{Example 3D Integration}
+\caption{3D集成示例}
 \ContributedBy{fig:cpu:Example 3D Integration}{Shmuel Csaba Otto Traian, CCSA4.0}
 \end{figure}
 
-In the meantime, ca.\@ 2020 advances in chiplet\footnote{
+与此同时，大约2020年，chiplet\footnote{
 	\url{https://en.wikipedia.org/wiki/Chiplet}}
-technology have made serious progress in this direction, as depicted in
-\cref{fig:cpu:Example 3D Integration}.
-Some researchers are taking this further, stacking transistors within
-a single chip~\cite{SamuelKMoore2020StackedCMOS,MarkoRadosavljevic2022StackedCMOS}.
+技术的进步在这个方向上取得了重大进展，
+如\cref{fig:cpu:Example 3D Integration}所示。
+一些研究人员正在更进一步，在单个芯片内堆叠
+晶体管~\cite{SamuelKMoore2020StackedCMOS,MarkoRadosavljevic2022StackedCMOS}。
 
-\subsection{Special-Purpose Accelerators}
+\subsection{专用加速器}
 \label{sec:cpu:Special-Purpose Accelerators}
 
-A general-purpose CPU working on a specialized problem is often spending
-significant time and energy doing work that is only tangentially related
-to the problem at hand.
-For example, when taking the dot product of a pair of vectors, a
-general-purpose CPU will normally use a loop (possibly unrolled)
-with a loop counter.
-Decoding the instructions, incrementing the loop counter, testing this
-counter, and branching back to the
-top of the loop are in some sense wasted effort:
-The real goal is instead to multiply corresponding elements of the
-two vectors.
-Therefore, a specialized piece of hardware designed specifically to
-multiply vectors could get the job done more quickly and with less
-energy consumed.
+通用CPU处理专门问题时，往往会花费大量时间和能量在与
+手头问题仅间接相关的工作上。
+例如，在计算一对向量的点积时，通用CPU通常会使用一个循环
+（可能已展开）和一个循环计数器。
+解码指令、递增循环计数器、测试计数器以及跳转回循环顶部，
+从某种意义上说都是浪费的工作：
+真正的目标是将两个向量的对应元素相乘。
+因此，一个专门设计用于向量乘法的硬件
+可以更快地完成工作并消耗更少的能量。
 
-This is in fact the motivation for the vector instructions present in
-many commodity microprocessors.
-Because these instructions operate on multiple data items simultaneously,
-they would permit a dot product to be computed with less instruction-decode
-and loop overhead.
+这实际上就是许多商用微处理器中向量指令存在的动机。
+因为这些指令同时操作多个数据项，
+它们可以在减少指令解码和循环开销的情况下计算点积。
 
-Similarly, specialized hardware can more efficiently encrypt and decrypt,
-compress and decompress, encode and decode, and many other tasks besides.
-Unfortunately, this efficiency does not come for free.
-A computer system incorporating this specialized hardware will contain
-more transistors, which will consume some power even when not in use.
-Software must be modified to take advantage of this specialized hardware,
-and this specialized hardware must be sufficiently generally useful
-that the high up-front hardware-design costs can be spread over enough
-users to make the specialized hardware affordable.
-In part due to these sorts of economic considerations, specialized
-hardware has thus far appeared only for a few application areas,
-including graphics processing (GPUs), vector processors (MMX, SSE,
-and VMX instructions), and, to a lesser extent, encryption and
-compression.
-And even in these areas, it is not always easy to realize the expected
-performance gains, for example, due to thermal
-throttling~\cite{VladKrasnov2017SIMDfreqscale,DanielLemire2018SIMDfreqscale,TravisDowns2020SIMDfreqscale}.
+类似地，专用硬件可以更高效地进行加密和解密、
+压缩和解压缩、编码和解码等众多任务。
+不幸的是，这种效率并非免费的。
+包含这种专用硬件的计算机系统将包含更多晶体管，
+即使不使用也会消耗一些功率。
+软件必须进行修改以利用这种专用硬件，
+而且这种专用硬件必须有足够广泛的通用性，
+使得高昂的前期硬件设计成本可以分摊到足够多的用户上，
+从而使专用硬件价格可以承受。
+部分由于这些经济考虑因素，专用硬件迄今只出现在少数
+应用领域，包括图形处理（GPU）、向量处理器（MMX、SSE
+和VMX指令），以及在较小程度上的加密和压缩。
+即使在这些领域，实现预期的性能提升也并非总是容易的，
+例如，由于热节流~\cite{VladKrasnov2017SIMDfreqscale,DanielLemire2018SIMDfreqscale,TravisDowns2020SIMDfreqscale}。
 
-Unlike the server and PC arena, smartphones have long used a wide
-variety of hardware accelerators.
-These hardware accelerators are often used for media decoding,
-so much so that a high-end MP3 player might be able to play audio
-for several minutes---with its CPU fully powered off the entire time.
-The purpose of these accelerators is to improve energy efficiency
-and thus extend battery life:
-Special purpose hardware can often compute more efficiently than
-can a general-purpose CPU\@.
-This is another example of the principle called out in
-\cref{sec:intro:Generality}:
-\IX{Generality} is almost never free.
+与服务器和PC领域不同，智能手机长期以来使用了
+各种各样的硬件加速器。
+这些硬件加速器通常用于媒体解码，
+以至于一个高端MP3播放器可能能够播放数分钟的音频——
+其CPU在整个过程中完全断电。
+这些加速器的目的是提高能源效率从而延长电池寿命：
+专用硬件通常可以比通用CPU更高效地进行计算。
+这是\cref{sec:intro:Generality}中指出的原则的又一个例子：
+\IX{Generality}几乎从来都不是免费的。
 
-Nevertheless, given the end of \IXaltr{Moore's-Law}{Moore's Law}-induced
-single-threaded performance increases, it seems safe to assume that
-increasing varieties of special-purpose hardware will appear.
-For example, in the mid-2020s, many are betting on special-purpose
-accelerators for artificial-intelligence and machine-learning workloads.
+尽管如此，鉴于\IXaltr{Moore's-Law}{Moore's Law}驱动的
+单线程性能提升的终结，可以安全地假设将会出现越来越多种类的专用硬件。
+例如，在2020年代中期，许多人押注于专用于人工智能和
+机器学习工作负载的加速器。
 
-\subsection{Existing Parallel Software}
+\subsection{现有的并行软件}
 \label{sec:cpu:Existing Parallel Software}
 
-Although multicore CPUs seem to have taken the computing industry by
-surprise, the fact remains that shared-memory parallel computer systems
-have been readily (if expensively) available since at least the 1980s.
-This is more than enough time for significant parallel software
-to make its appearance, and it indeed has.
-Parallel operating systems are quite commonplace, as are parallel
-threading libraries, parallel relational database management systems, 
-and parallel numerical software.
-Use of existing parallel software can go a long ways towards solving any
-parallel-software crisis we might encounter.
+虽然多核CPU似乎让计算行业措手不及，
+但事实是，共享内存并行计算机系统至少从1980年代起
+就已经随时可用（尽管价格不菲）。
+这已经有足够的时间让重要的并行软件问世，
+事实上确实如此。
+并行操作系统相当普遍，并行线程库、
+并行关系数据库管理系统和并行数值软件也是如此。
+使用现有的并行软件可以在很大程度上解决我们可能遇到的
+任何并行软件危机。
 
-Perhaps the most common example is the parallel relational database
-management system.
-It is not unusual for single-threaded programs, often written in
-high-level scripting languages, to access a central relational
-database concurrently.
-In the resulting highly parallel system, only the database need actually
-deal directly with parallelism.
-A very nice trick when it works!
+也许最常见的例子是并行关系数据库管理系统。
+单线程程序（通常用高级脚本语言编写）并发访问
+一个中央关系数据库的情况并不少见。
+在由此产生的高度并行系统中，只有数据库需要直接处理并行性。
+当这种方式奏效时，真是一个非常好的技巧！

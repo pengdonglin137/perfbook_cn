@@ -2,122 +2,100 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Software Design Implications}
+\section{软件设计启示}
 \label{sec:cpu:Software Design Implications}
 %
-\epigraph{One ship drives east and another west \\
-	  While the self-same breezes blow; \\
-	  'Tis the set of the sail and not the gail \\
-	  That bids them where to go.}
+\epigraph{一船向东行，一船向西驶，\\
+	  吹的却是同样的风；\\
+	  决定航向的不是风的力量，\\
+	  而是帆的方向。}
 	 {Ella Wheeler Wilcox}
 
-The values of the ratios in
 \cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}
-are critically important, as they limit the
-efficiency of a given parallel application.
-To see this, suppose that the parallel application uses \IXacr{cas}
-operations to communicate among threads.
-These CAS operations will typically involve a cache miss, that is, assuming
-that the threads are communicating primarily with each other rather than
-with themselves.
-Suppose further that the unit of work corresponding to each CAS communication
-operation takes 300\,ns, which is sufficient time to compute several
-floating-point transcendental functions.
-Then about half of the execution time will be consumed by the CAS
-communication operations!
-This in turn means that a two-CPU system running such a parallel program
-would run no faster than a sequential implementation running on a
-single CPU\@.
+中比率的数值至关重要，因为它们限制了给定并行应用程序的效率。
+为了理解这一点，假设并行应用程序使用\IXacr{cas}操作在线程之间通信。
+这些CAS操作通常会涉及cache miss，
+即假设线程主要是在彼此之间通信而非与自身通信。
+进一步假设每次CAS通信操作对应的工作单元需要300\,ns，
+这足以计算几个浮点超越函数。
+那么大约一半的执行时间将被CAS通信操作消耗！
+这反过来意味着，运行这样一个并行程序的双CPU系统
+不会比在单个CPU上运行的顺序实现更快。
 
-The situation is even worse in the distributed-system case, where the
-latency of a single communications operation might take as long as
-thousands or even millions of floating-point operations.
-This illustrates how important it is for communications operations to
-be extremely infrequent and to enable very large quantities of processing.
+在分布式系统的情况下，情况更加糟糕，
+因为单次通信操作的延迟可能与数千甚至数百万次
+浮点运算所需的时间一样长。
+这说明了通信操作极度稀少并能启用大量处理是多么重要。
 
 \QuickQuiz{
-	Given that distributed-systems communication is so horribly
-	expensive, why does anyone bother with such systems?
+	既然分布式系统的通信如此昂贵，
+	为什么还有人费心使用这样的系统？
 }\QuickQuizAnswer{
-	There are a number of reasons:
+	原因有很多：
 
 	\begin{enumerate}
-	\item	Shared-memory multiprocessor systems have strict size limits.
-		If you need more than a few thousand CPUs, you have no
-		choice but to use a distributed system.
-	\item	Large shared-memory systems tend to be more expensive
-		per unit computation than their smaller counterparts.
-	\item	Large shared-memory systems tend to have much longer
-		cache-miss latencies than do smaller system.
-		To see this, compare
+	\item	共享内存多处理器系统有严格的规模限制。
+		如果你需要超过几千个CPU，就别无选择，
+		只能使用分布式系统。
+	\item	大型共享内存系统的每单位计算成本
+		往往高于小型系统。
+	\item	大型共享内存系统的cache miss延迟
+		往往比小型系统大得多。
+		要看到这一点，请比较
 		\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}
-		on \cpageref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}
-		with
-		\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 12-CPU Intel Core i7-8750H CPU @ 2.20GHz}.
-	\item	The distributed-systems communications operations do
-		not necessarily use much CPU, so that computation can
-		proceed in parallel with message transfer.
-	\item	Many important problems are ``embarrassingly parallel'',
-		so that extremely large quantities of processing may
-		be enabled by a very small number of messages.
+		（第~\cpageref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}页）
+		和\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 12-CPU Intel Core i7-8750H CPU @ 2.20GHz}。
+	\item	分布式系统的通信操作不一定消耗太多CPU，
+		因此计算可以与消息传输并行进行。
+	\item	许多重要问题是``令人尴尬的并行''，
+		因此极少量的消息就能启用极大量的处理。
 		SETI@HOME~\cite{SETIatHOME2008}
-		was but one example of such an application.
-		These sorts of applications can make good use of networks
-		of computers despite extremely long communications
-		latencies.
+		就是此类应用的一个例子。
+		这类应用即使在通信延迟极长的情况下，
+		也能很好地利用计算机网络。
 	\end{enumerate}
 
-	Thus, large shared-memory systems tend to be used for applications
-	that benefit from faster latencies than can be provided by
-	distributed computing, and particularly for those applications
-	that benefit from a large shared memory.
+	因此，大型共享内存系统往往用于那些受益于比分布式计算
+	所能提供的更快延迟的应用，
+	特别是那些受益于大共享内存的应用。
 
-	It is likely that continued work on parallel applications will
-	increase the number of embarrassingly parallel applications that
-	can run well on machines and/or clusters having long communications
-	latencies, reductions in cost being the driving force that it is.
-	That said, greatly reduced hardware latencies would be an
-	extremely welcome development, both for single-system and
-	for distributed computing.
-	And such reductions are in fact happening, albeit rather slowly
-	from the perspective of those of us who lived through the
-	exponential CPU-clock-frequency increases up to the early 2000s.
+	继续进行的并行应用研究工作很可能会增加能够在
+	通信延迟较长的机器和/或集群上良好运行的令人尴尬的并行
+	应用的数量，降低成本是推动这一趋势的驱动力。
+	话虽如此，大幅降低硬件延迟将是一个极受欢迎的发展，
+	无论是对于单系统还是分布式计算。
+	事实上，这样的降低正在发生，
+	尽管从我们这些经历过2000年代初期之前
+	CPU时钟频率指数增长的人的角度来看，速度相当缓慢。
 }\QuickQuizEnd
 
-The lesson should be quite clear:
-Parallel algorithms must be explicitly designed with these hardware
-properties firmly in mind.
-One approach is to run nearly independent threads.
-The less frequently the threads communicate, whether by \IX{atomic} operations,
-locks, or explicit messages, the better the application's performance
-and scalability will be.
-This approach will be touched on in \cref{chp:Counting},
-explored in \cref{chp:Partitioning and Synchronization Design},
-and taken to its logical extreme in \cref{chp:Data Ownership}.
+教训应该相当清楚：
+并行算法必须在牢记这些硬件特性的前提下进行显式设计。
+一种方法是运行几乎独立的线程。
+线程之间的通信越不频繁——无论是通过\IX{atomic}操作、lock还是显式消息——
+应用程序的性能和可扩展性就越好。
+这种方法将在\cref{chp:Counting}中初步涉及，
+在\cref{chp:Partitioning and Synchronization Design}中深入探讨，
+并在\cref{chp:Data Ownership}中推向其逻辑极致。
 
-Another approach is to make sure that any sharing be read-mostly, which
-allows the CPUs' caches to replicate the read-mostly data, in turn
-allowing all CPUs fast access.
-This approach is touched on in
-\cref{sec:count:Eventually Consistent Implementation},
-and explored more deeply in \cref{chp:Deferred Processing}.
+另一种方法是确保任何共享都是读多写少的，
+这允许CPU的cache复制读多写少的数据，
+从而使所有CPU都能快速访问。
+这种方法在\cref{sec:count:Eventually Consistent Implementation}中初步涉及，
+并在\cref{chp:Deferred Processing}中更深入地探讨。
 
-In short, achieving excellent parallel performance and scalability means
-striving for embarrassingly parallel algorithms and implementations,
-whether by careful choice of data structures and algorithms, use of
-existing parallel applications and environments, or transforming the
-problem into an embarrassingly parallel form.
+简而言之，实现出色的并行性能和可扩展性意味着
+要努力追求令人尴尬的并行算法和实现，
+无论是通过精心选择数据结构和算法、利用现有的并行应用和环境，
+还是将问题转化为令人尴尬的并行形式。
 
 \QuickQuiz{
-	OK, if we are going to have to apply distributed-programming
-	techniques to shared-memory parallel programs, why not just
-	always use these distributed techniques and dispense with
-	shared memory?
+	好吧，如果我们不得不将分布式编程技术
+	应用于共享内存并行程序，
+	那为什么不总是使用这些分布式技术而抛弃共享内存呢？
 }\QuickQuizAnswer{
-	Because it is often the case that only a small fraction of
-	the program is performance-critical.
-	Shared-memory parallelism allows us to focus distributed-programming
-	techniques on that small fraction, allowing simpler shared-memory
-	techniques to be used on the non-performance-critical bulk of
-	the program.
+	因为通常情况下，只有一小部分程序是性能关键的。
+	共享内存并行性允许我们将分布式编程技术
+	集中在那一小部分上，
+	而在非性能关键的大部分程序上使用更简单的共享内存技术。
 }\QuickQuizEnd

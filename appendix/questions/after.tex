@@ -2,67 +2,61 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{What Does ``After'' Mean?}
+\section{"之后"是什么意思？}
 \label{sec:app:questions:What Does ``After'' Mean?}
 %
-\epigraph{There is no future.
-	  There is no past.}
+\epigraph{没有未来。
+	  没有过去。}
 	 {Alan Moore}
 
-``After'' is an intuitive, but surprisingly difficult concept.
-An important non-intuitive issue is that code can be delayed at
-any point for any amount of time.
-Consider a producing and a consuming thread that communicate using
-a global struct with a timestamp \qco{t} and integer fields \qco{a}, \qco{b},
-and \qco{c}.
-The producer loops recording the current time
-(in seconds since 1970 in decimal),
-then updating the values of \qco{a}, \qco{b}, and \qco{c},
-as shown in \cref{lst:app:questions:After Producer Function}.
-The consumer code loops, also recording the current time, but also
-copying the producer's timestamp along with the fields \qco{a},
-\qco{b}, and \qco{c}, as shown in
-\cref{lst:app:questions:After Consumer Function}.
-At the end of the run, the consumer outputs a list of anomalous recordings,
-e.g., where time has appeared to go backwards.
+"之后"是一个直观但却出人意料地困难的概念。
+一个重要的非直观问题是，代码可以在任意时刻被延迟任意长的时间。
+考虑一个生产者线程和一个消费者线程，它们通过一个全局结构体进行通信，
+该结构体包含时间戳\qco{t}和整数字段\qco{a}、\qco{b}和\qco{c}。
+生产者循环记录当前时间（以自1970年以来的秒数的十进制形式），
+然后更新\qco{a}、\qco{b}和\qco{c}的值，
+如\cref{lst:app:questions:After Producer Function}所示。
+消费者代码也循环记录当前时间，
+同时复制生产者的时间戳以及字段\qco{a}、\qco{b}和\qco{c}，
+如\cref{lst:app:questions:After Consumer Function}所示。
+在运行结束时，消费者输出异常记录的列表，
+例如时间似乎倒流的情况。
 
 \begin{listing}
 \input{CodeSamples/api-pthreads/QAfter/time@producer.fcv}
-\caption{``After'' Producer Function}
+\caption{"之后"生产者函数}
 \label{lst:app:questions:After Producer Function}
 \end{listing}
 
 \begin{listing}
 \ebresizeverb{.96}{\input{CodeSamples/api-pthreads/QAfter/time@consumer.fcv}}
-\caption{``After'' Consumer Function}
+\caption{"之后"消费者函数}
 \label{lst:app:questions:After Consumer Function}
 \end{listing}
 
 \QuickQuiz{
-	What SMP coding errors can you see in these examples?
-	See \path{time.c} for full code.
+	在这些示例中你能发现哪些SMP编程错误？
+	完整代码请参见\path{time.c}。
 }\QuickQuizAnswer{
-	Here are errors you might have found:
+	以下是你可能发现的错误：
 
 	\begin{enumerate}
-	\item	Missing \co{barrier()} or \co{volatile} on tight loops.
-	\item	Missing memory barriers on update side.
-	\item	Lack of synchronization between producer and consumer.
+	\item	紧凑循环中缺少\co{barrier()}或\co{volatile}。
+	\item	更新端缺少内存屏障。
+	\item	生产者和消费者之间缺乏同步。
 	\end{enumerate}
 }\QuickQuizEnd
 
-One might intuitively expect that the difference between the producer
-and consumer timestamps would be quite small, as it should not take
-much time for the producer to record the timestamps or the values.
-An excerpt of some sample output on a dual-core 1\,GHz x86 is shown in
-\cref{tab:app:questions:After Program Sample Output}.
-Here, the ``seq'' column is the number of times through the loop,
-the ``time'' column is the time of the anomaly in seconds, the ``delta''
-column is the number of seconds the consumer's timestamp follows that
-of the producer (where a negative value indicates that the consumer
-has collected its timestamp before the producer did), and the
-columns labelled ``a'', ``b'', and ``c'' show the amount that these
-variables increased since the prior snapshot collected by the consumer.
+人们可能直觉地认为生产者和消费者时间戳之间的差异会非常小，
+因为生产者记录时间戳或值不需要太长时间。
+在双核1\,GHz x86上的一些样本输出摘录如
+\cref{tab:app:questions:After Program Sample Output}所示。
+其中，"seq"列是循环执行的次数，
+"time"列是异常发生的时间（以秒为单位），
+"delta"列是消费者的时间戳晚于生产者时间戳的秒数
+（负值表示消费者在生产者之前收集了时间戳），
+标记为"a"、"b"和"c"的列显示了这些变量
+自消费者上次快照收集以来的增长量。
 
 \begin{table}
 \rowcolors{1}{}{lightgray}
@@ -83,79 +77,70 @@ seq    & \multicolumn{1}{c}{time (seconds)} & delta~  &  a &  b &  c \\
 23408: & 1152396.264957 & ($-20.027$) & 15 & 15 & 15 \\
 \bottomrule
 \end{tabular}
-\caption{``After'' Program Sample Output}
+\caption{"之后"程序样本输出}
 \label{tab:app:questions:After Program Sample Output}
 \end{table}
 
-Why is time going backwards?
-The number in parentheses is the difference in microseconds, with
-a large number exceeding 10 microseconds, and one exceeding even
-100 microseconds!
-Please note that this CPU can potentially execute more than 100,000
-instructions in that time.
+为什么时间会倒流？
+括号中的数字是以微秒为单位的差值，
+其中一个大的数字超过了10微秒，甚至有一个超过了100微秒！
+请注意，这个CPU在这段时间内可能执行超过100,000条指令。
 
 \begin{fcvref}[ln:api-pthreads:QAfter:time]
-One possible reason is given by the following sequence of events:
+一个可能的原因如下面的事件序列所示：
 \begin{enumerate}
-\item	Consumer obtains timestamp
-	(\cref{lst:app:questions:After Consumer Function},
-	\clnref{consumer:tod}).
-\item	Consumer is preempted.
-\item	An arbitrary amount of time passes.
-\item	Producer obtains timestamp
-	(\cref{lst:app:questions:After Producer Function},
-	\clnref{producer:tod}).
-\item	Consumer starts running again, and picks up the producer's
-	timestamp
-	(\cref{lst:app:questions:After Consumer Function},
-	\clnref{consumer:prodtod}).
+\item	消费者获取时间戳
+	（\cref{lst:app:questions:After Consumer Function}，
+	\clnref{consumer:tod}）。
+\item	消费者被抢占。
+\item	经过任意长的时间。
+\item	生产者获取时间戳
+	（\cref{lst:app:questions:After Producer Function}，
+	\clnref{producer:tod}）。
+\item	消费者重新开始运行，并获取生产者的时间戳
+	（\cref{lst:app:questions:After Consumer Function}，
+	\clnref{consumer:prodtod}）。
 \end{enumerate}
 
-In this scenario, the producer's timestamp might be an arbitrary
-amount of time after the consumer's timestamp.
+在这种场景中，生产者的时间戳可能比消费者的时间戳晚任意长的时间。
 
-How do you avoid agonizing over the meaning of ``after'' in your
-SMP code?
+如何在SMP代码中避免为"之后"的含义而烦恼？
 
-Simply use SMP primitives as designed.
+只需按照设计使用SMP原语即可。
 
-In this example, the easiest fix is to use locking, for example,
-acquire a lock in the producer before \clnref{producer:tod} in
-\cref{lst:app:questions:After Producer Function} and in
-the consumer before \clnref{consumer:tod} in
-\cref{lst:app:questions:After Consumer Function}.
-This lock must also be released after \clnref{producer:upd:c} in
-\cref{lst:app:questions:After Producer Function} and
-after \clnref{consumer:upd:c} in
-\cref{lst:app:questions:After Consumer Function}.
-These locks cause the code segments in
-\clnrefrange{producer:tod}{producer:upd:c} of
-\cref{lst:app:questions:After Producer Function} and in
-\clnrefrange{consumer:tod}{consumer:upd:c} of
-\cref{lst:app:questions:After Consumer Function} to {\em exclude}
-each other, in other words, to run atomically with respect to each other.
-This is represented in
-\cref{fig:app:questions:Effect of Locking on Snapshot Collection}:
-The locking prevents any of the boxes of code from overlapping in time, so
-that the consumer's timestamp must be collected after the prior
-producer's timestamp.
-The segments of code in each box in this figure are termed
-``critical sections''; only one such critical section may be executing
-at a given time.
+在这个示例中，最简单的修复方法是使用锁，
+例如，在\cref{lst:app:questions:After Producer Function}中
+\clnref{producer:tod}之前让生产者获取锁，
+在\cref{lst:app:questions:After Consumer Function}中
+\clnref{consumer:tod}之前让消费者获取锁。
+该锁还必须在\cref{lst:app:questions:After Producer Function}中
+\clnref{producer:upd:c}之后释放，
+以及在\cref{lst:app:questions:After Consumer Function}中
+\clnref{consumer:upd:c}之后释放。
+这些锁使得\cref{lst:app:questions:After Producer Function}中
+\clnrefrange{producer:tod}{producer:upd:c}的代码段和
+\cref{lst:app:questions:After Consumer Function}中
+\clnrefrange{consumer:tod}{consumer:upd:c}的代码段
+相互{\em 排斥}，换句话说，相对于彼此原子地运行。
+这在\cref{fig:app:questions:Effect of Locking on Snapshot Collection}
+中有所表示：
+锁防止了任何代码方框在时间上重叠，因此消费者的时间戳必须在
+先前生产者的时间戳之后收集。
+此图中每个方框中的代码段被称为"临界区"；
+在给定时间只能有一个这样的临界区在执行。
 \end{fcvref}
 
 \begin{figure}
 \centering
 \includegraphics{appendix/questions/after-snapshot}
-\caption{Effect of Locking on Snapshot Collection}
+\caption{锁对快照收集的影响}
 \label{fig:app:questions:Effect of Locking on Snapshot Collection}
 \end{figure}
 
-This addition of locking results in output as shown in
-\cref{fig:app:questions:Locked After Program Sample Output}.
-Here there are no instances of time going backwards, instead,
-there are only cases with more than 1,000 counts difference between
-consecutive reads by the consumer.
+加入锁后，输出结果如
+\cref{fig:app:questions:Locked After Program Sample Output}所示。
+这里没有时间倒流的情况，
+取而代之的是消费者连续读取之间计数差异超过1,000的情况。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.2}
@@ -170,50 +155,43 @@ seq    & \multicolumn{1}{c}{time (seconds)} & delta~  &  a &  b &  c \\
 403927: & 1156523.446636 & ($2.146$) & 2583 & 2583 & 2583 \\
 \bottomrule
 \end{tabular}
-\caption{Locked ``After'' Program Sample Output}
+\caption{加锁后的"之后"程序样本输出}
 \label{fig:app:questions:Locked After Program Sample Output}
 \end{table}
 
 \QuickQuiz{
-	How could there be such a large gap between successive
-	consumer reads?
-	See \path{timelocked.c} for full code.
+	消费者连续读取之间怎么会有这么大的间隔？
+	完整代码请参见\path{timelocked.c}。
 }\QuickQuizAnswer{
-	Here are a few reasons for such gaps:
+	以下是出现这种间隔的一些原因：
 
 	\begin{enumerate}
-	\item	The consumer might be preempted for long time periods.
-	\item	A long-running interrupt might delay the consumer.
-	\item	Cache misses might delay the consumer.
-	\item	The producer might also be running on a faster CPU than is the
-		consumer (for example, one of the CPUs might have had to
-		decrease its
-		clock frequency due to heat-dissipation or power-consumption
-		constraints).
+	\item	消费者可能被抢占很长时间。
+	\item	一个长时间运行的中断可能延迟消费者。
+	\item	缓存未命中可能延迟消费者。
+	\item	生产者可能运行在比消费者更快的CPU上
+		（例如，其中一个CPU可能由于散热或功耗约束
+		不得不降低其时钟频率）。
 	\end{enumerate}
 }\QuickQuizEnd
 
-In summary, if you acquire an \IXh{exclusive}{lock}, you {\em know} that
-anything you do while holding that lock will appear to happen after
-anything done by any prior holder of that lock, at least give or
-take \IXacrl{tle}
-(see \cref{sec:future:Semantic Differences}).
-No need to worry about which CPU did or did not execute a \IX{memory
-barrier}, no need to worry about the CPU or compiler reordering
-operations---life is simple.
-Of course, the fact that this locking prevents these two pieces of
-code from running concurrently might limit the program's ability
-to gain increased performance on multiprocessors, possibly resulting
-in a ``safe but slow'' situation.
-\Cref{chp:Partitioning and Synchronization Design} describes ways of
-gaining performance and scalability in many situations.
+总之，如果你获取了一个\IXh{exclusive}{lock}，你就{\em 知道}
+在持有该锁期间你做的任何事情都将显示为发生在
+该锁的任何先前持有者所做的事情之后，至少在
+\IXacrl{tle}的误差范围内
+（参见\cref{sec:future:Semantic Differences}）。
+不需要担心哪个CPU是否执行了\IX{memory barrier}，
+不需要担心CPU或编译器对操作的重排序——生活很简单。
+当然，这种锁定阻止了这两段代码的并发运行，
+可能限制了程序在多处理器上获得性能提升的能力，
+可能导致"安全但缓慢"的情况。
+\Cref{chp:Partitioning and Synchronization Design}描述了
+在许多情况下获得性能和可扩展性的方法。
 
-In short, in many parallel programs, the really important definition
-of ``after'' is ordering of operations, which is covered in dazzling
-detail in
-\cref{chp:Advanced Synchronization: Memory Ordering}.
+简言之，在许多并行程序中，"之后"的真正重要定义是操作的排序，
+这在\cref{chp:Advanced Synchronization: Memory Ordering}
+中有详尽的讨论。
 
-However, in most cases, if you find yourself worrying about what happens
-before or after a given piece of code, you should take this as a hint to
-make better use of the standard primitives.
-Let these primitives do the worrying for you.
+然而，在大多数情况下，如果你发现自己在担心某段代码之前或之后会发生什么，
+你应该把这看作一个提示，表明需要更好地使用标准原语。
+让这些原语替你操心吧。

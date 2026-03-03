@@ -2,129 +2,101 @@
 % mainfile: ../../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{What Time Is It?}
+\section{现在几点了？}
 \label{sec:app:questions:What Time Is It?}
 %
-\epigraph{Time is a game played beautifully by children.}
+\epigraph{时间是孩子们玩得最漂亮的一场游戏。}
 	 {Heraclitus}
 
-A key issue with timekeeping on multicore computer systems is illustrated
-by \cref{fig:app:questions:What Time Is It?}.
-One problem is that it takes time to read out the time.
-An instruction might read from a hardware clock, and might
-have to go off-core (or worse yet, off-socket) to complete
-this read operation.
-It might also be necessary to do some computation on the value read out,
-for example, to convert it to the desired format, to apply network time
-protocol (NTP) adjustments, and so on.
-So does the time eventually returned correspond to the beginning of
-the resulting time interval, the end, or somewhere in between?
+多核计算机系统中时间管理的一个关键问题在
+\cref{fig:app:questions:What Time Is It?}中有所说明。
+一个问题是读取时间本身就需要时间。
+一条指令可能从硬件时钟读取数据，
+并且可能需要离开核心（或者更糟糕的是，离开处理器插槽）来完成这个读取操作。
+还可能需要对读取的值进行一些计算，
+例如，将其转换为所需的格式，应用网络时间协议（NTP）调整等。
+那么最终返回的时间是对应于结果时间区间的开始、结束还是中间的某个位置呢？
 
 \begin{figure}
 \centering
 \resizebox{2.6in}{!}{\includegraphics{cartoons/r-2014-What-time-is-it}}
-\caption{What Time Is It?}
+\caption{现在几点了？}
 \ContributedBy{fig:app:questions:What Time Is It?}{Melissa Broussard}
 \end{figure}
 
-Worse yet, the thread reading the time might be interrupted or preempted.
-Furthermore, there will likely be some computation between reading out
-the time and the actual use of the time that has been read out.
-Both of these possibilities further extend the interval of uncertainty.
+更糟糕的是，读取时间的线程可能会被中断或抢占。
+此外，在读出时间和实际使用该时间之间可能还有一些计算。
+这两种可能性都进一步扩大了不确定性区间。
 
-One approach is to read the time twice, and take the arithmetic mean
-of the two readings, perhaps one on each side of the operation being
-timestamped.
-The difference between the two readings is then a measure of uncertainty
-of the time at which the intervening operation occurred.
+一种方法是读取两次时间，并取两次读数的算术平均值，
+也许在被计时的操作两侧各读一次。
+两次读数之间的差异就是中间操作发生时间的不确定度量。
 
-Of course, in many cases, the exact time is not necessary.
-For example, when printing the time for the benefit of a human user,
-we can rely on slow human reflexes to render internal hardware and
-software delays irrelevant.
-Similarly, if a server needs to timestamp the response to a client, any
-time between the reception of the request and the transmission of the
-response will do equally well.
+当然，在许多情况下，精确的时间并不必要。
+例如，当为人类用户打印时间时，
+我们可以依赖人类缓慢的反应速度来使内部硬件和软件延迟变得无关紧要。
+类似地，如果服务器需要给响应加时间戳，
+从收到请求到发出响应之间的任何时间都同样合适。
 
-There is an old saying that those who have but one clock always
-know the time, but those who have several clocks can never be sure.
-And there was a time when the typical low-end computer's sole
-software-visible clock was its program counter, but those days are
-long gone.
-This is not a bad thing, considering that on modern computer systems,
-the program counter is a truly horrible
-clock~\cite{PeterOkech2009InherentRandomness}.
+有一句老话说，只有一个钟的人总是知道时间，
+但有几个钟的人永远无法确定。
+曾经有一段时期，典型的低端计算机唯一软件可见的时钟就是其程序计数器，
+但那些日子已经一去不复返了。
+考虑到在现代计算机系统上，程序计数器是一个非常糟糕的时钟~\cite{PeterOkech2009InherentRandomness}，
+这并不是一件坏事。
 
-In addition, different clocks provide different tradeoffs of performance,
-accuracy, precision, and ordering.
-For example, in the Linux kernel, the \co{jiffies} counter\footnote{
-	The \co{jiffies} variable is a location in normal memory that
-	is incremented by software in response to events such as the
-	scheduling-clock interrupt.}
-provides high-speed access to a course-grained counter (at best
-one-millisecond accuracy and precision) that imposes very little ordering
-on either the compiler or the hardware.
-In contrast, the x86 HPET hardware provides an accurate and
-precise clock, but at the price of slow access.
-The x86 time-stamp counter (TSC) has a checkered past, but is more
-recently held out as providing a good combination of precision, accuracy,
-and performance.
-Unfortunately, for all of these counters, ordering against all effects
-of prior and subsequent code requires expensive memory-barrier instructions.
-And this expense appears to be an unavoidable consequence of the
-complex superscalar nature of modern computer systems.
+此外，不同的时钟源在性能、准确度、精度和排序方面提供了不同的权衡。
+例如，在Linux内核中，\co{jiffies}计数器\footnote{
+	\co{jiffies}变量是普通内存中的一个位置，
+	由软件在响应诸如调度时钟中断等事件时递增。}
+提供了对粗粒度计数器（最多一毫秒的准确度和精度）的高速访问，
+对编译器和硬件几乎不施加任何排序约束。
+相比之下，x86 HPET硬件提供了准确和精确的时钟，但代价是访问速度较慢。
+x86时间戳计数器（TSC）有着曲折的历史，但近来被认为
+能够提供精度、准确度和性能的良好组合。
+不幸的是，对于所有这些计数器，要对前后代码的所有效果进行排序，
+都需要昂贵的内存屏障指令。
+而这种开销似乎是现代计算机系统复杂的超标量特性的不可避免的结果。
 
 \QuickQuiz{
-	Wait!!!
-	Why should reading out of a timestamp register be more expensive
-	than reading out of any other machine register???
+	等等！！！
+	为什么读取时间戳寄存器应该比读取其他任何机器寄存器更昂贵？？？
 }\QuickQuizAnswer{
-	One problem is that software developers have this annoying habit
-	of expecting time to advance predictably, and to be synchronized
-	across the system.
-	Such predictability and synchronization does not fit well with
-	the need to change CPU core clock frequencies in order to provide
-	adequate user experience on the one hand and to conserve energy
-	on the other.
-	Most solutions to these conflicting requirements have the
-	timestamp registers in a different clock domain than the CPU
-	core, and reliably crossing an clock-domain boundary between
-	two unrelated clocks requires at least three clock periods of
-	the slower of the two clocks.
+	一个问题是软件开发人员有一个恼人的习惯，即期望时间可预测地推进，
+	并且在整个系统中保持同步。
+	这种可预测性和同步性与需要改变CPU核心时钟频率
+	以在用户体验和节能之间取得平衡的要求不太匹配。
+	大多数解决这些矛盾需求的方案将时间戳寄存器放在
+	与CPU核心不同的时钟域中，
+	而在两个不相关时钟之间可靠地跨越时钟域边界
+	至少需要两个时钟中较慢时钟的三个周期。
 
-	As a result, reading a timestamp can easily consume tens or
-	even hundreds of nanoseconds on a system with multi-GHz CPU core
-	clock frequencies.
+	因此，在具有多GHz CPU核心时钟频率的系统上，
+	读取时间戳可以轻松消耗数十甚至数百纳秒。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{CodeSamples/api-pthreads/QAfter/timeskewhist}}
-\caption{\tco{clock_gettime(CLOCK_REALTIME)} Deviation From Immediately Preceding \tco{clock_gettime(CLOCK_MONOTONIC)}}
+\caption{\tco{clock_gettime(CLOCK_REALTIME)}相对于紧接其前的\tco{clock_gettime(CLOCK_MONOTONIC)}的偏差}
 \label{fig:app:questions:clock-gettime(CLOCK-REALTIME) Deviation From Immediately Preceding clock-gettime(CLOCK-MONOTONIC)}
 \end{figure}
 
-In addition, each clock source provides its own timebase.
+此外，每个时钟源提供自己的时间基准。
 \Cref{fig:app:questions:clock-gettime(CLOCK-REALTIME) Deviation From Immediately Preceding clock-gettime(CLOCK-MONOTONIC)}
-shows a histogram of the value returned by a call to
-\co{clock_gettime(CLOCK_MONOTONIC)} subtracted from that returned by an
-immediately following \co{clock_gettime(CLOCK_REALTIME)}
-(\path{timeskew.c}).
-Because some time passes between these two function calls, it is no
-surprise that there are positive deviations, but the negative deviations
-should give us some pause.
-Nevertheless, such deviations are possible, if for no other reason than
-the machinations of network time protocol
-(NTP)~\cite{FredericWeisbecker2022nohzfullTSC}.
+显示了\co{clock_gettime(CLOCK_MONOTONIC)}调用返回的值减去
+紧随其后的\co{clock_gettime(CLOCK_REALTIME)}调用返回值的直方图
+（\path{timeskew.c}）。
+由于这两个函数调用之间会经过一些时间，
+出现正偏差并不令人惊讶，但负偏差应该让我们有所警觉。
+尽管如此，这种偏差是可能的，
+至少由于网络时间协议（NTP）的运作~\cite{FredericWeisbecker2022nohzfullTSC}。
 
-Worse yet, identical clocksources on different systems
-are not necessarily compatible with that of another.
-For example, the \co{jiffies} counters on a pair of systems very likely
-started counting at different times, and worse yet might well be counting
-at different rates.
-This brings up the topic of synchronizing a given system's counters
-with some real-world notion of time such as the aforementioned NTP,
-but that topic is beyond the scope of this book.
+更糟糕的是，不同系统上的相同时钟源
+不一定与另一个系统的时钟源兼容。
+例如，一对系统上的\co{jiffies}计数器很可能在不同的时间开始计数，
+而且更糟糕的是，可能以不同的速率计数。
+这引出了将给定系统的计数器与某种现实世界的时间概念（如前述的NTP）
+进行同步的话题，但这个话题超出了本书的范围。
 
-In short, time is a slippery topic that causes untold confusion to
-parallel programmers and to their code.
+总之，时间是一个棘手的话题，给并行程序员和他们的代码带来了无尽的困惑。

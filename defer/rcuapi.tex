@@ -2,39 +2,37 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\subsection{RCU Linux-Kernel API}
+\subsection{RCU Linux内核API}
 \label{sec:defer:RCU Linux-Kernel API}
 \OriginallyPublished{sec:defer:RCU Linux-Kernel API}{RCU Linux-Kernel API}{Linux Weekly News}{PaulEMcKenney2008WhatIsRCUAPI}
 
-This section looks at RCU from the viewpoint of its Linux-kernel API\@.\footnote{
-	Userspace RCU's API is documented
-	elsewhere~\cite{PaulMcKenney2013LWNURCU}.}
+本节从Linux内核API的角度来审视RCU。\footnote{
+	用户空间RCU的API在其他文献中有文档说明~\cite{PaulMcKenney2013LWNURCU}。}
 \Cref{sec:defer:RCU API and Software Engineering}
-explores the relationship between RCU's API and software engineering,
+探讨了RCU的API与软件工程之间的关系，
 \cref{sec:defer:RCU has a Family of Wait-to-Finish APIs}
-presents RCU's wait-to-finish APIs,
+介绍了RCU的等待完成API，
 \cref{sec:defer:RCU has Publish-Subscribe and Version-Maintenance APIs}
-presents RCU's publish-subscribe and version-maintenance APIs,
+介绍了RCU的发布-订阅和版本维护API，
 \cref{sec:defer:RCU has List-Processing APIs}
-presents RCU's list-processing APIs,
+介绍了RCU的链表处理API，
 \cref{sec:defer:RCU Has Diagnostic APIs}
-presents RCU's diagnostic APIs, and
+介绍了RCU的诊断API，
 \cref{sec:defer:Where Can RCU's APIs Be Used?}
-describes in which contexts RCU's various APIs may be used.
-Finally,
+描述了RCU的各种API可以在哪些上下文中使用。
+最后，
 \cref{sec:defer:So; What is RCU Really?}
-presents concluding remarks.
+给出了结论性评述。
 
-Readers who are not excited about kernel internals may wish to skip
-ahead to \cref{sec:defer:RCU Usage}
-on \cpageref{sec:defer:RCU Usage},
-but preferably after reviewing the next section covering software-engineering
-considerations.
+对内核内部不太感兴趣的读者可以跳到
+\cpageref{sec:defer:RCU Usage}上的
+\cref{sec:defer:RCU Usage}，
+但最好在阅读完下一节关于软件工程考量的内容之后再跳。
 
-\subsubsection{RCU API and Software Engineering}
+\subsubsection{RCU API与软件工程}
 \label{sec:defer:RCU API and Software Engineering}
 
-Readers who have looked ahead to
+已经提前查看过
 \cref{tab:defer:RCU Wait-to-Finish APIs,%
 tab:defer:RCU Markers for Read-Side Critical Sections,%
 tab:defer:SRCU Markers for Read-Side Critical Sections,%
@@ -42,107 +40,97 @@ tab:defer:RCU Polled Update-Side Primitives,%
 tab:defer:RCU Publish-Subscribe and Version Maintenance APIs,%
 tab:defer:RCU-Protected List APIs,%
 tab:defer:RCU Diagnostic APIs}
-might have noted that the full list of Linux-kernel APIs sports more
-than 100 members.
-This is in sharp (and perhaps dismaying) contrast to the mere six
-API members shown in
-\cref{tab:defer:Core RCU API}.
-This situation clearly raises the question ``Why so many???''
+的读者可能已经注意到，Linux内核API的完整列表
+拥有100多个成员。
+这与\cref{tab:defer:Core RCU API}中仅显示的六个
+API成员形成了鲜明的（也许令人沮丧的）对比。
+这种情况显然引出了``为什么这么多？？？''这个问题。
 
-This question is answered more thoroughly in the following sections,
-but in the meantime the rest of this section summarizes the motivations.
+以下各节将更彻底地回答这个问题，
+但在此期间本节其余部分概述了这些动机。
 
-There is a wise old saying to the effect of ``To err is human.''
-This means that the purpose of a significant fraction of the RCU API is to
-provide diagnostics, most notably in \cref{tab:defer:RCU Diagnostic APIs},
-but elsewhere as well.
+有一句古老的智慧："人非圣贤，孰能无过。"
+这意味着RCU API中相当大一部分的目的是
+提供诊断功能，最显著的是\cref{tab:defer:RCU Diagnostic APIs}中的内容，
+但其他地方也有。
 
-Important causes of human error are the limits of the human brain,
-for example, the limited capacity of short-term memory.
-The toy examples shown in this book do not stress these limits.
-This is out of necessity:
-Many readers push their cognitive limits while learning new material,
-so the examples need to be kept simple.
+人为错误的重要原因之一是人脑的局限性，
+例如短期记忆的有限容量。
+本书中展示的玩具示例不会触及这些极限。
+这是出于必要：
+许多读者在学习新材料时会达到认知极限，
+因此示例需要保持简单。
 
-These examples therefore keep \co{rcu_dereference()} invocations
-in the same function as the enclosing \co{rcu_read_lock()} and
-\co{rcu_read_unlock()} calls.
-In contrast, real-world software must frequently invoke these API members
-from different functions, and even from different translation units.
-The Linux kernel RCU API has therefore expanded to accommodate lockdep,
-which allows \co{rcu_dereference()} and friends to complain if it is
-not protected by \co{rcu_read_lock()}.
-Linux-kernel RCU also checks for some double-free errors, infinite
-loops in RCU read-side critical sections, and attempts to invoke
-quiescent states within RCU read-side critical sections.
+因此，这些示例将\co{rcu_dereference()}调用
+保持在与外围\co{rcu_read_lock()}和
+\co{rcu_read_unlock()}调用相同的函数中。
+相比之下，现实世界的软件经常需要从
+不同的函数甚至不同的翻译单元中调用这些API成员。
+Linux内核RCU API因此已扩展以适应lockdep，
+lockdep允许\co{rcu_dereference()}及其相关函数在未受
+\co{rcu_read_lock()}保护时发出警告。
+Linux内核RCU还检查一些双重释放错误、
+RCU read-side critical section中的无限循环，
+以及在RCU read-side critical section中尝试调用
+quiescent state的情况。
 
-Another way that real-world software accommodates the limits of human
-cognition is through abstraction.
-The Linux-kernel API therefore includes members that operate on lists
-in addition to the pointer-oriented core API of
-\cref{tab:defer:Core RCU API}.
-The Linux kernel itself also provides RCU-protected hash tables and
-search trees.
+现实世界软件适应人类认知局限性的另一种方式是
+通过抽象。
+因此，Linux内核API除了
+\cref{tab:defer:Core RCU API}中面向指针的核心API之外，
+还包括操作链表的成员。
+Linux内核本身也提供了受RCU保护的哈希表和搜索树。
 
-Operating-systems kernels such as Linux operate near the bottom of the
-``iron triangle'' of the software stack shown in
-\cref{fig:intro:Software Layers and Performance; Productivity; and Generality},
-where performance is critically important.
-There are thus specialized variants of a number of RCU APIs for use on
-fastpaths, for example, as discussed in
-\cref{sec:defer:RCU has Publish-Subscribe and Version-Maintenance APIs},
-\co{RCU_INIT_POINTER()} may be used in
-place of \co{rcu_assign_pointer()} in cases where the RCU-protected pointer
-is being assigned to \co{NULL} or when that pointer is not yet accessible
-by readers.
-Use of \co{RCU_INIT_POINTER()} allows the compiler more leeway in
-selecting instructions and carrying out optimizations, thus increasing
-performance.
+像Linux这样的操作系统内核运行在
+\cref{fig:intro:Software Layers and Performance; Productivity; and Generality}
+所示的软件栈"铁三角"的底部附近，
+性能至关重要。
+因此，许多RCU API都有专用于快速路径的特化变体，
+例如，如
+\cref{sec:defer:RCU has Publish-Subscribe and Version-Maintenance APIs}所讨论的，
+\co{RCU_INIT_POINTER()}可以在受RCU保护的指针
+被赋值为\co{NULL}时或该指针尚未被读者访问时
+替代\co{rcu_assign_pointer()}使用。
+使用\co{RCU_INIT_POINTER()}为编译器在选择指令和
+执行优化方面提供了更多余地，从而提高了性能。
 
-On the other hand, when used incorrectly \co{RCU_INIT_POINTER()} can
-result in silent memory corruption, so please be careful!
-Yes, in some cases, the kernel can check for inappropriate use of
-RCU API members from a given kernel context, but the constraints of
-\co{RCU_INIT_POINTER()} use are not yet checkable.
+另一方面，错误使用\co{RCU_INIT_POINTER()}可能导致
+无声的内存损坏，所以请务必小心！
+是的，在某些情况下，内核可以检查在给定内核上下文中
+是否不当使用了RCU API成员，但
+\co{RCU_INIT_POINTER()}使用的约束尚无法被检查。
 
-Finally, within the Linux kernel, the aforementioned limits of human
-cognition are compounded by the variety and severity of workloads running
-on Linux.
-As of v5.16, this has given rise to no fewer than five flavors of
-RCU, each designed to provide different performance, scalability,
-response-time, and energy efficiency tradeoffs to RCU readers and writers.
-These RCU flavors are the subject of the next section.
+最后，在Linux内核中，上述人类认知的局限性
+因Linux上运行的工作负载的多样性和严苛性而加剧。
+截至v5.16，这已产生了不少于五种RCU风格，
+每种都旨在为RCU读者和写者提供不同的性能、
+可扩展性、响应时间和能效权衡。
+这些RCU风格是下一节的主题。
 
-\subsubsection{RCU has a Family of Wait-to-Finish APIs}
+\subsubsection{RCU拥有一系列等待完成API}
 \label{sec:defer:RCU has a Family of Wait-to-Finish APIs}
 
-The most straightforward answer to ``what is RCU'' is that RCU is
-an API\@.
-For example, the RCU implementation used in the Linux kernel is
-summarized by
-\cref{tab:defer:RCU Wait-to-Finish APIs},
-whose columns show the wait-for-readers portions of the RCU, ``sleepable''
-RCU (SRCU), Tasks RCU, Tasks RCU Rude, Tasks RCU Trace, and generic APIs,
-respectively,
-\cref{tab:defer:RCU Markers for Read-Side Critical Sections},
-which shows the full range of RCU read-side markers,
-\cref{tab:defer:SRCU Markers for Read-Side Critical Sections},
-which shows the full range of SRCU read-side markers,
-\cref{tab:defer:RCU Polled Update-Side Primitives},
-which shows the full RCU polled grace-period API,
-and by
-\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs},
-which shows the publish-subscribe portions of the
-API~\cite{PaulEMcKenney2024RCUAPI}.\footnote{
-	This citation covers v6.10 and later.
-	Documentation for earlier versions of the Linux-kernel RCU API may
-	be found elsewhere~\cite{PaulEMcKenney2008WhatIsRCUAPI,PaulEMcKenney2014RCUAPI,PaulEMcKenney2019RCUAPI}.}
+对``什么是RCU''最直接的回答是RCU是一个API。
+例如，Linux内核中使用的RCU实现由
+\cref{tab:defer:RCU Wait-to-Finish APIs}概括，
+其各列分别显示了RCU、"可睡眠"RCU（SRCU）、Tasks RCU、
+Tasks RCU Rude、Tasks RCU Trace和通用API的等待读者部分，
+\cref{tab:defer:RCU Markers for Read-Side Critical Sections}
+显示了RCU读侧标记的完整范围，
+\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}
+显示了SRCU读侧标记的完整范围，
+\cref{tab:defer:RCU Polled Update-Side Primitives}
+显示了完整的RCU轮询grace period API，
+\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}
+显示了API~\cite{PaulEMcKenney2024RCUAPI}的发布-订阅部分。\footnote{
+	此引用涵盖v6.10及更高版本。
+	早期版本的Linux内核RCU API文档可在其他地方找到~\cite{PaulEMcKenney2008WhatIsRCUAPI,PaulEMcKenney2014RCUAPI,PaulEMcKenney2019RCUAPI}。}
 
 \begin{sidewaystable*}[tbp]
 \rowcolors{1}{}{lightgray}
 \renewcommand*{\arraystretch}{1.3}
 \centering
-\caption{RCU Wait-to-Finish APIs}
+\caption{RCU等待完成API}
 \label{tab:defer:RCU Wait-to-Finish APIs}
 \scriptsize\IfEbookSize{\hspace*{-1.8in}}{\hspace*{-.125in}}
 \ebresizeverb{0.7}{
@@ -154,30 +142,30 @@ API~\cite{PaulEMcKenney2024RCUAPI}.\footnote{
     >{\raggedright\arraybackslash}p{1.45in}}
 \toprule
 &
-    {\bf RCU}: Original &
-	{\bf SRCU}: Sleeping readers &
-	    {\bf Tasks RCU}: Free tracing trampolines &
-		{\bf Tasks RCU Rude}: Free idle-task tracing trampolines &
-		    {\bf Tasks RCU Trace}: Protect sleepable BPF programs \\
+    {\bf RCU}：原始版 &
+	{\bf SRCU}：可睡眠读者 &
+	    {\bf Tasks RCU}：释放追踪蹦床 &
+		{\bf Tasks RCU Rude}：释放空闲任务追踪蹦床 &
+		    {\bf Tasks RCU Trace}：保护可睡眠BPF程序 \\
 \midrule
-{\bf Initialization and Cleanup} &
+{\bf 初始化和清理} &
     &
 	\tco{DEFINE_SRCU()} \tco{DEFINE_STATIC_SRCU()}
 	\tco{init_srcu_struct()} \tco{cleanup_srcu_struct()} &
 	    &
 		&
 		    \\
-{\bf Read-side critical-section markers} &
+{\bf Read-side critical section标记} &
     \tco{rcu_read_lock()}~! \tco{rcu_read_unlock()}~!  ~~~~~~~~~~~~~~~~~~
-    (See \cref{tab:defer:RCU Markers for Read-Side Critical Sections} for more.) &
+    （更多参见\cref{tab:defer:RCU Markers for Read-Side Critical Sections}。） &
 	\tco{srcu_read_lock()} \tco{srcu_read_unlock()} ~~~~~~~~~~~~
-	(See \cref{tab:defer:SRCU Markers for Read-Side Critical Sections} for more.) &
-	    Voluntary context switch in non-idle tasks. &
-		Preemption-disabled regions of code. &
+	（更多参见\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}。） &
+	    非空闲任务中的自愿上下文切换。 &
+		禁用抢占的代码区域。 &
 		    \tco{rcu_read_lock_trace()} \tco{rcu_read_unlock_trace()}
 		    \tco{guard(rcu_tasks_trace)()}
 		    \tco{scoped_guard(rcu_tasks_trace)} \\
-{\bf Update-side primitives (synchronous) } &
+{\bf 更新侧原语（同步） } &
     { \tco{synchronize_rcu()}
       \tco{synchronize_net()}
       \tco{synchronize_rcu_expedited()} } &
@@ -187,38 +175,38 @@ API~\cite{PaulEMcKenney2024RCUAPI}.\footnote{
 		\tco{synchronize_rcu_tasks_rude()} &
 		    \tco{synchronize_rcu_tasks_trace()}
 		    \tco{rcu_trace_implies_rcu_gp()} \\
-{\bf Update-side primitives (asynchronous / callback) } &
+{\bf 更新侧原语（异步/callback） } &
     \tco{call_rcu()} !
     \tco{call_rcu_hurry()} &
 	\tco{call_srcu()} &
 	    \tco{call_rcu_tasks()} &
 		\tco{call_rcu_tasks_rude()} &
 		    \tco{call_rcu_tasks_trace()} \\
-{\bf Update-side primitives (wait for callbacks) } &
+{\bf 更新侧原语（等待callback） } &
     \tco{rcu_barrier()} &
 	\tco{srcu_barrier()} &
 	    \tco{rcu_barrier_tasks()} &
 		\tco{rcu_barrier_tasks_rude()} &
 		    \tco{rcu_barrier_tasks_trace()} \\
-{\bf Update-side primitives (polled) } &
+{\bf 更新侧原语（轮询） } &
     \tco{get_state_synchronize_rcu()}
     \tco{start_poll_synchronize_rcu()}
     \tco{poll_state_synchronize_rcu()} ~~~~~~~~~~~~~~~~~~
-    (See \cref{tab:defer:RCU Polled Update-Side Primitives} for more.) &
+    （更多参见\cref{tab:defer:RCU Polled Update-Side Primitives}。） &
 	\tco{get_state_synchronize_srcu()}
 	\tco{start_poll_synchronize_srcu()}
 	\tco{poll_state_synchronize_srcu()} &
 	    &
 		&
 		    \\
-{\bf Update-side primitives (initiate / wait)} &
+{\bf 更新侧原语（发起/等待）} &
     \tco{get_state_synchronize_rcu()}
     \tco{cond_synchronize_rcu()} &
 	&
 	    &
 		&
 		    \\
-{\bf Update-side primitives (free memory) } &
+{\bf 更新侧原语（释放内存） } &
     \tco{kfree_rcu()}
     \tco{kfree_rcu_mightsleep()}
     \tco{kvfree_rcu()}
@@ -227,42 +215,42 @@ API~\cite{PaulEMcKenney2024RCUAPI}.\footnote{
 	    &
 		&
 		    \\
-{\bf Type-safe memory } &
+{\bf 类型安全内存 } &
     \tco{SLAB_TYPESAFE_BY_RCU} &
 	&
 	    &
 		&
 		    \\
-{\bf Read side constraints } &
-    No blocking (only preemption) &
-	No \tco{synchronize_srcu()} with same \tco{srcu_struct} &
-	    No voluntary context switch &
-		Neither blocking nor preemption &
-			No RCU tasks trace grace period \\
-{\bf Read side overhead } &
-    CPU-local accesses (\tco{barrier()} on \tco{PREEMPT=n}) &
-	Simple instructions, memory barriers &
-	    Free &
-		CPU-local accesses (free on \tco{PREEMPT=n}) &
-		    CPU-local accesses \\
-{\bf Asynchronous update-side overhead } &
-    sub-microsecond &
-	sub-microsecond &
-	    sub-microsecond &
-		sub-microsecond &
-		    sub-microsecond \\
-{\bf Grace-period latency } &
-    10s of milliseconds &
-        Milliseconds &
-	    Seconds &
-		Milliseconds &
-		    10s of milliseconds \\
-{\bf Expedited grace-period latency } &
-    10s of microseconds &
-        Microseconds &
-	    N/A &
-		N/A &
-		    N/A \\
+{\bf 读侧约束 } &
+    不可阻塞（仅可抢占） &
+	不可对同一\tco{srcu_struct}使用\tco{synchronize_srcu()} &
+	    不可自愿上下文切换 &
+		既不可阻塞也不可抢占 &
+			不可使用RCU tasks trace grace period \\
+{\bf 读侧开销 } &
+    CPU本地访问（\tco{PREEMPT=n}时为\tco{barrier()}） &
+	简单指令、内存屏障 &
+	    免费 &
+		CPU本地访问（\tco{PREEMPT=n}时免费） &
+		    CPU本地访问 \\
+{\bf 异步更新侧开销 } &
+    亚微秒级 &
+	亚微秒级 &
+	    亚微秒级 &
+		亚微秒级 &
+		    亚微秒级 \\
+{\bf Grace period延迟 } &
+    数十毫秒 &
+        毫秒级 &
+	    秒级 &
+		毫秒级 &
+		    数十毫秒 \\
+{\bf 加速grace period延迟 } &
+    数十微秒 &
+        微秒级 &
+	    不适用 &
+		不适用 &
+		    不适用 \\
 \bottomrule
 \end{tabularx}
 }
@@ -276,14 +264,14 @@ API~\cite{PaulEMcKenney2024RCUAPI}.\footnote{
 \ebresizewidth{
 \begin{tabular}{llp{2.0in}}
 \toprule
-Acquisition &
-	Release &
-		Comments \\
+获取 &
+	释放 &
+		说明 \\
 \midrule
 \tco{rcu_read_lock()} &
 	\tco{rcu_read_unlock()} & \\
-\tco{guard(rcu)()} & & RCU reader to end of enclosing scope. \\
-\tco{scoped_guard(rcu)} & & RCU reader for following statement. \\
+\tco{guard(rcu)()} & & RCU读者持续到外围作用域结束。 \\
+\tco{scoped_guard(rcu)} & & RCU读者用于紧随其后的语句。 \\
 \tco{rcu_read_lock_bh()} &
 	\tco{rcu_read_unlock_bh()} & \\
 \tco{rcu_read_lock_sched()} &
@@ -292,17 +280,17 @@ Acquisition &
 	\tco{rcu_read_unlock_sched_notrace()} & \\
 \tco{local_bh_disable()} &
 	\tco{local_bh_enable()} &
-		And anything else that disables bottom halves. \\
+		以及其他任何禁用下半部的操作。 \\
 \tco{preempt_disable()} &
 	\tco{preempt_enable()} &
-		And anything else that disables preemption. \\
+		以及其他任何禁用抢占的操作。 \\
 \tco{local_irq_save()} &
 	\tco{local_irq_restore()} &
-		And anything else that disables interrupts. \\
+		以及其他任何禁用中断的操作。 \\
 \bottomrule
 \end{tabular}
 }
-\caption{RCU Markers for Read-Side Critical Sections}
+\caption{RCU Read-Side Critical Section标记}
 \label{tab:defer:RCU Markers for Read-Side Critical Sections}
 \end{table*}
 
@@ -314,14 +302,14 @@ Acquisition &
 \ebresizewidth{
 \begin{tabular}{llp{2.0in}}
 \toprule
-Acquisition &
-	Release &
-		Comments \\
+获取 &
+	释放 &
+		说明 \\
 \midrule
 \tco{srcu_read_lock()} &
 	\tco{srcu_read_unlock()} & \\
-\tco{guard(srcu)(&my_srcu)} & & SRCU reader to end of enclosing scope. \\
-\tco{scoped_guard(srcu, &my_srcu)} & & SRCU reader for following statement. \\
+\tco{guard(srcu)(&my_srcu)} & & SRCU读者持续到外围作用域结束。 \\
+\tco{scoped_guard(srcu, &my_srcu)} & & SRCU读者用于紧随其后的语句。 \\
 \tco{srcu_read_lock_nmisafe()} &
 	\tco{srcu_read_unlock_nmisafe()} & \\
 \tco{srcu_read_lock_notrace()} &
@@ -331,7 +319,7 @@ Acquisition &
 \bottomrule
 \end{tabular}
 }
-\caption{SRCU Markers for Read-Side Critical Sections}
+\caption{SRCU Read-Side Critical Section标记}
 \label{tab:defer:SRCU Markers for Read-Side Critical Sections}
 \end{table*}
 
@@ -343,181 +331,167 @@ Acquisition &
 \ebresizewidth{
 \begin{tabular}{p{2.5in}p{2.5in}}
 \toprule
-Compressed State / Full State &
-		Comments \\
+压缩状态 / 完整状态 &
+		说明 \\
 \midrule
 \tco{get_completed_synchronize_rcu()}
 \tco{get_completed_synchronize_rcu_full()} &
-	Return always-completed state. \\
+	返回始终已完成的状态。 \\
 \tco{get_state_synchronize_rcu()}
 \tco{get_state_synchronize_rcu_full()} &
-	Return state for grace-period completion. \\
+	返回用于grace period完成检测的状态。 \\
 \tco{start_poll_synchronize_rcu()}
 \tco{start_poll_synchronize_rcu_full()} &
-	Return state for grace-period completion and start
-	a grace period if needed. \\
+	返回用于grace period完成检测的状态，
+	并在需要时启动grace period。 \\
 \tco{start_poll_synchronize_rcu_expedited()}
 \tco{start_poll_synchronize_rcu_expedited_full()} &
-	Return state for grace-period completion and start
-	an expedited grace period if needed. \\
+	返回用于grace period完成检测的状态，
+	并在需要时启动加速的grace period。 \\
 \tco{poll_state_synchronize_rcu()}
 \tco{poll_state_synchronize_rcu_full()} &
-	Return true if state's grace period has ended. \\
+	如果该状态的grace period已结束则返回true。 \\
 \tco{cond_synchronize_rcu()}
 \tco{cond_synchronize_rcu_full()} &
-	Wait (if needed) for state's grace period to end. \\
+	（如需要）等待该状态的grace period结束。 \\
 \tco{cond_synchronize_rcu_expedited()}
 \tco{cond_synchronize_rcu_expedited_full()} &
-	Expedited wait (if needed) for state's grace period to end. \\
+	（如需要）以加速方式等待该状态的grace period结束。 \\
 \tco{NUM_ACTIVE_RCU_POLL_OLDSTATE}
 \tco{NUM_ACTIVE_RCU_POLL_OLDSTATE} &
-	Maximum number of states corresponding to in-flight grace
-	periods. \\
+	对应进行中grace period的最大状态数。 \\
 \tco{same_state_synchronize_rcu()}
 \tco{same_state_synchronize_rcu_full()} &
-	Are two states equivalent? \\
+	两个状态是否等价？ \\
 \bottomrule
 \end{tabular}
 }
-\caption{RCU Polled Update-Side Primitives}
+\caption{RCU轮询更新侧原语}
 \label{tab:defer:RCU Polled Update-Side Primitives}
 \end{table*}
 
-If you are new to RCU, you might consider focusing on just one
-of the columns in
-\cref{tab:defer:RCU Wait-to-Finish APIs},
-each of which summarizes one member of the Linux kernel's RCU API family.
-For example, if you are primarily interested in understanding how RCU
-is used in the Linux kernel, ``RCU'' would be the place to start,
-as it is used most frequently.
-On the other hand, if you want to understand RCU for its own sake,
-``Tasks RCU Rude'' has the simplest API\@.
-You can always come back for the other columns later.
+如果你是RCU新手，可以考虑只关注
+\cref{tab:defer:RCU Wait-to-Finish APIs}
+中的某一列，每一列概述了Linux内核RCU API系列的一个成员。
+例如，如果你主要对理解RCU在Linux内核中的使用感兴趣，
+``RCU''列将是起点，因为它使用得最频繁。
+另一方面，如果你想为了理解RCU本身而学习，
+``Tasks RCU Rude''拥有最简单的API。
+你随时可以回来看其他列。
 
-If you are already familiar with RCU, these tables can
-serve as a useful reference.
+如果你已经熟悉RCU，这些表格可以
+作为有用的参考。
 
 \QuickQuiz{
-	Why do some of the cells in
-	\cref{tab:defer:RCU Wait-to-Finish APIs}
-	have exclamation marks (``!'')?
+	为什么\cref{tab:defer:RCU Wait-to-Finish APIs}
+	中的一些单元格有感叹号（``!''）？
 }\QuickQuizAnswer{
-	The API members with exclamation marks (\co{rcu_read_lock()},
-	\co{rcu_read_unlock()}, and \co{call_rcu()}) were the
-	only members of the Linux RCU API that Paul E. McKenney was aware
-	of back in the mid-90s.
-	During this timeframe, he was under the mistaken impression that
-	he knew all that there is to know about RCU\@.
+	带有感叹号的API成员（\co{rcu_read_lock()}、
+	\co{rcu_read_unlock()}和\co{call_rcu()}）是
+	Paul E. McKenney在90年代中期所知的
+	Linux RCU API的仅有成员。
+	在那个时期，他错误地认为自己
+	已经了解了关于RCU的一切。
 }\QuickQuizEnd
 
-The ``RCU'' column corresponds to the consolidation of the
-three Linux-kernel RCU
-implementations~\cite{PaulEMcKenney2019RCUCVE,McKenney:2019:CRS:3319647.3325836},
-in which RCU read-side critical sections start with
-\apik{rcu_read_lock()} and end with \apik{rcu_read_unlock()}.
-These critical sections can also use  APIs in
-\cref{tab:defer:RCU Markers for Read-Side Critical Sections}, including
-\apik{rcu_read_lock_bh()}, \apik{rcu_read_lock_sched()},
-and \apik{rcu_read_unlock_bh()}, or \apik{rcu_read_unlock_sched()}.
-In addition, any region of code that disables bottom halves, interrupts,
-or preemption also acts as an RCU read-side critical section.
-RCU read-side critical sections may be nested.\footnote{
-	Note well the RAII variants provided by \co{guard(rcu)()} and
-	\co{scoped_guard(rcu)}.}
-The corresponding synchronous update-side primitives,
-\apik{synchronize_rcu()} and \apik{synchronize_rcu_expedited()}, along with
-their synonym \apik{synchronize_net()}, wait for any type of currently
-executing RCU read-side critical sections to complete.
-The length of this wait is known as a ``\IX{grace period}'', and
-\apik{synchronize_rcu_expedited()} is designed to reduce \IXh{grace-period}
-{latency} at the expense of increased CPU overhead and IPIs.
-The asynchronous update-side primitive, \apik{call_rcu()},
-invokes a specified function with a specified argument after a
-subsequent grace period.
-For example, \co{call_rcu(p,f);} will result in
-the ``RCU callback'' \co{f(p)}
-being invoked after a subsequent grace period.
-Kernels built with \co{CONFIG_RCU_LAZY=y} delay grace periods that would
-otherwise be started immediately by \co{call_rcu()} to be delayed by up
-to several seconds.
-Where such delays are unacceptable, \apik{call_rcu_hurry()} can be used
-to start grace periods immediately.
-There are situations,
-such as when unloading a Linux-kernel module that uses \co{call_rcu()}
-or \co{call_rcu_hurry()}, when it is necessary to wait for all
-outstanding RCU callbacks to complete~\cite{PaulEMcKenney2007rcubarrier}.
-The \apik{rcu_barrier()} primitive does this job.
+``RCU''列对应于三个Linux内核RCU
+实现的合并~\cite{PaulEMcKenney2019RCUCVE,McKenney:2019:CRS:3319647.3325836}，
+其中RCU read-side critical section以
+\apik{rcu_read_lock()}开始、以\apik{rcu_read_unlock()}结束。
+这些临界区也可以使用
+\cref{tab:defer:RCU Markers for Read-Side Critical Sections}中的API，包括
+\apik{rcu_read_lock_bh()}、\apik{rcu_read_lock_sched()}、
+\apik{rcu_read_unlock_bh()}或\apik{rcu_read_unlock_sched()}。
+此外，任何禁用下半部、中断或抢占的代码区域
+也充当RCU read-side critical section。
+RCU read-side critical section可以嵌套。\footnote{
+	请注意\co{guard(rcu)()}和\co{scoped_guard(rcu)}
+	提供的RAII变体。}
+对应的同步更新侧原语
+\apik{synchronize_rcu()}和\apik{synchronize_rcu_expedited()}，
+以及它们的同义词\apik{synchronize_net()}，
+等待任何类型的当前正在执行的RCU read-side critical section完成。
+这种等待的时长被称为``\IX{grace period}''，
+\apik{synchronize_rcu_expedited()}旨在以增加CPU开销和IPI
+为代价减少\IXh{grace-period}{latency}。
+异步更新侧原语\apik{call_rcu()}在
+后续grace period之后调用指定的函数和指定的参数。
+例如，\co{call_rcu(p,f);}将导致
+``RCU callback'' \co{f(p)}在后续grace period之后被调用。
+使用\co{CONFIG_RCU_LAZY=y}构建的内核会将
+\co{call_rcu()}本来会立即启动的grace period延迟最多数秒。
+在这种延迟不可接受的情况下，可以使用
+\apik{call_rcu_hurry()}来立即启动grace period。
+有些情况下，例如卸载使用\co{call_rcu()}或
+\co{call_rcu_hurry()}的Linux内核模块时，
+需要等待所有未完成的RCU callback完成~\cite{PaulEMcKenney2007rcubarrier}。
+\apik{rcu_barrier()}原语完成此任务。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How do you prevent a huge number of RCU read-side critical
-	sections from indefinitely blocking a \co{synchronize_rcu()}
-	invocation?
+	如何防止大量RCU read-side critical section
+	无限期地阻塞\co{synchronize_rcu()}调用？
 }\QuickQuizAnswerB{
-	There is no need to do anything to prevent RCU read-side
-	critical sections from indefinitely blocking a
-	\co{synchronize_rcu()} invocation, because the
-	\co{synchronize_rcu()} invocation need wait only for
-	\emph{pre-existing} RCU read-side critical sections.
-	So as long as each RCU read-side critical section is
-	of finite duration, RCU grace periods will also remain
-	finite.
+	无需做任何事情来防止RCU read-side critical section
+	无限期地阻塞\co{synchronize_rcu()}调用，
+	因为\co{synchronize_rcu()}调用只需等待
+	\emph{已有的}RCU read-side critical section。
+	因此，只要每个RCU read-side critical section
+	的持续时间是有限的，RCU grace period也将保持有限。
 }\QuickQuizEndB
 %
 \QuickQuizM{
-	The \co{synchronize_rcu()} API waits for all pre-existing
-	interrupt handlers to complete, right?
+	\co{synchronize_rcu()} API会等待所有已有的
+	中断处理程序完成，对吧？
 }\QuickQuizAnswerM{
-	In v4.20 and later Linux kernels,
-	yes~\cite{PaulEMcKenney2019RCUCVE,McKenney:2019:CRS:3319647.3325836}.
+	在v4.20及更高版本的Linux内核中，
+	是的~\cite{PaulEMcKenney2019RCUCVE,McKenney:2019:CRS:3319647.3325836}。
 
-	But not in earlier kernels, and especially not when using
-	preemptible RCU\@!
-	You instead want \apik{synchronize_irq()}.
-	Alternatively, you can place calls to \co{rcu_read_lock()}
-	and \co{rcu_read_unlock()} in the specific interrupt handlers that
-	you want \co{synchronize_rcu()} to wait for.
-	But even then, be careful, as preemptible RCU will not be guaranteed
-	to wait for that portion of the interrupt handler preceding the
-	\co{rcu_read_lock()} or following the \co{rcu_read_unlock()}.
+	但在更早的内核中不是这样，尤其是在使用
+	可抢占RCU时！
+	你应当改用\apik{synchronize_irq()}。
+	或者，你可以在希望\co{synchronize_rcu()}等待的
+	特定中断处理程序中放置\co{rcu_read_lock()}和
+	\co{rcu_read_unlock()}调用。
+	但即使如此也要小心，因为可抢占RCU不保证
+	等待中断处理程序中\co{rcu_read_lock()}之前或
+	\co{rcu_read_unlock()}之后的部分。
 }\QuickQuizEndM
 %
 \QuickQuizM{
-	Given that any region of code that disables interrupts acts as
-	an RCU read-side critical section, do atomic operations and
-	single machine instructions also act as tiny RCU read-side
-	critical sections?
+	既然任何禁用中断的代码区域都充当
+	RCU read-side critical section，那么原子操作和
+	单条机器指令是否也充当微小的RCU read-side
+	critical section？
 }\QuickQuizAnswerM{
-	Yes, they do.
+	是的，确实如此。
 
-	But if you are tempted to use this trick, think again, and harder
-	this time.
+	但如果你想使用这个技巧，请三思，
+	而且这次要更认真地思考。
 
-	And if you have absolutely no alternative to using this trick,
-	then carefully document your use of it.
-	Otherwise, everyone reading the code (yourself included) will
-	hate you for it.
+	如果你确实别无选择只能使用此技巧，
+	请仔细记录你对它的使用。
+	否则，阅读代码的每个人（包括你自己）都会
+	因此而恨你。
 
-	Why so much hate?
+	为什么如此多的仇恨？
 
-	To see why, keep in mind that the big advantage of Jack
-	Slingwine's and my invention of RCU was that we marked the
-	RCU readers.
-	Take it from all the people who independently invented something
-	kind of like RCU, but failed to mark their read-side critical
-	sections:
-	You really do need to mark your RCU readers!
-	Including your single-instruction RCU readers.
+	要理解原因，请记住Jack Slingwine和我发明RCU的
+	一大优势在于我们标记了RCU读者。
+	听听所有那些独立发明了类似RCU东西但
+	未能标记其read-side critical section的人的话：
+	你确实需要标记你的RCU读者！
+	包括你的单指令RCU读者。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	What is the difference between \co{synchronize_rcu()} and
-	\co{rcu_barrier()}?
+	\co{synchronize_rcu()}和\co{rcu_barrier()}
+	之间有什么区别？
 }\QuickQuizAnswerE{
-	They wait on different things.
-	While \co{synchronize_rcu()} waits for pre-existing RCU read-side
-	critical sections to complete, \co{rcu_barrier()} instead waits
-	for callbacks from prior calls to \co{call_rcu()} to be invoked.
+	它们等待的东西不同。
+	\co{synchronize_rcu()}等待已有的RCU read-side
+	critical section完成，而\co{rcu_barrier()}等待
+	先前\co{call_rcu()}调用的callback被调用。
 
 \begin{table}
 \renewcommand*{\arraystretch}{1.2}
@@ -527,9 +501,9 @@ The \apik{rcu_barrier()} primitive does this job.
 \begin{fcvref}[ln:defer:synchonize-rcu vs rcu-barrier]
 \begin{tabular}{lll}
 \toprule
-            & \multicolumn{2}{c}{Must Wait Until (in the snippet):} \\
+            & \multicolumn{2}{c}{必须等待直到（代码片段中的）：} \\
 \cmidrule{2-3}
-\multicolumn{1}{c}{Invoked at:} & \multicolumn{1}{c}{\tco{synchronize_rcu()}}
+\multicolumn{1}{c}{调用于：} & \multicolumn{1}{c}{\tco{synchronize_rcu()}}
 					& \multicolumn{1}{c}{\tco{rcu_barrier()}} \\
 \cmidrule(r){1-1} \cmidrule{2-3}
 \tco{do_something_1()} & 			 & \\
@@ -560,129 +534,119 @@ The \apik{rcu_barrier()} primitive does this job.
 \label{tab:defer:synchonize-rcu vs rcu-barrier}
 \end{table}
 
-	This distinction is illustrated by
-	\cref{tab:defer:synchonize-rcu vs rcu-barrier}, in which
-	the snippet at the bottom shows code being executed by a given CPU\@.
-	For simplicity, assume that no other CPU is executing
-	\co{rcu_read_lock()}, \co{rcu_read_unlock()}, or
-	\co{call_rcu()}.
+	\cref{tab:defer:synchonize-rcu vs rcu-barrier}
+	说明了这一区别，其中底部的代码片段展示了
+	给定CPU正在执行的代码。
+	为简单起见，假设没有其他CPU在执行
+	\co{rcu_read_lock()}、\co{rcu_read_unlock()}或
+	\co{call_rcu()}。
 
-	The table shows how long each primitive must wait if invoked
-	concurrently with each of the \co{do_something_*()}
-	functions, with empty cells indicating that no
-	waiting is necessary.
-	As you can see, \co{synchronize_rcu()} need not wait unless
-	it is in an RCU read-side critical section, in which case
-	it must wait for the \co{rcu_read_unlock()} that ends that
-	critical section.
-	In contrast, RCU read-side critical sections have no effect
-	on \co{rcu_barrier()}.
-	However, when \co{rcu_barrier()} executes after a
-	\co{call_rcu()} invocation, it must wait until the
-	corresponding RCU callback is invoked.
+	该表展示了如果与各\co{do_something_*()}
+	函数并发调用，每个原语必须等待多久，
+	空单元格表示无需等待。
+	如你所见，\co{synchronize_rcu()}只有在
+	RCU read-side critical section中才需要等待，
+	在这种情况下它必须等待结束该临界区的
+	\co{rcu_read_unlock()}。
+	相反，RCU read-side critical section对
+	\co{rcu_barrier()}没有影响。
+	然而，当\co{rcu_barrier()}在\co{call_rcu()}调用之后
+	执行时，它必须等到相应的RCU callback被调用。
 
-	All that said, there is a special case where each call to
-	\co{rcu_barrier()} can be replaced by a direct call to
-	\co{synchronize_rcu()}, and that is where \co{synchronize_rcu()}
-	is implemented in terms of \co{call_rcu()} and where there is
-	a single global list of callbacks.
-	But please do not do this in portable code!!!
+	话虽如此，有一种特殊情况，每次
+	\co{rcu_barrier()}调用都可以被直接的
+	\co{synchronize_rcu()}调用替换，即
+	\co{synchronize_rcu()}是用\co{call_rcu()}实现的，
+	且只有一个全局callback列表的情况。
+	但请勿在可移植代码中这样做！！！
 }\QuickQuizEndE
 }
 
-The \co{synchronize_rcu()} and \co{call_rcu()} families of APIs are easy
-to use, with queueing, batching, and wakeups provided automatically for
-the user.
-However, there are situations where this ease of use gets in the way,
-for example, when a cache of RCU-protected objects might be subject
-to reuse during the grace period that otherwise would have allowed them
-to be freed.
-Although this can be handled through careful use of flags that interact
-with the RCU callback queued by \co{call_rcu()}, this can be inconvenient
-and can waste CPU time due to the overhead of the doomed \co{call_rcu()}
-invocations.
+\co{synchronize_rcu()}和\co{call_rcu()}系列API易于使用，
+自动为用户提供排队、批处理和唤醒功能。
+然而，有些情况下这种易用性反而成为障碍，
+例如，当受RCU保护的对象缓存可能在本应允许
+释放它们的grace period期间被重用时。
+虽然这可以通过仔细使用与\co{call_rcu()}排队的
+RCU callback交互的标志来处理，但这可能不便，
+并且由于注定失败的\co{call_rcu()}调用的开销而浪费CPU时间。
 
-In these cases, RCU's polled grace-period primitives can be helpful.
-The \apik{get_state_synchronize_rcu()} and \apik{start_poll_synchronize_rcu()}
-functions return a grace-period state ``cookie'' that encapsulates the
-grace-period state after the completion of a later grace period.
-Once such a later grace period ends, the \apik{poll_state_synchronize_rcu()}
-will return \co{true}.
-There are quite a few additional functions in RCU's polled grace
-period API\@.
-For more information on them, including example code, see slides~34 and
-later of the 2024 LSF/MM presentation on this
-topic~\cite{PaulEMcKenney2024ReclamationInteractionsWithRCU}.\footnote{
-	These functions' kernel-doc headers in the Linux-kernel source
-	code can also be quite helpful.}
+在这些情况下，RCU的轮询grace period原语可以提供帮助。
+\apik{get_state_synchronize_rcu()}和\apik{start_poll_synchronize_rcu()}
+函数返回一个grace period状态"cookie"，它封装了
+后续grace period完成后的grace period状态。
+一旦这样的后续grace period结束，
+\apik{poll_state_synchronize_rcu()}将返回\co{true}。
+RCU的轮询grace period API中还有相当多的其他函数。
+有关它们的更多信息，包括示例代码，请参见
+2024年LSF/MM关于此主题的演示幻灯片第34页及
+之后的内容~\cite{PaulEMcKenney2024ReclamationInteractionsWithRCU}。\footnote{
+	Linux内核源代码中这些函数的kernel-doc头
+	也可能非常有帮助。}
 
-Finally, RCU may be used to provide
-\IX{type-safe memory}~\cite{Cheriton96a}, as described in
-\cref{sec:defer:Type-Safe Memory}.
-In the context of RCU, type-safe memory guarantees that a given
-data element will not change type during any RCU read-side critical section
-that accesses it.
-To make use of RCU-based type-safe memory, pass
-\apik{SLAB_TYPESAFE_BY_RCU} to \apik{kmem_cache_create()}.
+最后，RCU可用于提供
+\IX{type-safe memory}~\cite{Cheriton96a}，
+如\cref{sec:defer:Type-Safe Memory}所述。
+在RCU的上下文中，类型安全内存保证给定的
+数据元素在访问它的任何RCU read-side critical section
+期间不会改变类型。
+要使用基于RCU的类型安全内存，请将
+\apik{SLAB_TYPESAFE_BY_RCU}传递给\apik{kmem_cache_create()}。
 
-The ``SRCU'' column in
-\cref{tab:defer:RCU Wait-to-Finish APIs}
-displays a specialized RCU API that permits general sleeping in SRCU
-read-side critical
-sections~\cite{PaulEMcKenney2006c}
-delimited by \apik{srcu_read_lock()} and \apik{srcu_read_unlock()}.
-However, unlike RCU, SRCU's \apik{srcu_read_lock()} returns a value that
-must be passed into the corresponding \apik{srcu_read_unlock()}.
-This difference is due to the fact that the SRCU user allocates an
-\apik{srcu_struct} for each distinct SRCU usage, so that there is no
-convenient place to store a per-task reader-nesting count.
-(Keep in mind that although the Linux kernel provides dynamically
-allocated per-CPU storage, there is not yet dynamically allocated
-per-task storage.)
-SRCU read-side critical sections can also be marked by the APIs shown in
-\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}, again
-noting the new RAII variants.
+\cref{tab:defer:RCU Wait-to-Finish APIs}中的``SRCU''列
+展示了一个专用的RCU API，允许在SRCU read-side
+critical section~\cite{PaulEMcKenney2006c}中进行通用的睡眠，
+这些临界区由\apik{srcu_read_lock()}和\apik{srcu_read_unlock()}界定。
+然而，与RCU不同，SRCU的\apik{srcu_read_lock()}返回一个值，
+必须将其传入对应的\apik{srcu_read_unlock()}。
+这一区别是因为SRCU用户为每种不同的SRCU用法分配一个
+\apik{srcu_struct}，因此没有方便的地方存储每任务的
+读者嵌套计数。
+（请记住，虽然Linux内核提供动态分配的
+每CPU存储，但目前还没有动态分配的每任务存储。）
+SRCU read-side critical section也可以用
+\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}中显示的API标记，
+同样注意新的RAII变体。
 
-A given \co{srcu_struct} structure may be defined as a global
-variable with \co{DEFINE_SRCU()} if the structure must be used in
-multiple translation units, or with \co{DEFINE_STATIC_SRCU()} otherwise.
-For example, \co{DEFINE_SRCU(my_srcu)} would create a global variable
-named \co{my_srcu} that could be used by any file in the program.
-Alternatively, an \co{srcu_struct} structure may be either an on-stack
-variable or a dynamically allocated region of memory.
-In both of these non-global-variable cases, the memory must be initialized
-using \co{init_srcu_struct()} prior to its first use and cleaned up
-using \co{cleanup_srcu_struct()} after its last use (but before the
-underlying storage disappears).
+给定的\co{srcu_struct}结构可以用\co{DEFINE_SRCU()}定义为
+全局变量（如果该结构必须在多个翻译单元中使用），
+或用\co{DEFINE_STATIC_SRCU()}定义。
+例如，\co{DEFINE_SRCU(my_srcu)}将创建一个名为
+\co{my_srcu}的全局变量，可被程序中的任何文件使用。
+或者，\co{srcu_struct}结构可以是栈上变量
+或动态分配的内存区域。
+在这两种非全局变量的情况下，内存必须在首次使用前
+用\co{init_srcu_struct()}初始化，
+并在最后一次使用后（但在底层存储消失之前）
+用\co{cleanup_srcu_struct()}清理。
 
-However they are created, these distinct \co{srcu_struct} structures
-prevent SRCU read-side critical sections from blocking unrelated
-\apik{synchronize_srcu()} and \apik{synchronize_srcu_expedited()}
-invocations.
-Of course, use of either \apik{synchronize_srcu()} or
-\apik{synchronize_srcu_expedited()} within an SRCU read-side critical
-section can result in self-deadlock, so should be avoided (and which
-is checked for by lockdep in v6.4 and later).
-As with RCU, SRCU's \co{synchronize_srcu_expedited()} decreases
-grace-period latency compared to \co{synchronize_srcu()}, but at
-the expense of increased CPU overhead.
-Also as with RCU, there are \apik{get_state_synchronize_srcu()},
-\apik{start_poll_synchronize_srcu()}, and \apik{poll_state_synchronize_srcu()}
-functions that permit polling of SRCU grace-period APIs.
+无论如何创建，这些不同的\co{srcu_struct}结构
+防止SRCU read-side critical section阻塞
+不相关的\apik{synchronize_srcu()}和
+\apik{synchronize_srcu_expedited()}调用。
+当然，在SRCU read-side critical section内使用
+\apik{synchronize_srcu()}或\apik{synchronize_srcu_expedited()}
+可能导致自死锁，因此应当避免（v6.4及更高版本中
+lockdep会检查这一点）。
+与RCU一样，SRCU的\co{synchronize_srcu_expedited()}比
+\co{synchronize_srcu()}减少了grace period延迟，
+但代价是增加CPU开销。
+同样与RCU类似，有\apik{get_state_synchronize_srcu()}、
+\apik{start_poll_synchronize_srcu()}和
+\apik{poll_state_synchronize_srcu()}函数允许轮询SRCU grace period API。
 
 \QuickQuiz{
-	Under what conditions can \co{synchronize_srcu()} be safely
-	used within an SRCU read-side critical section?
+	在什么条件下可以在SRCU read-side critical section内
+	安全地使用\co{synchronize_srcu()}？
 }\QuickQuizAnswer{
-	In principle, you can use either \co{synchronize_srcu()} or
-	\co{synchronize_srcu_expedited()} with a given \co{srcu_struct}
-	within an SRCU read-side critical section that uses some other
-	\co{srcu_struct}.
-	In practice, however, doing this is almost certainly a bad idea.
-	In particular, the code shown in
-	\cref{lst:defer:Multistage SRCU Deadlocks}
-	could still result in deadlock, which lockdep will complain about
-	in v6.4 and later Linux kernels.
+	原则上，你可以在使用某个\co{srcu_struct}的
+	SRCU read-side critical section内，
+	对另一个\co{srcu_struct}使用\co{synchronize_srcu()}或
+	\co{synchronize_srcu_expedited()}。
+	然而，在实践中这样做几乎肯定是个坏主意。
+	特别是，\cref{lst:defer:Multistage SRCU Deadlocks}
+	中所示的代码仍然可能导致死锁，
+	在v6.4及更高版本的Linux内核中lockdep会对此发出警告。
 
 \begin{listing}
 \begin{VerbatimL}
@@ -696,128 +660,118 @@ idx = srcu_read_lock(&ssb);
 synchronize_srcu(&ssa);
 srcu_read_unlock(&ssb, idx);
 \end{VerbatimL}
-\caption{Multistage SRCU Deadlocks}
+\caption{多阶段SRCU死锁}
 \label{lst:defer:Multistage SRCU Deadlocks}
 \end{listing}
 }\QuickQuizEnd
 
-Similar to normal RCU, self-deadlock can be avoided using the
-asynchronous \apik{call_srcu()} function.
-However, special care must be taken when using \co{call_srcu()} because
-a single task could register SRCU callbacks very quickly.
-Given that SRCU readers can block for an arbitrarily long
-time, this could consume an arbitrarily large quantity of memory.
-In contrast, given the synchronous \co{synchronize_srcu()}
-interface, a given task must finish waiting for a given grace period
-before it can start waiting for the next one.
+与普通RCU类似，可以使用异步的\apik{call_srcu()}函数来
+避免自死锁。
+然而，使用\co{call_srcu()}时必须特别小心，
+因为单个任务可能非常快速地注册SRCU callback。
+鉴于SRCU读者可以阻塞任意长的时间，
+这可能消耗任意大量的内存。
+相比之下，使用同步的\co{synchronize_srcu()}
+接口，给定任务必须完成等待当前grace period，
+然后才能开始等待下一个。
 
-Also similar to RCU, there is an \apik{srcu_barrier()} function that waits
-for all prior \co{call_srcu()} callbacks to be invoked.
+同样与RCU类似，有一个\apik{srcu_barrier()}函数，
+等待所有先前\co{call_srcu()} callback被调用。
 
-In other words, SRCU compensates for its extremely weak
-forward-progress guarantees by permitting the developer to restrict
-its scope.
+换言之，SRCU通过允许开发者限制其作用域来
+弥补其极弱的前向进展保证。
 
-The ``Tasks RCU'' column in
-\cref{tab:defer:RCU Wait-to-Finish APIs} displays a specialized
-RCU API that mediates freeing of the trampolines used in Linux-kernel
-tracing.
-These trampolines are used to transfer control from a point in the
-code being traced to the code doing the actual tracing.
-It is of course necessary to ensure that all code executing within
-a given trampoline has finished before freeing that trampoline.
+\cref{tab:defer:RCU Wait-to-Finish APIs}中的``Tasks RCU''列
+展示了一个专用RCU API，用于协调Linux内核追踪中
+使用的蹦床的释放。
+这些蹦床用于将控制从被追踪代码中的某一点
+转移到执行实际追踪的代码。
+当然，必须确保在释放给定蹦床之前，
+该蹦床中所有正在执行的代码都已完成。
 
-Changes to the code being traced are typically limited to a single jump
-or call instruction, and thus cannot accommodate the sequence of code
-required to implement \co{rcu_read_lock()} and \co{rcu_read_unlock()}.
-Nor can the trampoline contain these calls to \co{rcu_read_lock()} and
-\co{rcu_read_unlock()}.
-To see this, consider a CPU that is just about to start executing a
-given trampoline.
-Because it has not yet executed the \co{rcu_read_lock()}, that
-trampoline could be freed at any time, which would come as a fatal
-surprise to this CPU\@.
-Therefore, trampolines cannot be protected by synchronization primitives
-executed in either the traced code or in the trampoline itself.
-Which does raise the question of exactly how the trampoline is to be
-protected.
+对被追踪代码的更改通常仅限于单条跳转或调用指令，
+因此无法容纳实现\co{rcu_read_lock()}和
+\co{rcu_read_unlock()}所需的代码序列。
+蹦床本身也不能包含这些\co{rcu_read_lock()}和
+\co{rcu_read_unlock()}调用。
+要理解这一点，考虑一个即将开始执行
+给定蹦床的CPU。
+因为它尚未执行\co{rcu_read_lock()}，该
+蹦床可能随时被释放，这对该CPU来说将是致命的
+意外。
+因此，蹦床不能通过在被追踪代码或蹦床本身中
+执行的同步原语来保护。
+这就引出了蹦床究竟如何被保护的问题。
 
-The key to answering this question is to note that trampoline code
-never contains code that either directly or indirectly does a
-voluntary context switch.
-This code might be preempted, but it will never directly or indirectly
-invoke \apik{schedule()}.
-This suggests a variant of RCU having voluntary context switches and
-idle execution as its only quiescent states.
-This variant is Tasks RCU\@.
+回答这个问题的关键在于注意到蹦床代码
+从不包含直接或间接进行自愿上下文切换的代码。
+此代码可能被抢占，但它永远不会直接或间接
+调用\apik{schedule()}。
+这提示了一种RCU变体，其中自愿上下文切换和
+空闲执行是唯一的quiescent state。
+此变体就是Tasks RCU。
 
-Tasks RCU is unusual in having no read-side marking functions, which
-is good given that its main use case has nowhere to put such markings.
-Instead, calls to \co{schedule()} serve directly as quiescent states,
-but only those calls to \co{schedule()} that correspond to voluntary
-context switches.
-Updates can use \apik{synchronize_rcu_tasks()} to wait for all pre-existing
-trampoline execution to complete, or they can use its asynchronous
-counterpart, \apik{call_rcu_tasks()}.
-There is also an \apik{rcu_barrier_tasks()} that waits for completion
-of callbacks corresponding to all prior invocations of \co{call_rcu_tasks()}.
-There is no \co{synchronize_rcu_tasks_expedited()} because there has
-not yet been a request for it, though implementing a useful variant of
-it would not be free of challenges.
+Tasks RCU的不寻常之处在于没有读侧标记函数，
+鉴于其主要用例无处放置此类标记，这倒是件好事。
+相反，\co{schedule()}的调用直接充当quiescent state，
+但仅限于那些对应自愿上下文切换的\co{schedule()}调用。
+更新可以使用\apik{synchronize_rcu_tasks()}来等待所有
+已有的蹦床执行完成，或者使用其异步对应物
+\apik{call_rcu_tasks()}。
+还有一个\apik{rcu_barrier_tasks()}，等待所有先前
+\co{call_rcu_tasks()}调用对应的callback完成。
+没有\co{synchronize_rcu_tasks_expedited()}，因为
+尚未有此需求，不过实现一个有用的变体也并非
+没有挑战。
 
 \QuickQuiz{
-	In a kernel built with \co{CONFIG_PREEMPT_NONE=y}, won't
-	\co{synchronize_rcu()} wait for all trampolines, given
-	that preemption is disabled and that trampolines never
-	directly or indirectly invoke \co{schedule()}?
+	在使用\co{CONFIG_PREEMPT_NONE=y}构建的内核中，
+	\co{synchronize_rcu()}不是会等待所有蹦床完成吗？
+	毕竟抢占被禁用了，而蹦床从不直接或间接
+	调用\co{schedule()}。
 }\QuickQuizAnswer{
-	You are quite right!
+	你说得对！
 
-	In fact, in nonpreemptible kernels, \co{synchronize_rcu_tasks()}
-	is a wrapper around \co{synchronize_rcu()}.
-	But note that kernels with runtime-settable preemption
-	(\co{CONFIG_PREEMPT_DYNAMIC=y}) or with lazy preemption enabled
-	(\co{CONFIG_PREEMPT_LAZY=y}) are in fact preemptible.
+	实际上，在不可抢占内核中，\co{synchronize_rcu_tasks()}
+	是\co{synchronize_rcu()}的包装器。
+	但请注意，具有运行时可设置抢占
+	（\co{CONFIG_PREEMPT_DYNAMIC=y}）或启用了惰性抢占
+	（\co{CONFIG_PREEMPT_LAZY=y}）的内核实际上是可抢占的。
 }\QuickQuizEnd
 
-The ``Tasks RCU Rude'' column provides a more effective variant
-of the toy implementation presented in
-\cref{sec:defer:Toy Implementation}.
-This variant causes each CPU to execute a context switch,
-so that any voluntary context switch or any preemptible region of
-code can serve as a quiescent state.
-The Tasks RCU Rude variant uses the Linux-kernel workqueues facility to
-force concurrent context switches, in contrast to the serial
-CPU-by-CPU approach taken by the toy implementation.
-The API mirrors that of Tasks RCU, including the lack of explicit
-read-side markers.
+``Tasks RCU Rude''列提供了
+\cref{sec:defer:Toy Implementation}中展示的
+玩具实现的更有效变体。
+此变体使每个CPU执行一次上下文切换，
+这样任何自愿上下文切换或任何可抢占的代码区域
+都可以充当quiescent state。
+Tasks RCU Rude变体使用Linux内核的workqueue设施来
+强制并发上下文切换，与玩具实现采取的
+串行逐CPU方法形成对比。
+其API与Tasks RCU类似，包括缺少显式的读侧标记。
 
-Finally, the ``Tasks RCU Trace'' column provides an RCU implementation
-with functionality similar to that of SRCU, except with much faster
-read-side markers.\footnote{
-	And thus is unusual for the Tasks RCU family due to having
-	explicit read-side markers!}
-However, this speed is a consequence of the fact that these markers
-do not execute memory-barrier instructions, which means that Tasks
-RCU Trace grace periods must often send IPIs to all, thus degrading
-real-time response.
-Nevertheless, in the absence of readers, the resulting grace-period
-latency is reasonably short, rivaling that of RCU\@.
+最后，``Tasks RCU Trace''列提供了一个
+功能类似于SRCU的RCU实现，但具有快得多的
+读侧标记。\footnote{
+	因此在Tasks RCU家族中是不寻常的，因为它有
+	显式的读侧标记！}
+然而，这种速度是因为这些标记不执行内存屏障指令，
+这意味着Tasks RCU Trace grace period通常必须向
+所有CPU发送IPI，从而降低实时响应。
+尽管如此，在没有读者的情况下，由此产生的
+grace period延迟相当短，可与RCU相媲美。
 
-\subsubsection{RCU has Publish-Subscribe and Version-Maintenance APIs}
+\subsubsection{RCU拥有发布-订阅和版本维护API}
 \label{sec:defer:RCU has Publish-Subscribe and Version-Maintenance APIs}
 
-Fortunately, the RCU publish-subscribe and version-maintenance
-primitives shown in
-\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}
-apply to all of the variants of RCU discussed above.
-This commonality can allow more code to be shared, and reduces API
-proliferation.
-The original purpose of the RCU publish-subscribe APIs was to
-bury memory barriers into these APIs, so that Linux kernel
-programmers could use RCU without needing to become expert on
-the memory-ordering models of each of the 20+ CPU families
-that Linux supports~\cite{Spraul01}.
+幸运的是，\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}
+中所示的RCU发布-订阅和版本维护原语
+适用于上面讨论的所有RCU变体。
+这种共性允许更多代码被共享，并减少API的增殖。
+RCU发布-订阅API的最初目的是将内存屏障
+嵌入这些API中，使Linux内核程序员可以使用RCU
+而无需成为Linux支持的20多种CPU系列中每一种的
+内存排序模型的专家~\cite{Spraul01}。
 
 \begin{table*}
 \renewcommand*{\arraystretch}{1.15}
@@ -826,129 +780,127 @@ that Linux supports~\cite{Spraul01}.
 \ebresizewidth{
 \begin{tabular}{llp{2.2in}}
 \toprule
-Category &
-	Primitives &
-		Overhead \\
+类别 &
+	原语 &
+		开销 \\
 \midrule
-Pointer publish &
+指针发布 &
 	\tco{rcu_assign_pointer()} &
-		Memory barrier \\
+		内存屏障 \\
 &
 	\tco{rcu_replace_pointer()} &
-		Memory barrier (two of them on Alpha) \\
+		内存屏障（Alpha上两个） \\
 &
 	\tco{rcu_pointer_handoff()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{unrcu_pointer()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{RCU_INIT_POINTER()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{RCU_POINTER_INITIALIZER()} &
-		Compile-time constant \\
+		编译时常量 \\
 \midrule
-Pointer subscribe (traversal) &
+指针订阅（遍历） &
 	\tco{rcu_access_pointer()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{rcu_dereference()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_check()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_bh()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_bh_check()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_sched()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_sched_check()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_protected()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{rcu_dereference_raw()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 &
 	\tco{rcu_dereference_raw_check()} &
-		Simple instructions (memory barrier on Alpha) \\
+		简单指令（Alpha上为内存屏障） \\
 \midrule
-SRCU pointer subscribe (traversal) &
+SRCU指针订阅（遍历） &
 	\tco{srcu_dereference()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{srcu_dereference_check()} &
-		Simple instructions \\
+		简单指令 \\
 &
 	\tco{srcu_dereference_notrace()} &
-		Simple instructions \\
+		简单指令 \\
 \bottomrule
 \end{tabular}
 }
-\caption{RCU Publish-Subscribe and Version Maintenance APIs}
+\caption{RCU发布-订阅和版本维护API}
 \label{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}
 \end{table*}
 
-These primitives operate directly on pointers, and are useful for
-creating RCU-protected linked data structures, such as RCU-protected
-arrays and trees.
-The special case of linked lists is handled by a separate set of
-APIs described in
-\cref{sec:defer:RCU has List-Processing APIs}.
+这些原语直接操作指针，对于创建受RCU保护的
+链式数据结构（如受RCU保护的数组和树）非常有用。
+链表的特殊情况由
+\cref{sec:defer:RCU has List-Processing APIs}
+中描述的一组单独的API处理。
 
-The first category publishes pointers to new data items.
-The \apik{rcu_assign_pointer()} primitive ensures that any
-prior initialization remains ordered before the assignment to the
-pointer on weakly ordered machines.
-The \apik{rcu_replace_pointer()} primitive updates the pointer just like
-\co{rcu_assign_pointer()} does, but also returns the previous value,
-just like \co{rcu_dereference_protected()} (see below) would, including
-the lockdep expression.
-This replacement is convenient when the updater must both publish a new
-pointer and free the structure referenced by the old pointer.
+第一类发布指向新数据项的指针。
+\apik{rcu_assign_pointer()}原语确保在弱序机器上，
+任何先前的初始化保持排在指针赋值之前。
+\apik{rcu_replace_pointer()}原语像\co{rcu_assign_pointer()}
+一样更新指针，但也像\co{rcu_dereference_protected()}
+（见下文）那样返回先前的值，包括lockdep表达式。
+当更新者必须同时发布新指针并释放旧指针引用的结构时，
+这种替换非常方便。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Normally, any pointer subject to \co{rcu_dereference()} \emph{must}
-	always be updated using one of the pointer-publish functions in
-	\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs},
-	for example, \co{rcu_assign_pointer()}.
+	通常，任何受\co{rcu_dereference()}保护的指针
+	\emph{必须}始终使用
+	\cref{tab:defer:RCU Publish-Subscribe and Version Maintenance APIs}
+	中的指针发布函数来更新，
+	例如\co{rcu_assign_pointer()}。
 
-	What is an exception to this rule?
+	有没有例外？
 }\QuickQuizAnswerB{
-	One such exception is when a multi-element linked
-	data structure is initialized as a unit while inaccessible to other
-	CPUs, and then a single \co{rcu_assign_pointer()} is used
-	to plant a global pointer to this data structure.
-	The initialization-time pointer assignments need not use
-	\co{rcu_assign_pointer()}, though any such assignments that
-	happen after the structure is globally visible \emph{must} use
-	\co{rcu_assign_pointer()}.
+	一个例外是：当多元素链式数据结构
+	在其他CPU不可访问时作为一个整体初始化，
+	然后用单个\co{rcu_assign_pointer()}
+	设置一个指向此数据结构的全局指针。
+	初始化时的指针赋值不需要使用
+	\co{rcu_assign_pointer()}，
+	尽管在结构全局可见后发生的任何赋值
+	\emph{必须}使用\co{rcu_assign_pointer()}。
 
-	However, unless this initialization code is on an impressively hot
-	code-path, it is probably wise to use \co{rcu_assign_pointer()}
-	anyway, even though it is in theory unnecessary.
-	It is all too easy for a ``minor'' change to invalidate your cherished
-	assumptions about the initialization happening privately.
+	然而，除非此初始化代码处于非常热的代码路径上，
+	即使理论上不必要，使用\co{rcu_assign_pointer()}
+	可能也是明智的。
+	一个"小"变更使你珍视的关于初始化
+	私下进行的假设失效太容易了。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Are there any downsides to the fact that these traversal and update
-	primitives can be used with any of the RCU API family members?
+	这些遍历和更新原语可以与任何RCU API系列成员
+	一起使用，这有什么缺点吗？
 }\QuickQuizAnswerE{
-	It can sometimes be difficult for automated
-	code checkers such as ``sparse'' (or indeed for human beings) to
-	work out which type of RCU read-side critical section a given
-	RCU traversal primitive corresponds to.
-	For example, consider the code shown in
-	\cref{lst:defer:Diverse RCU Read-Side Nesting}.
+	有时自动化代码检查器如``sparse''
+	（或者实际上人类也是如此）
+	很难确定给定的RCU遍历原语对应于
+	哪种类型的RCU read-side critical section。
+	例如，考虑\cref{lst:defer:Diverse RCU Read-Side Nesting}
+	中所示的代码。
 
 \begin{listing}
 \begin{VerbatimL}
@@ -961,206 +913,199 @@ p = rcu_dereference(global_pointer);
 preempt_enable();
 rcu_read_unlock();
 \end{VerbatimL}
-\caption{Diverse RCU Read-Side Nesting}
+\caption{多样化的RCU读侧嵌套}
 \label{lst:defer:Diverse RCU Read-Side Nesting}
 \end{listing}
 
-	Is the \co{rcu_dereference()} primitive in a vanilla RCU critical
-	section or an RCU Sched critical section?
-	What would you have to do to figure this out?
+	\co{rcu_dereference()}原语是在普通的RCU
+	临界区中还是在RCU Sched临界区中？
+	你需要做什么才能弄清楚？
 
-	But perhaps after the consolidation of the RCU flavors in
-	the v4.20 Linux kernel we no longer need to care!
+	但也许在v4.20 Linux内核中合并RCU风格之后，
+	我们不再需要关心了！
 }\QuickQuizEndE
 }
 
-The \apik{rcu_pointer_handoff()} primitive simply returns its sole argument,
-but is useful to tooling checking for pointers being leaked from
-RCU read-side critical sections.
-Use of \co{rcu_pointer_handoff()} indicates to such tooling that protection
-of the structure in question has been handed off from RCU to some other
-mechanism, such as locking or reference counting.
+\apik{rcu_pointer_handoff()}原语简单地返回其唯一参数，
+但对于检查从RCU read-side critical section泄漏指针的
+工具很有用。
+使用\co{rcu_pointer_handoff()}向此类工具表明，
+所讨论结构的保护已从RCU移交给某种其他机制，
+如加锁或引用计数。
 
-The \apik{RCU_INIT_POINTER()} macro can be used to initialize RCU-protected
-pointers that have not yet been exposed to readers, or alternatively,
-to set RCU-protected pointers to \co{NULL}.
-In these restricted cases, the memory-barrier instructions provided by
-\co{rcu_assign_pointer()} are not needed.
-Similarly, \apik{RCU_POINTER_INITIALIZER()} provides a \GCC-style
-structure initializer to allow easy initialization of RCU-protected
-pointers in structures.
+\apik{RCU_INIT_POINTER()}宏可用于初始化
+尚未暴露给读者的受RCU保护的指针，
+或者将受RCU保护的指针设为\co{NULL}。
+在这些受限的情况下，不需要\co{rcu_assign_pointer()}
+提供的内存屏障指令。
+类似地，\apik{RCU_POINTER_INITIALIZER()}提供了一个
+\GCC 风格的结构初始化器，以便于在结构中
+初始化受RCU保护的指针。
 
-The second category subscribes to pointers to data items, or,
-alternatively, safely traverses RCU-protected pointers.
-Again, simply loading these pointers using C-language accesses
-could result in seeing pre-initialization garbage in the pointed-to data.
-Similarly, loading these pointer by any means outside of an RCU
-read-side critical section could result in the pointed-to object being
-freed at any time.
-However, if the pointer is merely to be tested and not dereferenced,
-the freeing of the pointed-to object is not necessarily a problem.
-In this case, \apik{rcu_access_pointer()} may be used.
-Normally, however, RCU read-side protection is required, and so the
-\apik{rcu_dereference()} primitive uses the Linux kernel's \co{lockdep}
-facility~\cite{JonathanCorbet2006lockdep} to verify that this
-\co{rcu_dereference()} invocation is under the protection of
-\co{rcu_read_lock()}, \co{srcu_read_lock()}, or some other RCU read-side
-marker.
-In contrast, the \co{rcu_access_pointer()} primitive does not involve
-\co{lockdep}, and thus will not provoke \co{lockdep} complaints when
-used outside of an RCU read-side critical section.
+第二类订阅指向数据项的指针，或者说
+安全地遍历受RCU保护的指针。
+同样，简单地使用C语言访问加载这些指针
+可能导致看到被指向数据中的初始化前垃圾。
+类似地，在RCU read-side critical section之外
+以任何方式加载这些指针都可能导致被指向的对象
+随时被释放。
+然而，如果指针仅用于测试而不进行解引用，
+被指向对象的释放不一定是问题。
+在这种情况下，可以使用\apik{rcu_access_pointer()}。
+但通常需要RCU读侧保护，因此
+\apik{rcu_dereference()}原语使用Linux内核的\co{lockdep}
+设施~\cite{JonathanCorbet2006lockdep}来验证此
+\co{rcu_dereference()}调用受到
+\co{rcu_read_lock()}、\co{srcu_read_lock()}或其他RCU读侧
+标记的保护。
+相比之下，\co{rcu_access_pointer()}原语不涉及
+\co{lockdep}，因此在RCU read-side critical section
+之外使用时不会引发\co{lockdep}警告。
 
-Another situation where protection is not required is when update-side code
-accesses the RCU-protected pointer while holding the update-side lock.
-The \apik{rcu_dereference_protected()} API member is provided for this
-situation.
-Its first parameter is the RCU-protected pointer, and the second
-parameter takes a lockdep expression describing which locks must be
-held in order for the access to be safe.
-Code invoked both from readers and updaters can use
-\apik{rcu_dereference_check()}, which also takes a lockdep expression, but
-which may also be invoked from read-side code not holding the locks.
-In some cases, the lockdep expressions can be very complex, for example,
-when using fine-grained locking, any of a very large number of locks
-might be held, and it might be quite difficult to work out which applies.
-In these (hopefully rare) cases, \apik{rcu_dereference_raw()} provides
-protection but does not check for being invoked within a reader or with
-any particular lock being held.
-The \apik{rcu_dereference_raw_notrace()} API member acts similarly, but
-cannot be traced, and may therefore be safely used by tracing code.
+另一种不需要保护的情况是更新侧代码
+在持有更新侧锁的同时访问受RCU保护的指针。
+\apik{rcu_dereference_protected()} API成员就是为此情况
+提供的。其第一个参数是受RCU保护的指针，
+第二个参数接受一个lockdep表达式，
+描述必须持有哪些锁才能使访问安全。
+从读者和更新者都调用的代码可以使用
+\apik{rcu_dereference_check()}，它也接受lockdep表达式，
+但也可以从不持有锁的读侧代码中调用。
+在某些情况下，lockdep表达式可能非常复杂，
+例如，使用细粒度加锁时，
+大量锁中的任何一个都可能被持有，
+要确定哪个适用可能相当困难。
+在这些（希望罕见的）情况下，\apik{rcu_dereference_raw()}
+提供保护但不检查是否在读者内调用或持有任何特定的锁。
+\apik{rcu_dereference_raw_notrace()} API成员行为类似，
+但不可被追踪，因此可以安全地被追踪代码使用。
 
-Although pretty much any linked structure can be accessed by manipulating
-pointers, higher-level structures can be quite helpful.
-The next section therefore looks at various sorts of RCU-protected
-linked lists used by the Linux kernel.
+虽然几乎任何链式结构都可以通过操作指针来访问，
+但更高层的结构可以非常有帮助。
+因此下一节查看Linux内核使用的各种
+受RCU保护的链表。
 
-\subsubsection{RCU has List-Processing APIs}
+\subsubsection{RCU拥有链表处理API}
 \label{sec:defer:RCU has List-Processing APIs}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/Linux_list}}
-\caption{Linux Circular Linked List (\tco{list})}
+\caption{Linux环形双向链表（\tco{list}）}
 \label{fig:defer:Linux Circular Linked List (list)}
 \end{figure}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/Linux_list_abbr}}
-\caption{Linux Linked List Abbreviated}
+\caption{Linux链表简略图}
 \label{fig:defer:Linux Linked List Abbreviated}
 \end{figure}
 
-Although \co{rcu_assign_pointer()} and
-\co{rcu_dereference()} can in theory be used to construct any
-conceivable RCU-protected data structure, in practice it is often better
-to use higher-level constructs.
-Therefore, the \co{rcu_assign_pointer()} and
-\co{rcu_dereference()}
-primitives have been embedded in special RCU variants of Linux's
-list-manipulation API\@.
-Linux has four variants of doubly linked list, the circular
-\co{struct list_head} and the linear
-\co{struct hlist_head}/\co{struct hlist_node},
-\co{struct hlist_nulls_head}/\co{struct hlist_nulls_node}, and
+虽然\co{rcu_assign_pointer()}和\co{rcu_dereference()}
+理论上可以用于构建任何可以想象的受RCU保护的数据结构，
+但在实践中使用更高层的构造通常更好。
+因此，\co{rcu_assign_pointer()}和\co{rcu_dereference()}
+原语已被嵌入Linux链表操作API的特殊RCU变体中。
+Linux有四种双向链表变体：环形的
+\co{struct list_head}和线性的
+\co{struct hlist_head}/\co{struct hlist_node}、
+\co{struct hlist_nulls_head}/\co{struct hlist_nulls_node}和
 \co{struct hlist_bl_head}/\co{struct hlist_bl_node}
-pairs.
-The former is laid out as shown in
-\cref{fig:defer:Linux Circular Linked List (list)},
-where the green (leftmost) boxes represent the list header and the blue
-(rightmost three) boxes represent the elements in the list.
-This notation is cumbersome, and will therefore be abbreviated as shown in
-\cref{fig:defer:Linux Linked List Abbreviated},
-which shows only the non-header (blue) elements.
+对。
+前者的布局如
+\cref{fig:defer:Linux Circular Linked List (list)}所示，
+其中绿色（最左边）方框代表链表头，
+蓝色（右边三个）方框代表链表中的元素。
+这种表示法很繁琐，因此将如
+\cref{fig:defer:Linux Linked List Abbreviated}所示简化，
+只显示非头部的（蓝色）元素。
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/Linux_hlist}}
-\caption{Linux Linear Linked List (\tco{hlist})}
+\caption{Linux线性链表（\tco{hlist}）}
 \label{fig:defer:Linux Linear Linked List (hlist)}
 \end{figure}
 
-Linux's \co{hlist}\footnote{
-	The ``h'' stands for hashtable, in which it reduces memory
-	use by half compared to Linux's double-pointer circular
-	linked list.}
-is a linear list, which means that
-it needs only one pointer for the header rather than the two
-required for the circular list, as shown in
-\cref{fig:defer:Linux Linear Linked List (hlist)}.
-Thus, use of \co{hlist} can halve the memory consumption for the hash-bucket
-arrays of large hash tables.
-As before, this notation is cumbersome, so \co{hlist} structures will
-be abbreviated in the same way \co{list_head}-style lists are, as shown in
-\cref{fig:defer:Linux Linked List Abbreviated}.
+Linux的\co{hlist}\footnote{
+	``h''代表哈希表，与Linux的双指针环形链表
+	相比，它将内存使用减半。}
+是线性链表，这意味着头部只需一个指针，
+而不是环形链表所需的两个，如
+\cref{fig:defer:Linux Linear Linked List (hlist)}所示。
+因此，使用\co{hlist}可以将大型哈希表的
+哈希桶数组的内存消耗减半。
+与前面一样，这种表示法很繁琐，
+所以\co{hlist}结构将以与\co{list_head}风格链表
+相同的方式简化，如
+\cref{fig:defer:Linux Linked List Abbreviated}所示。
 
-A variant of Linux's \co{hlist}, named \co{hlist_nulls}, provides multiple
-distinct \co{NULL} pointers, but otherwise uses the same layout as shown in
-\cref{fig:defer:Linux Linear Linked List (hlist)}.
-In this variant, a \co{->next} pointer having a zero low-order bit is
-considered to be a pointer.
-However, if the low-order bit is set to one, the upper bits identify
-the type of \co{NULL} pointer.
-This type of list is used to allow lockless readers to detect when a
-node has been moved from one list to another.
-For example, each bucket of a hash table might use its index to mark
-its \co{NULL} pointer.
-Should a reader encounter a \co{NULL} pointer not matching the index of
-the bucket it started from, that reader knows that an element it was
-traversing was moved to some other bucket during the traversal, taking
-that reader with it.
-The reader can use the \apik{is_a_nulls()} function (which returns \co{true}
-if passed an \co{hlist_nulls} \co{NULL} pointer) to determine when
-it reaches the end of a list, and the \apik{get_nulls_value()} function
-(which returns its argument's \co{NULL}-pointer identifier) to fetch
-the type of \co{NULL} pointer.
-When \co{get_nulls_value()} returns an unexpected value, the reader
-can take corrective action, for example, restarting its traversal from
-the beginning.
+Linux的\co{hlist}的一个变体名为\co{hlist_nulls}，
+提供多个不同的\co{NULL}指针，
+但使用与\cref{fig:defer:Linux Linear Linked List (hlist)}
+相同的布局。
+在此变体中，低位为零的\co{->next}指针
+被认为是一个指针。
+然而，如果低位被设为一，则高位标识
+\co{NULL}指针的类型。
+此类型的链表用于允许无锁读者检测
+节点何时从一个链表移动到另一个链表。
+例如，哈希表的每个桶可以使用其索引来标记
+其\co{NULL}指针。
+如果读者遇到与其起始桶索引不匹配的\co{NULL}指针，
+该读者就知道它正在遍历的元素在遍历期间
+被移动到了其他桶，带着该读者一起。
+读者可以使用\apik{is_a_nulls()}函数（当传入
+\co{hlist_nulls}的\co{NULL}指针时返回\co{true}）
+来确定何时到达链表末尾，
+使用\apik{get_nulls_value()}函数
+（返回其参数的\co{NULL}指针标识符）
+来获取\co{NULL}指针的类型。
+当\co{get_nulls_value()}返回意外值时，
+读者可以采取纠正措施，例如从头重新开始遍历。
 
 \QuickQuiz{
-	But what if an \co{hlist_nulls} reader gets moved to some other
-	bucket and then back again?
+	但如果一个\co{hlist_nulls}读者被移到某个其他桶
+	然后又移回来了呢？
 }\QuickQuizAnswer{
-	One way to handle this is to always move nodes to the beginning
-	of the destination bucket, ensuring that when the reader reaches
-	the end of the list having a matching \co{NULL} pointer, it will
-	have searched the entire list.
+	一种处理方式是始终将节点移动到目标桶的开头，
+	确保当读者到达具有匹配\co{NULL}指针的链表末尾时，
+	它已经搜索了整个链表。
 
-	Of course, if there are too many move operations in a hash table
-	with many elements per bucket, the reader might never reach the
-	end of a list.
-	One way of avoiding this in the common case is to keep hash
-	tables well-tuned, thus with short lists.
-	One way of detecting the problem and handling it is for the
-	reader to terminate the search after traversing some large
-	number of nodes, acquire the update-side lock, and redo the
-	search, but this might introduce deadlocks.
-	Another way of avoiding the problem entirely is for readers to
-	search within RCU read-side critical sections, and to wait for
-	an RCU grace period between successive updates.
-	An intermediate position might wait for an RCU grace period
-	every $N$ updates, for some suitable value of $N$.
+	当然，如果在具有大量元素的哈希表中
+	移动操作太多，读者可能永远无法到达链表末尾。
+	在常见情况下避免这一问题的一种方法是
+	保持哈希表调优良好，从而保持链表较短。
+	一种检测问题并处理它的方法是让读者在
+	遍历了某个大量节点后终止搜索，
+	获取更新侧锁，然后重做搜索，
+	但这可能引入死锁。
+	另一种完全避免问题的方法是让读者
+	在RCU read-side critical section内搜索，
+	并在连续更新之间等待RCU grace period。
+	一种折中方案是每$N$次更新等待一个RCU grace period，
+	对于某个合适的$N$值。
 }\QuickQuizEnd
 
-More information on \co{hlist_nulls} is available in the Linux-kernel
-source tree, with helpful example code provided in the
-\path{rculist_nulls.rst} file (\path{rculist_nulls.txt} in older kernels).
+关于\co{hlist_nulls}的更多信息可在Linux内核源代码树中
+找到，\path{rculist_nulls.rst}文件
+（旧内核中为\path{rculist_nulls.txt}）中提供了
+有用的示例代码。
 
-Another variant of Linux's \co{hlist} incorporates bit-locking,
-and is named \co{hlist_bl}.
-This variant uses the same layout as shown in
-\cref{fig:defer:Linux Linear Linked List (hlist)},
-but reserves the low-order bit of the head pointer (``first'' in the
-figure) to lock the list.
-This approach also reduces memory usage, as it allows what would otherwise
-be a separate spinlock to be stored with the pointer itself.
+Linux的\co{hlist}的另一个变体结合了位加锁，
+名为\co{hlist_bl}。
+此变体使用与\cref{fig:defer:Linux Linear Linked List (hlist)}
+相同的布局，但保留头指针（图中的``first''）的
+低位来锁定链表。
+这种方法也减少了内存使用，因为它允许
+将本来需要单独的自旋锁存储与指针本身一起。
 
 \begin{sidewaystable*}[htbp]
 \rowcolors{1}{}{lightgray}
 \renewcommand*{\arraystretch}{1.3}
 \centering
-\caption{RCU-Protected List APIs}
+\caption{受RCU保护的链表API}
 \label{tab:defer:RCU-Protected List APIs}
 \footnotesize
 \newlength{\cwa}\newlength{\cwb}\newlength{\cwc}\newlength{\cwd}
@@ -1178,13 +1123,12 @@ be a separate spinlock to be stored with the pointer itself.
     >{\raggedright\arraybackslash}p{\cwc}
     >{\raggedright\arraybackslash}p{\cwd}}
 \toprule
-\pmb{\tco{list}}: Circular doubly linked list &
-    \pmb{\tco{hlist}}: Linear doubly linked list &
-	\pmb{\tco{hlist_nulls}}: Linear doubly linked list with marked
-	NULL pointer, with up to 31~bits of marking &
-	    \pmb{\tco{hlist_bl}}: Linear doubly linked list with bit locking \\
+\pmb{\tco{list}}：环形双向链表 &
+    \pmb{\tco{hlist}}：线性双向链表 &
+	\pmb{\tco{hlist_nulls}}：带标记NULL指针的线性双向链表，最多31位标记 &
+	    \pmb{\tco{hlist_bl}}：带位加锁的线性双向链表 \\
 \midrule
-\multicolumn{4}{l}{{\bf Structures}} \\
+\multicolumn{4}{l}{{\bf 结构}} \\
 \tco{struct list_head} &
     \tco{struct}{\tt ~}\tco{hlist_head} ~~~~~~~~~~~~~~
     \tco{struct}{\tt ~}\tco{hlist_node} &
@@ -1192,12 +1136,12 @@ be a separate spinlock to be stored with the pointer itself.
 	\tco{struct}{\tt ~}\tco{hlist_nulls_node} &
 	    \tco{struct}{\tt ~}\tco{hlist_bl_head}
 	    \tco{struct}{\tt ~}\tco{hlist_bl_node} \\
-\multicolumn{4}{l}{{\bf Initialization}} \\
+\multicolumn{4}{l}{{\bf 初始化}} \\
 \tco{INIT_LIST_HEAD_RCU()} &
     &
 	&
 	    \\
-\multicolumn{4}{l}{{\bf Full traversal}} \\
+\multicolumn{4}{l}{{\bf 完整遍历}} \\
 \tco{list_for_each_entry_rcu()}
 \tco{list_for_each_entry_lockless()}
 \tco{list_for_each_entry_srcu()} &
@@ -1208,7 +1152,7 @@ be a separate spinlock to be stored with the pointer itself.
 	\tco{hlist_nulls_for_each_entry_rcu()}
 	\tco{hlist_nulls_for_each_entry_safe()} &
 	    \tco{hlist_bl_for_each_entry_rcu()} \\
-\multicolumn{4}{l}{{\bf Resume traversal}} \\
+\multicolumn{4}{l}{{\bf 恢复遍历}} \\
 \tco{list_for_each_entry_continue_rcu()}
 \tco{list_for_each_entry_from_rcu()} &
     \tco{hlist_for_each_entry_continue_rcu()}
@@ -1216,7 +1160,7 @@ be a separate spinlock to be stored with the pointer itself.
     \tco{hlist_for_each_entry_from_rcu()} &
 	&
 	    \\
-\multicolumn{4}{l}{{\bf Stepwise traversal}} \\
+\multicolumn{4}{l}{{\bf 逐步遍历}} \\
 \tco{list_entry_rcu()}
 \tco{list_entry_lockless()}
 \tco{list_first_or_null_rcu()}
@@ -1229,7 +1173,7 @@ be a separate spinlock to be stored with the pointer itself.
 	\tco{hlist_nulls_first_rcu()}
 	\tco{hlist_nulls_next_rcu()} &
 	    \tco{hlist_bl_first_rcu()} \\
-\multicolumn{4}{l}{{\bf Add}} \\
+\multicolumn{4}{l}{{\bf 添加}} \\
 \multicolumn{1}{p{1.2in}}{\tco{list_add_rcu()}
 			  \tco{list_add_tail_rcu()}} &
     \tco{hlist_add_before_rcu()}
@@ -1241,19 +1185,19 @@ be a separate spinlock to be stored with the pointer itself.
 	\tco{hlist_nulls_add_fake()} &
 	    \tco{hlist_bl_add_head_rcu()}
 	    \tco{hlist_bl_set_first_rcu()} \\
-\multicolumn{4}{l}{{\bf Delete}} \\
+\multicolumn{4}{l}{{\bf 删除}} \\
 \tco{list_del_rcu()} &
     \multicolumn{1}{p{1.2in}}{\tco{hlist_del_rcu()}
 			      \tco{hlist_del_init_rcu()}} &
 	\tco{hlist_nulls_del_rcu()}
 	\tco{hlist_nulls_del_init_rcu()} &
 	    \tco{hlist_bl_del_rcu()} \\
-\multicolumn{4}{l}{{\bf Replace}} \\
+\multicolumn{4}{l}{{\bf 替换}} \\
 \tco{list_replace_rcu()} &
     \tco{hlist_replace_rcu()} &
 	&
 	    \\
-\multicolumn{4}{l}{{\bf Splice}} \\
+\multicolumn{4}{l}{{\bf 拼接}} \\
 \tco{list_splice_init_rcu()}
 \tco{list_splice_tail_init_rcu()} &
     \tco{hlists_swap_heads_rcu()} &
@@ -1264,23 +1208,24 @@ be a separate spinlock to be stored with the pointer itself.
 }
 \end{sidewaystable*}
 
-The API members for these linked-list variants are summarized in
-\cref{tab:defer:RCU-Protected List APIs}.
-More information is available in the \path{Documentation/RCU}
-directory of the Linux-kernel source tree and at
-Linux Weekly News~\cite{PaulEMcKenney2024RCUAPI}.
+这些链表变体的API成员在
+\cref{tab:defer:RCU-Protected List APIs}中汇总。
+更多信息可在Linux内核源代码树的\path{Documentation/RCU}
+目录和Linux Weekly News~\cite{PaulEMcKenney2024RCUAPI}中找到。
 
-However, the remainder of this section expands on the use of
-\apik{list_replace_rcu()}, given that this API member gave RCU its name.
-This API member is used to carry out more complex updates in which an
-element in the middle of the list having multiple fields is atomically
-updated, so that a given reader sees either the old set of values or
-the new set of values, but not a mixture of the two sets.
-For example, each node of a linked list might have integer fields
-\co{->a}, \co{->b}, and~\co{->c}, and it might be necessary to update
-a given node's fields from 5, 6, and~7 to 5, 2, and~3, respectively.
+然而，本节的其余部分将展开讨论
+\apik{list_replace_rcu()}的使用，因为正是这个API成员
+赋予了RCU其名称。
+此API成员用于执行更复杂的更新，其中链表中间的
+一个具有多个字段的元素被原子地更新，
+使得给定的读者看到的要么是旧的值集合，
+要么是新的值集合，而不是两个集合的混合。
+例如，链表的每个节点可能有整数字段
+\co{->a}、\co{->b}和\co{->c}，
+可能需要将给定节点的字段从5、6、7分别
+更新为5、2、3。
 
-The code implementing this atomic update is straightforward:
+实现此原子更新的代码非常直接：
 
 \begin{fcvlabel}[ln:defer:Canonical RCU Replacement Example (2nd)]
 \begin{VerbatimN}[samepage=true,commandchars=\\\[\],firstnumber=15]
@@ -1301,99 +1246,93 @@ kfree(p);				\lnlbl[kfree]
 }{
 \resizebox{2.7in}{!}{\includegraphics{defer/RCUReplacement}}
 }
-\caption{RCU Replacement in Linked List}
+\caption{链表中的RCU替换}
 \label{fig:defer:RCU Replacement in Linked List}
 \end{figure}
 
-The following discussion walks through this code, using
-\cref{fig:defer:RCU Replacement in Linked List} to illustrate
-the state changes.
-The triples in each element represent the values of fields \co{->a},
-\co{->b}, and~\co{->c}, respectively.
-The red-shaded elements might be referenced by readers,
-and because readers do not synchronize directly with updaters,
-readers might run concurrently with this entire replacement process.
-Please note that backwards pointers and the link from the tail to the
-head are omitted for clarity.
+以下讨论逐步分析此代码，使用
+\cref{fig:defer:RCU Replacement in Linked List}来说明
+状态变化。
+每个元素中的三元组分别代表字段\co{->a}、
+\co{->b}和\co{->c}的值。
+红色底纹的元素可能被读者引用，
+由于读者不直接与更新者同步，
+读者可能在整个替换过程中并发运行。
+请注意，为清晰起见，反向指针和从尾部到头部的
+链接被省略了。
 
-The initial state of the list, including the pointer \co{p},
-is the same as for the deletion example, as shown on the
-first row of the figure.
+链表的初始状态，包括指针\co{p}，
+与删除示例相同，如图的第一行所示。
 
-The following text describes how to replace the \co{5,6,7} element
-with \co{5,2,3} in such a way that any given reader sees one of these
-two values.
+以下文字描述如何以使给定读者
+看到这两个值之一的方式，
+将\co{5,6,7}元素替换为\co{5,2,3}。
 
 \begin{fcvref}[ln:defer:Canonical RCU Replacement Example (2nd)]
-\Clnref{kmalloc} allocates a replacement element,
-resulting in the state as shown in the second row of
-\cref{fig:defer:RCU Replacement in Linked List}.
-At this point, no reader can hold a reference to the newly allocated
-element (as indicated by its green shading), and it is uninitialized
-(as indicated by the question marks).
+\Clnref{kmalloc}分配一个替换元素，
+导致\cref{fig:defer:RCU Replacement in Linked List}
+第二行所示的状态。
+此时，没有读者可以持有对新分配元素的引用
+（如其绿色底纹所示），且该元素未初始化
+（如问号所示）。
 
-\Clnref{copy} copies the old element to the new one, resulting in the
-state as shown in the third row of
-\cref{fig:defer:RCU Replacement in Linked List}.
-The newly allocated element still cannot be referenced by readers, but
-it is now initialized.
+\Clnref{copy}将旧元素复制到新元素，导致
+\cref{fig:defer:RCU Replacement in Linked List}
+第三行所示的状态。
+新分配的元素仍然不能被读者引用，但现在已初始化。
 
-\Clnref{update1} updates \co{q->b} to the value ``2'', and
-\clnref{update2} updates \co{q->c} to the value ``3'',
-as shown on the fourth row of
-\cref{fig:defer:RCU Replacement in Linked List}.
-Note that the newly allocated structure is still inaccessible to readers.
+\Clnref{update1}将\co{q->b}更新为值``2''，
+\clnref{update2}将\co{q->c}更新为值``3''，
+如\cref{fig:defer:RCU Replacement in Linked List}
+第四行所示。
+注意新分配的结构仍然对读者不可访问。
 
-Now, \clnref{replace} does the replacement, so that the new element is
-finally visible to readers, and hence is shaded red, as shown on
-the fifth row of
-\cref{fig:defer:RCU Replacement in Linked List}.
-At this point, as shown below, we have two versions of the list.
-Pre-existing readers might see the \co{5,6,7} element (which is
-therefore now shaded yellow), but
-new readers will instead see the \co{5,2,3} element.
-But any given reader is guaranteed to see one set of values or the
-other, not a mixture of the two.
+现在，\clnref{replace}执行替换，使新元素
+终于对读者可见，因此显示为红色底纹，如
+\cref{fig:defer:RCU Replacement in Linked List}
+第五行所示。
+此时，如下所示，我们有两个版本的链表。
+已有的读者可能看到\co{5,6,7}元素（因此
+现在显示为黄色底纹），但新读者将看到\co{5,2,3}元素。
+但任何给定的读者都保证看到一组值或另一组值，
+而不是两组的混合。
 
-After the \co{synchronize_rcu()} on \clnref{sync_rcu} returns,
-a grace period will have elapsed, and so all reads that started before the
-\apik{list_replace_rcu()} will have completed.
-In particular, any readers that might have been holding references
-to the \co{5,6,7} element are guaranteed to have exited
-their RCU read-side critical sections, and are thus prohibited from
-continuing to hold a reference.
-Therefore, there can no longer be any readers holding references
-to the old element, as indicated by its green shading in the sixth row of
-\cref{fig:defer:RCU Replacement in Linked List}.
-As far as the readers are concerned, we are back to having a single version
-of the list, but with the new element in place of the old.
+在\clnref{sync_rcu}上的\co{synchronize_rcu()}返回后，
+一个grace period将已过去，因此所有在
+\apik{list_replace_rcu()}之前开始的读取都将已完成。
+特别是，任何可能持有对\co{5,6,7}元素引用的读者
+都保证已退出其RCU read-side critical section，
+因此被禁止继续持有引用。
+因此，不再有任何读者持有对旧元素的引用，
+如\cref{fig:defer:RCU Replacement in Linked List}
+第六行中其绿色底纹所示。
+就读者而言，我们回到了链表的单一版本，
+但新元素替换了旧元素。
 
-After the \apik{kfree()} on \clnref{kfree} completes, the list will
-appear as shown on the final row of
-\cref{fig:defer:RCU Replacement in Linked List}.
+在\clnref{kfree}上的\apik{kfree()}完成后，
+链表将如\cref{fig:defer:RCU Replacement in Linked List}
+最后一行所示。
 \end{fcvref}
 
-Despite the fact that RCU was named after the replacement case,
-the vast majority of RCU usage within the Linux kernel relies on
-the simple independent insertion and deletion, as was shown in
-\cref{fig:defer:Multiple RCU Data-Structure Versions} in
-\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}.
+尽管RCU以替换用例命名，
+Linux内核中绝大多数RCU使用依赖于
+简单的独立插入和删除，如
+\cref{sec:defer:Maintain Multiple Versions of Recently Updated Objects}中
+\cref{fig:defer:Multiple RCU Data-Structure Versions}所示。
 
 \QuickQuiz{
-	Why doesn't
-	\cref{tab:defer:RCU-Protected List APIs}
-	include additional list-initialization APIs such as
-	\co{INIT_HLIST_HEAD()}?
+	为什么\cref{tab:defer:RCU-Protected List APIs}
+	不包含额外的链表初始化API，如\co{INIT_HLIST_HEAD()}？
 }\QuickQuizAnswer{
-	Because this and similar APIs are not specific to RCU, but
-	are also (and sometimes mainly) used for similar lists
-	that are protected by other synchronization mechanisms.
+	因为此API和类似的API不是RCU特有的，
+	而是也（有时主要是）用于由其他同步机制保护的
+	类似链表。
 }\QuickQuizEnd
 
-The next section looks at APIs that assist developers in debugging
-their code that makes use of RCU\@.
+下一节将介绍帮助开发者调试
+其使用RCU的代码的API。
 
-\subsubsection{RCU Has Diagnostic APIs}
+\subsubsection{RCU拥有诊断API}
 \label{sec:defer:RCU Has Diagnostic APIs}
 
 \begin{table}
@@ -1402,26 +1341,26 @@ their code that makes use of RCU\@.
 \centering
 \begin{tabular}{ll}
 \toprule
-Category &
-	Primitives \\
+类别 &
+	原语 \\
 \midrule
-Mark RCU pointer &
+标记RCU指针 &
 	\tco{__rcu} \\
 \midrule
-Debug-object support &
+调试对象支持 &
 	\tco{init_rcu_head()} \\
 &	\tco{destroy_rcu_head()} \\
 &	\tco{init_rcu_head_on_stack()} \\
 &	\tco{destroy_rcu_head_on_stack()} \\
 \midrule
-Stall-warning control &
+停滞警告控制 &
 	\tco{rcu_cpu_stall_reset()} \\
 \midrule
-Callback checking &
+Callback检查 &
 	\tco{rcu_head_init()} \\
 &	\tco{rcu_head_after_call_rcu()} \\
 \midrule
-lockdep support &
+lockdep支持 &
 	\tco{rcu_read_lock_held()} \\
 &	\tco{rcu_read_lock_bh_held()} \\
 &	\tco{rcu_read_lock_sched_held()} \\
@@ -1431,140 +1370,136 @@ lockdep support &
 &	\tco{rcu_sleep_check()} \\
 \bottomrule
 \end{tabular}
-\caption{RCU Diagnostic APIs}
+\caption{RCU诊断API}
 \label{tab:defer:RCU Diagnostic APIs}
 \end{table}
 
 \Cref{tab:defer:RCU Diagnostic APIs}
-shows RCU's diagnostic APIs.
+展示了RCU的诊断API。
 
-The \co{__rcu} tag marks an RCU-protected pointer, for example,
-\qtco{struct foo __rcu *p;}.
-Pointers that might be passed to \co{rcu_dereference()} can be marked,
-but pointers holding values returned from \co{rcu_dereference()}
-should not be.
-Providing these markings on variables, structure fields, function
-parameters, and return values allows the Linux kernel's \co{sparse}
-tool to detect situations where RCU-protected pointers are
-incorrectly accessed using plain C-language loads and stores.
+\co{__rcu}标签标记受RCU保护的指针，例如
+\qtco{struct foo __rcu *p;}。
+可能被传递给\co{rcu_dereference()}的指针可以被标记，
+但持有\co{rcu_dereference()}返回值的指针不应被标记。
+在变量、结构字段、函数参数和返回值上
+提供这些标记，允许Linux内核的\co{sparse}工具
+检测受RCU保护的指针被
+纯C语言加载和存储错误访问的情况。
 
-Debug-object support is automatic for any \apik{rcu_head} structures
-that are part of a structure obtained from the Linux kernel's
-memory allocators, but those building their own special-purpose
-memory allocators can use \apik{init_rcu_head()} and \apik{destroy_rcu_head()}
-at allocation and free time, respectively.
-Those using \co{rcu_head} structures allocated on the function-call
-stack (it happens!\@) may use \apik{init_rcu_head_on_stack()}
-before first use and \apik{destroy_rcu_head_on_stack()} after last use,
-but before returning from the function.
-Debug-object support allows detection of bugs involving passing the
-same \co{rcu_head} structure to \co{call_rcu()} and friends in
-quick succession, which is the \co{call_rcu()} counterpart to the
-infamous double-free class of memory-allocation bugs.
+调试对象支持对于作为从Linux内核内存分配器获得的
+结构一部分的任何\apik{rcu_head}结构是自动的，
+但构建自己的专用内存分配器的人
+可以分别在分配和释放时使用\apik{init_rcu_head()}和
+\apik{destroy_rcu_head()}。
+使用在函数调用栈上分配的\co{rcu_head}结构的人
+（确实有这种情况！）可以在首次使用前使用
+\apik{init_rcu_head_on_stack()}，在最后使用后、
+函数返回前使用\apik{destroy_rcu_head_on_stack()}。
+调试对象支持允许检测将同一\co{rcu_head}结构
+快速连续传递给\co{call_rcu()}及其相关函数的错误，
+这是\co{call_rcu()}对应于著名的双重释放类
+内存分配错误的等价物。
 
-Stall-warning control is provided by \apik{rcu_cpu_stall_reset()}, which
-allows the caller to suppress RCU CPU stall warnings for the remainder
-of the current grace period.
-RCU CPU stall warnings help pinpoint situations where an RCU read-side
-critical section runs for an excessive length of time, and it is useful
-for things like kernel debuggers to be able to suppress them, for example,
-when encountering a breakpoint.
+停滞警告控制由\apik{rcu_cpu_stall_reset()}提供，
+它允许调用者在当前grace period的剩余时间内
+抑制RCU CPU停滞警告。
+RCU CPU停滞警告有助于定位
+RCU read-side critical section运行时间过长的情况，
+内核调试器等可以抑制它们是有用的，
+例如在遇到断点时。
 
-Callback checking is provided by \apik{rcu_head_init()} and
-\apik{rcu_head_after_call_rcu()}.
-The former is invoked on an \co{rcu_head} structure before it is passed
-to \co{call_rcu()}, and then \co{rcu_head_after_call_rcu()} will
-check to see if the callback has been invoked with the specified
-function.
+Callback检查由\apik{rcu_head_init()}和
+\apik{rcu_head_after_call_rcu()}提供。
+前者在将\co{rcu_head}结构传递给\co{call_rcu()}之前
+对其调用，然后\co{rcu_head_after_call_rcu()}将
+检查callback是否已用指定函数调用。
 
-Support for lockdep~\cite{JonathanCorbet2006lockdep} includes
-\apik{rcu_read_lock_held()},
-\apik{rcu_read_lock_bh_held()},
-\apik{rcu_read_lock_sched_held()}, and
-\apik{srcu_read_lock_held()},
-each of which returns \co{true} if invoked within the corresponding
-type of RCU read-side critical section.
+对lockdep~\cite{JonathanCorbet2006lockdep}的支持包括
+\apik{rcu_read_lock_held()}、
+\apik{rcu_read_lock_bh_held()}、
+\apik{rcu_read_lock_sched_held()}和
+\apik{srcu_read_lock_held()}，
+每个在相应类型的RCU read-side critical section内
+调用时返回\co{true}。
 
 \QuickQuiz{
-	Why isn't there a \co{rcu_read_lock_tasks_held()} for Tasks RCU?
+	为什么没有用于Tasks RCU的\co{rcu_read_lock_tasks_held()}？
 }\QuickQuizAnswer{
-	Because Tasks RCU does not have read-side markers.
-	Instead, Tasks RCU read-side critical sections are
-	bounded by voluntary context switches.
+	因为Tasks RCU没有读侧标记。
+	相反，Tasks RCU的read-side critical section
+	由自愿上下文切换界定。
 }\QuickQuizEnd
 
-Because \co{rcu_read_lock()} cannot be used from the idle loop,
-and because energy-efficiency concerns have caused the idle loop
-to become quite ornate, \apik{rcu_is_watching()} returns \co{true} if
-invoked in a context where use of \co{rcu_read_lock()} is legal.
-Note again that \co{srcu_read_lock()} may be used from idle and
-even offline CPUs, which means that \co{rcu_is_watching()} does not
-apply to SRCU\@.
+因为\co{rcu_read_lock()}不能在空闲循环中使用，
+且能效考虑已导致空闲循环变得相当复杂，
+\apik{rcu_is_watching()}在可以合法使用\co{rcu_read_lock()}
+的上下文中返回\co{true}。
+再次注意\co{srcu_read_lock()}可以在空闲甚至
+离线的CPU上使用，这意味着\co{rcu_is_watching()}
+不适用于SRCU。
 
-\apik{RCU_LOCKDEP_WARN()} emits a warning if lockdep is enabled and if
-its argument evaluates to \co{true}.
-For example, \co{RCU_LOCKDEP_WARN(!rcu_read_lock_held())} would emit a
-warning if invoked outside of an RCU read-side critical section.
+\apik{RCU_LOCKDEP_WARN()}在lockdep启用且
+其参数求值为\co{true}时发出警告。
+例如，\co{RCU_LOCKDEP_WARN(!rcu_read_lock_held())}
+在RCU read-side critical section之外调用时会发出警告。
 
-\apik{RCU_NONIDLE()} may be used to force RCU to watch when executing
-the statement that is passed in as the sole argument.
-For example, \co{RCU_NONIDLE(WARN_ON(!rcu_is_watching()))}
-would never emit a warning.
-However, changes in the 2020--2021 timeframe extend RCU's reach deeper
-into the idle loop, which should greatly reduce or even eliminate the
-need for \co{RCU_NONIDLE()}.
+\apik{RCU_NONIDLE()}可用于强制RCU在执行
+作为唯一参数传入的语句时保持监视。
+例如，\co{RCU_NONIDLE(WARN_ON(!rcu_is_watching()))}
+永远不会发出警告。
+然而，2020--2021年期间的变更将RCU的覆盖范围
+扩展到空闲循环的更深处，这应该大大减少甚至
+消除对\co{RCU_NONIDLE()}的需要。
 
-Finally,  \apik{rcu_sleep_check()} emits a warning if invoked within
-an RCU, RCU-bh, or RCU-sched read-side critical section.
+最后，\apik{rcu_sleep_check()}在RCU、RCU-bh或
+RCU-sched read-side critical section内调用时发出警告。
 
-\subsubsection{Where Can RCU's APIs Be Used?}
+\subsubsection{RCU的API可以在哪里使用？}
 \label{sec:defer:Where Can RCU's APIs Be Used?}
 
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{defer/RCUenvAPI}}
-\caption{RCU API Usage Constraints}
+\caption{RCU API使用约束}
 \label{fig:defer:RCU API Usage Constraints}
 \end{figure}
 
 \Cref{fig:defer:RCU API Usage Constraints}
-shows which APIs may be used in which in-kernel environments.
-The RCU read-side primitives may be used in any environment, including NMI,
-the RCU mutation and asynchronous grace-period primitives may be used in any
-environment other than NMI, and, finally, the RCU synchronous grace-period
-primitives may be used only in process context.
-The RCU list-traversal primitives include \apik{list_for_each_entry_rcu()},
-\apik{hlist_for_each_entry_rcu()}, etc.
-Similarly, the RCU list-mutation primitives include
-\apik{list_add_rcu()}, \apik{hlist_del_rcu()}, etc.
+展示了哪些API可以在哪些内核内环境中使用。
+RCU读侧原语可以在任何环境中使用，包括NMI；
+RCU变更和异步grace period原语可以在
+NMI之外的任何环境中使用；
+最后，RCU同步grace period原语只能在进程上下文中使用。
+RCU链表遍历原语包括\apik{list_for_each_entry_rcu()}、
+\apik{hlist_for_each_entry_rcu()}等。
+类似地，RCU链表变更原语包括
+\apik{list_add_rcu()}、\apik{hlist_del_rcu()}等。
 
-Note that as a general rule, primitives from other families of RCU
-may be substituted, although \co{srcu_read_lock_nmisafe()} but not
-\co{srcu_read_lock()} may be used in NMI context.
+请注意，作为一般规则，其他RCU系列的原语可以替代使用，
+不过\co{srcu_read_lock_nmisafe()}而非
+\co{srcu_read_lock()}可以在NMI上下文中使用。
 
-\subsubsection{So, What \emph{is} RCU Really?}
+\subsubsection{那么，RCU\emph{到底}是什么？}
 \label{sec:defer:So; What is RCU Really?}
 
-At its core, RCU is nothing more nor less than an API that supports
-publication and subscription for insertions, waiting for all RCU readers
-to complete, and maintenance of multiple versions.
-That said, it is possible to build higher-level constructs
-on top of RCU, including the reader-writer-locking, reference-counting,
-and existence-guarantee constructs listed in
-\cref{sec:defer:RCU Usage}.
-Furthermore, I have no doubt that the Linux community will continue to
-find interesting new uses for RCU,
-just as they do for any of a number of synchronization
-primitives throughout the kernel.
+在其核心，RCU不多不少就是一个支持
+插入的发布和订阅、等待所有RCU读者完成、
+以及维护多个版本的API。
+话虽如此，可以在RCU之上构建更高层的构造，
+包括\cref{sec:defer:RCU Usage}中列出的
+读写锁、引用计数和存在性保证构造。
+此外，我毫不怀疑Linux社区将继续
+发现RCU的有趣新用途，
+正如他们对内核中许多同步原语所做的那样。
 
-Of course, a more-complete view of RCU would also include
-all of the things you can do with these APIs.
+当然，对RCU更完整的理解还应包括
+这些API可以做的所有事情。
 
-However, for many people, a complete view of RCU must include sample
-RCU implementations.
-\Cref{chp:app:``Toy'' RCU Implementations} therefore presents a series
-of ``toy'' RCU implementations of increasing complexity and capability,
-though others might prefer the classic
+然而，对于许多人来说，对RCU的完整理解
+必须包括RCU实现的示例。
+\Cref{chp:app:``Toy'' RCU Implementations}因此展示了一系列
+复杂度和能力递增的"玩具"RCU实现，
+不过有些人可能更喜欢经典的
 ``User-Level Implementations of Read-Copy
-Update''~\cite{MathieuDesnoyers2012URCU}.
-For everyone else, the next section gives an overview of some RCU use cases.
+Update''~\cite{MathieuDesnoyers2012URCU}。
+对于其他所有人，下一节给出了一些RCU用例的概述。

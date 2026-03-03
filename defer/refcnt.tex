@@ -2,282 +2,231 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{Reference Counting}
+\section{引用计数}
 \label{sec:defer:Reference Counting}
 %
-\epigraph{I am never letting you go!}{Unknown}
+\epigraph{我永远不会放你走！}{佚名}
 
 \IXalt{Reference counting}{reference count}
-tracks the number of references to a given object in
-order to prevent that object from being prematurely freed.
-As such, it has a long and honorable history of use dating back to
-at least an early 1960s Weizenbaum
-paper~\cite{Weizenbaum:1963:SLP:367593.367617}.
-Weizenbaum discusses reference counting as if it was already well-known,
-so it likely dates back to the 1950s or even to the 1940s.
-And perhaps even further, given that people repairing large dangerous
-machines have long used a mechanical reference-counting technique
-implemented via padlocks.
-Before entering the machine, each worker locks a padlock onto the
-machine's on/off switch, thus preventing the machine from being powered
-on while that worker is inside.
-Reference counting is thus an excellent time-honored candidate for a
-concurrent implementation of Pre-BSD routing.
+通过跟踪对给定对象的引用数量来防止该对象被过早释放。
+因此，它有着悠久而光荣的使用历史，至少可以追溯到
+1960 年代初 Weizenbaum 的一篇论文~\cite{Weizenbaum:1963:SLP:367593.367617}。
+Weizenbaum 在讨论 reference counting 时把它当作已广为人知的概念，
+因此它可能可以追溯到 1950 年代甚至 1940 年代。
+而且可能更早，因为修理大型危险机器的工人长期以来一直使用
+通过挂锁实现的机械式引用计数技术。
+在进入机器之前，每个工人将一把挂锁锁在机器的开关上，
+从而防止机器在该工人在内部时被通电。
+因此，reference counting 是 Pre-BSD 路由并发实现的优秀且
+历经考验的候选方案。
 
 \begin{listing}
 \input{CodeSamples/defer/route_refcnt@lookup.fcv}
-\caption{Reference-Counted Pre-BSD Routing Table Lookup (BUGGY!!!)}
+\caption{Reference-Counted Pre-BSD 路由表查找（有缺陷！！！）}
 \label{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}
 \end{listing}
 
 \begin{listing}
 \input{CodeSamples/defer/route_refcnt@add_del.fcv}
-\caption{Reference-Counted Pre-BSD Routing Table Add\slash Delete (BUGGY!!!)}
+\caption{Reference-Counted Pre-BSD 路由表添加\slash 删除（有缺陷！！！）}
 \label{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}
 \end{listing}
 
-To that end,
+为此，
 \cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}
-shows data structures and the \co{route_lookup()} function and
+展示了数据结构和 \co{route_lookup()} 函数，
 \cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}
-shows the \co{route_add()} and \co{route_del()} functions
-(all at \path{route_refcnt.c}).
-Since these algorithms are quite similar to the sequential algorithm
-shown in
-\cref{lst:defer:Sequential Pre-BSD Routing Table},
-only the differences will be discussed.
+展示了 \co{route_add()} 和 \co{route_del()} 函数
+（均在 \path{route_refcnt.c} 中）。
+由于这些算法与\cref{lst:defer:Sequential Pre-BSD Routing Table}
+中展示的顺序算法非常相似，因此只讨论差异之处。
 
 \begin{fcvref}[ln:defer:route_refcnt:lookup:entry]
-Starting with
-\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup},
-\clnref{refcnt} adds the actual reference counter,
-\clnref{freed} adds a \co{->re_freed}
-use-after-free check field,
-\clnref{routelock} adds the \co{routelock} that will
-be used to synchronize concurrent updates,
+从\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}开始，
+\clnref{refcnt}添加了实际的引用计数器，
+\clnref{freed}添加了 \co{->re_freed} 释放后使用检查字段，
+\clnref{routelock}添加了用于同步并发更新的 \co{routelock}，
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_refcnt:lookup:re_free]
-and \clnrefrange{b}{e} add \co{re_free()}, which sets
-\co{->re_freed}, enabling \co{route_lookup()} to check for
-use-after-free bugs.
+\clnrefrange{b}{e}添加了 \co{re_free()}，它设置
+\co{->re_freed}，使 \co{route_lookup()} 能够检查
+释放后使用的错误。
 \end{fcvref}
 \begin{fcvref}[ln:defer:route_refcnt:lookup:lookup]
-In \co{route_lookup()} itself,
-\clnrefrange{relprev:b}{relprev:e} release the reference
-count of the prior element and free it if the count becomes zero,
-and \clnrefrange{acq:b}{acq:e} acquire a reference on the new element,
-with \clnref{check_uaf,abort} performing the use-after-free check.
+在 \co{route_lookup()} 本身中，
+\clnrefrange{relprev:b}{relprev:e}释放前一个元素的引用计数，
+如果计数变为零则释放它，
+\clnrefrange{acq:b}{acq:e}获取新元素的引用，
+\clnref{check_uaf,abort}执行释放后使用检查。
 \end{fcvref}
 
 \QuickQuiz{
-	Why bother with a use-after-free check?
+	为什么要费心进行释放后使用检查？
 }\QuickQuizAnswer{
-	To greatly increase the probability of finding bugs.
-	A small torture-test program
-	(\path{routetorture.h}) that allocates and frees only
-	one type of structure can tolerate a surprisingly
-	large amount of use-after-free misbehavior.
-	See \cref{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}
-	on \cpageref{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}
-	and the related discussion in
-	\cref{sec:debugging:Hunting Heisenbugs}
-	starting on
-	\cpageref{sec:debugging:Hunting Heisenbugs}
-	for more on the importance
-	of increasing the probability of finding bugs.
+	为了大大增加发现错误的概率。
+	一个只分配和释放一种类型结构的小型压力测试程序
+	（\path{routetorture.h}）可以容忍数量惊人的
+	释放后使用行为。
+	参见\cref{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}
+	（\cpageref{fig:debugging:Number of Tests Required for 99 Percent Confidence Given Failure Rate}）
+	以及从\cpageref{sec:debugging:Hunting Heisenbugs}开始的
+	\cref{sec:debugging:Hunting Heisenbugs}中的相关讨论，
+	了解更多关于增加错误发现概率的重要性。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:defer:route_refcnt:add_del]
-In \cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete},
-\clnref{acq1,rel1,acq2,rel2,rel3} introduce locking to synchronize
-concurrent updates.
-\Clnref{init:freed} initializes the \co{->re_freed} use-after-free-check field,
-and finally \clnrefrange{re_free:b}{re_free:e} invoke
-\co{re_free()} if the new value of
-the reference count is zero.
+在\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}中，
+\clnref{acq1,rel1,acq2,rel2,rel3}引入了锁来同步并发更新。
+\Clnref{init:freed}初始化 \co{->re_freed} 释放后使用检查字段，
+最后 \clnrefrange{re_free:b}{re_free:e}在引用计数的新值为零时
+调用 \co{re_free()}。
 \end{fcvref}
 
 \QuickQuiz{
-	Why doesn't \co{route_del()} in
-	\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}
-	use reference counts to
-	protect the traversal to the element to be freed?
+	为什么\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}中的
+	\co{route_del()} 不使用引用计数来
+	保护遍历到要释放的元素？
 }\QuickQuizAnswer{
-	Because the traversal is already protected by the lock, so
-	no additional protection is required.
+	因为遍历已经受到锁的保护，
+	所以不需要额外的保护。
 }\QuickQuizEnd
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-refcnt}}
-\caption{Pre-BSD Routing Table Protected by Reference Counting}
+\caption{受 Reference Counting 保护的 Pre-BSD 路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
 \end{figure}
 
 \Cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
-shows the performance and scalability of reference counting on a
-read-only workload with a ten-element list running on an eight-socket
-28-core-per-socket hyperthreaded 2.1\,GHz x86 system with a total of
-448 hardware threads (\path{hps.2019.12.02a/lscpu.hps}).
-The ``ideal'' trace was generated by running the sequential code shown in
-\cref{lst:defer:Sequential Pre-BSD Routing Table},
-which works only because this is a read-only workload.
-The reference-counting performance is abysmal and its scalability even
-more so, with the ``refcnt'' trace indistinguishable from the x-axis.
-This should be no surprise in view of
-\cref{chp:Hardware and its Habits}:
-The reference-count acquisitions and releases have added frequent
-shared-memory writes to an otherwise read-only workload, thus
-incurring severe retribution from the laws of physics.
-As well it should, given that all the wishful thinking in the world
-is not going to increase the speed of light or decrease the size of
-the atoms used in modern digital electronics.
+显示了 reference counting 在只读工作负载下的性能和可扩展性，
+该工作负载使用十元素列表，运行在一个八路28核超线程 2.1\,GHz
+x86 系统上，共有 448 个硬件线程
+（\path{hps.2019.12.02a/lscpu.hps}）。
+``ideal'' 曲线是通过运行\cref{lst:defer:Sequential Pre-BSD Routing Table}
+中展示的顺序代码生成的，这之所以可行是因为这是一个只读工作负载。
+reference counting 的性能极差，其可扩展性更是糟糕，
+``refcnt'' 曲线与 x 轴无法区分。
+鉴于\cref{chp:Hardware and its Habits}的内容，这不足为奇：
+引用计数的获取和释放在原本只读的工作负载中增加了频繁的
+共享内存写操作，从而招致了物理定律的严厉惩罚。
+这完全是理所当然的，因为世界上所有的一厢情愿都不会
+增加光速或减小现代数字电子产品中所用原子的大小。
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Why the break in the ``ideal'' line  at 224 CPUs in
-	\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}?
-	Shouldn't it be a straight line?
+	为什么\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
+	中的``ideal''线在 224 个 CPU 处有一个断裂？
+	它不应该是一条直线吗？
 }\QuickQuizAnswerB{
-	The break is due to hyperthreading.
-	On this particular system, the first hardware thread in each
-	core within a socket have consecutive CPU numbers,
-	followed by the first hardware threads in each core for the
-	other sockets,
-	and finally followed by the second hardware thread in each core
-	on all the sockets.
-	On this particular system, CPU numbers 0--27 are the first
-	hardware threads in each of the 28 cores in the first socket,
-	numbers 28--55 are the first hardware threads in each of the
-	28 cores in the second socket, and so on, so that numbers 196--223
-	are the first hardware threads in each of the 28 cores in
-	the eighth socket.
-	Then CPU numbers 224--251 are the second hardware threads in each 
-	of the 28 cores of the first socket, numbers 252--279 are the
-	second hardware threads in each of the 28 cores of the second
-	socket, and so on until numbers 420--447 are the second hardware
-	threads in each of the 28 cores of the eighth socket.
+	这个断裂是由超线程引起的。
+	在这个特定系统中，每个插座中每个核心的第一个硬件线程
+	有连续的 CPU 编号，
+	接着是其他插座中每个核心的第一个硬件线程，
+	最后是所有插座中每个核心的第二个硬件线程。
+	在这个特定系统中，CPU 编号 0--27 是第一个插座的
+	28 个核心中的第一个硬件线程，
+	编号 28--55 是第二个插座的 28 个核心中的第一个硬件线程，
+	依此类推，编号 196--223 是第八个插座的 28 个核心中的
+	第一个硬件线程。
+	然后 CPU 编号 224--251 是第一个插座的 28 个核心的
+	第二个硬件线程，编号 252--279 是第二个插座的 28 个核心的
+	第二个硬件线程，依此类推，直到编号 420--447 是第八个
+	插座的 28 个核心的第二个硬件线程。
 
-	Why does this matter?
+	这为什么重要？
 
-	Because the two hardware threads of a given core share resources,
-	and this workload seems to allow a single hardware thread to
-	consume more than half of the relevant resources within its core.
-	Therefore, adding the second hardware thread of that core adds
-	less than one might hope.
-	Other workloads might gain greater benefit from each core's
-	second hardware thread, but much depends on the details of both
-	the hardware and the workload.
+	因为给定核心的两个硬件线程共享资源，
+	而这个工作负载似乎允许单个硬件线程消耗其核心中
+	超过一半的相关资源。
+	因此，添加该核心的第二个硬件线程带来的增益比
+	人们所期望的要少。
+	其他工作负载可能从每个核心的第二个硬件线程中获得更大的收益，
+	但这在很大程度上取决于硬件和工作负载的细节。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Shouldn't the refcnt trace in
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
-	be at least a little bit off of the x-axis???
+	中的 refcnt 曲线难道不应该至少稍微偏离 x 轴吗？
 }\QuickQuizAnswerE{
-	Define ``a little bit.''
+	请定义``稍微''。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-refcnt-logscale}}
-\caption{Pre-BSD Routing Table Protected by Reference Counting, Log Scale}
+\caption{受 Reference Counting 保护的 Pre-BSD 路由表，对数刻度}
 \label{fig:defer:Pre-BSD Routing Table Protected by Reference Counting; Log Scale}
 \end{figure}
 
 	\Cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting; Log Scale}
-	shows the same data, but on a log-log plot.
-	As you can see, the refcnt line drops below 5,000 at two CPUs.
-	This means that the refcnt performance at two CPUs is more than
-	one thousand times smaller than the first y-axis tick of
-	$5 \times 10^6$ in
-	\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}.
-	Therefore, the depiction of the performance of reference counting
-	shown in
+	显示了相同的数据，但使用对数-对数图。
+	如你所见，refcnt 曲线在两个 CPU 时降到了 5,000 以下。
+	这意味着两个 CPU 时的 refcnt 性能比
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
-	is all too accurate.
+	中第一个 y 轴刻度 $5 \times 10^6$ 小一千倍以上。
+	因此，\cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
+	中展示的 reference counting 性能描述过于准确了。
 }\QuickQuizEndE
 }
 
-But it gets worse.
+但情况还会更糟。
 
-Running multiple updater threads repeatedly invoking
-\co{route_add()} and \co{route_del()} will quickly encounter the
-\co{abort()} statement on
-\clnrefr{ln:defer:route_refcnt:lookup:lookup:abort} of
-\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup},
-which indicates a use-after-free bug.
-This in turn means that the reference counts are not only profoundly
-degrading scalability and performance, but also failing to provide
-the needed protection.
+多个更新线程反复调用 \co{route_add()} 和 \co{route_del()} 将很快
+遇到\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}
+\clnrefr{ln:defer:route_refcnt:lookup:lookup:abort}上的 \co{abort()} 语句，
+这表明存在释放后使用错误。
+这反过来意味着引用计数不仅严重降低了可扩展性和性能，
+而且未能提供所需的保护。
 
-One sequence of events leading to the use-after-free bug is as follows,
-given the list shown in
-\cref{fig:defer:Pre-BSD Packet Routing List}:
+导致释放后使用错误的一个事件序列如下，
+给定\cref{fig:defer:Pre-BSD Packet Routing List}中所示的列表：
 
 \begin{fcvref}[ln:defer:route_refcnt:lookup]
 \begin{enumerate}
-\item	Thread~A looks up address~42, reaching
-	\clnref{lookup:check_NULL} of
-	\co{route_lookup()} in
-	\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}.
-	In other words, Thread~A has a pointer to the first element,
-	but has not yet acquired a reference to it.
-\item	Thread~B invokes \co{route_del()} in
-	\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}
-	to delete the route entry for address~42.
-	It completes successfully, and because this entry's \co{->re_refcnt}
-	field was equal to the value one, it invokes
-	\co{re_free()} to set the \co{->re_freed} field and to free the entry.
-\item	Thread~A continues execution of \co{route_lookup()}.
-	Its \co{rep} pointer is non-\co{NULL}, but
-	\clnref{lookup:check_uaf} sees that
-	its \co{->re_freed} field is non-zero,
-	so \clnref{lookup:abort} invokes
-	\co{abort()}.
+\item	线程~A 查找地址~42，到达
+	\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}中
+	\co{route_lookup()} 的\clnref{lookup:check_NULL}。
+	换句话说，线程~A 有一个指向第一个元素的指针，
+	但尚未获取对它的引用。
+\item	线程~B 调用\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}
+	中的 \co{route_del()} 来删除地址~42 的路由条目。
+	它成功完成，由于该条目的 \co{->re_refcnt} 字段等于值 1，
+	它调用 \co{re_free()} 来设置 \co{->re_freed} 字段并释放该条目。
+\item	线程~A 继续执行 \co{route_lookup()}。
+	它的 \co{rep} 指针非 \co{NULL}，但
+	\clnref{lookup:check_uaf}发现其 \co{->re_freed} 字段非零，
+	因此\clnref{lookup:abort}调用 \co{abort()}。
 \end{enumerate}
 \end{fcvref}
 
-The problem is that the reference count is located in the object
-to be protected, but that means that there is no protection during
-the instant in time when the reference count itself is being acquired!
-This is the reference-counting counterpart of a locking issue noted
-by Gamsa et al.~\cite{Gamsa99}.
-One could imagine using a global lock or reference count to protect
-the per-route-entry reference-count acquisition, but this would
-result in severe contention issues.
-Although algorithms exist that allow safe reference-count acquisition
-in a concurrent environment~\cite{Valois95a}, they are not only extremely
-complex and error-prone~\cite{MagedMichael95a}, but also provide
-terrible performance and scalability~\cite{ThomasEHart2007a}.
+问题在于引用计数位于要保护的对象中，但这意味着在获取引用计数本身的
+那一瞬间没有保护！
+这是 Gamsa 等人~\cite{Gamsa99}注意到的锁问题的 reference counting 对应物。
+可以想象使用全局锁或引用计数来保护每个路由条目的引用计数获取，
+但这会导致严重的竞争问题。
+虽然存在允许在并发环境中安全获取引用计数的
+算法~\cite{Valois95a}，但它们不仅极其复杂且容易出错~\cite{MagedMichael95a}，
+而且提供的性能和可扩展性也很差~\cite{ThomasEHart2007a}。
 
-In short, concurrency has most definitely reduced the usefulness
-of reference counting!
-Of course, as with other synchronization primitives, reference counts
-also have well-known ease-of-use shortcomings.
-These can result in memory leaks on the one hand or premature
-freeing on the other.
+简而言之，并发确实大大降低了 reference counting 的实用性！
+当然，与其他同步原语一样，引用计数也有众所周知的易用性缺陷。
+这些缺陷一方面可能导致内存泄漏，另一方面可能导致过早释放。
 
-And this is the reference-counting trap that awaits unwary developers of
-concurrent code, noted back on
-\cpageref{sec:defer:Mysteries reference-counting trap}.
+这就是在\cpageref{sec:defer:Mysteries reference-counting trap}中
+提到的等待并发代码粗心开发者的 reference counting 陷阱。
 
 \QuickQuiz{
-	If concurrency has ``most definitely reduced the usefulness
-	of reference counting'', why are there so many reference
-	counters in the Linux kernel?
+	如果并发``确实大大降低了 reference counting 的实用性''，
+	为什么 Linux 内核中有那么多引用计数器？
 }\QuickQuizAnswer{
-	That sentence did say ``reduced the usefulness'', not
-	``eliminated the usefulness'', now didn't it?
+	那句话确实说的是``降低了实用性''，
+	而不是``消除了实用性''，不是吗？
 
-	Please see
-	\cref{sec:together:Refurbish Reference Counting},
-	which discusses some of the techniques that the Linux kernel
-	uses to take advantage of reference counting in a highly
-	concurrent environment.
+	请参见\cref{sec:together:Refurbish Reference Counting}，
+	其中讨论了 Linux 内核在高度并发环境中
+	利用 reference counting 的一些技术。
 }\QuickQuizEnd
 
-It is sometimes helpful to look at a problem in an entirely different
-way in order to successfully solve it.
-To this end, the next section describes what could be thought of as
-an inside-out reference count that provides decent performance and
-scalability.
+有时候以完全不同的方式看待问题有助于成功解决它。
+为此，下一节描述了一种可以被认为是内翻的引用计数，
+它提供了不错的性能和可扩展性。

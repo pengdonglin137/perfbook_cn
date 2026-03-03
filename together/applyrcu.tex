@@ -2,249 +2,226 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{RCU Rescues}
+\section{RCU 救援}
 \label{sec:together:RCU Rescues}
 %
-\epigraph{With great doubts comes great understanding, with little doubts
-	  comes little understanding.}
-	 {Chinese proverb}
+\epigraph{大疑则大悟，小疑则小悟。}
+	 {中国谚语}
 
-This section shows how to apply RCU to some examples discussed earlier
-in this book.
-In some cases, RCU provides simpler code, in other cases better
-performance and scalability, and in still other cases, both.
+本节展示如何将 RCU 应用于本书前面讨论的一些示例。
+在某些情况下，RCU 提供更简洁的代码；
+在另一些情况下提供更好的性能和可扩展性；
+还有些情况下两者兼得。
 
-\subsection{RCU and Per-Thread-Variable-Based Statistical Counters}
+\subsection{RCU 与基于每线程变量的统计计数器}
 \label{sec:together:RCU and Per-Thread-Variable-Based Statistical Counters}
 
 \Cref{sec:count:Per-Thread-Variable-Based Implementation}
-described an implementation of statistical counters that provided
-excellent
-performance, roughly that of simple increment (as in the C \co{++}
-operator), and linear scalability---but only for incrementing
-via \co{inc_count()}.
-Unfortunately, threads needing to read out the value via \co{read_count()}
-were required to acquire a global
-lock, and thus incurred high overhead and suffered poor scalability.
-The code for the lock-based implementation is shown in
-\cref{lst:count:Per-Thread Statistical Counters} on
-\cpageref{lst:count:Per-Thread Statistical Counters}.
+描述了一种统计计数器的实现，它提供了出色的
+性能，大致等同于简单递增（如 C 语言的 \co{++}
+运算符），以及线性可扩展性——但仅限于通过
+\co{inc_count()} 进行递增。
+不幸的是，需要通过 \co{read_count()} 读取值的线程
+必须获取全局锁，因此产生了高开销且可扩展性差。
+基于锁的实现代码如
+\cref{lst:count:Per-Thread Statistical Counters}
+（\cpageref{lst:count:Per-Thread Statistical Counters}）所示。
 
 \QuickQuiz{
-	Why on earth did we need that global lock in the first place?
+	我们到底为什么首先需要那个全局锁？
 }\QuickQuizAnswer{
-	A given thread's \co{__thread} variables vanish when that
-	thread exits.
-	It is therefore necessary to synchronize any operation that
-	accesses other threads' \co{__thread} variables with
-	thread exit.
-	Without such synchronization, accesses to \co{__thread} variable
-	of a just-exited thread will result in segmentation faults.
+	给定线程的 \co{__thread} 变量在该线程退出时消失。
+	因此，需要将访问其他线程 \co{__thread} 变量的任何操作
+	与线程退出同步。
+	如果没有这种同步，访问刚退出线程的 \co{__thread} 变量
+	将导致段错误。
 }\QuickQuizEnd
 
-\subsubsection{Design}
+\subsubsection{设计}
 
-The hope is to use RCU rather than \co{final_mutex} to protect the
-thread traversal in \co{read_count()} in order to obtain excellent
-performance and scalability from \co{read_count()}, rather than just
-from \co{inc_count()}.
-However, we do not want to give up any accuracy in the computed sum.
-In particular, when a given thread exits, we absolutely cannot
-lose the exiting thread's count, nor can we double-count it.
-Such an error could result in inaccuracies equal to the full
-precision of the result, in other words, such an error would
-make the result completely useless.
-And in fact, one of the purposes of \co{final_mutex} is to
-ensure that threads do not come and go in the middle of \co{read_count()}
-execution.
+希望使用 RCU 而非 \co{final_mutex} 来保护
+\co{read_count()} 中的线程遍历，
+以便从 \co{read_count()} 获得出色的
+性能和可扩展性，而不仅仅是从 \co{inc_count()}。
+然而，我们不想在计算的总和中牺牲任何精度。
+特别是，当给定线程退出时，
+我们绝对不能丢失退出线程的计数，
+也不能重复计算它。
+这样的错误可能导致与结果的全精度相等的不准确性，
+换句话说，这样的错误将使结果完全无用。
+事实上，\co{final_mutex} 的目的之一就是
+确保线程不会在 \co{read_count()} 执行过程中进出。
 
-Therefore, if we are to dispense with \co{final_mutex}, we will need
-to come up with some other method for ensuring consistency.
-One approach is to place the total count for all previously exited
-threads and the array of pointers to the per-thread counters into a single
-structure.
-Such a structure, once made available to \co{read_count()}, is
-held constant, ensuring that \co{read_count()} sees consistent data.
+因此，如果我们要省去 \co{final_mutex}，
+就需要想出其他方法来确保一致性。
+一种方法是将所有先前退出线程的总计数
+和指向每线程计数器的指针数组放入单个结构中。
+这样的结构一旦对 \co{read_count()} 可用，
+就保持不变，确保 \co{read_count()} 看到一致的数据。
 
-\subsubsection{Implementation}
+\subsubsection{实现}
 
 \begin{fcvref}[ln:count:count_end_rcu:whole]
-\Clnrefrange{struct:b}{struct:e} of
 \cref{lst:together:RCU and Per-Thread Statistical Counters}
-show the \co{countarray} structure, which contains a
-\co{->total} field for the count from previously exited threads,
-and a \co{counterp[]} array of pointers to the per-thread
-\co{counter} for each currently running thread.
-This structure allows a given execution of \co{read_count()}
-to see a total that is consistent with the indicated set of running
-threads.
+的 \clnrefrange{struct:b}{struct:e}
+展示了 \co{countarray} 结构，它包含一个
+\co{->total} 字段用于先前退出线程的计数，
+以及一个 \co{counterp[]} 指针数组指向每个当前运行线程的
+每线程 \co{counter}。
+此结构允许 \co{read_count()} 的给定执行
+看到与指示的运行线程集一致的总计。
 
 \begin{listing}
 \ebresizeverb{.71}{\input{CodeSamples/count/count_end_rcu@whole.fcv}}
-\caption{RCU and Per-Thread Statistical Counters}
+\caption{RCU 与每线程统计计数器}
 \label{lst:together:RCU and Per-Thread Statistical Counters}
 \end{listing}
 
 \Clnrefrange{perthread:b}{perthread:e}
-contain the definition of the per-thread \co{counter}
-variable, the global pointer \co{countarrayp} referencing
-the current \co{countarray} structure, and
-the \co{final_mutex} spinlock.
+包含每线程 \co{counter} 变量的定义、
+引用当前 \co{countarray} 结构的全局指针 \co{countarrayp}，
+以及 \co{final_mutex} 自旋锁。
 
-\Clnrefrange{inc:b}{inc:e} show \co{inc_count()}, which is unchanged from
-\cref{lst:count:Per-Thread Statistical Counters}.
+\Clnrefrange{inc:b}{inc:e} 展示了 \co{inc_count()}，
+它与 \cref{lst:count:Per-Thread Statistical Counters} 中的相同。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end_rcu:whole:read]
-\Clnrefrange{b}{e} show \co{read_count()}, which has changed significantly.
-\Clnref{rrl,rru} substitute \co{rcu_read_lock()} and
-\co{rcu_read_unlock()} for acquisition and release of \co{final_mutex}.
-\Clnref{deref} uses \co{rcu_dereference()} to snapshot the
-current \co{countarray} structure into local variable \co{cap}.
-Proper use of RCU will guarantee that this \co{countarray} structure
-will remain with us through at least the end of the current RCU
-read-side critical section at \clnref{rru}.
-\Clnref{init} initializes \co{sum} to \co{cap->total}, which is the
-sum of the counts of threads that have previously exited.
-\Clnrefrange{add:b}{add:e} add up the per-thread counters corresponding
-to currently
-running threads, and, finally, \clnref{ret} returns the sum.
+\Clnrefrange{b}{e} 展示了 \co{read_count()}，它发生了显著变化。
+\Clnref{rrl,rru} 用 \co{rcu_read_lock()} 和
+\co{rcu_read_unlock()} 替代了 \co{final_mutex} 的获取和释放。
+\Clnref{deref} 使用 \co{rcu_dereference()} 将当前
+\co{countarray} 结构快照到局部变量 \co{cap} 中。
+正确使用 RCU 将保证此 \co{countarray} 结构
+至少在 \clnref{rru} 处当前 RCU 读侧临界区结束之前
+一直伴随我们。
+\Clnref{init} 将 \co{sum} 初始化为 \co{cap->total}，
+即先前退出线程的计数总和。
+\Clnrefrange{add:b}{add:e} 累加当前运行线程对应的每线程计数器，
+最后，\clnref{ret} 返回总和。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end_rcu:whole:init]
-The initial value for \co{countarrayp} is
-provided by \co{count_init()} on \clnrefrange{b}{e}.
-This function runs before the first thread is created, and its job
-is to allocate
-and zero the initial structure, and then assign it to \co{countarrayp}.
+\co{countarrayp} 的初始值由
+\clnrefrange{b}{e} 的 \co{count_init()} 提供。
+此函数在第一个线程创建之前运行，
+其任务是分配并清零初始结构，
+然后将其赋值给 \co{countarrayp}。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end_rcu:whole:reg]
-\Clnrefrange{b}{e} show the \co{count_register_thread()} function, which
-is invoked by each newly created thread.
-\Clnref{idx} picks up the current thread's index, \clnref{acq} acquires
-\co{final_mutex}, \clnref{set} installs a pointer to this thread's
-\co{counter}, and \clnref{rel} releases \co{final_mutex}.
+\Clnrefrange{b}{e} 展示了 \co{count_register_thread()} 函数，
+它由每个新创建的线程调用。
+\Clnref{idx} 获取当前线程的索引，
+\clnref{acq} 获取 \co{final_mutex}，
+\clnref{set} 安装指向此线程 \co{counter} 的指针，
+\clnref{rel} 释放 \co{final_mutex}。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:count:count_end_rcu:whole:reg]
-	Hey!!!
-	\Clnref{set} of
+	嘿！！！
 	\cref{lst:together:RCU and Per-Thread Statistical Counters}
-	modifies a value in a pre-existing \co{countarray} structure!
-	Didn't you say that this structure, once made available to
-	\co{read_count()}, remained constant???
+	的 \clnref{set} 修改了一个已有 \co{countarray} 结构中的值！
+	你不是说这个结构一旦对 \co{read_count()} 可用就保持不变吗？？？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	Indeed I did say that.
-	And it would be possible to make \co{count_register_thread()}
-	allocate a new structure, much as \co{count_unregister_thread()}
-	currently does.
+	我确实是这样说的。
+	而且让 \co{count_register_thread()} 分配一个新结构
+	是可能的，就像 \co{count_unregister_thread()} 当前所做的那样。
 
-	But this is unnecessary.
-	Recall the derivation of the error bounds of \co{read_count()}
-	that was based on the snapshots of memory.
-	Because new threads start with initial \co{counter} values of
-	zero, the derivation holds even if we add a new thread partway
-	through \co{read_count()}'s execution.
-	So, interestingly enough, when adding a new thread, this
-	implementation gets the effect of allocating a new structure,
-	but without actually having to do the allocation.
+	但这是不必要的。
+	回想一下基于内存快照的 \co{read_count()} 误差界限推导。
+	因为新线程以初始 \co{counter} 值零开始，
+	即使我们在 \co{read_count()} 执行过程中
+	添加新线程，推导仍然成立。
+	因此，有趣的是，在添加新线程时，
+	此实现获得了分配新结构的效果，
+	但实际上不必进行分配。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_end_rcu:whole:unreg]
-\Clnrefrange{b}{e} show \co{count_unregister_thread()}, which is invoked
-by each thread just before it exits.
-\Clnrefrange{alloc:b}{alloc:e} allocate a new \co{countarray} structure,
-\clnref{acq} acquires \co{final_mutex} and \clnref{rel} releases it.
-\Clnref{copy} copies the contents of the current \co{countarray} into
-the newly allocated version, \clnref{add} adds the exiting thread's \co{counter}
-to new structure's \co{->total}, and \clnref{null} \co{NULL}s the exiting thread's
-\co{counterp[]} array element.
-\Clnref{retain} then retains a pointer to the current (soon to be old)
-\co{countarray} structure, and \clnref{assign} uses \co{rcu_assign_pointer()}
-to install the new version of the \co{countarray} structure.
-\Clnref{sync} waits for a grace period to elapse, so that any threads that
-might be concurrently executing in \co{read_count()}, and thus might
-have references to the old \co{countarray} structure, will be allowed
-to exit their RCU read-side critical sections, thus dropping any such
-references.
-\Clnref{free} can then safely free the old \co{countarray} structure.
+\Clnrefrange{b}{e} 展示了 \co{count_unregister_thread()}，
+它由每个线程在退出前调用。
+\Clnrefrange{alloc:b}{alloc:e} 分配一个新的 \co{countarray} 结构，
+\clnref{acq} 获取 \co{final_mutex}，\clnref{rel} 释放它。
+\Clnref{copy} 将当前 \co{countarray} 的内容复制到新分配的版本中，
+\clnref{add} 将退出线程的 \co{counter} 添加到新结构的 \co{->total}，
+\clnref{null} 将退出线程的 \co{counterp[]} 数组元素置为 \co{NULL}。
+\Clnref{retain} 保留指向当前（即将变为旧的）\co{countarray} 结构的指针，
+\clnref{assign} 使用 \co{rcu_assign_pointer()} 安装新版本的 \co{countarray} 结构。
+\Clnref{sync} 等待一个宽限期过去，
+以便任何可能正在 \co{read_count()} 中并发执行、
+从而可能持有对旧 \co{countarray} 结构引用的线程
+能够退出其 RCU 读侧临界区，从而释放此类引用。
+\Clnref{free} 然后可以安全地释放旧的 \co{countarray} 结构。
 \end{fcvref}
 
 \QuickQuiz{
-	Given the fixed-size \co{counterp} array, exactly how does this
-	code avoid a fixed upper bound on the number of threads???
+	鉴于固定大小的 \co{counterp} 数组，
+	这段代码究竟如何避免对线程数量的固定上限？？？
 }\QuickQuizAnswer{
-	You are quite right, that array does in fact reimpose the fixed
-	upper limit.
-	This limit may be avoided by tracking threads with a linked list,
-	as is done in userspace RCU~\cite{MathieuDesnoyers2012URCU}.
-	Doing something similar for this code is left as an exercise for
-	the reader.
+	你说得完全正确，该数组确实重新施加了固定上限。
+	可以通过使用链表来跟踪线程来避免此限制，
+	就像用户空间 RCU 中所做的那样~\cite{MathieuDesnoyers2012URCU}。
+	为此代码做类似的事情留给读者作为练习。
 }\QuickQuizEnd
 
-\subsubsection{Discussion}
+\subsubsection{讨论}
 
 \EQuickQuiz{
-	Wow!
+	哇！
 	\Cref{lst:together:RCU and Per-Thread Statistical Counters}
-	contains 70 lines of code, compared to only 42 in
-	\cref{lst:count:Per-Thread Statistical Counters}.
-	Is this extra complexity really worth it?
-}\EQuickQuizAnswer{
-	This of course needs to be decided on a case-by-case basis.
-	If you need an implementation of \co{read_count()} that
-	scales linearly, then the lock-based implementation shown in
+	包含 70 行代码，而
 	\cref{lst:count:Per-Thread Statistical Counters}
-	simply will not work for you.
-	On the other hand, if calls to \co{read_count()} are sufficiently
-	rare, then the lock-based version is simpler and might thus be
-	better, although much of the size difference is due
-	to the structure definition, memory allocation, and \co{NULL}
-	return checking.
+	只有 42 行。
+	这种额外的复杂性真的值得吗？
+}\EQuickQuizAnswer{
+	这当然需要根据具体情况来决定。
+	如果你需要一个线性可扩展的 \co{read_count()} 实现，
+	那么 \cref{lst:count:Per-Thread Statistical Counters}
+	中展示的基于锁的实现根本不适合你。
+	另一方面，如果对 \co{read_count()} 的调用足够少，
+	那么基于锁的版本更简单，因此可能更好，
+	尽管大部分大小差异来自结构定义、
+	内存分配和 \co{NULL} 返回检查。
 
-	Of course, a better question is ``Why doesn't the language
-	implement cross-thread access to \co{__thread} variables?''
-	After all, such an implementation would make both the locking
-	and the use of RCU unnecessary.
-	This would in turn enable an implementation that
-	was even simpler than the one shown in
-	\cref{lst:count:Per-Thread Statistical Counters}, but
-	with all the scalability and performance benefits of the
-	implementation shown in
-	\cref{lst:together:RCU and Per-Thread Statistical Counters}!
+	当然，更好的问题是``为什么语言不实现
+	对 \co{__thread} 变量的跨线程访问？''
+	毕竟，这样的实现将使锁和 RCU 的使用都不必要。
+	这将反过来实现一个比
+	\cref{lst:count:Per-Thread Statistical Counters}
+	中展示的更简单的实现，
+	同时具有
+	\cref{lst:together:RCU and Per-Thread Statistical Counters}
+	中展示的实现的所有可扩展性和性能优势！
 }\EQuickQuizEnd
 
-Use of RCU enables exiting threads to wait until other threads are
-guaranteed to be done using the exiting threads' \co{__thread} variables.
-This allows the \co{read_count()} function to dispense with locking,
-thereby providing
-excellent performance and scalability for both the \co{inc_count()}
-and \co{read_count()} functions.
-However, this performance and scalability come at the cost of some increase
-in code complexity.
-It is hoped that compiler and library writers employ user-level
-RCU~\cite{MathieuDesnoyers2009URCU} to provide safe cross-thread
-access to \co{__thread} variables, greatly reducing the
-complexity seen by users of \co{__thread} variables.
+使用 RCU 使退出的线程能够等待，
+直到其他线程保证不再使用退出线程的 \co{__thread} 变量。
+这允许 \co{read_count()} 函数省去锁定，
+从而为 \co{inc_count()} 和 \co{read_count()} 函数
+提供出色的性能和可扩展性。
+然而，这种性能和可扩展性的代价是代码复杂性的增加。
+希望编译器和库的编写者使用用户级
+RCU~\cite{MathieuDesnoyers2009URCU}
+来提供对 \co{__thread} 变量的安全跨线程访问，
+大大降低 \co{__thread} 变量用户所看到的复杂性。
 
-\subsection{RCU and Counters for Removable I/O Devices}
+\subsection{RCU 与可移除 I/O 设备的计数器}
 \label{sec:together:RCU and Counters for Removable I/O Devices}
 
 \Cref{sec:count:Applying Exact Limit Counters}
-showed a fanciful pair of code fragments for dealing with counting
-I/O accesses to removable devices.
-These code fragments suffered from high overhead on the fastpath
-(starting an I/O) due to the need to acquire a reader-writer
-lock.
+展示了一对用于处理可移除设备 I/O 访问计数的
+虚构代码片段。
+这些代码片段由于需要获取读写锁而在快速路径
+（启动 I/O）上产生了高开销。
 
-This section shows how RCU may be used to avoid this overhead.
+本节展示如何使用 RCU 来避免此开销。
 
-The code for performing an I/O is quite similar to the original, with
-an RCU read-side critical section being substituted for the reader-writer
-lock read-side critical section in the original:
+执行 I/O 的代码与原始版本非常相似，
+用 RCU 读侧临界区替代了原始版本中的
+读写锁读侧临界区：
 
 \begin{VerbatimN}[tabsize=8]
 rcu_read_lock();
@@ -260,10 +237,9 @@ if (removing) {
 \end{VerbatimN}
 \vspace{5pt}
 
-The RCU read-side primitives have minimal overhead, thus speeding up
-the fastpath, as desired.
+RCU 读侧原语具有最小开销，因此如期加快了快速路径。
 
-The updated code fragment removing a device is as follows:
+移除设备的更新代码片段如下：
 
 \begin{fcvlabel}[ln:together:applyrcu:Removing Device]
 \begin{VerbatimN}[tabsize=8,commandchars=\\\[\]]
@@ -280,27 +256,25 @@ remove_device();
 \end{fcvlabel}
 
 \begin{fcvref}[ln:together:applyrcu:Removing Device]
-Here we replace the reader-writer lock with an exclusive spinlock and
-add a \co{synchronize_rcu()} to wait for all of the RCU read-side
-critical sections to complete.
-Because of the \co{synchronize_rcu()},
-once we reach \clnref{nextofsync},
-we know that all remaining I/Os have been accounted for.
+这里我们用独占自旋锁替代读写锁，
+并添加 \co{synchronize_rcu()} 来等待所有 RCU 读侧临界区完成。
+由于 \co{synchronize_rcu()}，
+一旦到达 \clnref{nextofsync}，
+我们就知道所有剩余的 I/O 已被计入。
 
-Of course, the overhead of \co{synchronize_rcu()} can be large,
-but given that device removal is quite rare, this is usually a good
-tradeoff.
+当然，\co{synchronize_rcu()} 的开销可能很大，
+但鉴于设备移除相当罕见，这通常是一个好的权衡。
 \end{fcvref}
 
 \FloatBarrier
-\subsection{Array and Length}
+\subsection{数组和长度}
 \label{sec:together:Array and Length}
 
-Suppose we have an RCU-protected variable-length array, as shown in
-\cref{lst:together:RCU-Protected Variable-Length Array}.
-The length of the array \co{->a[]} can change dynamically, and at any
-given time, its length is given by the field \co{->length}.
-Of course, this introduces the following \IX{race condition}:
+假设我们有一个 RCU 保护的可变长度数组，
+如 \cref{lst:together:RCU-Protected Variable-Length Array} 所示。
+数组 \co{->a[]} 的长度可以动态变化，
+在任何给定时刻，其长度由字段 \co{->length} 给出。
+当然，这引入了以下\IX{race condition}：
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -309,28 +283,27 @@ struct foo {
 	char *a;
 };
 \end{VerbatimL}
-\caption{RCU-Protected Variable-Length Array}
+\caption{RCU 保护的可变长度数组}
 \label{lst:together:RCU-Protected Variable-Length Array}
 \end{listing}
 
 \begin{enumerate}
-\item	The array is initially 16 characters long, and thus \co{->length}
-	is equal to 16.
-\item	CPU~0 loads the value of \co{->length}, obtaining the value 16.
-\item	CPU~1 shrinks the array to be of length 8, and assigns a pointer
-	to a new 8-character block of memory into \co{->a[]}.
-\item	CPU~0 picks up the new pointer from \co{->a[]}, and stores a
-	new value into element 12.
-	Because the array has only 8 characters, this results in
-	a SEGV or (worse yet) memory corruption.
+\item	数组最初为 16 个字符长，因此 \co{->length} 等于 16。
+\item	CPU~0 加载 \co{->length} 的值，获得值 16。
+\item	CPU~1 将数组缩小到长度 8，
+	并将指向新的 8 字符内存块的指针赋给 \co{->a[]}。
+\item	CPU~0 从 \co{->a[]} 获取新指针，
+	并在第 12 个元素中存储新值。
+	因为数组只有 8 个字符，这导致
+	SEGV 或（更糟的是）内存损坏。
 \end{enumerate}
 
-How can we prevent this?
+我们如何防止这种情况？
 
-One approach is to make careful use of memory barriers, which are
-covered in \cref{chp:Advanced Synchronization: Memory Ordering}.
-This works, but incurs read-side overhead and, perhaps worse, requires
-use of explicit memory barriers.
+一种方法是小心使用内存屏障，
+这在 \cref{chp:Advanced Synchronization: Memory Ordering} 中介绍。
+这可以工作，但会产生读侧开销，
+而且也许更糟的是需要使用显式内存屏障。
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -343,59 +316,57 @@ struct foo {
 	struct foo_a *fa;
 };
 \end{VerbatimL}
-\caption{Improved RCU-Protected Variable-Length Array}
+\caption{改进的 RCU 保护的可变长度数组}
 \label{lst:together:Improved RCU-Protected Variable-Length Array}
 \end{listing}
 
-A better approach is to put the value and the array into the same structure,
-as shown in
-\cref{lst:together:Improved RCU-Protected Variable-Length Array}~\cite{Arcangeli03}.
-Allocating a new array (\co{foo_a} structure) then automatically provides
-a new place for the array length.
-This means that if any CPU picks up a reference to \co{->fa}, it is
-guaranteed that the \co{->length} will match the \co{->a[]}.
+更好的方法是将值和数组放入同一结构中，
+如 \cref{lst:together:Improved RCU-Protected Variable-Length Array}~\cite{Arcangeli03}
+所示。
+分配新数组（\co{foo_a} 结构）就自动为数组长度提供了新的位置。
+这意味着如果任何 CPU 获取了 \co{->fa} 的引用，
+\co{->length} 保证与 \co{->a[]} 匹配。
 
 \begin{enumerate}
-\item	The array is initially 16 characters long, and thus \co{->length}
-	is equal to 16.
-\item	CPU~0 loads the value of \co{->fa}, obtaining a pointer to
-	the structure containing the value 16 and the 16-byte array.
-\item	CPU~0 loads the value of \co{->fa->length}, obtaining the value 16.
-\item	CPU~1 shrinks the array to be of length 8, and assigns a pointer
-	to a new \co{foo_a} structure containing an 8-character block
-	of memory into \co{->fa}.
-\item	CPU~0 picks up the new pointer from \co{->a[]}, and stores a
-	new value into element 12.
-	But because CPU~0 is still referencing the old \co{foo_a}
-	structure that contains the 16-byte array, all is well.
+\item	数组最初为 16 个字符长，因此 \co{->length} 等于 16。
+\item	CPU~0 加载 \co{->fa} 的值，
+	获得指向包含值 16 和 16 字节数组的结构的指针。
+\item	CPU~0 加载 \co{->fa->length} 的值，获得值 16。
+\item	CPU~1 将数组缩小到长度 8，
+	并将指向包含 8 字符内存块的新 \co{foo_a} 结构的指针
+	赋给 \co{->fa}。
+\item	CPU~0 从 \co{->a[]} 获取新指针，
+	并在第 12 个元素中存储新值。
+	但因为 CPU~0 仍在引用包含 16 字节数组的
+	旧 \co{foo_a} 结构，一切正常。
 \end{enumerate}
 
-Of course, in both cases, CPU~1 must wait for a grace period before
-freeing the old array.
+当然，在两种情况下，CPU~1 都必须在释放旧数组之前
+等待一个宽限期。
 
-A more general version of this approach is presented in the next section.
+下一节将介绍此方法的更通用版本。
 
-\subsection{Correlated Fields}
+\subsection{关联字段}
 \label{sec:together:Correlated Fields}
 \OriginallyPublished{sec:together:Correlated Fields}{Correlated Fields}{Oregon Graduate Institute}{PaulEdwardMcKenneyPhD}
 
-Suppose that each of Sch\"odinger's animals is represented by the
-data element shown in
-\cref{lst:together:Uncorrelated Measurement Fields}.
-The \co{meas_1}, \co{meas_2}, and \co{meas_3} fields are a set
-of correlated measurements that are updated periodically.
-It is critically important that readers see these three values from
-a single measurement update:
-If a reader sees an old value of \co{meas_1} but new values of
-\co{meas_2} and \co{meas_3}, that reader will become fatally confused.
-How can we guarantee that readers will see coordinated sets of these
-three values?\footnote{
-	This situation is similar to that described in
-	\cref{sec:together:Correlated Data Elements},
-	except that here readers need only see a consistent view of a
-	given single data element, not the consistent view of a
-	group of data elements that was required in that earlier
-	\lcnamecref{sec:together:Correlated Data Elements}.}
+假设 Sch\"odinger 的每只动物用
+\cref{lst:together:Uncorrelated Measurement Fields}
+中所示的数据元素表示。
+\co{meas_1}、\co{meas_2} 和 \co{meas_3} 字段是
+定期更新的一组关联测量值。
+读者必须看到来自单次测量更新的这三个值，
+这一点至关重要：
+如果读者看到 \co{meas_1} 的旧值但 \co{meas_2} 和
+\co{meas_3} 的新值，该读者将陷入致命的混乱。
+我们如何保证读者将看到这三个值的协调集合？\footnote{
+	这种情况类似于
+	\cref{sec:together:Correlated Data Elements}
+	中描述的情况，
+	不同之处在于这里读者只需要看到给定单个数据元素的
+	一致视图，而不是前面
+	\lcnamecref{sec:together:Correlated Data Elements}
+	中所需的一组数据元素的一致视图。}
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -408,19 +379,17 @@ struct animal {
 	char photo[0]; /* large bitmap. */
 };
 \end{VerbatimL}
-\caption{Uncorrelated Measurement Fields}
+\caption{非关联的测量字段}
 \label{lst:together:Uncorrelated Measurement Fields}
 \end{listing}
 
-One approach would be to allocate a new \co{animal} structure,
-copy the old structure into the new structure, update the new
-structure's \co{meas_1}, \co{meas_2}, and \co{meas_3} fields,
-and then replace the old structure with a new one by updating
-the pointer.
-This does guarantee that all readers see coordinated sets of
-measurement values, but it requires copying a large structure due
-to the \co{->photo[]} field.
-This copying might incur unacceptably large overhead.
+一种方法是分配一个新的 \co{animal} 结构，
+将旧结构复制到新结构中，
+更新新结构的 \co{meas_1}、\co{meas_2} 和 \co{meas_3} 字段，
+然后通过更新指针用新结构替换旧结构。
+这确实保证所有读者看到协调的测量值集合，
+但由于 \co{->photo[]} 字段，需要复制大型结构。
+这种复制可能产生不可接受的高开销。
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -437,26 +406,25 @@ struct animal {
 	char photo[0]; /* large bitmap. */
 };
 \end{VerbatimL}
-\caption{Correlated Measurement Fields}
+\caption{关联的测量字段}
 \label{lst:together:Correlated Measurement Fields}
 \end{listing}
 
-Another approach is to impose a level of indirection, as shown in
-\cref{lst:together:Correlated Measurement Fields}~\cite[Section 5.3.4]{PaulEdwardMcKenneyPhD}.
-When a new measurement is taken, a new \co{measurement} structure
-is allocated, filled in with the measurements, and the \co{animal}
-structure's \co{->mp} field is updated to point to this new
-\co{measurement} structure using \co{rcu_assign_pointer()}.
-After a grace period elapses, the old \co{measurement} structure
-can be freed.
+另一种方法是施加一层间接引用，
+如 \cref{lst:together:Correlated Measurement Fields}~\cite[Section 5.3.4]{PaulEdwardMcKenneyPhD}
+所示。
+当进行新的测量时，分配一个新的 \co{measurement} 结构，
+填入测量值，并使用 \co{rcu_assign_pointer()}
+更新 \co{animal} 结构的 \co{->mp} 字段指向这个新的
+\co{measurement} 结构。
+在宽限期过去后，旧的 \co{measurement} 结构可以被释放。
 
 \QuickQuiz{
-	But cant't the approach shown in
-	\cref{lst:together:Correlated Measurement Fields}
-	result in extra cache misses, in turn resulting in additional
-	read-side overhead?
+	但 \cref{lst:together:Correlated Measurement Fields}
+	中展示的方法不会导致额外的缓存未命中，
+	从而产生额外的读侧开销吗？
 }\QuickQuizAnswer{
-	Indeed it can.
+	确实可能。
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -474,627 +442,612 @@ struct animal {
 	char photo[0]; /* large bitmap. */
 };
 \end{VerbatimL}
-\caption{Localized Correlated Measurement Fields}
+\caption{本地化的关联测量字段}
 \label{lst:together:Localized Correlated Measurement Fields}
 \end{listing}
 
-	One way to avoid this cache-miss overhead is shown in
-	\cref{lst:together:Localized Correlated Measurement Fields}:
-	Simply embed an instance of a \co{measurement} structure
-	named \co{meas}
-	into the \co{animal} structure, and point the \co{->mp}
-	field at this \co{->meas} field.
+	避免此缓存未命中开销的一种方法如
+	\cref{lst:together:Localized Correlated Measurement Fields} 所示：
+	只需在 \co{animal} 结构中嵌入一个名为 \co{meas} 的
+	\co{measurement} 结构实例，
+	并将 \co{->mp} 字段指向此 \co{->meas} 字段。
 
-	Measurement updates can then be carried out as follows:
+	然后可以按以下步骤进行测量更新：
 
 	\begin{enumerate}
-	\item	Allocate a new \co{measurement} structure and place
-		the new measurements into it.
-	\item	Use \co{rcu_assign_pointer()} to point \co{->mp} to
-		this new structure.
-	\item	Wait for a grace period to elapse, for example using
-		either \co{synchronize_rcu()} or \co{call_rcu()}.
-	\item	Copy the measurements from the new \co{measurement}
-		structure into the embedded \co{->meas} field.
-	\item	Use \co{rcu_assign_pointer()} to point \co{->mp}
-		back to the old embedded \co{->meas} field.
-	\item	After another grace period elapses, free up the
-		new \co{measurement} structure.
+	\item	分配一个新的 \co{measurement} 结构，
+		并将新的测量值放入其中。
+	\item	使用 \co{rcu_assign_pointer()} 将 \co{->mp}
+		指向此新结构。
+	\item	等待宽限期过去，例如使用
+		\co{synchronize_rcu()} 或 \co{call_rcu()}。
+	\item	将新 \co{measurement} 结构中的测量值
+		复制到嵌入的 \co{->meas} 字段中。
+	\item	使用 \co{rcu_assign_pointer()} 将 \co{->mp}
+		指回旧的嵌入 \co{->meas} 字段。
+	\item	在另一个宽限期过去后，
+		释放新的 \co{measurement} 结构。
 	\end{enumerate}
 
-	This approach uses a heavier weight update procedure to eliminate
-	the extra cache miss in the common case.
-	The extra cache miss will be incurred only while an update is
-	actually in progress.
+	这种方法使用较重的更新过程来消除
+	常见情况下的额外缓存未命中。
+	额外的缓存未命中仅在更新实际进行中时才会发生。
 }\QuickQuizEnd
 
-This approach enables readers to see correlated values for selected
-fields, but while incurring minimal read-side overhead.
-This per-data-element consistency suffices in the common case where
-a reader looks only at a single data element.
+这种方法使读者能够看到选定字段的关联值，
+同时产生最小的读侧开销。
+在读者仅查看单个数据元素的常见情况下，
+这种每数据元素的一致性就已足够。
 
 % Flag for deletion (if not already covered in the defer chapter).
 % @@@ Issaquah Challenge.
 % @@@ RLU & MV-RLU (Eventually the corresponding patents.)
 
-\subsection{Update-Friendly Traversal}
+\subsection{更新友好型遍历}
 \label{sec:together:Update-Friendly Traversal}
 
-Suppose that a statistical scan of all elements in a hash table is
-required.
-For example, Schr\"odinger might wish to compute the average
-length-to-weight ratio over all of his animals.\footnote{
-	Why would such a quantity be useful?
-	Beats me!
-	But group statistics are often useful.}
-Suppose further that Schr\"odinger is willing to ignore slight
-errors due to animals being added to and removed from the hash
-table while this statistical scan is being carried out.
-What should Schr\"odinger do to control concurrency?
+假设需要对 hash table 中所有元素进行统计扫描。
+例如，Schr\"odinger 可能希望计算其所有动物的
+平均体长体重比。\footnote{
+	为什么这样的量会有用？
+	我也不知道！
+	但分组统计通常是有用的。}
+进一步假设 Schr\"odinger 愿意忽略
+由于在统计扫描进行期间动物被添加到
+hash table 或从中删除而导致的轻微误差。
+Schr\"odinger 应该怎样控制并发？
 
-One approach is to enclose the statistical scan in an RCU read-side
-critical section.
-This permits updates to proceed concurrently without unduly impeding
-the scan.
-In particular, the scan does not block the updates and vice versa,
-which allows scan of hash tables containing very large numbers of
-elements to be supported gracefully, even in the face of very high
-update rates.
+一种方法是将统计扫描封装在 RCU 读侧临界区中。
+这允许更新在不过度阻碍扫描的情况下并发进行。
+特别是，扫描不会阻塞更新，反之亦然，
+这使得即使面对非常高的更新速率，
+也能优雅地支持包含大量元素的 hash table 扫描。
 
 \QuickQuiz{
-	But how does this scan work while a resizable hash table
-	is being resized?
-	In that case, neither the old nor the new hash table is
-	guaranteed to contain all the elements in the hash table!
+	但在调整 hash table 大小时，此扫描如何工作？
+	在那种情况下，旧的和新的 hash table
+	都不能保证包含 hash table 中的所有元素！
 }\QuickQuizAnswer{
-	True, resizable hash tables as described in
+	确实，如
 	\cref{sec:datastruct:Non-Partitionable Data Structures}
-	cannot be fully scanned while being resized.
-	One simple way around this is to acquire the
-	\co{hashtab} structure's \co{->ht_lock} while scanning,
-	but this prevents more than one scan from proceeding
-	concurrently.
+	中描述的可调整大小的 hash table
+	在调整大小期间不能被完全扫描。
+	一个简单的解决方法是在扫描时获取
+	\co{hashtab} 结构的 \co{->ht_lock}，
+	但这会阻止多个扫描同时进行。
 
-	Another approach is for updates to mutate the old hash
-	table as well as the new one while resizing is in
-	progress.
-	This would allow scans to find all elements in the old
-	hash table.
-	Implementing this is left as an exercise for the reader.
+	另一种方法是让更新在调整大小进行中时
+	同时修改旧的和新的 hash table。
+	这将允许扫描在旧 hash table 中找到所有元素。
+	实现这一点留给读者作为练习。
 }\QuickQuizEnd
 
-\subsection{Scalable Reference Count Two}
+\subsection{可扩展引用计数之二}
 \label{sec:together:Scalable Reference Count Two}
 
-Suppose a \IX{reference count} is becoming a performance or scalability
-bottleneck.
-What can you do?
+假设\IX{reference count}正在成为性能或可扩展性的瓶颈。
+你能做什么？
 
-One approach is to use per-CPU counters for each reference count,
-somewhat similar to the algorithms in \cref{chp:Counting}, in particular,
-the exact limit counters described in
-\cref{sec:count:Exact Limit Counters}.
-The need to switch between per-CPU and global modes for these counters
-results either in expensive increments and decrements on the one hand
-(\cref{sec:count:Atomic Limit Counter Implementation})
-or in the use of POSIX signals on the other
-(\cref{sec:count:Signal-Theft Limit Counter Design}).
+一种方法是为每个引用计数使用每 CPU 计数器，
+与 \cref{chp:Counting} 中的算法类似，
+特别是 \cref{sec:count:Exact Limit Counters}
+中描述的精确限制计数器。
+需要在这些计数器的每 CPU 和全局模式之间切换，
+这导致要么递增和递减开销高
+（\cref{sec:count:Atomic Limit Counter Implementation}），
+要么使用 POSIX 信号
+（\cref{sec:count:Signal-Theft Limit Counter Design}）。
 
-Another approach is to use RCU to mediate the switch between per-CPU
-and global counting modes.
-Each update is carried out within an RCU read-side critical section,
-and each update checks a flag to determine whether to update the
-per-CPU counters on the one hand or the global on the other.
-To switch modes, update the flag, wait for a grace period, and then
-move any remaining counts from the per-CPU counters to the global
-counter or vice versa.
+另一种方法是使用 RCU 来调解每 CPU 和全局计数模式之间的切换。
+每个更新在 RCU 读侧临界区内进行，
+每个更新检查一个标志以确定是更新
+每 CPU 计数器还是全局计数器。
+要切换模式，更新标志，等待宽限期，
+然后将任何剩余的计数从每 CPU 计数器
+移到全局计数器，反之亦然。
 
-The Linux kernel uses this RCU-mediated approach in its \co{percpu_ref}
-style of reference counter.
-Code using this reference counter must initialize the \co{percpu_ref}
-structure using \co{percpu_ref_init()}, which takes as arguments
-a pointer to the structure, a pointer to a function to invoke when
-the reference count reaches zero, a set of mode flags, and a set
-of \co{kmalloc()} \co{GFP_} flags.
-After normal initialization, the structure has one reference and
-is in per-CPU mode.
+Linux 内核在其 \co{percpu_ref} 引用计数器风格中使用了
+这种 RCU 中介的方法。
+使用此引用计数器的代码必须使用 \co{percpu_ref_init()}
+初始化 \co{percpu_ref} 结构，
+该函数接受的参数包括：指向结构的指针、
+引用计数达到零时调用的函数的指针、
+一组模式标志和一组 \co{kmalloc()} \co{GFP_} 标志。
+正常初始化后，结构具有一个引用并处于每 CPU 模式。
 
-The mode flags are usually zero, but can include the
-\co{PERCPU_REF_INIT_ATOMIC} bit if the counter is to start in slow
-non-per-CPU (that is, atomic) mode.
-There is also a \co{PERCPU_REF_ALLOW_REINIT} bit that allows
-a given \co{percpu_ref} counter to be reused via a call to
-\co{percpu_ref_reinit()} without needing to be freed and reallocated.
-Regardless of how the \co{percpu_ref} structure is initialized,
-\co{percpu_ref_get()} may be used to acquire a reference and
-\co{percpu_ref_put()} may be used to release a reference.
+模式标志通常为零，但如果计数器要从
+慢速非每 CPU（即原子）模式开始，
+可以包含 \co{PERCPU_REF_INIT_ATOMIC} 位。
+还有一个 \co{PERCPU_REF_ALLOW_REINIT} 位，
+允许给定的 \co{percpu_ref} 计数器通过调用
+\co{percpu_ref_reinit()} 来重用，
+而无需释放和重新分配。
+无论 \co{percpu_ref} 结构如何初始化，
+都可以使用 \co{percpu_ref_get()} 获取引用，
+使用 \co{percpu_ref_put()} 释放引用。
 
-When in per-CPU mode, the \co{percpu_ref} structure cannot determine whether
-or not its value has reached zero.
-When such a determination is necessary, \co{percpu_ref_kill()} may
-be invoked.
-This function switches the structure into atomic mode and removes the
-initial reference installed by the call to \co{percpu_ref_init()}.
-Of course, when in atomic mode, calls to \co{percpu_ref_get()} and
-\co{percpu_ref_put()} are quite expensive, but \co{percpu_ref_put()}
-can tell when the value reaches zero.
+在每 CPU 模式下，\co{percpu_ref} 结构
+无法确定其值是否已达到零。
+当需要这样的判断时，可以调用 \co{percpu_ref_kill()}。
+此函数将结构切换到原子模式，
+并删除由 \co{percpu_ref_init()} 调用安装的初始引用。
+当然，在原子模式下，调用 \co{percpu_ref_get()} 和
+\co{percpu_ref_put()} 相当昂贵，
+但 \co{percpu_ref_put()} 可以知道值何时达到零。
 
-Readers desiring more \co{percpu_ref} information are referred to
-the Linux-kernel documentation and source code.
+希望了解更多 \co{percpu_ref} 信息的读者
+请参阅 Linux 内核文档和源代码。
 
-\subsection{Retriggered Grace Periods}
+\subsection{重触发宽限期}
 \label{sec:together:Retriggered Grace Periods}
 
-There is no \co{call_rcu_cancel()}, so once an \co{rcu_head} structure
-is passed to \co{call_rcu()}, there is no calling it back.
-It must be left alone until the callback is invoked.
-In the common case, this is as it should be because the \co{rcu_head}
-structure is on a one-way journey to deallocation.
+没有 \co{call_rcu_cancel()}，
+所以一旦 \co{rcu_head} 结构传递给 \co{call_rcu()}，
+就无法收回。
+必须让它保持不变，直到回调被调用。
+在常见情况下，这是应该的，
+因为 \co{rcu_head} 结构正走在通往释放的单行道上。
 
-However, there are use cases that combine RCU and explicit \co{open()}
-and \co{close()} calls.
-After a \co{close()} call, readers are not supposed to begin new accesses
-to the data structure, but there might well be readers completing their
-traversal.
-This situation can be handled in the usual manner:
-Wait for a grace period following the \co{close()} call before freeing
-the data structures.
+然而，有些用例将 RCU 与显式的 \co{open()} 和
+\co{close()} 调用结合使用。
+在 \co{close()} 调用之后，读者不应该开始
+对数据结构的新访问，
+但很可能有读者正在完成其遍历。
+这种情况可以用通常的方式处理：
+在 \co{close()} 调用之后等待一个宽限期，
+然后再释放数据结构。
 
-But what if \co{open()} is called before the grace period ends?
+但如果在宽限期结束前调用了 \co{open()} 怎么办？
 
-Again, there is no \co{call_rcu_cancel()}, so another approach is to
-set a flag that is checked by the callback function, which can opt out
-of actually freeing anything.
-Problem solved!
+同样，没有 \co{call_rcu_cancel()}，
+所以另一种方法是设置一个由回调函数检查的标志，
+回调函数可以选择不实际释放任何东西。
+问题解决了！
 
-But what if \co{open()} and then another \co{close()} are both called
-before the grace period ends?
+但如果在宽限期结束前先调用了 \co{open()}
+然后又调用了 \co{close()} 怎么办？
 
-One approach is to have a second value for the flag that causes the
-callback to requeue itself.
+一种方法是为标志设置第二个值，
+使回调重新将自身排队。
 
-But what if there is not only a \co{open()} and then another \co{close()},
-but also another \co{open()} before the grace period ends?
+但如果不仅有 \co{open()} 然后 \co{close()}，
+还有在宽限期结束前的另一个 \co{open()} 呢？
 
-In this case, the callback needs to set state to reflect that last
-\co{open()} still being in effect.
+在这种情况下，回调需要设置状态来反映
+最后一个 \co{open()} 仍然有效。
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{together/retriggergp}}
-\caption{Retrigger-Grace-Period State Machine}
+\caption{重触发宽限期状态机}
 \label{fig:count:Retrigger-Grace-Period State Machine}
 \end{figure}
 
-Continuing this line of thought leads us to the state machine
-shown in \cref{fig:count:Retrigger-Grace-Period State Machine}.
-The initial state is CLOSED and the operational state is OPEN\@.
-The diamond-shaped arrowheads denote \co{call_rcu()} invocation, while
-the arrows labeled ``CB'' denote callback invocation.
+沿着这条思路继续，我们得到了
+\cref{fig:count:Retrigger-Grace-Period State Machine}
+中所示的状态机。
+初始状态是 CLOSED，运行状态是 OPEN\@。
+菱形箭头表示 \co{call_rcu()} 调用，
+标有 ``CB'' 的箭头表示回调调用。
 
-The normal path through this state machine traverses the states CLOSED,
-OPEN, CLOSING (with an invocation of \co{call_rcu()}), and back to CLOSED
-once the callback has been invoked.
-If \co{open()} is invoked before the grace period completes, the
-state machine traverses the cycle OPEN, CLOSING (with
-an invocation of \co{call_rcu()}), REOPENING, and back to OPEN once the
-callback has been invoked.
-If \co{open()} and then \co{close()} are invoked before the grace period
-completes, the state machine traverses the cycle OPEN, CLOSING (with
-an invocation of \co{call_rcu()}), REOPENING, RECLOSING, and back to CLOSING once the
-callback has been invoked.
+通过此状态机的正常路径遍历状态 CLOSED、
+OPEN、CLOSING（调用 \co{call_rcu()}），
+然后在回调被调用后回到 CLOSED。
+如果在宽限期完成之前调用了 \co{open()}，
+状态机遍历循环 OPEN、CLOSING（调用
+\co{call_rcu()}）、REOPENING，
+然后在回调被调用后回到 OPEN。
+如果在宽限期完成之前调用了 \co{open()} 然后 \co{close()}，
+状态机遍历循环 OPEN、CLOSING（调用
+\co{call_rcu()}）、REOPENING、RECLOSING，
+然后在回调被调用后回到 CLOSING。
 
-Given an indefinite alternating sequence of \co{close()} and \co{open()}
-invocations, the state machine would traverse OPEN, and CLOSING (with
-an invocation of \co{call_rcu()}), followed by alternating sojourns in
-the REOPENING and RECLOSING states.
-Once the grace period ends, the state machine would transition to
-either of the CLOSING or the OPEN state, depending on which of the
-RECLOSING or REOPENING states the callback was invoked in.
+给定一个无限的 \co{close()} 和 \co{open()} 交替调用序列，
+状态机将遍历 OPEN 和 CLOSING（调用 \co{call_rcu()}），
+然后交替停留在 REOPENING 和 RECLOSING 状态。
+一旦宽限期结束，状态机将转换到
+CLOSING 或 OPEN 状态，
+取决于回调是在 RECLOSING 还是 REOPENING 状态中被调用。
 
 \begin{listing}
 \ebresizeverb{.88}{\input{CodeSamples/together/retrigger-gp@whole.fcv}}
-\caption{Retriggering a Grace Period (Pseudocode)}
+\caption{重触发宽限期（伪代码）}
 \label{lst:together:Retriggering a Grace Period}
 \end{listing}
 
-Rough pseudocode of this state machine is shown in
-\cref{lst:together:Retriggering a Grace Period}.
+此状态机的粗略伪代码如
+\cref{lst:together:Retriggering a Grace Period} 所示。
 \begin{fcvref}[ln:together:retrigger-gp:whole]
-The five states are shown on \clnrefrange{states:b}{states:e},
-the current state is held in \co{rtrg_status} on \clnref{status},
-which is protected by the lock on \clnref{lock}.
+五个状态如 \clnrefrange{states:b}{states:e} 所示，
+当前状态保存在 \clnref{status} 的 \co{rtrg_status} 中，
+由 \clnref{lock} 的锁保护。
 
-The three CB transitions (emanating from states CLOSING, REOPENING,
-and RECLOSING) are implemented by the \co{close_cb()} function shown
-on \clnrefrange{close_cb:b}{close_cb:e}.
-\Clnref{cleanup} invokes a user-supplied \co{close_cleanup()} to
-take any final cleanup actions such as freeing memory when
-transitioning to the CLOSED state.
-\Clnref{call_rcu1} contains the \co{call_rcu()} invocation that
-causes a later transition to the CLOSED state.
+三个 CB 转换（从状态 CLOSING、REOPENING
+和 RECLOSING 发出）由
+\clnrefrange{close_cb:b}{close_cb:e} 的 \co{close_cb()} 函数实现。
+\Clnref{cleanup} 在转换到 CLOSED 状态时
+调用用户提供的 \co{close_cleanup()}
+来执行任何最终的清理操作，如释放内存。
+\Clnref{call_rcu1} 包含 \co{call_rcu()} 调用，
+它导致稍后转换到 CLOSED 状态。
 
-The \co{open()} function on \clnrefrange{open:b}{open:e} implements
-the transitions to the OPEN, CLOSING, and REOPENING states, with
-\clnref{do_open} invoking a \co{do_open()} function to implement
-any allocation and initialization of any needed data structures.
+\clnrefrange{open:b}{open:e} 的 \co{open()} 函数实现
+到 OPEN、CLOSING 和 REOPENING 状态的转换，
+\clnref{do_open} 调用 \co{do_open()} 函数来实现
+任何所需数据结构的分配和初始化。
 
-The \co{close()} function on \clnrefrange{close:b}{close:e}
-implements the transitions to the CLOSING and RECLOSING states,
-with \clnref{do_close} invoking a \co{do_close()} function to take
-any actions that might be required to finalize this transition,
-for example, causing later read-only traversals to return errors.
-\Clnref{call_rcu2} contains the \co{call_rcu()} invocation that
-causes a later transition to the CLOSED state.
+\clnrefrange{close:b}{close:e} 的 \co{close()} 函数
+实现到 CLOSING 和 RECLOSING 状态的转换，
+\clnref{do_close} 调用 \co{do_close()} 函数来执行
+完成此转换可能需要的任何操作，
+例如导致后续的只读遍历返回错误。
+\Clnref{call_rcu2} 包含 \co{call_rcu()} 调用，
+它导致稍后转换到 CLOSED 状态。
 \end{fcvref}
 
-This state machine and pseudocode shows how to get the effect of a
-\co{call_rcu_cancel()} in those rare situations needing such semantics.
+此状态机和伪代码展示了如何在那些罕见的
+需要此类语义的情况下获得 \co{call_rcu_cancel()} 的效果。
 
-\subsection{Long-Duration Accesses Two}
+\subsection{长时间访问之二}
 \label{sec:together:Long-Duration Accesses Two}
 
-Suppose a reader-writer-locking reader is holding the lock for so
-long that updates are excessively delayed.
-Suppose further that this reader cannot reasonably be converted to
-use reference counting
-(otherwise, see \cref{sec:together:Long-Duration Accesses}).
+假设一个读写锁的读者持有锁的时间太长，
+导致更新被过度延迟。
+进一步假设该读者无法合理地转换为
+使用引用计数
+（否则参见 \cref{sec:together:Long-Duration Accesses}）。
 
-If that reader can be reasonably converted to use RCU, that might
-solve the problem.
-The reason is that RCU readers do not completely block updates, but
-rather block only the cleanup portions of those updates (including
-memory reclamation).
-Therefore, if the system has ample memory, converting the reader-writer
-lock to RCU may suffice.
+如果该读者可以合理地转换为使用 RCU，
+这可能解决问题。
+原因是 RCU 读者不会完全阻塞更新，
+而只阻塞那些更新的清理部分（包括内存回收）。
+因此，如果系统有充足的内存，
+将读写锁转换为 RCU 可能就足够了。
 
-However, converting to RCU does not always suffice.
-For example, the code might traverse an extremely large linked data
-structure within a single RCU read-side critical section, which might
-so greatly extend the RCU grace period that the system runs out of memory.
-These situations can be handled in a couple of different ways:
+然而，转换为 RCU 并不总是足够的。
+例如，代码可能在单个 RCU 读侧临界区内
+遍历一个极其大的链式数据结构，
+这可能极大地延长 RCU 宽限期，导致系统内存耗尽。
+这些情况可以用几种不同的方式处理：
 \begin{enumerate*}[(1)]
-\item	Use SRCU instead of RCU and
-\item	Acquire a reference to exit the RCU reader.
+\item	使用 SRCU 代替 RCU，以及
+\item	获取引用以退出 RCU 读者。
 \end{enumerate*}
 
-\subsubsection{Use SRCU}
+\subsubsection{使用 SRCU}
 \label{sec:together:Use SRCU}
 
-In the Linux kernel, RCU is global.
-In other words, any long-running RCU reader anywhere in the kernel will
-delay the current RCU grace period.
-If the long-running RCU reader is traversing a small data structure,
-that small amount of data is delaying freeing of all other data structures,
-which can result in memory exhaustion.
+在 Linux 内核中，RCU 是全局的。
+换句话说，内核中任何地方的长时间运行的 RCU 读者
+都会延迟当前的 RCU 宽限期。
+如果长时间运行的 RCU 读者正在遍历一个小数据结构，
+那少量的数据就延迟了所有其他数据结构的释放，
+这可能导致内存耗尽。
 
-One way to avoid this problem is to use SRCU for that long-running RCU
-reader's data structure, with its own \co{srcu_struct} structure.
-The resulting long-running SRCU readers will then delay only that
-\co{srcu_struct} structure's grace periods, and not those of RCU,
-thus avoiding memory exhaustion.
-For more details, see the SRCU API in \cref{sec:defer:RCU Linux-Kernel API}.
+避免此问题的一种方法是对该长时间运行的
+RCU 读者的数据结构使用 SRCU，
+使用其自己的 \co{srcu_struct} 结构。
+由此产生的长时间运行的 SRCU 读者
+将仅延迟该 \co{srcu_struct} 结构的宽限期，
+而不延迟 RCU 的宽限期，
+从而避免内存耗尽。
+更多详情请参见 \cref{sec:defer:RCU Linux-Kernel API} 中的 SRCU API。
 
-Unfortunately, this approach does have some drawbacks.
-For one thing, SRCU readers are not subject to priority boosting, which can
-result in additional delays to low-priority SRCU readers on busy
-systems.
-Worse yet, defining a separate \co{srcu_struct} structure reduces the
-number of RCU updaters, which in turn increases the grace-period
-overhead per updater.
-This means that giving each current Linux-kernel RCU use case its own
-\co{srcu_struct} structure could multiply system-wide grace-period
-overhead by the number of such structures.
+不幸的是，这种方法确实有一些缺点。
+首先，SRCU 读者不受优先级提升的约束，
+这可能导致繁忙系统上低优先级 SRCU 读者的额外延迟。
+更糟的是，定义单独的 \co{srcu_struct} 结构
+减少了 RCU 更新者的数量，
+这反过来增加了每个更新者的宽限期开销。
+这意味着为每个当前 Linux 内核 RCU 用例
+都提供其自己的 \co{srcu_struct} 结构，
+可能会将系统范围的宽限期开销
+乘以此类结构的数量。
 
-Therefore, it is often better to acquire some sort of non-RCU reference
-on the needed data to permit a momentary exit from the RCU read-side
-critical section, as described in the next section.
+因此，通常更好的做法是获取某种非 RCU 引用
+以暂时退出 RCU 读侧临界区，
+如下一节所述。
 
-\subsubsection{Acquire a Reference}
+\subsubsection{获取引用}
 \label{sec:together:Acquire a Reference}
 
-If the RCU read-side critical section is too long, shorten it!
+如果 RCU 读侧临界区太长，就缩短它！
 
-In some cases, this can be done trivially.
-For example, code that scans all of the hash chains of a statically
-allocated array of hash buckets can just as easily scan each hash chain
-within its own critical section.
+在某些情况下，这可以轻松完成。
+例如，扫描静态分配的哈希桶数组的所有哈希链的代码
+可以同样轻松地在各自的临界区中扫描每个哈希链。
 
-This works because hash chains are normally quite short, and by design.
-When traversing long linked structures, it is necessary to have some
-way of stopping in the middle and resuming later.
+这之所以有效，是因为哈希链通常相当短，而且是设计如此。
+当遍历长链式结构时，必须有某种方式
+在中间停下来并在稍后恢复。
 
-For example, in Linux kernel v5.16, the \co{khugepaged_scan_file()}
-function checks to see if some other task needs the current CPU
-using \co{need_resched()}, and if so invokes \co{xas_pause()} to
-adjust the traversal's iterator appropriately, and then invokes
-\co{cond_resched_rcu()} to yield the CPU\@.
-In turn, the \co{cond_resched_rcu()} function invokes \co{rcu_read_unlock()},
-\co{cond_resched()}, and finally \co{rcu_read_lock()} to drop out of
-the RCU read-side critical section in order to yield the CPU.
+例如，在 Linux 内核 v5.16 中，
+\co{khugepaged_scan_file()} 函数使用 \co{need_resched()}
+检查其他任务是否需要当前 CPU，
+如果是，则调用 \co{xas_pause()} 适当调整
+遍历的迭代器，然后调用 \co{cond_resched_rcu()}
+让出 CPU\@。
+\co{cond_resched_rcu()} 函数依次调用 \co{rcu_read_unlock()}、
+\co{cond_resched()} 和最后 \co{rcu_read_lock()}，
+以退出 RCU 读侧临界区来让出 CPU。
 
-When this sort of trivial critical-section shortening is infeasible,
-another approach is to acquire a reference to the object, then
-exit the RCU read-side critical section.
-The \co{txopt_get()} function in the v6.17 kernel takes this approach,
-using \co{refcount_inc_not_zero()} to attempt to acquire the reference.
-If the resulting memory contention is excessive, one further fix is to
-use hazard pointers instead of an explicit reference count.
+当这种简单的临界区缩短不可行时，
+另一种方法是获取对象的引用，
+然后退出 RCU 读侧临界区。
+v6.17 内核中的 \co{txopt_get()} 函数采用了这种方法，
+使用 \co{refcount_inc_not_zero()} 尝试获取引用。
+如果由此产生的内存竞争过大，
+另一个修复方法是使用 hazard pointer 而非显式引用计数。
 
-Of course, where feasible, another approach would be to switch to a
-data structure such as a hash table that is more friendly to momentarily
-dropping out of an RCU read-side critical section.
+当然，在可行的情况下，另一种方法是切换到
+对暂时退出 RCU 读侧临界区更友好的
+数据结构，如 hash table。
 
 \QuickQuiz{
-	But how would this work with a resizable hash table, such
-	as the one described in
-	\cref{sec:datastruct:Non-Partitionable Data Structures}?
+	但这如何与可调整大小的 hash table 一起工作，
+	例如
+	\cref{sec:datastruct:Non-Partitionable Data Structures}
+	中描述的那个？
 }\QuickQuizAnswer{
-	In this case, more care is required because the hash table
-	might well be resized during the time that we momentarily
-	exited the RCU read-side critical section.
-	Worse yet, the resize operation can be expected to free the
-	old hash buckets, leaving us pointing to the freelist.
+	在这种情况下，需要更多的注意，
+	因为在我们暂时退出 RCU 读侧临界区期间，
+	hash table 很可能被调整了大小。
+	更糟的是，调整大小操作可以预期会释放旧的哈希桶，
+	使我们指向空闲列表。
 
-	But it is not sufficient to prevent the old hash buckets
-	from being freed.
-	It is also necessary to ensure that those buckets continue
-	to be updated.
+	但仅仅阻止旧哈希桶被释放是不够的。
+	还必须确保那些桶继续被更新。
 
-	One way to handle this is to have a reference count on each
-	set of buckets, which is initially set to the value one.
-	A full-table scan would acquire a reference at the beginning of
-	the scan (but only if the reference is non-zero) and release it
-	at the end of the scan.
-	The resizing would populate the new buckets, release the
-	reference, wait for a grace period, and then wait for the
-	reference to go to zero.
-	Once the reference was zero, the resizing could let updaters
-	forget about the old hash buckets and then free it.
+	处理此问题的一种方法是在每组桶上
+	设置一个引用计数，初始值设为 1。
+	全表扫描将在扫描开始时获取一个引用
+	（但仅在引用非零时），
+	并在扫描结束时释放它。
+	调整大小操作将填充新桶、释放引用、
+	等待宽限期，然后等待引用变为零。
+	一旦引用为零，调整大小操作可以让更新者
+	忘记旧的哈希桶，然后释放它。
 
-	Actual implementation is left to the interested reader, who will
-	gain much insight from this task.
+	实际实现留给有兴趣的读者，
+	他们将从此任务中获得很多见解。
 }\QuickQuizEnd
 
-\subsection{Lockless Configuration Update}
+\subsection{无锁配置更新}
 \label{sec:together:Lockless Configuration Update}
 
-Suppose that you have a single global pointer that is either \co{NULL}
-or points to a singleton data structure that provides configuration
-information, similar to that discussed in
-\cref{sec:defer:Minimal Insertion and Deletion}.
-The twist being added in this section is allowing concurrent lockless
-updates.
+假设你有一个全局指针，
+它要么是 \co{NULL}，
+要么指向一个提供配置信息的单例数据结构，
+类似于
+\cref{sec:defer:Minimal Insertion and Deletion} 中讨论的情况。
+本节增加的变化是允许并发无锁更新。
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul@whole.fcv}
-\caption{Configuration-Update Example}
+\caption{配置更新示例}
 \label{lst:formal:Configuration-Update Example}
 \end{listing}
 
-At first glance, the updates in that section are lockless, given that
-they use \co{rcu_assign_pointer()}.
-However, if we have concurrent lockless updates, one update's
-\co{rcu_assign_pointer()} can be silently overwritten by the next update,
-resulting in a memory leak.
+乍一看，该节中的更新是无锁的，
+因为它们使用 \co{rcu_assign_pointer()}。
+然而，如果我们有并发的无锁更新，
+一个更新的 \co{rcu_assign_pointer()}
+可能被下一个更新悄悄覆盖，导致内存泄漏。
 \begin{fcvref}[ln:formal:C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul:whole]
-One way to avoid this is to use an atomic \co{xchg()} instruction,
-as shown on \clnref{P0:xchg, P1:xchg} of
-\cref{lst:formal:Configuration-Update Example}.
-This way, the pointer from the overwritten \co{xchg()} is returned by
-the next \co{xchg()}, allowing the caller to free it after an RCU
-grace period (\clnref{P0:sync, P1:sync}).
-Because the Linux-kernel memory model does not support dynamic allocation,
-this code emulates freeing by storing the value zero.
+避免这种情况的一种方法是使用原子 \co{xchg()} 指令，
+如 \cref{lst:formal:Configuration-Update Example}
+的 \clnref{P0:xchg, P1:xchg} 所示。
+这样，被覆盖的 \co{xchg()} 返回的指针
+由下一个 \co{xchg()} 返回，
+允许调用者在 RCU 宽限期后释放它
+（\clnref{P0:sync, P1:sync}）。
+因为 Linux 内核内存模型不支持动态分配，
+此代码通过存储值零来模拟释放。
 \end{fcvref}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	Wait!!!
+	等等！！！
 	\begin{fcvref}[ln:formal:C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul:whole]
-	Isn't it necessary for \clnref{P0:free, P1:free} of
 	\cref{lst:formal:Configuration-Update Example}
-	to check for a \co{NULL} pointer returned from
-	\clnref{P0:xchg, P1:xchg}?
+	的 \clnref{P0:free, P1:free}
+	不需要检查从 \clnref{P0:xchg, P1:xchg} 返回的
+	\co{NULL} 指针吗？
 	\end{fcvref}
 }\QuickQuizAnswerB{
-	In this textbook example, no.
+	在这个教科书示例中，不需要。
 
 	\begin{fcvref}[ln:formal:C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul:whole]
-	This is because \clnref{init:p} initialized pointer~\co{p} to point to
-	variable~\co{a}, so that this pointer will never be \co{NULL}.
-	However, this is a very good question to ask because in most
-	production-quality code, a \co{NULL} check would indeed be
-	necessary.
-	On top of that, the first sentence of this section suggested
-	that the pointer might in fact be \co{NULL}.
-	Adding the NULL checks is left as an exercise for the reader.
+	这是因为 \clnref{init:p} 将指针 \co{p} 初始化为
+	指向变量 \co{a}，所以此指针永远不会是 \co{NULL}。
+	然而，这是一个很好的问题，
+	因为在大多数生产级代码中，
+	确实需要 \co{NULL} 检查。
+	此外，本节的第一句话暗示指针实际上可能是 \co{NULL}。
+	添加 NULL 检查留给读者作为练习。
 	\end{fcvref}
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Do we really need \co{xchg()} in
-	\cref{lst:formal:Configuration-Update Example}?
-	Why not a simple load followed by a simple store?
+	我们在 \cref{lst:formal:Configuration-Update Example}
+	中真的需要 \co{xchg()} 吗？
+	为什么不用简单的加载后跟简单的存储？
 }\QuickQuizAnswerE{
-	Yes, we really do need that \co{xchg()}.
-	If we used a simple load followed by a simple store, then another
-	process could update the pointer between that load and that store,
-	resulting in that other process's element being overwritten and
-	leaked.
+	是的，我们确实需要那个 \co{xchg()}。
+	如果我们使用简单的加载后跟简单的存储，
+	另一个进程可能在加载和存储之间更新指针，
+	导致该进程的元素被覆盖和泄漏。
 
-	But don't take \emph{my} word for it.
-	Try it with \co{herd}!!!
+	但不要只听\emph{我}的话。
+	用 \co{herd} 试试看！！！
 	(\path{C-MP+o-o-rcusync-o+o-o-rcusync-o+rl-o-o-rul.litmus})
 }\QuickQuizEndE
 }		% End of \QuickQuizSeries
 
 \begin{fcvref}[ln:formal:C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul:whole]
-The reader can then be written as a straightforward RCU reader
-(\clnrefrange{P2:lock}{P2:unlock}),
-loading the current pointer on \clnref{P2:load} and
-dereferencing it on \clnref{P2:deref}.
+读者然后可以作为直接的 RCU 读者编写
+（\clnrefrange{P2:lock}{P2:unlock}），
+在 \clnref{P2:load} 加载当前指针，
+在 \clnref{P2:deref} 解引用它。
 
-Running this example
+运行此示例
 (\path{CodeSamples/formal/herd/C-MP+o-xchg-rcusync-o+o-xchg-rcusync-o+rl-o-o-rul.litmus})
-through \co{herd}
-(see \cref{sec:formal:Axiomatic Approaches})
-verifies that this algorithm avoid use-after-free errors (\clnref{ex:1}) and that it
-emulates freeing of all but one of the objects~\co{a}, \co{b}, and~\co{c}
-(\clnref{ex:2}), thus also avoiding memory leaks.
+通过 \co{herd}
+（参见 \cref{sec:formal:Axiomatic Approaches}）
+验证了此算法避免了释放后使用错误（\clnref{ex:1}），
+并且它模拟了释放对象 \co{a}、\co{b} 和 \co{c}
+中除一个以外的所有对象（\clnref{ex:2}），
+从而也避免了内存泄漏。
 \end{fcvref}
 
-\subsection{Lockless Double-Checked Locking}
+\subsection{无锁双重检查锁定}
 \label{sec:together:Lockless Double-Checked Locking}
 
-Double-check locking is a well-known pattern that provides first-use
-initialization of shared state.
-But consider an extreme low-latency environment in which any and all
-use of locking is forbidden.
-How can first-use initialization (and subsequent update) be implemented
-under such constraints?
+双重检查锁定是一种众所周知的模式，
+提供共享状态的首次使用初始化。
+但考虑一个极端低延迟环境，
+其中禁止任何和所有锁的使用。
+在这种约束下如何实现首次使用初始化（和后续更新）？
 
 \begin{listing}
 \ebresizeverb{.9}{
 \input{CodeSamples/formal/herd/C-double-check-rcu-2@whole.fcv}
 }
-\caption{Two-Process Double-Check RCU}
+\caption{两进程双重检查 RCU}
 \label{lst:formal:Two-Process Double-Check RCU}
 \end{listing}
 
-One approach is to use RCU to protect the lookup operation, and to use
-an atomic \co{xchg()} operation to carry out the update.
-As on the prior section, an overwritten object is RCU-freed in order to
-avoid disrupting concurrent readers, for example, as shown in
+一种方法是使用 RCU 来保护查找操作，
+并使用原子 \co{xchg()} 操作来执行更新。
+与上一节一样，被覆盖的对象通过 RCU 释放
+以避免干扰并发读者，例如
 \cref{lst:formal:Two-Process Double-Check RCU}
-(\path{C-double-check-rcu-2.litmus}).\footnote{
-	Those unconvinced by a two-process example are invited to look
-	at a three-process example
-	(\path{C-double-check-rcu-3.litmus}).
-	Those unconvinced by a three-process example are invited to
-	construct a larger example, but be advised that on Paul's laptop,
-	\co{herd} takes about 20~minutes to analyze a four-process
-	example compared to about 2~seconds for a three-process example.}
+(\path{C-double-check-rcu-2.litmus}) 所示。\footnote{
+	对两进程示例不信服的人可以查看
+	三进程示例
+	(\path{C-double-check-rcu-3.litmus})。
+	对三进程示例不信服的人可以构建更大的示例，
+	但请注意在 Paul 的笔记本电脑上，
+	\co{herd} 分析四进程示例大约需要 20 分钟，
+	而三进程示例大约需要 2 秒。}
 
-The fastpath covers the common case where initialization has already
-completed.
+快速路径覆盖了初始化已经完成的常见情况。
 \begin{fcvref}[ln:formal:C-double-check-rcu-2:whole:P0]
-\Clnref{lock} begins an RCU read-side critical section, and \clnref{load} fetches
-the current pointer.
-If \clnref{if} determines that this pointer is non-\co{NULL}, then
-initialization is complete, so that \clnref{deref} fetches the element's contents
-and \clnref{unl:1} exits the critical section.
+\Clnref{lock} 开始 RCU 读侧临界区，
+\clnref{load} 获取当前指针。
+如果 \clnref{if} 确定此指针非 \co{NULL}，
+则初始化已完成，
+\clnref{deref} 获取元素的内容，
+\clnref{unl:1} 退出临界区。
 
-Otherwise, \clnref{if} will see the pre-initialization \co{NULL} pointer
-and transfer control to \clnref{unl:2}, which exits the RCU read-side critical
-section.
-\Clnref{init:a} initializes the element (abstracting away any required allocation),
-\clnref{xchg} atomically exchanges the pointer to this element with the global
-pointer~\co{p}, returning the old value in \co{r1}.
-If \clnref{if:2} determines that \co{r1} was non-\co{NULL}, then \clnref{sync}
-waits for any readers accessing the old element to finish and \clnref{free}
-emulates a \co{kfree()}.
-Either way, \co{r2} is set to the initial value of~1.
+否则，\clnref{if} 将看到初始化前的 \co{NULL} 指针，
+并将控制转移到 \clnref{unl:2}，退出 RCU 读侧临界区。
+\Clnref{init:a} 初始化元素（抽象掉任何所需的分配），
+\clnref{xchg} 将指向此元素的指针与全局指针 \co{p}
+原子交换，将旧值返回到 \co{r1} 中。
+如果 \clnref{if:2} 确定 \co{r1} 非 \co{NULL}，
+则 \clnref{sync} 等待任何访问旧元素的读者完成，
+\clnref{free} 模拟 \co{kfree()}。
+无论如何，\co{r2} 被设置为初始值 1。
 \end{fcvref}
 
 \begin{fcvref}[ln:formal:C-double-check-rcu-2:whole]
-\Clnrefrange{P1:b}{P1:e} operate in the same manner, but using element~\co{b} instead
-of~\co{a}.
+\Clnrefrange{P1:b}{P1:e} 以相同方式操作，
+但使用元素 \co{b} 而非 \co{a}。
 
-\Clnref{loc} displays all variables to ease debugging of the litmus test.
-\Clnref{ex:1} verifies that both processes obtain an initialized value,
-and \clnref{ex:2} verifies that there are no memory leaks and that at least
-one element remains in use.
-Running \co{herd} confirms that this code satisfies these constraints.
+\Clnref{loc} 显示所有变量以便于调试 litmus 测试。
+\Clnref{ex:1} 验证两个进程都获得了初始化值，
+\clnref{ex:2} 验证没有内存泄漏且至少有一个元素仍在使用中。
+运行 \co{herd} 确认此代码满足这些约束。
 \end{fcvref}
 
 \QuickQuiz{
-	But wouldn't memory allocation also be forbidden in such
-	a low-latency environment?
+	但在这样的低延迟环境中，
+	内存分配不也是被禁止的吗？
 }\QuickQuizAnswer{
-	It might well be.
-	In which case, preallocation might be necessary, for example,
-	in the Linux kernel, each CPU might be provided with a preallocated
-	element.
+	确实可能。
+	在这种情况下，可能需要预分配，
+	例如在 Linux 内核中，
+	每个 CPU 可能被提供一个预分配的元素。
 }\QuickQuizEnd
 
-\subsection{Lockless Double-Checked Initialization}
+\subsection{无锁双重检查初始化}
 \label{sec:together:Lockless Double-Checked Initialization}
 
-Suppose we have the situation described in
+假设我们有
 \cref{sec:together:Lockless Double-Checked Locking}
-but without the need for subsequent updates.
-What is the best way to implement first-use initialization (but without
-subsequent update) under such constraints?
+中描述的情况，但不需要后续更新。
+在这种约束下实现首次使用初始化（但不需要后续更新）
+的最佳方法是什么？
 
 \begin{listing}
 \ebresizeverb{.9}{
 \input{CodeSamples/formal/herd/C-double-check-cas-2@whole.fcv}
 }
-\caption{Two-Process Double-Check CAS}
+\caption{两进程双重检查 CAS}
 \label{lst:formal:Two-Process Double-Check CAS}
 \end{listing}
 
-In this case, we only ever need to set pointer~\co{p} the one time.
-This means that if any would-be initializing process finds that
-this pointer in non-\co{NULL}, it can simply abandon its attempt at
-initialization.
-This in turn means that any reader will only ever get a reference to
-the one (immortal) element, removing any need for any sort of deferred
-reclamation.
-This initialization procedure can therefore be implemented using a simple
-\co{cmpxchg()} in \cref{lst:formal:Two-Process Double-Check CAS}.
+在这种情况下，我们只需设置指针 \co{p} 一次。
+这意味着如果任何想要初始化的进程发现
+此指针非 \co{NULL}，它可以简单地放弃其初始化尝试。
+这反过来意味着任何读者只会获得对
+唯一（永生）元素的引用，
+消除了对任何延迟回收的需要。
+因此，可以使用简单的 \co{cmpxchg()} 来实现此初始化过程，
+如 \cref{lst:formal:Two-Process Double-Check CAS} 所示。
 
 \begin{fcvref}[ln:formal:C-double-check-cas-2:whole:P0]
-\Clnref{load} fetches the pointer, and if \clnref{if} sees that it is
-non-\co{NULL}, \clnref{deref} picks up the value.
+\Clnref{load} 获取指针，如果 \clnref{if} 看到它
+非 \co{NULL}，\clnref{deref} 获取值。
 
-Otherwise, \clnref{init:a} initializes an element and \clnref{cmpxchg}
-attempts to install it at pointer~\co{p}.
-If this attempt fails, it means that some other process has already done
-the initialization, so \clnref{free} frees this process's element.
+否则，\clnref{init:a} 初始化一个元素，
+\clnref{cmpxchg} 尝试将其安装在指针 \co{p} 处。
+如果此尝试失败，意味着其他进程已经完成了初始化，
+所以 \clnref{free} 释放此进程的元素。
 \end{fcvref}
 
 \QuickQuiz{
 	\begin{fcvref}[ln:formal:C-double-check-cas-2:whole:P0]
-	Doesn't that \co{READ_ONCE()} on \clnref{load}
 	\cref{lst:formal:Two-Process Double-Check CAS}
-	need to be \co{smp_load_acquire()} in order to prevent early
-	readers running concurrently with the initialization from seeing
-	pre-initialization garbage?
+	的 \clnref{load} 上的 \co{READ_ONCE()}
+	不需要是 \co{smp_load_acquire()} 以防止
+	与初始化并发运行的早期读者
+	看到初始化前的垃圾数据吗？
 	\end{fcvref}
 }\QuickQuizAnswer{
-	No, because \co{READ_ONCE()} is a volatile operation and therefore
-	can head address dependency chains.
-	In theory, another alternative is \co{rcu_dereference_raw()}.
-	Except that this could be misleading because the element is
-	never freed, not protected by \co{rcu_read_lock()}, and thus
-	not really an RCU-protected pointer.
+	不需要，因为 \co{READ_ONCE()} 是 volatile 操作，
+	因此可以作为地址依赖链的头部。
+	理论上，另一个替代方案是 \co{rcu_dereference_raw()}。
+	除了这可能会产生误导，
+	因为该元素永远不会被释放，
+	不受 \co{rcu_read_lock()} 保护，
+	因此不是真正的 RCU 保护指针。
 
-	For more information on address dependencies, please refer to
+	有关地址依赖的更多信息，请参阅
 	\cref{sec:memorder:Address- and Data-Dependency Difficulties}
-	starting on
-	\cpageref{sec:memorder:Address- and Data-Dependency Difficulties}.
+	（\cpageref{sec:memorder:Address- and Data-Dependency Difficulties}
+	开始）。
 }\QuickQuizEnd
 
-This example underscores the need to thoroughly understand the
-requirements.
-In this example, dropping the requirement for runtime update simplified
-the synchronization by removing the need for RCU\@.\footnote{
-	Kudos to Denis Yaroshevskiy for pointing this out.}
+此示例强调了彻底理解需求的必要性。
+在此示例中，删除运行时更新的需求
+通过消除对 RCU 的需求简化了同步。\footnote{
+	感谢 Denis Yaroshevskiy 指出这一点。}
 
 \QuickQuiz{
-	Given an algorithm like that shown in
-	\cref{lst:formal:Two-Process Double-Check CAS},
-	why would anyone use double-checked locking?
+	给定如
+	\cref{lst:formal:Two-Process Double-Check CAS}
+	所示的算法，
+	为什么还有人使用双重检查锁定？
 }\QuickQuizAnswer{
-	If the flag and data are carefully placed into the same cache
-	line, then double-checked locking can offer better cache locality
-	than can double-checked CAS\@.
-	This is because in the double-checked CAS case, the pointer and
-	the pointed-to element will almost always be in separate cache
-	lines, potential resulting in two cache misses to double-checked
-	locking's single cache miss.
+	如果标志和数据被仔细放入同一缓存行，
+	那么双重检查锁定可以提供比双重检查 CAS
+	更好的缓存局部性。
+	这是因为在双重检查 CAS 情况下，
+	指针和被指向的元素几乎总是在不同的缓存行中，
+	可能导致两次缓存未命中，
+	而双重检查锁定只有一次缓存未命中。
 
-	However, as the element grows in size, this advantage diminishes.
+	然而，随着元素大小的增长，这个优势会减弱。
 }\QuickQuizEnd

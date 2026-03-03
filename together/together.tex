@@ -2,35 +2,32 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\QuickQuizChapter{chp:Putting It All Together}{Putting It All Together}{qqztogether}
+\QuickQuizChapter{chp:Putting It All Together}{融会贯通}{qqztogether}
 %
-\Epigraph{You don't learn how to shoot and then learn how to launch
-	  and then learn to do a controlled spin---you learn to
-	  launch-shoot-spin.}{\emph{Ender's Shadow}, Orson Scott Card}
+\Epigraph{你不是先学射击，然后学发射，再学控制旋转——你学的是
+	  发射-射击-旋转。}{\emph{Ender's Shadow}，Orson Scott Card}
 
 % And the paragraph preceding this is also instructive:
 % ``I may be pissed off, but that doesn't mean I can't learn.''
 
-This \lcnamecref{chp:Putting It All Together}
-gives some hints on concurrent-programming puzzles.
+本\lcnamecref{chp:Putting It All Together}
+给出了一些关于并发编程难题的提示。
 \Cref{sec:together:Counter Conundrums}
-considers counter conundrums,
+考虑计数器难题，
 \cref{sec:together:Refurbish Reference Counting}
-refurbishes reference counting,
+翻新引用计数，
 \cref{sec:together:Hazard-Pointer Helpers}
-helps with hazard pointers,
+帮助解决 hazard pointer 问题，
 \cref{sec:together:Sequence-Locking Specials}
-surmises on sequence-locking specials,
+探讨 sequence lock 的特殊用法，
 \cref{sec:together:RCU Rescues}
-and
-reflects on RCU rescues.
-Finally,
-although the best performance and scalability results from design rather
-than after-the-fact micro-optimization, micro-optimization is nevertheless
-necessary for the absolute best possible performance and scalability.
-Therefore,
+则反思 RCU 的救援之道。
+最后，
+尽管最佳的性能和可扩展性来自于设计而非事后的微优化，
+但微优化对于追求绝对最佳的性能和可扩展性仍然是必要的。
+因此，
 \cref{sec:together:Micro-Optimization}
-meanders through a few micro-optimizations.
+将漫谈一些微优化技巧。
 
 \input{together/count.tex}
 \input{together/refcnt.tex}
