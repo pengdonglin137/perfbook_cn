@@ -24,10 +24,13 @@ generate_pdfs:
 
     script:
         - source /etc/profile
-        - make perfbook.pdf perfbook-1c.pdf perfbook-eb.pdf
+        - make perfbook.pdf perfbook-1c.pdf perfbook-lt.pdf perfbook-a4.pdf perfbook-eb.pdf perfbook-hb.pdf
 
     artifacts:
       paths:
           - perfbook.pdf
           - perfbook-1c.pdf
+          - perfbook-lt.pdf
+          - perfbook-a4.pdf
           - perfbook-eb.pdf
+          - perfbook-hb.pdf
