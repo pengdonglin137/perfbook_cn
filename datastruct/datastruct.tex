@@ -416,7 +416,7 @@ RCU 已在\cref{sec:defer:Read-Copy Update (RCU)}中介绍。
 也可以实现类似的结果，本节展示的性能结果中将包含
 hazard pointer 的数据~\cite{McKenney:2013:SDS:2483852.2483867}。
 
-\subsection{RCU-Protected Hash Table Implementation}
+\subsection{RCU 保护的哈希表实现}
 \label{sec:datastruct:RCU-Protected Hash Table Implementation}
 
 对于使用每 bucket 加锁的 RCU 保护 hash table，
@@ -493,7 +493,7 @@ hazard pointer 的数据~\cite{McKenney:2013:SDS:2483852.2483867}。
 RCU \IX{grace period}（例如，通过调用 \co{synchronize_rcu()}），
 然后才能释放或重用新删除元素的内存。
 
-\subsection{RCU-Protected Hash Table Validation}
+\subsection{RCU 保护的哈希表验证}
 \label{sec:datastruct:RCU-Protected Hash Table Validation}
 
 虽然验证这一主题在\cref{chp:Validation}中有详细介绍，
@@ -543,7 +543,7 @@ RCU \IX{grace period}（例如，通过调用 \co{synchronize_rcu()}），
 
 所有代码都需要大量的验证工作，而高性能并发代码比大多数代码需要更多的验证。
 
-\subsection{RCU-Protected Hash Table Performance}
+\subsection{RCU 保护的哈希表性能}
 \label{sec:datastruct:RCU-Protected Hash Table Performance}
 
 \begin{figure}
@@ -841,7 +841,7 @@ hazard pointer 和 RCU 之间的差距。
 % @@@ and production algorithms, also the need for clear understanding
 % @@@ of what level of consistency is required.
 
-\subsection{RCU-Protected Hash Table Discussion}
+\subsection{RCU 保护的哈希表讨论}
 \label{sec:datastruct:RCU-Protected Hash Table Discussion}
 
 RCU 和 hazard pointer 实现的一个后果是，

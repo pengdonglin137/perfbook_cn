@@ -151,7 +151,7 @@ POSIX locking，最后，
 \cref{sec:toolsoftrade:POSIX Reader-Writer Locking}描述一种
 特定的 lock，可用于被许多 thread 读取但仅偶尔更新的数据。
 
-\subsection{POSIX Process Creation and Destruction}
+\subsection{POSIX 进程的创建和销毁}
 \label{sec:toolsoftrade:POSIX Process Creation and Destruction}
 
 进程使用 \apipx{fork()} 原语创建，可以使用 \apipx{kill()} 原语销毁，
@@ -288,7 +288,7 @@ Parent process sees x=0
 \cref{sec:toolsoftrade:POSIX Thread Creation and Destruction}中介绍。
 也就是说，共享内存并行可能比 fork-join 并行复杂得多。
 
-\subsection{POSIX Thread Creation and Destruction}
+\subsection{POSIX Thread 的创建和销毁}
 \label{sec:toolsoftrade:POSIX Thread Creation and Destruction}
 
 \begin{fcvref}[ln:toolsoftrade:pcreate:mythread]
@@ -380,7 +380,7 @@ Parent process sees x=1
 	避免~\cite{JonCorbet2012ACCESS:ONCE}。
 }\QuickQuizEnd
 
-\subsection{POSIX Locking}
+\subsection{POSIX 锁}
 \label{sec:toolsoftrade:POSIX Locking}
 
 POSIX 标准允许程序员通过"POSIX locking"来避免 data race。
@@ -644,7 +644,7 @@ lock_reader(): x = 3
 一个良好的起点，而且在许多情况下实际上是足够的。
 下一节简要介绍 POSIX reader-writer locking。
 
-\subsection{POSIX Reader-Writer Locking}
+\subsection{POSIX 读写锁}
 \label{sec:toolsoftrade:POSIX Reader-Writer Locking}
 
 POSIX API 提供了一种 reader-writer lock，
@@ -864,7 +864,7 @@ thread 必须等待其他所有 447 个 thread 完成更新。
 还有一些替代方案，其中一些将在
 \cref{chp:Counting,chp:Deferred Processing}中介绍。
 
-\subsection{Atomic Operations (\GCC\ Classic)}
+\subsection{原子操作（\GCC\ 经典版）}
 \label{sec:toolsoftrade:Atomic Operations (gcc Classic)}
 
 \Cref{fig:toolsoftrade:Reader-Writer Lock Scalability vs. Microseconds in Critical Section}
@@ -1017,7 +1017,7 @@ memory barrier（\apic{atomic_thread_fence()} 和
 	\cref{chp:Advanced Synchronization: Memory Ordering}和
 	\cref{chp:app:whymb:Why Memory Barriers?}中有更详细的描述。}
 
-\subsection{Atomic Operations (Modern \GCC)}
+\subsection{原子操作（现代 \GCC）}
 \label{sec:toolsoftrade:Atomic Operations (Modern gcc)}
 
 C11 atomic 的一个限制是它们只适用于特殊的 atomic 类型，
@@ -1141,7 +1141,7 @@ for_each_running_thread(t)
 void *wait_thread(thread_id_t tid)
 void wait_all_threads(void)
 \end{VerbatimL}
-\caption{Thread API}
+\caption{Thread API 接口}
 \label{lst:toolsoftrade:Thread API}
 \end{listing}
 
@@ -1252,7 +1252,7 @@ void spin_lock(spinlock_t *sp);
 int spin_trylock(spinlock_t *sp);
 void spin_unlock(spinlock_t *sp);
 \end{VerbatimL}
-\caption{Locking API}
+\caption{锁 API 接口}
 \label{lst:toolsoftrade:Locking API}
 \end{listing}
 
