@@ -150,6 +150,10 @@ while grep -q 'LaTeX Warning: Label(s) may have changed' $basename.log
 do
 	if identical_warnings
 	then
+		# One final pass to see if warnings resolve
+		iter=`expr $iter + 1`
+		echo "$LATEX $iter for $pdfname # final pass after warnings stabilized"
+		iterate_latex
 		break
 	fi
 	iter=`expr $iter + 1`

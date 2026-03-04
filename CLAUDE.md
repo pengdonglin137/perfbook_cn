@@ -231,3 +231,20 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 - Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph
 - Read 200-300 lines at a time, Edit each prose paragraph
 - This avoids timeout issues with large files
+
+### Build Notes for Chinese Translation
+
+**All PDF targets and expected output:**
+
+| Target | File | Layout | Pages (approx) |
+|--------|------|--------|-----------------|
+| `make` / `make 2c` | `perfbook.pdf` | 2-column letter | ~715 |
+| `make 1c` | `perfbook-1c.pdf` | 1-column letter | ~1047 |
+| `make lt` | `perfbook-lt.pdf` | 2-column letter | ~715 |
+| `make hb` | `perfbook-hb.pdf` | 2-column hardbound | ~715 |
+| `make a4` | `perfbook-a4.pdf` | 2-column A4 | ~715 |
+| `make eb` | `perfbook-eb.pdf` | 1-column ebook | ~1555 |
+
+**CJK-specific build issues:**
+- Chinese typesetting with xelatex requires more LaTeX passes for cross-reference convergence than the English original. `utilities/runlatex.sh` has been patched to run one extra pass after warnings stabilize.
+- The `eb` (ebook) format has a smaller page size. Code listings using `\ebresizeverb{}` may need smaller scale factors than the English version to avoid "Float too large for page" warnings. When adding new code listings, test with `make eb` to verify fit.
