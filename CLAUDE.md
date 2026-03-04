@@ -176,7 +176,14 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 - Index entries (`\IX{}`, `\IXr{}`, `\api{}`, etc.)
 - Figures/images text (not translated)
 
-**Technical term translation table:**
+**Technical term translation strategy:**
+
+- **First occurrence in each chapter**: Chinese translation + English in parentheses, e.g., `死锁（deadlock）`
+- **Subsequent occurrences**: Chinese only, e.g., `死锁`
+- **Exception — always keep English**: Terms listed in the "Keep English" section below
+- **In `\item[]` definition labels**: Always use `中文（English）` format, e.g., `\item[加载撕裂（Load tearing）]`
+
+**Translation table (translate to Chinese):**
 
 | English | Chinese | Notes |
 |---------|---------|-------|
@@ -186,7 +193,9 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | Lock / Locking | 锁 / 加锁 | |
 | Exclusive Lock | 互斥锁 | |
 | Reader-Writer Lock | 读写锁 | |
+| Spinlock | 自旋锁 | |
 | Memory Barrier | 内存屏障 | |
+| Critical Section | 临界区 | |
 | Cache Miss | 缓存未命中 | |
 | Hash Table | 哈希表 | |
 | Hazard Pointer | 风险指针 | |
@@ -200,10 +209,23 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | Statistical Counter | 统计计数器 | |
 | Limit Counter | 限值计数器 | |
 | Quick Quiz | 快速测验 | |
-| RCU | RCU | Keep English |
-| grace period | grace period | Keep English |
-| cache line | cache line | Keep English |
-| thread | thread | Keep in most contexts |
+| Load Tearing | 加载撕裂 | |
+| Store Tearing | 存储撕裂 | |
+| Load Fusing | 加载融合 | |
+| Store Fusing | 存储融合 | |
+| Invented Load | 凭空加载 | |
+| Invented Store | 凭空存储 | |
+| Dead-code Elimination | 死代码消除 | |
+| Thread | 线程 | |
+
+**Keep English (do not translate):**
+
+| Term | Reason |
+|------|--------|
+| RCU | Domain standard term |
+| grace period | RCU-specific, no good Chinese equivalent |
+| cache line | Hardware term, universally used in English |
+| store / load | Memory model core terms, keep English in all chapters |
 
 **Translation method for large files:**
 - Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph

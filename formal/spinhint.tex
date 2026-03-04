@@ -190,9 +190,9 @@ spin -t -p increment.spin
 \centering
 \begin{tabular}{S[table-format = 1.0]S[table-format = 7.0]S[table-format = 3.1]}
 	\toprule
-	\multicolumn{1}{l}{\# incrementers} &
-		\multicolumn{1}{r}{\# states} &
-			\multicolumn{1}{r}{total memory usage (MB)} \\
+	\multicolumn{1}{l}{递增器数量} &
+		\multicolumn{1}{r}{状态数} &
+			\multicolumn{1}{r}{总内存使用量 (MB)} \\
 	\midrule
 	1 &		        11 &        128.7 \\
 	2 &		        52 &        128.7 \\
@@ -794,11 +794,11 @@ cc -DSAFETY [-DCOLLAPSE] -o pan pan.c
 \begin{tabular}{S[table-format = 1.0]S[table-format = 1.0]S[table-format = 9.0]
 		S[table-format = 6.0]S[table-format = 5.1]}
 	\toprule
-	\multicolumn{1}{r}{updaters} &
-	    \multicolumn{1}{r}{readers} &
-		\multicolumn{1}{r}{\# states} &
-		    \multicolumn{1}{r}{depth} &
-			\multicolumn{1}{r}{memory (MB)\tnote{a}} \\
+	\multicolumn{1}{r}{更新者} &
+	    \multicolumn{1}{r}{读者} &
+		\multicolumn{1}{r}{状态数} &
+		    \multicolumn{1}{r}{深度} &
+			\multicolumn{1}{r}{内存 (MB)\tnote{a}} \\
 	\midrule
 	1 & 1 &         376 &      95 &    128.7 \\
 	1 & 2 &       6 177 &     218 &    128.9 \\
@@ -811,8 +811,7 @@ cc -DSAFETY [-DCOLLAPSE] -o pan pan.c
 	\bottomrule
 \end{tabular}
 \begin{tablenotes}
-	\item [a] Obtained with the compiler flag \co{-DCOLLAPSE}
-		specified.
+	\item [a] 使用编译器标志 \co{-DCOLLAPSE} 获得。
 \end{tablenotes}
 \end{threeparttable}
 \caption{QRCU 模型的内存使用量}
@@ -900,16 +899,16 @@ cc -DSAFETY -DMA=96 -O2 -o pan pan.c
 	\multicolumn{4}{r}{} & \multicolumn{3}{c}{\tco{-DCOLLAPSE}} &
 					\multicolumn{3}{c}{\tco{-DMA=N}} \\
 	\cmidrule(l){5-7} \cmidrule(l){8-10}
-	\multicolumn{1}{r}{updaters} &
-	    \multicolumn{1}{r}{readers} &
-		\multicolumn{1}{r}{\# states} &
-		    \multicolumn{1}{r}{depth reached} &
+	\multicolumn{1}{r}{更新者} &
+	    \multicolumn{1}{r}{读者} &
+		\multicolumn{1}{r}{状态数} &
+		    \multicolumn{1}{r}{达到的深度} &
 			\multicolumn{1}{r}{\tco{-wN}} &
-			    \multicolumn{1}{r}{memory (MB)} &
-				\multicolumn{1}{r}{runtime (s)} &
+			    \multicolumn{1}{r}{内存 (MB)} &
+				\multicolumn{1}{r}{运行时间 (s)} &
 				    \multicolumn{1}{r}{\tco{N}} &
-					\multicolumn{1}{r}{memory (MB)} &
-					    \multicolumn{1}{r}{runtime (s)} \\
+					\multicolumn{1}{r}{内存 (MB)} &
+					    \multicolumn{1}{r}{运行时间 (s)} \\
 	\cmidrule{1-4} \cmidrule(l){5-7} \cmidrule(l){8-10}
 	1 & 1 &           376 &         95 & 12 &     0.10 & 0.00 &
 		40 &    0.29 &      0.00 \\

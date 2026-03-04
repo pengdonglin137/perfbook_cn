@@ -985,7 +985,7 @@ ret = ~ret & tmp;
 	演变为与原始 \apikh{ACCESS_ONCE()} 实现外观截然不同的复杂形式，
 	这是因为需要支持大型结构的 access-once 语义，
 	同时如果结构无法用单条机器指令加载和存储，
-	则可能出现 load/store tearing。
+	则可能出现加载/存储撕裂。
 }\QuickQuizEnd
 
 \subsection{原子操作（C11）}
@@ -1410,15 +1410,15 @@ sec:toolsoftrade:Assembling the Rest of a Solution}
 编译器有权假设受影响的变量既不会被任何其他 thread 访问
 也不会被修改。
 这一假设允许编译器执行大量变换，
-包括 load tearing、store tearing、
-load fusing、store fusing、代码重排序、invented load、
-invented store、store-to-load 变换和死代码消除，
+包括加载撕裂、存储撕裂、
+加载融合、存储融合、代码重排序、凭空加载、
+凭空存储、存储转加载变换和死代码消除，
 所有这些在单 thread 代码中都工作得很好。
 但并发代码可能被这些变换中的每一种破坏，
 即下面描述的共享变量恶作剧。
 
 \begin{description}[labelsep=.4em]
-\item[Load tearing] 发生在编译器为单次访问使用多条加载指令时。
+\item[加载撕裂（Load tearing）] 发生在编译器为单次访问使用多条加载指令时。
 例如，编译器理论上可以将从 \co{global_ptr} 的加载（参见
 \cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}的
 \clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp}）
@@ -1433,9 +1433,9 @@ invented store、store-to-load 变换和死代码消除，
 编译器可能别无选择，只能使用一对 8 位指令来访问
 给定的指针。
 因为 C 标准必须支持各种系统，
-标准不能在一般情况下排除 load tearing。
+标准不能在一般情况下排除加载撕裂。
 
-\item[Store tearing] 发生在编译器为单次访问使用多条存储指令时。
+\item[存储撕裂（Store tearing）] 发生在编译器为单次访问使用多条存储指令时。
 例如，一个 thread 可能在同一时间将 \co{0x12345678}
 存储到一个四字节整数变量中，而另一个 thread 存储了 \co{0xabcdef00}。
 如果编译器对任一访问使用了 16 位存储，
@@ -1451,17 +1451,17 @@ invented store、store-to-load 变换和死代码消除，
 还有一份近期
 报告~\cite{WillDeacon2019StoreTearingReport}。\footnote{
 	请注意，即使对于正确对齐且机器字大小的访问，
-	这种 tearing 也可能发生，而在这种特定情况下，
+	这种撕裂也可能发生，而在这种特定情况下，
 	即使对于 volatile 存储也是如此。
 	有些人可能会认为这种行为构成编译器 bug，
 	但无论如何，它说明了从编译器编写者角度来看
-	store tearing 的感知价值。
+	存储撕裂的感知价值。
 }
 
 当然，考虑到在 32 位系统上运行使用 64 位整数的代码的可能性，
 编译器在一般情况下简直别无选择只能拆分某些存储。
 但对于正确对齐的机器大小存储，\apik{WRITE_ONCE()} 将
-防止 store tearing。
+防止存储撕裂。
 
 \begin{listing}
 \begin{fcvlabel}[ln:toolsoftrade:Preventing Load Fusing]
@@ -1470,7 +1470,7 @@ while (!need_to_stop)
 	do_something_quickly();
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{招致 Load Fusing}
+\caption{招致加载融合}
 \label{lst:toolsoftrade:Inviting Load Fusing}
 \end{listing}
 
@@ -1502,7 +1502,7 @@ if (!need_to_stop)
 \label{lst:toolsoftrade:C Compilers Can Fuse Loads}
 \end{listing}
 
-\item[Load fusing] 发生在编译器使用之前从给定变量加载的结果
+\item[加载融合（Load fusing）] 发生在编译器使用之前从给定变量加载的结果
 而不重复加载时。
 这种优化不仅在单 thread 代码中完全没问题，
 在多 thread 代码中通常也没问题。
@@ -1588,7 +1588,7 @@ void t1(void)
 	\end{fcvref}
 }\QuickQuizEnd
 
-\item[Store fusing] 当编译器注意到对给定变量的连续两次存储
+\item[存储融合（Store fusing）] 当编译器注意到对给定变量的连续两次存储
 之间没有对该变量的加载时，就可能发生。
 在这种情况下，编译器有权省略第一次存储。
 这在单 thread 代码中永远不是问题，
@@ -1668,20 +1668,20 @@ void work_until_shut_down(void)
 	或 \apic{sig_atomic_t} 类型的变量，
 	而不是 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()}。}
 
-\item[Invented load] 已在
+\item[凭空加载（Invented load）] 已在
 \cref{lst:toolsoftrade:Living Dangerously Early 1990s Style,%
 lst:toolsoftrade:C Compilers Can Invent Loads}
 的代码中说明过了，
 编译器优化掉了一个临时变量，
 从而比预期更频繁地从共享变量加载。
 
-Invented load 可能是性能隐患。
+凭空加载可能是性能隐患。
 当"热" cacheline 中的变量加载被提升到
 \co{if} 语句之外时，就可能出现这些隐患。
 这些提升优化并不罕见，可能导致 cache miss 显著增加，
 从而严重降低性能和可扩展性。
 
-\item[Invented store] 可能在多种情况下发生。
+\item[凭空存储（Invented store）] 可能在多种情况下发生。
 \begin{fcvref}[ln:toolsoftrade:C Compilers Can Fuse Stores]
 例如，编译器在为
 \cref{lst:toolsoftrade:C Compilers Can Fuse Stores}中的
@@ -1710,7 +1710,7 @@ else
 	do_a_bunch_of_stuff(&a);
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{招致 Invented Store}
+\caption{招致凭空存储}
 \label{lst:toolsoftrade:Inviting an Invented Store}
 \end{listing}
 
@@ -1754,7 +1754,7 @@ lst:toolsoftrade:Compiler Invents an Invited Store}
 	谢天谢地，答案是不能。
 	这是因为编译器被禁止引入 data race。
 	在普通存储之前发明存储的情况非常特殊：
-	除非代码已经存在 data race（即使没有 invented store），
+	除非代码已经存在 data race（即使没有凭空存储），
 	否则任何其他实体——无论是 CPU、thread、
 	信号处理程序还是中断处理程序——都不可能看到
 	被发明的存储。
@@ -1782,7 +1782,7 @@ lst:toolsoftrade:Compiler Invents an Invited Store}
 
 最后，C11 之前的编译器可能对恰好与被写入变量相邻的
 不相关变量发明写入~\cite[Section 4.2]{Boehm:2005:TCI:1064978.1065042}。
-这种 invented store 的变体已被禁止编译器优化引入 data race 的
+这种凭空存储的变体已被禁止编译器优化引入 data race 的
 规定所取缔。
 
 \begin{listing}
@@ -1795,11 +1795,11 @@ barrier();\lnlbl[barrier]
 p = NULL;\lnlbl[null]
 \end{VerbatimLL}
 \end{fcvlabel}
-\caption{招致 Store-to-Load 转换}
+\caption{招致存储转加载转换}
 \label{lst:toolsoftrade:Inviting a Store-to-Load Conversion}
 \end{listing}
 
-\item[Store-to-load 转换] 当编译器注意到普通存储可能实际上
+\item[存储转加载转换（Store-to-load conversion）] 当编译器注意到普通存储可能实际上
 不会改变内存中的值时就可能发生。
 \begin{fcvref}[ln:toolsoftrade:Inviting a Store-to-Load Conversion]
 例如，考虑
@@ -1842,7 +1842,7 @@ if (p != NULL)\lnlbl[if1]
 而非 \apik{smp_wmb()}。
 \end{fcvref}
 
-\item[Dead-code elimination] 当编译器注意到来自加载的值
+\item[死代码消除（Dead-code elimination）] 当编译器注意到来自加载的值
 从未被使用，或一个变量被存储但从未被加载时，就可能发生。
 这当然可能消除对共享变量的访问，
 进而破坏 memory ordering 原语，
@@ -1902,11 +1902,11 @@ C++11~\cite{PeteBecker2011N3242}出现之前，
 
 \begin{enumerate}
 \item	当该访问大小和类型的机器指令可用时，
-	实现被禁止对对齐的 volatile 访问进行 tearing。\footnote{
+	实现被禁止对对齐的 volatile 访问进行撕裂。\footnote{
 		注意，这没有规定对于具有 128 位 CAS 但没有
 		128 位加载和存储的 CPU 上的 128 位加载和存储
 		应该怎么做。}
-	并发代码依赖此约束来避免不必要的 load 和 store tearing。
+	并发代码依赖此约束来避免不必要的加载和存储撕裂。
 \item	实现不得对 volatile 访问的语义做任何假设，
 	对于返回值的 volatile 访问，也不得对可能返回的
 	值集做任何假设。\footnote{
@@ -1945,7 +1945,7 @@ if (ptr != NULL && ptr < high_address)
 
 在\cref{lst:toolsoftrade:Living Dangerously Early 1990s Style}的
 \clnrefr{ln:toolsoftrade:Living Dangerously Early 1990s Style:temp}
-上使用 \apik{READ_ONCE()} 可以避免 invented load，
+上使用 \apik{READ_ONCE()} 可以避免凭空加载，
 结果如\cref{lst:toolsoftrade:Avoiding Danger; 2018 Style}所示。
 
 \begin{listing}
@@ -1955,7 +1955,7 @@ while (!READ_ONCE(need_to_stop))
 	do_something_quickly();
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{防止 Load Fusing}
+\caption{防止加载融合}
 \label{lst:toolsoftrade:Preventing Load Fusing}
 \end{listing}
 
@@ -1985,13 +1985,13 @@ void work_until_shut_down(void)
 }
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{防止 Store Fusing 和 Invented Store}
+\caption{防止存储融合和凭空存储}
 \label{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
 \end{listing}
 
 \apik{READ_ONCE()} 和 \apik{WRITE_ONCE()} 也可以用于防止
 \cref{lst:toolsoftrade:C Compilers Can Fuse Stores}中所示的
-store fusing 和 invented store，
+存储融合和凭空存储，
 结果如\cref{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
 所示。
 然而，这并不能防止代码重排序，这需要
@@ -2007,19 +2007,19 @@ else
 	do_a_bunch_of_stuff();
 \end{VerbatimL}
 \end{fcvlabel}
-\caption{取消招致 Invented Store}
+\caption{取消招致凭空存储}
 \label{lst:toolsoftrade:Disinviting an Invented Store}
 \end{listing}
 
 最后，\apik{WRITE_ONCE()} 可以用于防止
 \cref{lst:toolsoftrade:Inviting an Invented Store}中所示的
-store invention，
+凭空存储，
 结果代码如\cref{lst:toolsoftrade:Disinviting an Invented Store}所示。
 
 总结一下，\apic{volatile} 关键字可以在加载和存储是
-机器大小且正确对齐的情况下防止 load tearing 和 store tearing。
-它还可以防止 load fusing、store fusing、invented load
-和 invented store。
+机器大小且正确对齐的情况下防止加载撕裂和存储撕裂。
+它还可以防止加载融合、存储融合、凭空加载
+和凭空存储。
 然而，虽然它确实阻止编译器相互重排序 \apic{volatile} 访问，
 但它无法阻止 CPU 重排序这些访问。
 此外，它无法阻止编译器或 CPU 相互重排序
@@ -2103,7 +2103,7 @@ void work_until_shut_down(void)
 \cref{lst:toolsoftrade:C Compilers Can Fuse Stores}）
 必须约束硬件。
 \Cref{lst:toolsoftrade:Preventing Store Fusing and Invented Stores}
-防止了 store fusing 和 invention，
+防止了存储融合和凭空存储，
 \cref{lst:toolsoftrade:Preventing Reordering}
 通过添加 \apik{smp_mb()} 进一步防止了剩余的重排序，位于
 \begin{fcvref}[ln:toolsoftrade:Preventing Reordering]
@@ -2193,7 +2193,7 @@ void work_until_shut_down(void)
 	阻止处理程序被调用的代码也可以，
 	即已阻塞信号和/或中断的代码。
 	所有其他代码可以使用普通加载，但必须使用 \apik{WRITE_ONCE()}
-	来防止 store tearing、store fusing 和 invented store。
+	来防止存储撕裂、存储融合和凭空存储。
 \end{enumerate}
 
 \QuickQuiz{
@@ -2223,7 +2223,7 @@ void work_until_shut_down(void)
 
 Linux 内核提供了多种 \IX{atomic} 操作，
 但定义在 \apik{atomic_t} 类型上的操作提供了一个良好的起点。
-普通的无 tearing 读取和存储分别由
+普通的无撕裂读取和存储分别由
 \apik{atomic_read()} 和 \apik{atomic_set()} 提供。
 \IX{Acquire load} 由 \apik{smp_load_acquire()} 提供，
 \IX{release store} 由 \apik{smp_store_release()} 提供。

@@ -1145,7 +1145,7 @@ reader-writer lock（\cref{sec:locking:Reader-Writer Locks}）、
 	这个答案的其余部分提供了一些空critical section
 	的用法示例，但是，这些示例应被视为
 	``灰色魔法。''\footnote{
-		Thanks to Alexey Roytman for this description.}
+		感谢 Alexey Roytman 的这一描述。}
 	因此，空的critical section在实践中几乎从不使用。
 	尽管如此，让我们继续深入这个灰色地带\ldots
 
@@ -1541,13 +1541,13 @@ RAII加锁要求lock获取和释放必须在
 
 严格RAII不友好的数据结构的示例来自Linux内核的RCU，
 如\cref{fig:locking:Locking Hierarchy}所示。
-Here, each CPU is assigned a leaf \co{rcu_node} structure, and each
-\co{rcu_node} structure has a pointer to its parent (named, oddly
-enough, \co{->parent}), up to the root \co{rcu_node} structure,
-which has a \co{NULL} \co{->parent} pointer.
-The number of child \co{rcu_node} structures per parent can vary,
-but is typically 32 or 64.
-Each \co{rcu_node} structure also contains a lock named \co{->fqslock}.
+其中，每个CPU被分配一个叶子\co{rcu_node}结构，每个
+\co{rcu_node}结构都有一个指向其父节点的指针（名字很直白，
+就叫\co{->parent}），一直到根\co{rcu_node}结构，
+其\co{->parent}指针为\co{NULL}。
+每个父节点的子\co{rcu_node}结构数量可以变化，
+但通常为32或64。
+每个\co{rcu_node}结构还包含一个名为\co{->fqslock}的lock。
 
 总体方法是一个\emph{锦标赛}，
 给定的CPU有条件地获取其
@@ -1817,32 +1817,25 @@ lock将按照什么顺序被授予等待线程。
 第一个元素无效。
 这种安排大大降低了高竞争级别下lock移交的开销。
 
-More recent queued-lock implementations also take the system's architecture
-into account, preferentially granting locks locally, while also taking
-steps to avoid
-starvation~\cite{McKenney02e,radovic03hierarchical,radovic02efficient,BenJackson02,McKenney02d}.
-Many of these can be thought of as analogous to the elevator algorithms
-traditionally used in scheduling disk I/O\@.
-Dice et al.~discuss use of local and global locks in order to transform
-any architecture-oblivious lock into a local/global locking scheme
-that optimizes for the system's structure by providing (for example)
-per-socket locks along with a global
-lock~\cite{DavidDice2012NUMAlock1,DavidDice2012NUMAlock2}.
+更新的排队lock实现还考虑了系统的架构，
+优先在本地授予lock，同时也采取措施避免
+饥饿~\cite{McKenney02e,radovic03hierarchical,radovic02efficient,BenJackson02,McKenney02d}。
+其中许多可以被认为类似于传统上用于磁盘I/O调度的电梯算法。
+Dice等人讨论了使用本地lock和全局lock来将
+任何架构无关的lock转换为本地/全局加锁方案，
+该方案通过提供（例如）每socket lock以及全局
+lock来针对系统结构进行优化~\cite{DavidDice2012NUMAlock1,DavidDice2012NUMAlock2}。
 
-Unfortunately, the same scheduling logic that improves the \IX{efficiency}
-of queued locks at high contention also increases their overhead at
-low contention.
-Beng-Hong Lim and Anant Agarwal therefore combined a simple test-and-set
-lock with a queued lock, using the test-and-set lock at low levels of
-contention and switching to the queued lock at high levels of
-contention~\cite{BengHongLim94}, thus getting low overhead at low levels
-of contention and getting fairness and high throughput at high levels
-of contention.
-Browning et al.\ took a similar approach, but avoided the use of a separate
-flag, so that the test-and-set fast path uses the same sequence of
-instructions that would be used in a simple test-and-set
-lock~\cite{LukeBrowning2005SimpleLockNUMAAware}.
-This approach has been used in production.
+不幸的是，在高竞争级别下提高排队lock\IX{效率}的调度逻辑
+在低竞争级别下也增加了开销。
+因此，Beng-Hong Lim和Anant Agarwal将简单的test-and-set lock
+与排队lock相结合，在低竞争级别下使用test-and-set lock，
+在高竞争级别下切换到排队lock~\cite{BengHongLim94}，
+从而在低竞争级别下获得低开销，在高竞争级别下获得公平性和高吞吐量。
+Browning等人采取了类似的方法，但避免了使用单独的标志位，
+使得test-and-set快速路径使用与简单test-and-set lock
+相同的指令序列~\cite{LukeBrowning2005SimpleLockNUMAAware}。
+该方法已在生产环境中使用。
 
 在高竞争级别下出现的另一个问题是lock持有者被延迟，
 特别是当延迟是由于抢占引起时，这可能导致\emph{优先级反转}，
@@ -1888,60 +1881,53 @@ Gamsa等人~\cite[Section 5.3]{Gamsa99}描述了一种基于令牌的
 例如：
 
 \begin{enumerate}
-\item	Maintain a per-CPU flag, which is initially
-	zero for all but one CPU\@.
-	When a CPU's flag is non-zero, it holds the token.
-	When it finishes with the token, it zeroes its flag and
-	sets the flag of the next CPU to one (or to any other
-	non-zero value).
-\item	Maintain a per-CPU counter, which is initially set
-	to the corresponding CPU's number, which we assume
-	to range from zero to $N-1$, where $N$ is the number
-	of CPUs in the system.
-	When a CPU's counter is greater than that of the next
-	CPU (taking counter wrap into account), the first CPU holds the token.
-	When it is finished with the token, it sets the next
-	CPU's counter to a value one greater than its own counter.
+\item	维护一个per-CPU标志位，初始时除一个CPU外
+	所有CPU的标志位都为零。
+	当一个CPU的标志位非零时，它持有令牌。
+	当它使用完令牌后，将自己的标志位置零，
+	并将下一个CPU的标志位设为1（或任何其他非零值）。
+\item	维护一个per-CPU计数器，初始值设为
+	对应CPU的编号，我们假设编号范围为0到$N-1$，
+	其中$N$是系统中CPU的数量。
+	当一个CPU的计数器大于下一个CPU的计数器
+	（考虑计数器回绕）时，第一个CPU持有令牌。
+	当它使用完令牌后，将下一个CPU的计数器
+	设为比自己的计数器大1的值。
 \end{enumerate}
 
 \QuickQuizSeries{%
 \QuickQuizB{
-	How can you tell if one counter is greater than another,
-	while accounting for counter wrap?
+	在考虑计数器回绕的情况下，如何判断一个计数器是否大于另一个？
 }\QuickQuizAnswerB{
-	In the C language, the following macro correctly handles this:
+	在C语言中，以下宏可以正确处理这个问题：
 
 \begin{VerbatimU}
 #define ULONG_CMP_LT(a, b) \
         (ULONG_MAX / 2 < (a) - (b))
 \end{VerbatimU}
 
-	Although it is tempting to simply subtract two signed integers,
-	this should be avoided because signed overflow is undefined
-	in the C language.
-	For example, if the compiler knows that one of the values is
-	positive and the other negative, it is within its rights to
-	simply assume that the positive number is greater than the
-	negative number, even though subtracting the negative number
-	from the positive number might well result in overflow and
-	thus a negative number.
+	虽然简单地减去两个有符号整数很有诱惑力，
+	但应该避免这样做，因为在C语言中有符号溢出是未定义行为。
+	例如，如果编译器知道其中一个值是正的而另一个是负的，
+	它完全有权直接假设正数大于负数，
+	即使从正数中减去负数很可能导致溢出
+	从而得到一个负数。
 
-	How could the compiler know the signs of the two numbers?
-	It might be able to deduce it based on prior assignments
-	and comparisons.
-	In this case, if the per-CPU counters were signed, the compiler
-	could deduce that they were always increasing in value, and
-	then might assume that they would never go negative.
-	This assumption could well lead the compiler to generate
-	unfortunate code~\cite{PaulEMcKenney2012SignedOverflow,JohnRegehr2010UndefinedBehavior}.
+	编译器怎么可能知道两个数的符号呢？
+	它可能根据之前的赋值和比较来推断。
+	在本例中，如果per-CPU计数器是有符号的，
+	编译器可以推断出它们的值总是在增加，
+	然后可能假设它们永远不会变成负数。
+	这个假设很可能导致编译器生成
+	不幸的代码~\cite{PaulEMcKenney2012SignedOverflow,JohnRegehr2010UndefinedBehavior}。
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	Which is better, the counter approach or the flag approach?
+	计数器方法和标志位方法哪个更好？
 }\QuickQuizAnswerE{
-	The flag approach will normally suffer fewer cache misses,
-	but a better answer is to try both and see which works best
-	for your particular workload.
+	标志位方法通常会产生更少的cache miss，
+	但更好的答案是两种都尝试，
+	看看哪种最适合你的特定工作负载。
 }\QuickQuizEndE
 }
 
@@ -2048,236 +2034,206 @@ Deadlock当然是特别令人关注的，\cref{sec:locking:Deadlock}中
 使用的库函数中，例如由于使用\co{system()}函数。
 在这种情况下，如果你的库函数在\co{fork()}时持有lock，
 那么子进程将在该lock被持有的情况下开始生命。
-Because the thread that will release the lock is running in the parent
-but not the child, if the child calls your library function, deadlock
-will ensue.
+由于将要释放lock的线程在父进程中运行而不在子进程中，
+如果子进程调用你的库函数，deadlock就会发生。
 
-The following strategies may be used to avoid deadlock problems in these cases:
+以下策略可用于避免这些情况下的deadlock问题：
 
 \begin{enumerate}
-\item	Don't use either callbacks or signals.
-\item	Don't acquire locks from within callbacks or signal handlers.
-\item	Let the caller control synchronization.
-\item	Parameterize the library API to delegate locking to caller.
-\item	Explicitly avoid callback deadlocks.
-\item	Explicitly avoid signal-handler deadlocks.
-\item	Avoid invoking \co{fork()}.
+\item	既不使用回调也不使用信号。
+\item	不在回调或信号处理程序中获取lock。
+\item	让调用者控制同步。
+\item	参数化库API以将加锁委托给调用者。
+\item	显式避免回调deadlock。
+\item	显式避免信号处理程序deadlock。
+\item	避免调用\co{fork()}。
 \end{enumerate}
 
-Each of these strategies is discussed in one of the following sections.
+以下各节将分别讨论这些策略。
 
 \subsubsection{既不使用回调也不使用信号}
 \label{sec:locking:Use Neither Callbacks Nor Signals}
 
-If a library function avoids callbacks and the application as a whole
-avoids signals, then any locks acquired by that library function will
-be leaves of the locking-hierarchy tree.
-This arrangement avoids deadlock, as discussed in
-\cref{sec:locking:Locking Hierarchies}.
-Although this strategy works extremely well where it applies,
-there are some applications that must use signal handlers,
-and there are some library functions (such as the \co{qsort()} function
-discussed in
-\cref{sec:locking:Local Locking Hierarchies})
-that require callbacks.
+如果库函数避免使用回调，且应用程序整体避免使用信号，
+那么该库函数获取的任何lock都将是加锁层级树的叶子节点。
+这种安排可以避免deadlock，如
+\cref{sec:locking:Locking Hierarchies}中所讨论的。
+虽然该策略在适用时效果极佳，
+但有些应用程序必须使用信号处理程序，
+也有些库函数（如
+\cref{sec:locking:Local Locking Hierarchies}中
+讨论的\co{qsort()}函数）需要回调。
 
-The strategy described in the next section can often be used in these cases.
+下一节描述的策略通常可以在这些情况下使用。
 
 \subsubsection{避免在回调和信号处理程序中加锁}
 \label{sec:locking:Avoid Locking in Callbacks and Signal Handlers}
 
-If neither callbacks nor signal handlers acquire locks, then they
-cannot be involved in deadlock cycles, which allows straightforward
-locking hierarchies to once again consider library functions to
-be leaves on the locking-hierarchy tree.
-This strategy works very well for most uses of \co{qsort}, whose
-callbacks usually simply compare the two values passed in to them.
-This strategy also works wonderfully for many signal handlers,
-especially given that acquiring locks from within signal handlers
-is generally frowned upon~\cite{TheOpenGroup1997SUS},\footnote{
-	But the standard's words do not stop clever coders from creating
-	their own home-brew locking primitives from atomic operations.}
-but can fail if the application needs to manipulate complex data structures
-from a signal handler.
+如果回调和信号处理程序都不获取lock，那么它们
+就不会参与deadlock循环，这使得简单的
+加锁层级可以再次将库函数视为加锁层级树的叶子节点。
+该策略对\co{qsort}的大多数用法效果很好，
+其回调通常只是简单地比较传入的两个值。
+该策略对许多信号处理程序也效果极佳，
+特别是考虑到从信号处理程序内部获取lock
+通常是不被推荐的~\cite{TheOpenGroup1997SUS}，\footnote{
+	但标准的措辞并不能阻止聪明的程序员
+	用原子操作创建自己的自制加锁原语。}
+但如果应用程序需要从信号处理程序中操作复杂数据结构，
+该策略可能会失败。
 
-Here are some ways to avoid acquiring locks in signal handlers even
-if complex data structures must be manipulated:
+以下是即使必须操作复杂数据结构也能避免在信号处理程序中获取lock的一些方法：
 
 \begin{enumerate}
-\item	Use simple data structures based on \IXacrl{nbs},
-	as will be discussed in
-	\cref{sec:advsync:Simple NBS}.
-\item	If the data structures are too complex for reasonable use of
-	non-blocking synchronization, create a queue that allows
-	non-blocking enqueue operations.
-	In the signal handler, instead of manipulating the complex
-	data structure, add an element to the queue describing the
-	required change.
-	A separate thread can then remove elements from the queue and
-	carry out the required changes using normal locking.
-	There are a number of readily available implementations of
-	concurrent
-	queues~\cite{ChristophMKirsch2012FIFOisntTR,MathieuDesnoyers2009URCU,MichaelScott96}.
+\item	使用基于\IXacrl{nbs}的简单数据结构，
+	将在\cref{sec:advsync:Simple NBS}中讨论。
+\item	如果数据结构过于复杂而不适合合理地使用
+	非阻塞同步，则创建一个允许非阻塞入队操作的队列。
+	在信号处理程序中，不要操作复杂的数据结构，
+	而是向队列中添加一个描述所需变更的元素。
+	然后一个单独的线程可以从队列中取出元素，
+	并使用正常的加锁来执行所需的变更。
+	有许多现成的并发队列
+	实现~\cite{ChristophMKirsch2012FIFOisntTR,MathieuDesnoyers2009URCU,MichaelScott96}。
 \end{enumerate}
 
-This strategy should be enforced with occasional manual or (preferably)
-automated inspections of callbacks and signal handlers.
-When carrying out these inspections, be wary of clever coders who
-might have (unwisely) created home-brew locks from atomic operations.
+该策略应通过偶尔的手动或（最好是）自动检查回调和信号处理程序来强制执行。
+在进行这些检查时，要警惕那些可能（不明智地）
+用原子操作创建了自制lock的聪明程序员。
 
 \subsubsection{调用者控制同步}
 \label{sec:locking:Caller Controls Synchronization}
 
-Letting the caller control synchronization
-works extremely well when the library functions are operating
-on independent caller-visible instances of a data structure, each
-of which may be synchronized separately.
-For example, if the library functions operate on a search tree,
-and if the application needs a large number of independent search
-trees, then the application can associate a lock with each tree.
-The application then acquires and releases locks as needed, so
-that the library need not be aware of parallelism at all.
-Instead, the application controls the parallelism, so that locking
-can work very well, as was discussed in
-\cref{sec:locking:Locking For Applications: Hero!}.
+当库函数操作的是调用者可见的数据结构的独立实例，
+且每个实例可以单独同步时，让调用者控制同步的效果极佳。
+例如，如果库函数操作搜索树，
+且应用程序需要大量独立的搜索树，
+那么应用程序可以为每棵树关联一个lock。
+应用程序根据需要获取和释放lock，
+这样库就完全不需要感知并行性。
+相反，由应用程序控制并行性，
+加锁可以工作得很好，如
+\cref{sec:locking:Locking For Applications: Hero!}中所讨论的。
 
-However, this strategy fails if the
-library implements a data structure that requires internal
-concurrency, for example, a hash table or a parallel sort.
-In this case, the library absolutely must control its own
-synchronization.
+然而，如果库实现了需要内部并发的数据结构，
+例如哈希表或并行排序，该策略就会失败。
+在这种情况下，库绝对必须控制自己的同步。
 
 \subsubsection{参数化库同步}
 \label{sec:locking:Parameterize Library Synchronization}
 
-The idea here is to add arguments to the library's API to specify
-which locks to acquire, how to acquire and release them, or both.
-This strategy allows the application to take on the global task of
-avoiding deadlock by specifying which locks to acquire (by passing in
-pointers to the locks in question) and how to
-acquire them (by passing in pointers to lock acquisition and release
-functions),
-but also allows a given library function to control its own concurrency
-by deciding where the locks should be acquired and released.
+这里的思路是向库的API添加参数来指定
+要获取哪些lock、如何获取和释放它们，或两者兼顾。
+该策略允许应用程序承担避免deadlock的全局任务，
+通过指定要获取哪些lock（传入指向相关lock的指针）
+以及如何获取它们（传入指向lock获取和释放函数的指针），
+同时也允许给定的库函数通过决定在哪里获取和释放lock
+来控制自己的并发性。
 
-In particular, this strategy allows the lock acquisition and release
-functions to block signals as needed without the library code needing to
-be concerned with which signals need to be blocked by which locks.
-The separation of concerns used by this strategy can be quite effective,
-but in some cases the strategies laid out in the following sections
-can work better.
+特别是，该策略允许lock获取和释放函数根据需要阻塞信号，
+而无需库代码关心哪些信号需要被哪些lock阻塞。
+该策略所使用的关注点分离可以非常有效，
+但在某些情况下以下各节中提出的策略可能更好。
 
-That said, passing explicit pointers to locks to external APIs must
-be very carefully considered, as discussed in
-\cref{sec:locking:Locking Hierarchies and Pointers to Locks}.
-Although this practice is sometimes the right thing to do, you should do
-yourself a favor by looking into alternative designs first.
+也就是说，向外部API传递指向lock的显式指针必须非常仔细地考虑，
+如\cref{sec:locking:Locking Hierarchies and Pointers to Locks}中所讨论的。
+虽然这种做法有时是正确的选择，但你应该
+先研究替代设计方案，这对你自己有好处。
 
 \subsubsection{显式避免回调死锁}
 \label{sec:locking:Explicitly Avoid Callback Deadlocks}
 
-The basic rule behind this strategy was discussed in
-\cref{sec:locking:Local Locking Hierarchies}:
-``Release all locks before invoking unknown code.''
-This is usually the best approach because it allows the application to
-ignore the library's locking hierarchy:
-The library remains a leaf or isolated subtree of the application's
-overall locking hierarchy.
+该策略背后的基本规则在
+\cref{sec:locking:Local Locking Hierarchies}中讨论过：
+``在调用未知代码之前释放所有lock。''
+这通常是最好的方法，因为它允许应用程序
+忽略库的加锁层级：
+库仍然是应用程序整体加锁层级的叶子或隔离子树。
 
-In cases where it is not possible to release all locks before invoking
-unknown code, the layered locking hierarchies described in
-\cref{sec:locking:Layered Locking Hierarchies} can work well.
-For example, if the unknown code is a signal handler, this implies that
-the library function block signals across all lock acquisitions, which
-can be complex and slow.
-Therefore, in cases where signal handlers (probably unwisely) acquire
-locks, the strategies in the next section may prove helpful.
+在无法在调用未知代码之前释放所有lock的情况下，
+\cref{sec:locking:Layered Locking Hierarchies}中描述的
+分层加锁层级可以很好地工作。
+例如，如果未知代码是信号处理程序，这意味着
+库函数在所有lock获取过程中都要阻塞信号，
+这可能既复杂又缓慢。
+因此，在信号处理程序（可能不明智地）获取lock的情况下，
+下一节的策略可能会有所帮助。
 
 \subsubsection{显式避免信号处理程序死锁}
 \label{sec:locking:Explicitly Avoid Signal-Handler Deadlocks}
 
-Suppose that a given library function is known to acquire locks,
-but does not block signals.
-Suppose further that it is necessary to invoke that function both from
-within and outside of a signal handler, and that it is not permissible
-to modify this library function.
-Of course, if no special action is taken, then if a signal arrives
-while that library function is holding its lock, deadlock can occur
-when the signal handler invokes that same library function,
-which in turn attempts to re-acquire that same lock.
+假设某个库函数已知会获取lock，
+但不会阻塞信号。
+进一步假设有必要从信号处理程序内部和外部都调用该函数，
+且不允许修改这个库函数。
+当然，如果不采取特殊措施，那么如果在该库函数持有lock时
+信号到达，当信号处理程序调用同一个库函数并尝试重新获取
+同一个lock时，就会发生deadlock。
 
-Such deadlocks can be avoided as follows:
+可以通过以下方式避免这种deadlock：
 
 \begin{enumerate}
-\item	If the application invokes the library function from
-	within a signal handler, then that signal must be blocked
-	every time that the library function is invoked from outside
-	of a signal handler.
-\item	If the application invokes the library function
-	while holding a lock acquired within a given signal
-	handler, then that signal must be blocked every time that the
-	library function is called outside of a signal handler.
+\item	如果应用程序从信号处理程序内部调用该库函数，
+	那么每次从信号处理程序外部调用该库函数时
+	都必须阻塞该信号。
+\item	如果应用程序在持有某个信号处理程序中获取的lock时
+	调用该库函数，那么每次从信号处理程序外部调用
+	该库函数时都必须阻塞该信号。
 \end{enumerate}
 
-These rules can be enforced by using tools similar to
-the Linux kernel's lockdep lock dependency
-checker~\cite{JonathanCorbet2006lockdep}.
-One of the great strengths of lockdep is that it is not fooled by
-human intuition~\cite{StevenRostedt2011locdepCryptic}.
+这些规则可以通过使用类似于Linux内核的lockdep lock依赖
+检查器的工具来强制执行~\cite{JonathanCorbet2006lockdep}。
+lockdep的一大优势是它不会被
+人类的直觉所欺骗~\cite{StevenRostedt2011locdepCryptic}。
 
 \subsubsection{在\tco{fork()}和\tco{exec()}之间使用的库函数}
 \label{sec:locking:Library Functions Used Between fork() and exec()}
 
-As noted earlier, if a thread executing a library function is holding
-a lock at the time that some other thread invokes \apipx{fork()}, the
-fact that the parent's memory is copied to create the child means that
-this lock will be born held in the child's context.
-The thread that will release this lock is running in the parent, but
-not in the child, which means that although the parent's copy of this
-lock will be released, the child's copy never will be.
-Therefore, any attempt on the part of the child to invoke that same
-library function (thus acquiring that same lock) will result in deadlock.
+如前所述，如果执行库函数的线程在某个其他线程调用\apipx{fork()}时
+正持有lock，那么父进程的内存被复制以创建子进程这一事实意味着
+这个lock将在子进程的上下文中以被持有的状态诞生。
+将要释放这个lock的线程在父进程中运行，但不在子进程中，
+这意味着虽然父进程的lock副本会被释放，
+但子进程的副本永远不会。
+因此，子进程任何试图调用同一个库函数
+（从而获取同一个lock）的尝试都将导致deadlock。
 
-A pragmatic and straightforward way of solving this problem is
-to \co{fork()} a child process while the process is still single-threaded,
-and have this child process remain single-threaded.
-Requests to create further child processes can then be communicated
-to this initial child process, which can safely carry out any
-needed \co{fork()} and \apipx{exec()} system calls on behalf of its
-multi-threaded parent process.
+解决这个问题的一种务实而直接的方法是
+在进程仍然是单线程时\co{fork()}一个子进程，
+并让这个子进程保持单线程。
+创建更多子进程的请求随后可以传达给这个初始子进程，
+它可以代表其多线程父进程安全地执行任何
+所需的\co{fork()}和\apipx{exec()}系统调用。
 
-Another rather less pragmatic and straightforward solution to this problem
-is to have the library function check to see if the owner of the lock
-is still running, and if not, ``breaking'' the lock by re-initializing
-and then acquiring it.
-However, this approach has a couple of vulnerabilities:
+另一种不太务实和直接的解决方案是
+让库函数检查lock的所有者是否仍在运行，
+如果没有，则通过重新初始化并获取lock来``打破''它。
+然而，这种方法有几个弱点：
 
 \begin{enumerate}
-\item	The data structures protected by that lock are likely to
-	be in some intermediate state, so that naively breaking the lock
-	might result in arbitrary memory corruption.
-\item	If the child creates additional threads, two threads might
-	break the lock concurrently, with the result that both
-	threads believe they own the lock.
-	This could again result in arbitrary memory corruption.
+\item	被该lock保护的数据结构可能处于某种中间状态，
+	因此天真地打破lock可能导致任意的内存损坏。
+\item	如果子进程创建了额外的线程，两个线程可能
+	同时打破lock，导致两个线程都认为自己拥有该lock。
+	这同样可能导致任意的内存损坏。
 \end{enumerate}
 
-The \apipx{pthread_atfork()} function is provided to help deal with these situations.
-The idea is to register a triplet of functions, one to be called by the
-parent before the \co{fork()}, one to be called by the parent after the
-\co{fork()}, and one to be called by the child after the \co{fork()}.
-Appropriate cleanups can then be carried out at these three points.
+\apipx{pthread_atfork()}函数被提供来帮助处理这些情况。
+其思路是注册一组三个函数，一个在\co{fork()}之前由父进程调用，
+一个在\co{fork()}之后由父进程调用，
+还有一个在\co{fork()}之后由子进程调用。
+然后可以在这三个点执行适当的清理操作。
 
-Be warned, however, that coding of \co{pthread_atfork()} handlers is
-quite subtle in general.
-The cases where \co{pthread_atfork()} works best are cases where the
-data structure in question can simply be re-initialized by the child.
-Which might be one reason why the POSIX standard forbids use of any
-non-async-signal-safe functions between the \co{fork()} and the
-\co{exec()}, which rules out acquisition of locks during that time.
+但请注意，\co{pthread_atfork()}处理程序的编码
+通常是相当微妙的。
+\co{pthread_atfork()}工作最好的情况是
+相关数据结构可以被子进程简单地重新初始化的情况。
+这可能是POSIX标准禁止在\co{fork()}和\co{exec()}之间
+使用任何非异步信号安全函数的原因之一，
+这排除了在此期间获取lock的可能。
 
-Other alternatives to \co{fork()}/\co{exec()} include \co{posix_spawn()}
-and \co{io_uring_spawn()}~\cite{JoshTriplett2022io_uring_spawn,JakeEdge2022io_uring_spawn}.
+\co{fork()}/\co{exec()}的其他替代方案包括\co{posix_spawn()}
+和\co{io_uring_spawn()}~\cite{JoshTriplett2022io_uring_spawn,JakeEdge2022io_uring_spawn}。
 
 \subsubsection{并行库：
 				   讨论}
@@ -2309,69 +2265,59 @@ and \co{io_uring_spawn()}~\cite{JoshTriplett2022io_uring_spawn,JakeEdge2022io_ur
 \subsubsection{禁止分区}
 \label{sec:locking:Partitioning Prohibited}
 
-Suppose that you were writing a single-threaded hash-table implementation.
-It is easy and fast to maintain an exact count of the total number of items
-in the hash table, and also easy and fast to return this exact count on each
-addition and deletion operation.
-So why not?
+假设你正在编写一个单线程的哈希表实现。
+维护哈希表中元素总数的精确计数既简单又快速，
+在每次添加和删除操作时返回这个精确计数也同样简单快速。
+那为什么不这样做呢？
 
-One reason is that exact counters do not perform or scale well on
-multicore systems, as was
-seen in \cref{chp:Counting}.
-As a result, the parallelized implementation of the hash table will not
-perform or scale well.
+一个原因是精确计数器在多核系统上的性能和可扩展性都不好，
+正如在\cref{chp:Counting}中所看到的。
+因此，哈希表的并行化实现将无法获得良好的性能和可扩展性。
 
-So what can be done about this?
-One approach is to return an approximate count, using one of the algorithms
-from \cref{chp:Counting}.
-Another approach is to drop the element count altogether.
+那能怎么办呢？
+一种方法是使用\cref{chp:Counting}中的算法之一返回近似计数。
+另一种方法是完全放弃元素计数。
 
-Either way, it will be necessary to inspect uses of the hash table to see
-why the addition and deletion operations need the exact count.
-Here are a few possibilities:
+无论哪种方式，都需要检查哈希表的使用情况，
+看看添加和删除操作为什么需要精确计数。
+以下是几种可能性：
 
 \begin{enumerate}
-\item	Determining when to resize the hash table.
-	In this case, an approximate count should work quite well.
-	It might also be useful to trigger the resizing operation from
-	the length of the longest chain, which can be computed and
-	maintained in a nicely partitioned per-chain manner.
-\item	Producing an estimate of the time required to traverse the
-	entire hash table.
-	An approximate count works well in this case, also.
-\item	For diagnostic purposes, for example, to check for items being
-	lost when transferring them to and from the hash table.
-	This clearly requires an exact count.
-	However, given that this usage is diagnostic in nature, it might
-	suffice to maintain the lengths of the hash chains, then to
-	infrequently sum them
-	up while locking out addition and deletion operations.
+\item	确定何时调整哈希表大小。
+	在这种情况下，近似计数应该效果很好。
+	从最长链的长度触发调整操作也可能很有用，
+	这可以以很好地分区的per-chain方式计算和维护。
+\item	估计遍历整个哈希表所需的时间。
+	在这种情况下，近似计数同样效果很好。
+\item	用于诊断目的，例如，检查在向哈希表传入和传出元素时
+	是否有元素丢失。
+	这显然需要精确计数。
+	然而，鉴于这种用法本质上是诊断性的，
+	维护哈希链的长度，然后在锁定添加和删除操作的同时
+	不频繁地求和可能就足够了。
 \end{enumerate}
 
-It turns out that there is now a strong theoretical basis for some of the
-constraints that performance and scalability place on a parallel library's
-APIs~\cite{HagitAttiya2011LawsOfOrder,Attiya:2011:LOE:1925844.1926442,PaulEMcKenney2011SNC}.
-Anyone designing a parallel library needs to pay close attention to
-those constraints.
+事实证明，性能和可扩展性对并行库API施加的某些约束
+现在有了坚实的理论基础~\cite{HagitAttiya2011LawsOfOrder,Attiya:2011:LOE:1925844.1926442,PaulEMcKenney2011SNC}。
+任何设计并行库的人都需要密切关注这些约束。
 
-Although it is all too easy to blame locking for what are really problems
-due to a concurrency-unfriendly API, doing so is not helpful.
-On the other hand, one has little choice but to sympathize with the
-hapless developer who made this choice in (say) 1985.
-It would have been a rare and courageous developer to anticipate the
-need for parallelism at that time, and it would have required an
-even more rare combination of brilliance and luck to actually arrive
-at a good parallel-friendly API\@.
+虽然将实际上由不友好并发的API引起的问题归咎于加锁太容易了，
+但这样做并没有帮助。
+另一方面，我们不得不同情那些在（比如说）1985年做出这个选择的
+不幸开发者。
+在那个时代，能预见到对并行性需求的开发者是罕见和勇敢的，
+而实际上设计出一个良好的并行友好API则需要
+更罕见的才华和运气的组合。
 
-Times change, and code must change with them.
-That said, there might be a huge number of users of a popular library,
-in which case an incompatible change to the API would be quite foolish.
-Adding a parallel-friendly API to complement the existing heavily used
-sequential-only API is usually the best course of action.
+时代在变，代码也必须随之改变。
+也就是说，一个流行的库可能有大量用户，
+在这种情况下，对API进行不兼容的更改将是相当愚蠢的。
+添加一个并行友好的API来补充现有的大量使用的
+仅顺序API通常是最佳行动方案。
 
-Nevertheless, human nature being what it is, we can expect our hapless
-developer to be more likely to complain about locking than about his
-or her own poor (though understandable) API design choices.
+尽管如此，人性使然，我们可以预期那位不幸的开发者
+更可能抱怨加锁，而不是抱怨自己糟糕的
+（虽然可以理解的）API设计选择。
 
 \subsubsection{容易导致死锁的回调}
 \label{sec:locking:Deadlock-Prone Callbacks}
@@ -2379,71 +2325,59 @@ or her own poor (though understandable) API design choices.
 \Cref{sec:locking:Local Locking Hierarchies,%
 sec:locking:Layered Locking Hierarchies,%
 sec:locking:Locking For Parallel Libraries: Just Another Tool}
-described how undisciplined use of callbacks can result in locking
-woes.
-These sections also described how to design your library function to
-avoid these problems, but it is unrealistic to expect a 1990s programmer
-with no experience in parallel programming to have followed such a design.
-Therefore, someone attempting to parallelize an existing callback-heavy
-single-threaded library will likely have many opportunities to curse
-locking's villainy.
+描述了不加约束地使用回调如何导致加锁方面的困扰。
+这些章节也描述了如何设计你的库函数来避免这些问题，
+但期望一个1990年代没有并行编程经验的程序员
+遵循这样的设计是不现实的。
+因此，试图并行化一个现有的大量使用回调的
+单线程库的人可能会有很多机会诅咒加锁的恶行。
 
-If there are a very large number of uses of a callback-heavy library,
-it may be wise to again add a parallel-friendly API to the library in
-order to allow existing users to convert their code incrementally.
-Alternatively, some advocate use of transactional memory in these cases.
-While the jury is still out on transactional memory,
-\cref{sec:future:Transactional Memory} discusses its strengths and
-weaknesses.
-It is important to note that hardware transactional memory
-(discussed in
-\cref{sec:future:Hardware Transactional Memory})
-cannot help here unless the hardware transactional memory implementation
-provides \IXpl{forward-progress guarantee}, which few do.
-Other alternatives that appear to be quite practical (if less heavily
-hyped) include the methods discussed in
-\cref{sec:locking:Conditional Locking,sec:locking:Acquire Needed Locks First},
-as well as those that will be discussed in
-\cref{chp:Data Ownership,chp:Deferred Processing}.
+如果一个大量使用回调的库有非常多的用户，
+明智的做法可能是再次向库添加一个并行友好的API，
+以允许现有用户逐步转换他们的代码。
+或者，有些人提倡在这些情况下使用事务内存。
+虽然对事务内存的评判尚无定论，
+\cref{sec:future:Transactional Memory}讨论了其优势和劣势。
+需要注意的是，硬件事务内存
+（在\cref{sec:future:Hardware Transactional Memory}中讨论）
+在这里无法提供帮助，除非硬件事务内存实现
+提供\IXpl{forward-progress guarantee}，而很少有实现能做到这一点。
+其他看起来相当实用（如果没有那么大肆宣传的话）的替代方案
+包括\cref{sec:locking:Conditional Locking,sec:locking:Acquire Needed Locks First}
+中讨论的方法，
+以及将在\cref{chp:Data Ownership,chp:Deferred Processing}中讨论的方法。
 
 \subsubsection{面向对象的意大利面条代码}
 \label{sec:locking:Object-Oriented Spaghetti Code}
 
-Object-oriented programming went mainstream sometime in the 1980s or
-1990s, and as a result there is a huge amount of single-threaded
-object-oriented code in production.
-Although object orientation can be a valuable software technique,
-undisciplined use of objects can easily result in object-oriented
-spaghetti code.
-In object-oriented spaghetti code, control flits from object to object
-in an essentially random manner, making the code hard to understand
-and even harder, and perhaps impossible, to accommodate a locking hierarchy.
+面向对象编程在1980年代或1990年代的某个时候成为主流，
+因此在生产环境中有大量单线程的面向对象代码。
+虽然面向对象可以是一种有价值的软件技术，
+但不加约束地使用对象很容易导致面向对象的意大利面条代码。
+在面向对象的意大利面条代码中，控制流以基本上随机的方式
+在对象之间跳转，使得代码难以理解，
+更难以（也许不可能）适应加锁层级。
 
-Although many might argue that such code should be cleaned up in any
-case, such things are much easier to say than to do.
-If you are tasked with parallelizing such a beast, you can reduce the
-number of opportunities to curse locking by using the techniques
-described in
-\cref{sec:locking:Conditional Locking,sec:locking:Acquire Needed Locks First},
-as well as those that will be discussed in
-\cref{chp:Data Ownership,chp:Deferred Processing}.
-This situation appears to be the use case that inspired transactional
-memory, so it might be worth a try as well.
-That said, the choice of synchronization mechanism should be made in
-light of the hardware habits discussed in
-\cref{chp:Hardware and its Habits}.
-After all, if the overhead of the synchronization mechanism is orders of
-magnitude more than that of the operations being protected, the results
-are not going to be pretty.
+虽然许多人可能会争辩说这样的代码无论如何都应该清理，
+但这种事说起来比做起来容易得多。
+如果你的任务是并行化这样一个庞然大物，你可以通过使用
+\cref{sec:locking:Conditional Locking,sec:locking:Acquire Needed Locks First}
+中描述的技术，以及将在
+\cref{chp:Data Ownership,chp:Deferred Processing}中讨论的技术，
+来减少诅咒加锁的机会。
+这种情况似乎就是激发事务内存灵感的用例，
+所以也值得一试。
+也就是说，同步机制的选择应该根据
+\cref{chp:Hardware and its Habits}中讨论的硬件特性来做出。
+毕竟，如果同步机制的开销比被保护的操作的开销
+大几个数量级，结果不会好看。
 
-And that leads to a question well worth asking in these situations:
-Should the code remain sequential?
-For example, perhaps parallelism should be introduced at the process level
-rather than the thread level.
-In general, if a task is proving extremely hard, it is worth some time
-spent thinking about not only alternative ways to accomplish that
-particular task, but also alternative tasks that might better solve
-the problem at hand.
+这就引出了一个在这些情况下非常值得提出的问题：
+代码是否应该保持顺序执行？
+例如，也许应该在进程级别而不是线程级别引入并行性。
+一般来说，如果一项任务被证明极其困难，
+花些时间不仅思考完成该特定任务的替代方法，
+还思考可能更好地解决手头问题的替代任务，是值得的。
 
 \section{总结}
 \label{sec:locking:Summary}
