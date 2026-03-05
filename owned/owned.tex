@@ -10,17 +10,17 @@
 	  是的，我的宝贝。}
 	 {Gollum，出自\emph{《魔戒：护戒使者》}，J.R.R.~Tolkien}
 
-避免locking带来的同步开销，最简单的方法之一就是将数据分配给各个thread
-（或者在内核的情况下，分配给各个CPU），
-使得每一份数据只被一个thread访问和修改。
+避免locking带来的同步开销的最简单方法之一，是在各个thread之间
+（或者对于内核来说，各个CPU之间）分配数据，
+以便让每一份数据仅由一个thread访问和修改。
 有趣的是，data ownership涵盖了三大并行设计技术中的每一种：
 它在thread（或CPU，视情况而定）之间进行分区，
 它将所有本地操作进行批处理，
 而它对同步操作的消除则是弱化策略的逻辑极端。
 因此，data ownership被大量使用就不足为奇了：
-即使是新手也几乎会本能地使用它。
-事实上，它的使用如此广泛，以至于本章不会引入任何新的示例，
-而是回顾前面章节中的那些例子。
+甚至新手凭借本能也会如此使用。
+由于这个模式被大量使用，本章不会引入任何新的示例，
+而是重复利用之前章节中的例子。
 
 \QuickQuiz{
 	在使用C或C++创建shared-memory并行程序
@@ -31,19 +31,19 @@
 	默认情况下，这些变量是执行当前函数的thread的私有变量。
 }\QuickQuizEnd
 
-Data ownership有多种实现方式。
-\Cref{sec:owned:Multiple Processes}介绍了data ownership的逻辑极端，
+Data ownership的方法有很多。
+\Cref{sec:owned:Multiple Processes}介绍了data ownership的极端情况，
 即每个thread拥有自己的私有地址空间。
-\Cref{sec:owned:Partial Data Ownership and pthreads}探讨了
-相反的极端，即数据是共享的，但不同的thread拥有对数据的不同访问权限。
+\Cref{sec:owned:Partial Data Ownership and pthreads}介绍了
+另一方向的极端，即数据完全共享，但不同的thread拥有对数据的不同访问权限。
 \Cref{sec:owned:Function Shipping}描述了function shipping，
 这是一种允许其他thread间接访问特定thread所拥有数据的方法。
-\Cref{sec:owned:Designated Thread}描述了如何将指定thread
-分配为特定功能及其相关数据的所有者。
-\Cref{sec:owned:Privatization}讨论了通过将使用共享数据的算法
+\Cref{sec:owned:Designated Thread}描述了如何为指定thread
+分配特定功能及其相关数据的所有权。
+\Cref{sec:owned:Privatization}讨论了如何通过将共享数据的算法
 转换为使用data ownership来提升性能。
 最后，\cref{sec:owned:Other Uses of Data Ownership}列举了
-一些将data ownership作为一等公民的软件环境。
+几个将data ownership视为头等公民的软件环境。
 
 \section{多进程}
 \label{sec:owned:Multiple Processes}
@@ -61,12 +61,12 @@ cat compute_it.1.out
 cat compute_it.2.out
 \end{VerbatimN}
 
-这个示例以并行方式运行两个\co{compute_it}程序实例，
-作为不共享内存的独立进程。
-因此，给定进程中的所有数据都归该进程所有，
-所以上述示例中几乎所有的数据都是有所有权的。
+此示例并行运行两个\co{compute_it}程序实例，
+因为进程之间不共享内存。
+因此，进程中的数据都由该进程拥有，
+上面例子中几乎全部数据都归一个进程所有。
 这种方法几乎完全消除了同步开销。
-由此带来的极致简洁性和最优性能的组合显然非常有吸引力。
+这种极度简单和最佳性能的组合显然是相当有吸引力的。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -114,7 +114,7 @@ cat compute_it.2.out
 }\QuickQuizEndE
 }
 
-这种模式同样可以用C语言编写，而不仅仅是\co{sh}，如
+这种模式既可以用C语言实现，也可以用\co{sh}实现，如
 \cref{lst:toolsoftrade:Using the fork() Primitive,%
 lst:toolsoftrade:Using the wait() Primitive}所示。
 
@@ -126,7 +126,8 @@ lst:toolsoftrade:Using the wait() Primitive}所示。
 单线程优化，还是对这种方法不适用的代码部分应用复杂的并行编程模式。
 有什么理由不喜欢呢？
 
-下一节讨论在shared-memory并行程序中使用data ownership。
+\Cref{sec:owned:Partial Data Ownership and pthreads}将讨论在
+shared-memory并行程序中使用data ownership。
 
 \section{部分数据所有权与pthreads}
 \label{sec:owned:Partial Data Ownership and pthreads}
@@ -135,17 +136,17 @@ lst:toolsoftrade:Using the wait() Primitive}所示。
 	 {Marcus Aurelius Antoninus}
 
 并发计数（见\cref{chp:Counting}）大量使用了data ownership，
-但增加了一个变化。
-thread不允许修改其他thread拥有的数据，
-但允许读取这些数据。
-简而言之，shared memory的使用允许更细致的所有权和访问权限概念。
+但做了一点改变。
+不允许thread修改其他thread拥有的数据，
+但允许thread读取这些数据。
+总之，shared memory的使用允许更细粒度的所有权和访问权限概念。
 
 例如，考虑
 \cref{lst:count:Per-Thread Statistical Counters}（位于
 \cpageref{lst:count:Per-Thread Statistical Counters}）
 中所示的per-thread统计计数器（statistical counter）实现。
-这里，\co{inc_count()}只更新对应thread的
-\co{counter}实例，
+其中\co{inc_count()}只更新相应thread实例的
+\co{counter}，
 而\co{read_count()}访问但不修改所有
 thread的\co{counter}实例。
 
@@ -172,11 +173,11 @@ thread的\co{counter}实例。
 以非常低的开销访问自己的一组per-CPU变量。
 这个主题有很多变体。
 
-就其本身而言，纯粹的data ownership也既常见又有用，
+纯粹的data ownership也既常见又有用，
 例如在\cref{sec:SMPdesign:Resource Allocator Caches}
 （从\cpageref{sec:SMPdesign:Resource Allocator Caches}开始）
 中讨论的per-thread内存分配器cache。
-在这个算法中，每个thread的cache完全是该thread私有的。
+在这个算法中，每个thread的cache完全归该thread所有。
 
 \section{功能转移}
 \label{sec:owned:Function Shipping}
@@ -184,10 +185,10 @@ thread的\co{counter}实例。
 \epigraph{如果山不向穆罕默德走来，那么穆罕默德就必须走向山。}
 	 {\emph{《随笔集》}，Francis Bacon}
 
-上一节描述了一种弱形式的data ownership，其中thread伸手去获取
+上一节描述了一种data ownership的弱形式，其中thread需要更改
 其他thread的数据。
-这可以被理解为将数据带到需要它的函数那里。
-另一种方法是将函数发送到数据所在之处。
+这可以认为是将数据带给需要它的函数。
+另一种方法是将函数发送给数据。
 
 这种方法的示例见
 \cref{sec:count:Signal-Theft Limit Counter Design}
@@ -199,13 +200,12 @@ thread的\co{counter}实例。
 中的\co{flush_local_count_sig()}和
 \co{flush_local_count()}函数。
 
-\co{flush_local_count_sig()}函数是一个信号处理程序，
-充当被转移的函数。
+\co{flush_local_count_sig()}函数是一个信号处理函数，
+这里作为被转移的函数。
 \co{flush_local_count()}中的\co{pthread_kill()}函数
-发送信号——转移函数——然后等待被转移的函数执行完毕。
-这个被转移的函数有一个常见的额外复杂性，
-即需要与任何并发执行的\co{add_count()}
-或\co{sub_count()}函数进行交互（见
+发送信号——送出函数——然后等待被转移的函数执行完毕。
+这个被转移的函数因为要与并发执行的\co{add_count()}
+或\co{sub_count()}函数交互，增加了一些复杂度（见
 \cref{lst:count:Signal-Theft Limit Counter Add Function}，
 位于\cpageref{lst:count:Signal-Theft Limit Counter Add Function}，
 以及\cref{lst:count:Signal-Theft Limit Counter Subtract Function}，
@@ -234,18 +234,18 @@ thread的\co{counter}实例。
 \epigraph{让一个人从事他最擅长的职业。}
 	 {Cicero}
 
-前面几节描述了允许每个thread保留自己的数据副本或数据部分的方法。
-相比之下，本节描述了一种功能分解方法，
-其中一个特殊的指定thread拥有完成其工作所需数据的权限。
+前面几节描述了允许每个thread保留自己的数据副本或部分数据副本的方法。
+相比之下，本节描述了一种分解功能的方法，
+其中特定的指定thread拥有完成其工作所需数据的权限。
 \begin{fcvref}[ln:count:count_stat_eventual:whole:eventual]
 \cref{sec:count:Eventually Consistent Implementation}中描述的
 最终一致性计数器实现提供了一个例子。
 该实现有一个运行\co{eventual()}函数的指定thread，
 如\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
 的\clnrefrange{b}{e}所示。
-这个\co{eventual()} thread定期将per-thread计数值
-拉入全局计数器中，这样对全局计数器的访问将如其名称所示，
-最终收敛到实际值。
+这个\co{eventual()} thread周期性地将per-thread计数值
+拉入全局计数器，从而如其名称所示，
+最终将全局计数器收敛于实际值。
 \end{fcvref}
 
 \QuickQuiz{
@@ -277,32 +277,32 @@ thread的\co{counter}实例。
 \epigraph{当然，一个人所夺取的和他真正拥有的之间是有区别的。}
 	 {Pearl S.~Buck}
 
-提高shared-memory并行程序性能和可扩展性的一种方法是
-对其进行转换，将共享数据转换为由特定thread拥有的私有数据。
+对于shared-memory并行程序，一种提升性能和可扩展性的方法是
+将共享数据转换为由特定thread拥有的私有数据。
 
 一个很好的例子见于\cref{sec:SMPdesign:Dining Philosophers Problem}
 中一道Quick Quiz的答案，
-该答案使用私有化为哲学家就餐问题提供了一个
-比标准教科书解法具有更好性能和可扩展性的方案。
-原始问题是五位哲学家围坐在桌旁，
-每对相邻哲学家之间有一把叉子，最多允许两位哲学家同时进餐。
+该答案使用私有化解决哲学家就餐问题，
+这种方法具有比标准教科书解法更好的性能和可扩展性。
+原来的问题是五位哲学家围坐在桌旁，
+每对相邻哲学家之间有一把叉子，至多允许两位哲学家同时进餐。
 
-我们可以通过提供额外的五把叉子来轻松私有化这个问题，
-这样每位哲学家都拥有自己的一对私有叉子。
+我们可以通过提供额外的五把叉子来简单地私有化这个问题，
+这样每位哲学家都有自己的私人叉子。
 这允许所有五位哲学家同时进餐，
-同时也大大减少了某些类型疾病的传播。
+也大大减少了传播某些类型疾病的机会。
 
-在其他情况下，私有化会带来成本。
+在其他情况下，私有化会带来开销。
 例如，考虑
 \cref{lst:count:Simple Limit Counter Add; Subtract; and Read}（位于
 \cpageref{lst:count:Simple Limit Counter Add; Subtract; and Read}）
 中所示的简单限值计数器（limit counter）。
-这是一个算法示例，其中thread可以读取彼此的数据，
+在这个算法的例子中，thread可以读取彼此的数据，
 但只允许更新自己的数据。
-快速审查该算法可知，唯一的跨thread访问
-在\co{read_count()}的求和循环中。
-如果消除这个循环，我们就转向了更高效的纯data ownership，
-但代价是\co{read_count()}的结果不太精确。
+我们快速回顾一遍算法，唯一的跨thread访问只在
+\co{read_count()}的求和循环中。
+如果去除这个循环，这里将变成更高效的纯data ownership模式，
+但代价是\co{read_count()}的结果不太准确。
 
 \QuickQuiz{
 	是否可以在保持per-thread数据完全私有的同时
@@ -328,10 +328,10 @@ thread的\co{counter}实例。
 \Cref{chp:Deferred Processing}将通过提供安全地将公共数据结构
 变为私有的方法，为data ownership引入时间维度。
 
-简而言之，私有化是并行程序员工具箱中的强大工具，
-但仍然必须谨慎使用。
-就像其他所有同步原语一样，它有可能在降低性能和可扩展性的同时
-增加复杂性。
+总之，在并行程序员的工具箱中，私有化是一个强大的工具，
+但必须小心使用。
+就像其他每一个同步原语一样，它有可能带来复杂性，
+同时降低性能和可扩展性。
 
 \section{数据所有权的其他用途}
 \label{sec:owned:Other Uses of Data Ownership}
@@ -340,11 +340,11 @@ thread的\co{counter}实例。
 	  属于我们的一切都会来到我们身边。}
 	 {Rabindranath Tagore}
 
-当数据可以被分区，使得跨thread访问或更新的需求很少或没有时，
+当数据可以被分割，使得很少或没有需要跨thread访问或更新的地方时，
 data ownership效果最好。
-幸运的是，这种情况相当常见，而且存在于各种各样的并行编程环境中。
+幸运的是，这种情况很常见，并且在各种并行编程环境中都存在。
 
-Data ownership的例子包括：
+Data ownership的示例如下：
 
 \begin{enumerate}
 \item	所有消息传递环境，如MPI~\cite{MPIForum2008}
@@ -367,12 +367,12 @@ Data ownership的例子包括：
 	\cref{sec:defer:Read-Copy Update (RCU)}中描述的同步机制。
 \end{enumerate}
 
-Data ownership也许是现有最被低估的同步机制。
-正确使用时，它提供了无与伦比的简洁性、性能和可扩展性。
+Data ownership也许是最不起眼的同步机制。
+当使用得当时，它能提供无与伦比的简洁性、性能和可扩展性。
 也许正是它的简洁性使它没有得到应有的尊重。
-希望对data ownership的微妙之处和威力有更深入的认识，
-能够带来更高层次的尊重，更不用说带来更高的性能和可扩展性，
-同时降低复杂性。
+希望对data ownership的微妙之处和威力的认识，
+能够带来更多的尊重，更不用说那些由于复杂性的降低
+而带来的性能和可扩展性的提升。
 
 % populate with problems showing benefits of coupling data ownership with
 % other approaches. For example, work-stealing schedulers. Perhaps also
