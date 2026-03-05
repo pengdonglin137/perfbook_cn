@@ -32,7 +32,7 @@ cache line是大小固定、地址对齐的2的幂次方内存块，
 通常在32到256字节之间。
 当CPU从内存加载一个变量到其寄存器时，
 它必须首先将包含该变量的cache line加载到其cache中，
-cache可以被视为一个硬件哈希表。
+cache可以被视为一个硬件哈希表（hash table）。
 类似地，当CPU将一个值从其寄存器存储到内存时，
 它也必须将包含该变量的cache line加载到其cache中，
 但还必须确保没有其他CPU拥有该cache line的副本。

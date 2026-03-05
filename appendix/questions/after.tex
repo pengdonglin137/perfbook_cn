@@ -11,7 +11,7 @@
 
 "之后"是一个直观但却出人意料地困难的概念。
 一个重要的非直观问题是，代码可以在任意时刻被延迟任意长的时间。
-考虑一个生产者线程和一个消费者线程，它们通过一个全局结构体进行通信，
+考虑一个生产者线程（thread）和一个消费者线程，它们通过一个全局结构体进行通信，
 该结构体包含时间戳\qco{t}和整数字段\qco{a}、\qco{b}和\qco{c}。
 生产者循环记录当前时间（以自1970年以来的秒数的十进制形式），
 然后更新\qco{a}、\qco{b}和\qco{c}的值，
@@ -42,7 +42,7 @@
 
 	\begin{enumerate}
 	\item	紧凑循环中缺少\co{barrier()}或\co{volatile}。
-	\item	更新端缺少内存屏障。
+	\item	更新端缺少内存屏障（memory barrier）。
 	\item	生产者和消费者之间缺乏同步。
 	\end{enumerate}
 }\QuickQuizEnd
@@ -126,7 +126,7 @@ seq    & \multicolumn{1}{c}{time (seconds)} & delta~  &  a &  b &  c \\
 中有所表示：
 锁防止了任何代码方框在时间上重叠，因此消费者的时间戳必须在
 先前生产者的时间戳之后收集。
-此图中每个方框中的代码段被称为"临界区"；
+此图中每个方框中的代码段被称为"临界区（critical section）"；
 在给定时间只能有一个这样的临界区在执行。
 \end{fcvref}
 
@@ -168,7 +168,7 @@ seq    & \multicolumn{1}{c}{time (seconds)} & delta~  &  a &  b &  c \\
 	\begin{enumerate}
 	\item	消费者可能被抢占很长时间。
 	\item	一个长时间运行的中断可能延迟消费者。
-	\item	缓存未命中可能延迟消费者。
+	\item	缓存未命中（cache miss）可能延迟消费者。
 	\item	生产者可能运行在比消费者更快的CPU上
 		（例如，其中一个CPU可能由于散热或功耗约束
 		不得不降低其时钟频率）。

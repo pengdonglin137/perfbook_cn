@@ -143,7 +143,7 @@ thread不允许修改其他thread拥有的数据，
 例如，考虑
 \cref{lst:count:Per-Thread Statistical Counters}（位于
 \cpageref{lst:count:Per-Thread Statistical Counters}）
-中所示的per-thread统计计数器实现。
+中所示的per-thread统计计数器（statistical counter）实现。
 这里，\co{inc_count()}只更新对应thread的
 \co{counter}实例，
 而\co{read_count()}访问但不修改所有
@@ -296,7 +296,7 @@ thread的\co{counter}实例。
 例如，考虑
 \cref{lst:count:Simple Limit Counter Add; Subtract; and Read}（位于
 \cpageref{lst:count:Simple Limit Counter Add; Subtract; and Read}）
-中所示的简单限值计数器。
+中所示的简单限值计数器（limit counter）。
 这是一个算法示例，其中thread可以读取彼此的数据，
 但只允许更新自己的数据。
 快速审查该算法可知，唯一的跨thread访问

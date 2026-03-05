@@ -14,7 +14,7 @@
 Weizenbaum 在讨论 reference counting 时把它当作已广为人知的概念，
 因此它可能可以追溯到 1950 年代甚至 1940 年代。
 而且可能更早，因为修理大型危险机器的工人长期以来一直使用
-通过挂锁实现的机械式引用计数技术。
+通过挂锁实现的机械式引用计数（reference counting）技术。
 在进入机器之前，每个工人将一把挂锁锁在机器的开关上，
 从而防止机器在该工人在内部时被通电。
 因此，reference counting 是 Pre-BSD 路由并发实现的优秀且
@@ -171,7 +171,7 @@ reference counting 的性能极差，其可扩展性更是糟糕，
 
 但情况还会更糟。
 
-多个更新线程反复调用 \co{route_add()} 和 \co{route_del()} 将很快
+多个更新线程（thread）反复调用 \co{route_add()} 和 \co{route_del()} 将很快
 遇到\cref{lst:defer:Reference-Counted Pre-BSD Routing Table Lookup}
 \clnrefr{ln:defer:route_refcnt:lookup:lookup:abort}上的 \co{abort()} 语句，
 这表明存在释放后使用错误。

@@ -2,7 +2,7 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{风险指针助手}
+\section{风险指针（hazard pointer）助手}
 \label{sec:together:Hazard-Pointer Helpers}
 %
 \epigraph{重要的是小事情，成百上千的小事情。}
@@ -37,7 +37,7 @@ Folly 开源库中实现的 UnboundedQueue 和 ConcurrentHashMap 数据结构。
 \subsection{长时间访问}
 \label{sec:together:Long-Duration Accesses}
 
-假设一个读写锁的读者持有锁的时间太长，
+假设一个读写锁（reader-writer lock）的读者持有锁的时间太长，
 导致更新被过度延迟。
 如果该读者可以合理地转换为使用引用计数
 而非读写锁，但性能和可扩展性的考虑又阻止使用

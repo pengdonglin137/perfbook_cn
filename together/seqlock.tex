@@ -2,7 +2,7 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{顺序锁特技}
+\section{顺序锁（sequence lock）特技}
 \label{sec:together:Sequence-Locking Specials}
 %
 \epigraph{不会跳舞的姑娘说乐队演奏得不好。}
@@ -100,7 +100,7 @@ sequence lock 防止并发修改，
 虽然 Schr\"odinger 不认为即使他最不理智的亲戚
 也会快速到足以使婚姻和离婚成为问题，
 但他确实意识到这个问题在其他情况下可能会出现。
-避免读者饥饿问题的一种方法是让读者在重试次数过多时
+避免读者饥饿（starvation）问题的一种方法是让读者在重试次数过多时
 使用更新侧原语，
 但这会降低性能和可扩展性。
 避免\IX{starvation}的另一种方法是使用多个 sequence lock，

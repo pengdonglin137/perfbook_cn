@@ -39,7 +39,7 @@ C/C++11 标准~\cite{RichardSmith2019N4800}的 memory model，
 	实际上，学术界认为 x86 的 memory model 是弱的，
 	因为它可以允许先前的存储与后续的加载重排序。
 	从学术角度来看，强 memory model 是完全不允许
-	重排序的，这样所有线程都同意它们可见的所有操作的顺序。
+	重排序的，这样所有线程（thread）都同意它们可见的所有操作的顺序。
 
 	而且确实存在开发者有时对 x86 内存排序
 	感到困惑的情况。
@@ -332,7 +332,7 @@ Observation SB+lwsync-RMW-lwsync+sync Never 0 5
 	这取决于所需的语义。
 	本回答的其余部分假设
 	\cref{lst:formal:PPCMEM Litmus Test}中
-	\co{P0} 的汇编语言旨在实现一个返回值的原子操作。
+	\co{P0} 的汇编语言旨在实现一个返回值的原子操作（atomic operation）。
 
 	正如\cref{chp:Advanced Synchronization: Memory Ordering}中
 	所讨论的，

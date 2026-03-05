@@ -182,6 +182,8 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 - **Subsequent occurrences**: Chinese only, e.g., `死锁`
 - **Exception — always keep English**: Terms listed in the "Keep English" section below
 - **In `\item[]` definition labels**: Always use `中文（English）` format, e.g., `\item[加载撕裂（Load tearing）]`
+- **With `\IX{}` index macros**: `\IX{term}` renders "term" as visible text AND creates an index entry. When a term has both `\IX{}` and Chinese annotation, use `中文（\IX{term}）` — this renders as `中文（term）` and preserves the index. Never use the reverse format `\IX{term}（中文）`.
+- **Annotation status**: First-occurrence annotations have been applied to all chapters (toolsoftrade was already compliant). The terms in the translation table below are annotated at their first occurrence in each chapter with `中文（English）` format.
 
 **Translation table (translate to Chinese):**
 

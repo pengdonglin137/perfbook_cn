@@ -80,7 +80,7 @@
 \Clnrefrange{perthread:b}{perthread:e}
 包含每线程 \co{counter} 变量的定义、
 引用当前 \co{countarray} 结构的全局指针 \co{countarrayp}，
-以及 \co{final_mutex} 自旋锁。
+以及 \co{final_mutex} 自旋锁（spinlock）。
 
 \Clnrefrange{inc:b}{inc:e} 展示了 \co{inc_count()}，
 它与 \cref{lst:count:Per-Thread Statistical Counters} 中的相同。
@@ -93,7 +93,7 @@
 \Clnref{deref} 使用 \co{rcu_dereference()} 将当前
 \co{countarray} 结构快照到局部变量 \co{cap} 中。
 正确使用 RCU 将保证此 \co{countarray} 结构
-至少在 \clnref{rru} 处当前 RCU 读侧临界区结束之前
+至少在 \clnref{rru} 处当前 RCU 读侧临界区（critical section）结束之前
 一直伴随我们。
 \Clnref{init} 将 \co{sum} 初始化为 \co{cap->total}，
 即先前退出线程的计数总和。

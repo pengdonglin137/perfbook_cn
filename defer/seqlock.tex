@@ -2,14 +2,14 @@
 % mainfile: ../perfbook.tex
 % SPDX-License-Identifier: CC-BY-SA-3.0
 
-\section{顺序锁}
+\section{顺序锁（sequence lock）}
 \label{sec:defer:Sequence Locks}
 %
 \epigraph{就好像从头再来一样。}{John Lennon}
 
 已发表的 sequence-lock
 记录~\cite{10.1145/800212.806505,10.1145/359863.359878}
-可以追溯到与读写锁一样远，但 sequence locks 仍然相对鲜为人知。
+可以追溯到与读写锁（reader-writer lock）一样远，但 sequence locks 仍然相对鲜为人知。
 Sequence locks 在 Linux 内核中用于必须被读者看到一致状态的
 读多数据。然而，与读写锁不同，读者不排斥写者。
 相反，像 hazard pointers 一样，sequence locks 迫使读者
@@ -204,7 +204,7 @@ smp_store_release(&slp->seq, READ_ONCE(slp->seq) + 1);
 	什么都没有。
 	这是 sequence locking 的弱点之一，
 	因此你应该只在读多情况下使用 sequence locking。
-	当然，除非读侧饥饿在你的场景中是可以接受的，
+	当然，除非读侧饥饿（starvation）在你的场景中是可以接受的，
 	在这种情况下，尽情使用 sequence-locking 更新吧！
 }\QuickQuizEndE
 }

@@ -1446,7 +1446,7 @@ $1.2 \times 10^{-8}$，换句话说，我们有很高的置信度
 不可能在任何给定时间点精确量化一个粒子的位置和速度~\cite{WeinerHeisenberg1927Uncertain}。
 任何更精确测量该粒子位置的尝试都会
 导致其速度的不确定性增加，反之亦然。
-类似地，追踪海森bug的尝试会导致其症状发生根本性变化
+类似地，追踪海森bug（Heisenbug）的尝试会导致其症状发生根本性变化
 甚至完全消失。\footnote{
 	"Heisenbug"一词其实是用词不当，因为大多数Heisenbug
 	完全可以用经典物理学中的\emph{观察者效应}来解释。
@@ -1644,7 +1644,7 @@ CPU热插拔操作、超时、丢包、大规模状态变化等。
 	为什么条件锁原语不提供这种虚假失败功能？
 }\QuickQuizAnswer{
 	有些锁算法依赖于条件锁原语告诉它们真实情况。
-	例如，如果条件锁失败表示某个其他线程已经在处理
+	例如，如果条件锁失败表示某个其他线程（thread）已经在处理
 	给定的工作，虚假失败可能导致该工作永远不会完成，
 	可能导致挂起。
 
@@ -1697,7 +1697,7 @@ Bug通常是非此即彼的事情，bug要么发生，要么不发生，
 以及之后等待RCU grace period完成后的RCU回调被调用。
 \co{rcutorture}错误和险些发生情况之间的这种区别如
 \cref{fig:debugging:RCU Errors and Near Misses}所示。
-要构成一个完全意义上的错误，RCU读端临界区
+要构成一个完全意义上的错误，RCU读端临界区（critical section）
 必须从发起grace period的\co{call_rcu()}开始，
 经过前一个grace period的剩余部分，经过
 由\co{call_rcu()}发起的grace period的全部
@@ -1968,7 +1968,7 @@ sec:debuggingStatistics for Continuous Testing}
 对一个密集数组的搜索上，结果发现这只占分配器执行时间的
 百分之几。
 通过逻辑分析仪收集的执行剖析将注意力集中到
-实际上负责大部分问题的缓存未命中上~\cite{McKenney93}。
+实际上负责大部分问题的缓存未命中（cache miss）上~\cite{McKenney93}。
 
 一种老派但相当有效的追踪性能和可扩展性bug的方法是
 在调试器下运行你的程序，然后定期中断它，

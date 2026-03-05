@@ -32,7 +32,7 @@ transactional memory (STM) 实现，它能够在商用硬件上运行，
 DanGrossman2007TMGCAnalogy}，只有少数谨慎的
 声音~\cite{Blundell2005DebunkTM,McKenney2007PLOSTM}。
 
-TM背后的基本思想是原子地执行一段代码，使得其他线程看不到中间状态。
+TM背后的基本思想是原子地执行一段代码，使得其他线程（thread）看不到中间状态。
 因此，TM的语义可以简单地通过将每个事务替换为一个可递归获取的
 全局锁的获取和释放来实现，尽管性能和可扩展性会极其糟糕。
 TM实现（无论是硬件还是软件）中固有的大部分复杂性在于
@@ -42,7 +42,7 @@ TM实现（无论是硬件还是软件）中固有的大部分复杂性在于
 
 由于事务回滚的可能性随着事务大小的减小而降低，
 TM对于小型基于内存的操作可能变得相当有吸引力，
-例如用于栈、队列、哈希表和搜索树的链表操作。
+例如用于栈、队列、哈希表（hash table）和搜索树的链表操作。
 然而，目前对于大型事务，特别是包含I/O和进程创建等
 非内存操作的事务，要证明其适用性则困难得多。
 以下各节审视了``Transactional Memory
@@ -72,7 +72,7 @@ Everywhere''~\cite{PaulEMcKenney2009TMeverywhere}
 而这些与外部世界的交互正是TM无条件可组合性声明
 破灭的基石。
 是的，你可以组合事务，但前提是没有介入的TM不友好操作。
-正如你可以组合基于锁的临界区，但前提是这样做不会引入死锁。
+正如你可以组合基于锁的临界区（critical section），但前提是这样做不会引入死锁（deadlock）。
 
 最终，在实际代码中TM是否真的比锁提供更好的可组合性，
 这一点并不清楚。
@@ -463,7 +463,7 @@ sequence-locking读侧临界区和userspace-RCU读侧临界区
 \item 如何处理该函数内代码的不可知性质？
 \end{enumerate*}
 公平地说，问题(b)至少在理论上也给锁和userspace-RCU带来了一些挑战。
-例如，动态链接的函数可能会为锁引入\IX{deadlock}（死锁），
+例如，动态链接的函数可能会为锁引入死锁（\IX{deadlock}），
 或者可能（错误地）在userspace-RCU读侧临界区中引入
 \IX{quiescent state}（静止状态）。
 区别在于，虽然锁和userspace-RCU临界区中允许的操作类别已被充分理解，
@@ -653,7 +653,7 @@ TM和锁之间可能存在接口问题这一事实令许多人感到惊讶，
 \subsubsection{读写锁}
 \label{sec:future:Reader-Writer Locking}
 
-在持有其他锁的同时以读模式获取读写锁是很常见的做法，
+在持有其他锁的同时以读模式获取读写锁（reader-writer lock）是很常见的做法，
 这直接就能工作，至少只要使用了通常众所周知的软件工程技术
 来避免死锁。
 从RCU读侧临界区内以读模式获取读写锁也能工作，
@@ -709,7 +709,7 @@ TM和锁之间可能存在接口问题这一事实令许多人感到惊讶，
 和hazard pointers）结合时也会出现类似的问题和可能的解决方案。
 在下面的文本中，已知的差异会被特别指出。
 
-引用计数、hazard pointers和RCU都被大量使用，如
+引用计数（reference counting）、hazard pointers和RCU都被大量使用，如
 \cref{sec:defer:RCU Related Work,sec:defer:Which to Choose? (Production Use)}
 中所述。
 这意味着任何选择不克服本节中指出的每个挑战的TM实现
@@ -754,7 +754,7 @@ TM和锁之间可能存在接口问题这一事实令许多人感到惊讶，
 	而且有充分的理由。
 \item	与冲突TM更新并发运行的RCU读者从任何冲突的RCU加载中
 	获取旧的（事务前的）值。
-	这保留了RCU语义和性能，也防止了RCU更新\IX{starvation}（饥饿）。
+	这保留了RCU语义和性能，也防止了RCU更新饥饿（\IX{starvation}）。
 	然而，不是所有TM实现都能及时提供对已被进行中事务
 	暂时更新的变量旧值的访问。
 	特别是，在日志中维护旧值的基于日志的TM实现
@@ -866,7 +866,7 @@ hazard-pointer实现的出现。\footnote{
 \label{sec:future:Extra-Transactional Accesses}
 
 在基于锁的临界区内，操作在该锁的临界区外被并发访问
-甚至修改的变量是完全合法的，一个常见的例子是统计计数器。
+甚至修改的变量是完全合法的，一个常见的例子是统计计数器（statistical counter）。
 在RCU读侧临界区内也可以做同样的事情，
 而且这实际上是常见情况。
 

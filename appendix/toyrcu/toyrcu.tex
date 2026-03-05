@@ -43,9 +43,9 @@ chp:Deferred Processing}
 \label{lst:app:toyrcu:Lock-Based RCU Implementation}
 \end{listing}
 
-在这个实现中，\co{rcu_read_lock()}获取一个全局自旋锁，\co{rcu_read_unlock()}释放它，\co{synchronize_rcu()}获取后立即释放它。
+在这个实现中，\co{rcu_read_lock()}获取一个全局自旋锁（spinlock），\co{rcu_read_unlock()}释放它，\co{synchronize_rcu()}获取后立即释放它。
 
-因为\co{synchronize_rcu()}在获取（并释放）锁之前不会返回，所以它不能在所有先前的RCU读端临界区完成之前返回，从而忠实地实现了RCU语义。
+因为\co{synchronize_rcu()}在获取（并释放）锁之前不会返回，所以它不能在所有先前的RCU读端临界区（critical section）完成之前返回，从而忠实地实现了RCU语义。
 当然，一次只能有一个RCU读者处于其读端临界区中，这几乎完全违背了RCU的目的\@。
 此外，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的锁操作开销极大，
 读端开销从单个\Power{5} CPU上的约100纳秒到64-CPU系统上的超过17\emph{微秒}不等。
@@ -58,7 +58,7 @@ chp:Deferred Processing}
 \QuickQuizB{
 	为什么
 	\cref{lst:app:toyrcu:Lock-Based RCU Implementation}
-	中RCU实现的死锁不会在任何其他RCU实现中也是死锁？
+	中RCU实现的死锁（deadlock）不会在任何其他RCU实现中也是死锁？
 }\QuickQuizAnswerB{
 	\begin{fcvref}[ln:app:toyrcu:Deadlock in Lock-Based RCU Implementation]
 	假设
@@ -111,7 +111,7 @@ void bar(void)
 \QuickQuizE{
 	为什么不简单地在
 	\cref{lst:app:toyrcu:Lock-Based RCU Implementation}
-	的RCU实现中使用读写锁，以允许RCU读者并行执行？
+	的RCU实现中使用读写锁（reader-writer lock），以允许RCU读者并行执行？
 }\QuickQuizAnswerE{
 	事实上确实可以以这种方式使用读写锁。
 	然而，教科书上的读写锁存在内存竞争问题，
@@ -125,7 +125,7 @@ void bar(void)
 
 很难想象这个实现在生产环境中有用，尽管它确实具有几乎可以在任何用户级应用程序中实现的优点。此外，每个CPU一个锁或使用读写锁的类似实现已经在2.4 Linux内核中用于生产。
 
-这种每CPU一锁方法的修改版本，但改为每线程一锁，将在下一节中描述。
+这种每CPU一锁方法的修改版本，但改为每线程（thread）一锁，将在下一节中描述。
 
 \section{每线程基于锁的RCU}
 \label{sec:app:toyrcu:Per-Thread Lock-Based RCU}
@@ -200,7 +200,7 @@ void bar(void)
 	这确实是一个优点，但不要忘记仍然需要
 	\co{rcu_dereference()}和\co{rcu_assign_pointer()}，
 	这意味着\co{rcu_dereference()}需要\co{volatile}操作，
-	\co{rcu_assign_pointer()}需要内存屏障。
+	\co{rcu_assign_pointer()}需要内存屏障（memory barrier）。
 	当然，许多Alpha CPU对这两个原语都需要内存屏障。
 }\QuickQuizEndE
 }
@@ -217,7 +217,7 @@ Linux 2.4 kernel~\cite{Molnar00a}.
 \cref{lst:app:toyrcu:RCU Implementation Using Single Global Reference Counter}
 (\path{rcu_rcg.h} and \path{rcu_rcg.c}).
 \begin{fcvref}[ln:defer:rcu_rcg]
-这个实现使用了在\clnref{lock_unlock:grc}定义的全局引用计数器\co{rcu_refcnt}。
+这个实现使用了在\clnref{lock_unlock:grc}定义的全局引用计数器（reference counting）\co{rcu_refcnt}。
 \co{rcu_read_lock()}原语原子地递增这个计数器，
 然后执行内存屏障以确保RCU读端临界区排在原子递增之后。
 类似地，\co{rcu_read_unlock()}执行内存屏障来限定RCU读端临界区，
@@ -257,7 +257,7 @@ Linux 2.4 kernel~\cite{Molnar00a}.
 }\QuickQuizEnd
 
 然而，这个实现仍然有一些严重的缺点。
-首先，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的原子操作仍然相当重，
+首先，\co{rcu_read_lock()}和\co{rcu_read_unlock()}中的原子操作（atomic operation）仍然相当重，
 读端开销从单个\Power{5} CPU上的约100纳秒到64-CPU系统上的
 接近40\emph{微秒}不等。
 这意味着RCU读端临界区必须非常长，才能获得任何真正的读端并行性。
@@ -278,7 +278,7 @@ Linux 2.4 kernel~\cite{Molnar00a}.
 
 其次，如果有许多并发的\co{rcu_read_lock()}和\co{rcu_read_unlock()}操作，
 \co{rcu_refcnt}上将会有极端的内存竞争，
-导致昂贵的缓存未命中。
+导致昂贵的缓存未命中（cache miss）。
 这前两个缺点在很大程度上违背了RCU的一个主要目的，
 即提供低开销的读端同步原语。
 
@@ -293,7 +293,7 @@ Linux 2.4 kernel~\cite{Molnar00a}.
 	\co{synchronize_rcu()}等待过长时也等待？
 	这样不就能防止\co{synchronize_rcu()}被饿死吗？
 }\QuickQuizAnswer{
-	虽然这确实会消除饥饿，但也意味着\co{rcu_read_lock()}会自旋或阻塞
+	虽然这确实会消除饥饿（starvation），但也意味着\co{rcu_read_lock()}会自旋或阻塞
 	等待写者，而写者又在等待读者。
 	如果这些读者中的一个正在尝试获取自旋/阻塞的\co{rcu_read_lock()}
 	所持有的锁，我们又会遇到死锁。
@@ -580,7 +580,7 @@ RCU读端临界区之外时将为零。
 	但它不执行原子机器指令。
 	它只是执行从\co{atomic_t}的普通加载。
 	它唯一的目的是让编译器的类型检查满意。
-	如果Linux内核运行在8位CPU上，它还需要防止"存储撕裂"，
+	如果Linux内核运行在8位CPU上，它还需要防止"存储撕裂（store tearing）"，
 	这可能是由于需要在某些8位系统上用两次八位访问来存储
 	一个16位指针而发生的。
 	但值得庆幸的是，似乎没有人在8位系统上运行Linux。
@@ -612,7 +612,7 @@ RCU读端临界区之外时将为零。
 %
 这些要求在几乎所有软件环境中都可以满足，
 但通常会导致线程数量有固定的上限。
-更复杂的实现可能会避免这种限制，例如使用可扩展的哈希表。
+更复杂的实现可能会避免这种限制，例如使用可扩展的哈希表（hash table）。
 这种实现可能会动态跟踪线程，
 例如在它们第一次调用\co{rcu_read_lock()}时添加。
 

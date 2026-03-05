@@ -618,7 +618,7 @@ Nidhugg也直接输入C代码，因此其第一个单元格也是蓝色。
 	其工具现在可以处理适度水平的并发。
 	最近，Catalin Marinas使用Lamport的
 	TLA工具~\cite{Lamport:2002:SST:579617}定位了Linux内核
-	排队自旋锁实现中的一些前向进展bug。
+	排队自旋锁（spinlock）实现中的一些前向进展bug。
 	Will Deacon修复了这些bug~\cite{WillDeacon2018qspinlock}，
 	而Catalin验证了Will的
 	修复~\cite{CatalinMarinas2018qspinlockTLA}。

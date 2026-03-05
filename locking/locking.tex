@@ -30,7 +30,7 @@ fig:locking:Locking: Workhorse or Hero?}
 	\item	Deadlock检测工具，例如Linux内核的
 		lockdep工具~\cite{JonathanCorbet2006lockdep}。
 	\item	对加锁友好的数据结构，例如
-		数组、哈希表和基数树，这些将在
+		数组、哈希表（hash table）和基数树，这些将在
 		\cref{chp:Data Structures}中介绍。
 	\end{enumerate}
 \item	加锁的某些罪行仅在高竞争级别下才成为问题，
@@ -38,9 +38,9 @@ fig:locking:Locking: Workhorse or Hero?}
 \item	加锁的某些罪行可以通过将其他同步机制
 	与加锁配合使用来避免。
 	这些其他机制包括
-	统计计数器
+	统计计数器（statistical counter）
 	（参见\cref{chp:Counting}），
-	引用计数
+	引用计数（reference counting）
 	（参见\cref{sec:defer:Reference Counting}），
 	hazard pointers
 	（参见\cref{sec:defer:Hazard Pointers}），
@@ -103,10 +103,10 @@ fig:locking:Locking: Workhorse or Hero?}
 因此，以下各节将介绍deadlock、\IX{livelock}、starvation、
 unfairness和低效率。
 
-\subsection{死锁}
+\subsection{死锁（deadlock）}
 \label{sec:locking:Deadlock}
 
-当一组线程中的每个成员都持有至少一个lock，同时又在等待
+当一组线程（thread）中的每个成员都持有至少一个lock，同时又在等待
 该组中另一个成员所持有的lock时，就会发生\IXB{Deadlock}。
 即使在只包含单个线程的组中，当该线程试图获取它已经持有的
 非递归lock时，这种情况也会发生。
@@ -772,7 +772,7 @@ Livelock和deadlock在这类系统中是问题，但实用的解决方案
 	在许多应用程序环境中，在信号处理程序中获取lock
 	是不被赞成的~\cite{OpenGroup1997pthreads}。
 	然而，这并不能阻止聪明的开发者（也许不明智地）
-	使用原子操作构造自制lock。
+	使用原子操作（atomic operation）构造自制lock。
 	而原子操作在许多情况下在信号处理程序中是完全合法的。
 }\QuickQuizEnd
 
@@ -828,7 +828,7 @@ Livelock和deadlock在这类系统中是问题，但实用的解决方案
 
 然而，本节描述的策略已被证明在许多场景中相当有用。
 
-\subsection{活锁与饥饿}\ucindex{Livelock|BF}\ucindex{Starvation|BF}
+\subsection{活锁（livelock）与饥饿}\ucindex{Livelock|BF}\ucindex{Starvation|BF}
 \label{sec:locking:Livelock and Starvation}
 
 虽然条件加锁可以是一种有效的deadlock避免机制，但它可能被滥用。
@@ -1032,7 +1032,7 @@ CPU~1比CPU~2--7有优势。
 \label{sec:locking:Inefficiency}
 
 Lock是使用原子指令和\IXpl{memory barrier}实现的，
-而且经常涉及缓存未命中。
+而且经常涉及缓存未命中（cache miss）。
 正如我们在\cref{chp:Hardware and its Habits}中看到的，
 这些指令非常昂贵，大约比简单指令高两个数量级的开销。
 这对加锁来说可能是一个严重的问题：
@@ -1116,7 +1116,7 @@ reader-writer lock（\cref{sec:locking:Reader-Writer Locks}）、
 多角色lock（\cref{sec:locking:Beyond Reader-Writer Locks}）、
 以及作用域加锁（\cref{sec:locking:Scoped Locking}）。
 
-\subsection{互斥锁}
+\subsection{互斥锁（exclusive lock）}
 \label{sec:locking:Exclusive Locks}
 
 \IXhpl{Exclusive}{lock}顾名思义：
@@ -1306,7 +1306,7 @@ reader-writer lock（\cref{sec:locking:Reader-Writer Locks}）、
 而受到高竞争的非实时系统可能只需要足够的排序来避免starvation，
 最后，设计为避免竞争的非实时系统可能根本不需要公平性。
 
-\subsection{读写锁}
+\subsection{读写锁（reader-writer lock）}
 \label{sec:locking:Reader-Writer Locks}
 
 \IXhpl{Reader-writer}{lock}~\cite{Courtois71}
@@ -1819,7 +1819,7 @@ lock将按照什么顺序被授予等待线程。
 
 更新的排队lock实现还考虑了系统的架构，
 优先在本地授予lock，同时也采取措施避免
-饥饿~\cite{McKenney02e,radovic03hierarchical,radovic02efficient,BenJackson02,McKenney02d}。
+饥饿（starvation）~\cite{McKenney02e,radovic03hierarchical,radovic02efficient,BenJackson02,McKenney02d}。
 其中许多可以被认为类似于传统上用于磁盘I/O调度的电梯算法。
 Dice等人讨论了使用本地lock和全局lock来将
 任何架构无关的lock转换为本地/全局加锁方案，

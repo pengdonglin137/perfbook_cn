@@ -149,7 +149,7 @@
 \label{sec:cpu:Atomic Operations}
 
 一个这样的障碍是\IX{atomic}操作。
-这里的问题在于，原子操作的整体概念与CPU流水线逐步装配式的
+这里的问题在于，原子操作（atomic operation）的整体概念与CPU流水线逐步装配式的
 运作方式相矛盾。
 值得称赞的是，现代CPU使用了许多极其巧妙的技巧使这些操作
 \emph{看起来}是原子的，尽管它们实际上是逐步执行的。
@@ -195,7 +195,7 @@
 	相关内容在\cref{sec:future:Transactional Memory}中有所介绍。
 }\QuickQuizEnd
 
-\subsection{内存屏障}
+\subsection{内存屏障（memory barrier）}
 \label{sec:cpu:Memory Barriers}
 
 \IXpl{Memory barrier}将在
@@ -333,7 +333,7 @@ spin_unlock(&mylock);
 	也就是环境温度趋于较低的时候。
 }\QuickQuizEnd
 
-\subsection{缓存未命中}
+\subsection{缓存未命中（cache miss）}
 \label{sec:cpu:Cache Misses}
 
 多线程对CPU性能的另一个障碍是``cache miss''。

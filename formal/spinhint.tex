@@ -251,7 +251,7 @@ spin -t -p increment.spin
 	\co{-mN} 选项增加最大深度以进行完整搜索。
 	默认值为 \co{-m10000}。
 
-	\co{-wN} 选项指定哈希表大小。
+	\co{-wN} 选项指定哈希表（hash table）大小。
 	完整状态空间搜索的默认值为 \co{-w24}。\footnote{
 		截至 Spin 版本 6.4.6 和 6.4.8。
 		在 2011 年 7 月 10 日的 Spin 在线手册中，
@@ -450,13 +450,13 @@ atomic {
 
 \begin{listing}
 \input{CodeSamples/formal/promela/lock@whole.fcv}
-\caption{自旋锁的 Promela 代码}
+\caption{自旋锁（spinlock）的 Promela 代码}
 \label{lst:formal:Promela Code for Spinlock}
 \end{listing}
 
 \co{spin_unlock()} 宏简单地将锁标记为不再被持有。
 
-请注意，不需要内存屏障，因为 Promela 假设完全排序。
+请注意，不需要内存屏障（memory barrier），因为 Promela 假设完全排序。
 在任何给定的 Promela 状态中，所有进程对当前状态以及
 导致我们到达当前状态的状态变化顺序都达成一致。
 这类似于少数计算机系统（如 1990 年代的 MIPS 和 PA-RISC）
@@ -477,7 +477,7 @@ atomic {
 此代码与用于测试递增的代码类似，
 锁定进程的数量由 \clnref{nlockers} 上的
 \co{N_LOCKERS} 宏定义来定义。
-互斥锁本身在 \clnref{mutex} 上定义，
+互斥锁（exclusive lock）本身在 \clnref{mutex} 上定义，
 用于跟踪锁持有者的数组在 \clnref{array} 上，
 \clnref{sum} 由断言代码使用以验证只有一个进程持有锁。
 \end{fcvref}
@@ -573,7 +573,7 @@ QRCU 是 SRCU~\cite{PaulEMcKenney2006c} 的一个变体，
 	与 SRCU 类似（不同于其他 RCU 变体），QRCU 的作用
 	不是全局的，而是集中在指定的 \co{qrcu_struct} 上。
 \item	有 \co{qrcu_read_lock()} 和 \co{qrcu_read_unlock()}
-	原语用于界定 QRCU 读端临界区。
+	原语用于界定 QRCU 读端临界区（critical section）。
 	必须将相应的 \co{qrcu_struct} 传递给这些原语，
 	并且 \co{qrcu_read_lock()} 的返回值
 	必须传递给 \co{qrcu_read_unlock()}。
@@ -1088,7 +1088,7 @@ QRCU 真的正确吗？
 	（尽管可以将它们编程到
 	\IX{Promela}~\cite{Desnoyers:2013:MSM:2506164.2506174} 中），
 	\IXacr{cbmc}~\cite{EdmundClarke2004CBMC} 不检测概率性
-	挂起和死锁，
+	挂起和死锁（deadlock），
 	\IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg} 不检测
 	涉及数据非确定性的缺陷。
 	但这意味着这些工具不能被信任来发现

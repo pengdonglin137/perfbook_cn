@@ -231,7 +231,7 @@ sec:count:Statistical Counters}
 \end{fcvref}
 因为这是atomic的，所以能精确计数。
 然而，它更慢：
-在我的六核x86笔记本电脑上，即使只有单个线程在递增，
+在我的六核x86笔记本电脑上，即使只有单个线程（thread）在递增，
 它也比非atomic递增慢了二十多倍。\footnote{
 	有趣的是，非atomic地递增counter会比atomic地递增
 	counter更快地推进counter值。
@@ -372,7 +372,7 @@ atomic递增的性能随CPU和线程数量的增加而变慢也不足为奇，
 	软件能做得\emph{好得多}。
 }\QuickQuizEnd
 
-\section{统计计数器}
+\section{统计计数器（statistical counter）}
 \label{sec:count:Statistical Counters}
 %
 \epigraph{事实是固执的东西，但统计数字是可以揉捏的。}
@@ -1059,7 +1059,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 根据本节所介绍的内容，你现在应该能够回答
 本章开头附近关于网络statistical counters的Quick Quiz了。
 
-\section{近似限值计数器}
+\section{近似限值计数器（limit counter）}
 \label{sec:count:Approximate Limit Counters}
 %
 \epigraph{对正确问题的近似答案远比对近似问题的精确答案更有价值。}
@@ -2039,7 +2039,7 @@ atomic操作不是必需的，如下一节所示。
 
 \QuickQuiz{
 	但signal handler可以在运行时被迁移到其他CPU上。
-	这种可能性不需要atomic指令和内存屏障来
+	这种可能性不需要atomic指令和内存屏障（memory barrier）来
 	在线程和中断该线程的signal handler之间
 	可靠通信吗？
 }\QuickQuizAnswer{

@@ -121,7 +121,7 @@
 再说一遍，如果程序在单个处理器上运行得足够快，
 请省去SMP同步原语的开销和复杂性。
 \cref{lst:SMPdesign:Sequential-Program Hash Table Search}中
-哈希表查找代码的简单性强调了这一点。\footnote{
+哈希表（hash table）查找代码的简单性强调了这一点。\footnote{
 	本节中的示例取自Hart等人的
 	工作~\cite{ThomasEHart2006a}，为清晰起见，
 	将相关代码从多个文件中集中在一起。}
@@ -196,7 +196,7 @@ int hash_search(struct hash_table *h, long key)
 需要在\IXpl{critical section}中执行大量计算，
 这反过来导致代码锁严重限制了它们的可扩展性。
 
-因此，你应该在那些只将执行时间的一小部分花在临界区中
+因此，你应该在那些只将执行时间的一小部分花在临界区（critical section）中
 或只需要适度扩展的程序上使用代码锁。
 此外，主要使用后面章节中描述的更可扩展方法的程序
 通常使用代码锁来处理罕见的错误情况或重大的状态转换。
@@ -470,7 +470,7 @@ Linux内核任务列表就是后者的一个例子，
 		这些具有与上述锁类似的
 		优势和限制。
 	\item	使用\emph{\IXpl{hazard pointer}}~\cite{MagedMichael04a}，
-		可以将其视为一种由内而外的引用计数。
+		可以将其视为一种由内而外的引用计数（reference counting）。
 		基于hazard pointer的算法维护每线程的指针列表，
 		使得给定指针出现在任何这些列表上
 		都充当对相应结构的引用。
@@ -676,7 +676,7 @@ M/M/1排队模型基于指数分布的
 $f=100$的线对应每个CPU每500纳秒尝试一次原子递增，
 这又对应于几百（也许几千）条指令。
 鉴于每条曲线随着CPU或线程数量的增加而急剧下降，
-我们可以得出结论：基于原子操作单个全局共享变量
+我们可以得出结论：基于原子操作（atomic operation）单个全局共享变量
 的同步机制如果在当前商用硬件上大量使用，
 将不能很好地扩展。
 这是导致\cref{chp:Counting}中讨论的
@@ -819,7 +819,7 @@ $f=100$的线对应每个CPU每500纳秒尝试一次原子递增，
 \end{figure}
 
 \begin{enumerate}
-\item	读写锁
+\item	读写锁（reader-writer lock）
 	（在下面\cref{sec:SMPdesign:Reader/Writer Locking}中描述）。
 \item	Read-copy update（RCU），可用作读写锁的
 	高性能替代品，在
@@ -1064,7 +1064,7 @@ int hash_search(struct hash_table *h, long key)
 \clnref{chk:empty}检查它是否为空。
 
 如果为空，\clnrefrange{ack}{rel}尝试在\clnref{ack}获取
-并在\clnref{rel}释放的自旋锁下从全局池中重新填充它。
+并在\clnref{rel}释放的自旋锁（spinlock）下从全局池中重新填充它。
 \Clnrefrange{loop:b}{loop:e}将块从全局池移到每线程池，
 直到本地池达到其目标大小（半满）或全局池耗尽，
 \clnref{set}将每线程池的计数设置为正确的值。

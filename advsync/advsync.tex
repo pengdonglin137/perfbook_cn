@@ -37,9 +37,9 @@
 虽然锁是生产环境中并行性的主力，但在许多情况下，
 通过使用无锁技术可以大大改善性能、可扩展性和real-time响应。
 这种无锁技术的一个特别令人印象深刻的例子是
-\cref{sec:count:Statistical Counters}中描述的统计计数器，
-它不仅避免了锁，还避免了读-修改-写原子操作、
-内存屏障，甚至避免了计数器递增时的缓存未命中。
+\cref{sec:count:Statistical Counters}中描述的统计计数器（statistical counter），
+它不仅避免了锁，还避免了读-修改-写原子操作（atomic operation）、
+内存屏障（memory barrier），甚至避免了计数器递增时的缓存未命中（cache miss）。
 我们已经涵盖的其他例子包括：
 
 \begin{enumerate}
@@ -48,7 +48,7 @@
 	资源分配器缓存的快速路径。
 \item	\cref{sec:SMPdesign:Beyond Partitioning}中的迷宫求解器。
 \item	\cref{chp:Data Ownership}中的数据所有权技术。
-\item	\cref{chp:Deferred Processing}中的引用计数、hazard pointer和RCU技术。
+\item	\cref{chp:Deferred Processing}中的引用计数（reference counting）、hazard pointer和RCU技术。
 \item	\cref{chp:Data Structures}中的查找代码路径。
 \item	\cref{chp:Putting It All Together}中的许多技术。
 \end{enumerate}
@@ -76,7 +76,7 @@
 
 \begin{enumerate}
 \item	\emph{\IXalth{Bounded population-oblivious wait-free}{bounded population-oblivious}{wait free}同步}：
-	每个线程都将在特定的有限时间内取得进展，
+	每个线程（thread）都将在特定的有限时间内取得进展，
 	且该时间段与线程数量无关~\cite{HerlihyShavit2008Textbook}。
 	人们普遍认为这个层次甚至比bounded wait-free同步更难实现。
 \item	\emph{\IXalth{Bounded wait-free}{bounded}{wait free}同步}：
@@ -737,7 +737,7 @@ wait-free同步的大部分好处，即使运行
 inheritance~\cite{Takada:1995:RSN:527074.828566,Cai-DongWang1996PrioInherLock}
 或priority ceiling），
 \item 有界的线程数，
-\item 有界的临界区持续时间，
+\item 有界的临界区（critical section）持续时间，
 \item 有界的负载，
 以及
 \item 没有fail-stop错误，

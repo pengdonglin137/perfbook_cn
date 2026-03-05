@@ -106,7 +106,7 @@
 \begin{enumerate}
 \item	它们比传统的自旋锁原语慢得多。
 \item	它们无法参与 Linux 内核中的
-	lockdep 死锁检测工具~\cite{JonathanCorbet2006lockdep}。
+	lockdep 死锁（deadlock）检测工具~\cite{JonathanCorbet2006lockdep}。
 \item	它们不记录锁的所有权，
 	进一步增加了调试的复杂性。
 \item	它们不参与 \rt\ 内核中的优先级提升，

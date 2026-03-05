@@ -362,7 +362,7 @@ fig:defer:Deletion With Concurrent Readers}
 自旋线程在获取锁之前不会释放其 CPU，
 但持有锁的线程不可能释放它，
 直到某个自旋线程释放一个 CPU\@。
-这是一个经典的死锁情况，
+这是一个经典的死锁（deadlock）情况，
 通过禁止在持有自旋锁时阻塞来避免这种\IX{deadlock}。
 
 同样的约束也施加在解引用 \co{gptr} 的读者线程上：

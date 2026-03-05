@@ -2,7 +2,7 @@
 % mainfile: ../perfbook.tex
 % From an C++ Standards Committee meeting:  "Can I hazptr cheezeberger?"
 
-\section{风险指针}
+\section{风险指针（hazard pointer）}
 \label{sec:defer:Hazard Pointers}
 %
 \epigraph{如有疑虑，就将它翻转过来。}{Zara Carpenter}
@@ -259,7 +259,7 @@ hazard pointers 使 CPU 缓存能够进行资源复制，
 \clnref{poison}毒化新移除对象的 \co{->re_next} 字段，
 \clnref{free_later}将该对象传递给 \co{hazptr_free_later()} 函数，
 该函数将在安全时释放该对象。
-自旋锁的工作方式与
+自旋锁（spinlock）的工作方式与
 \cref{lst:defer:Reference-Counted Pre-BSD Routing Table Add/Delete}中相同。
 \end{fcvref}
 
@@ -311,7 +311,7 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 	首先，\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 	有线性 y 轴，而``Structured Deferral''论文中的大多数图形
 	有对数刻度 y 轴。
-	其次，该论文使用轻量加载的哈希表，而
+	其次，该论文使用轻量加载的哈希表（hash table），而
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 	使用 10 元素的简单链表，这意味着 hazard pointers
 	在这个工作负载中面临比该论文中更大的 memory-barrier 惩罚。
@@ -328,7 +328,7 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 	一如既往，结果因人而异。
 	鉴于性能差异，很明显 hazard pointers 在以下情况下
 	给你最佳性能：非常大的数据结构（其中 memory-barrier 开销
-	至少部分与缓存未命中惩罚重叠）或像哈希表这样的数据结构，
+	至少部分与缓存未命中（cache miss）惩罚重叠）或像哈希表这样的数据结构，
 	其中查找操作只需要最少数量的 hazard pointers。
 }\QuickQuizEndM
 %
