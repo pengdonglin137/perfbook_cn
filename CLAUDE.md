@@ -187,30 +187,60 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 
 **Translation table (translate to Chinese):**
 
+*Synchronization & locking:*
+
 | English | Chinese | Notes |
 |---------|---------|-------|
 | Deadlock | 死锁 | |
 | Livelock | 活锁 | |
 | Starvation | 饥饿 | |
+| Unfairness | 不公平 | |
+| Convoy | 护送效应 | lock convoy |
 | Lock / Locking | 锁 / 加锁 | |
 | Exclusive Lock | 互斥锁 | |
 | Reader-Writer Lock | 读写锁 | |
 | Spinlock | 自旋锁 | |
-| Memory Barrier | 内存屏障 | |
 | Critical Section | 临界区 | |
-| Cache Miss | 缓存未命中 | |
-| Hash Table | 哈希表 | |
+| Lock Contention | 锁竞争 | |
+| Code Locking | 代码锁 | |
+| Data Locking | 数据锁 | |
+| Lock-free | 无锁 | |
+| Wait-free | 无等待 | |
+| Obstruction-free | 无阻碍 | |
+| Non-blocking Synchronization (NBS) | 非阻塞同步 | |
+| Reference Counting | 引用计数 | |
 | Hazard Pointer | 风险指针 | |
 | Sequence Lock | 顺序锁 | |
-| Heisenbug | 海森bug | 音译+保留bug |
-| Mandelbrot Set | 曼德博集合 | |
-| Functional Programming | 函数式编程 | |
-| Reference Counting | 引用计数 | |
+| Transactional Memory | 事务内存 | |
+| Software Transactional Memory (STM) | 软件事务内存 | |
+| Hardware Transactional Memory (HTM) | 硬件事务内存 | |
 | Data Race | 数据竞争 | |
+| Race Condition | 竞态条件 | 统一用"竞态条件"，不用"竞争条件" |
+| Data Ownership | 数据所有权 | |
+| Existence Guarantee | 存在保证 | |
+| Quiescent State | 静止状态 | |
+| Priority Inversion | 优先级反转 | |
+| Priority Inheritance | 优先级继承 | |
+| Dining Philosophers | 哲学家就餐 | |
+| Zombie Pointer | 僵尸指针 | |
+
+*Memory model & ordering:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Memory Barrier | 内存屏障 | |
+| Full Memory Barrier | 完整内存屏障 | |
+| Read Memory Barrier | 读内存屏障 | |
+| Write Memory Barrier | 写内存屏障 | |
+| Memory Model | 内存模型 | |
+| Sequential Consistency | 顺序一致性 | |
 | Atomic Operations | 原子操作 | |
-| Statistical Counter | 统计计数器 | |
-| Limit Counter | 限值计数器 | |
-| Quick Quiz | 快速测验 | |
+| Atomic Read-Modify-Write | 原子读-修改-写 | |
+| Acquire Load | 获取加载 | |
+| Release Store | 释放存储 | |
+| Data Dependency | 数据依赖 | |
+| Address Dependency | 地址依赖 | |
+| Control Dependency | 控制依赖 | |
 | Load Tearing | 加载撕裂 | |
 | Store Tearing | 存储撕裂 | |
 | Load Fusing | 加载融合 | |
@@ -218,9 +248,40 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | Invented Load | 凭空加载 | |
 | Invented Store | 凭空存储 | |
 | Dead-code Elimination | 死代码消除 | |
+| Code Reordering | 代码重排序 | |
+| Store-to-load Transformation | 存储转加载转换 | |
+
+*Hardware & performance:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Cache Miss | 缓存未命中 | |
+| Cache Coherence | 缓存一致性 | |
+| False Sharing | 伪共享 | |
+| Hot Spot | 热点 | |
+| Superscalar | 超标量 | |
+| Out-of-order Execution | 乱序执行 | |
+| Speculative Execution | 推测执行 | |
+| Scheduling Latency | 调度延迟 | |
+| Partitioning | 分区 | context-dependent |
+
+*Data structures & algorithms:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Hash Table | 哈希表 | |
+| Statistical Counter | 统计计数器 | |
+| Limit Counter | 限值计数器 | |
+
+*Other:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
 | Thread | 线程 | |
-| Convoy | 护送效应 | lock convoy |
-| Unfairness | 不公平 | |
+| Quick Quiz | 快速测验 | |
+| Heisenbug | 海森bug | 音译+保留bug |
+| Mandelbrot Set | 曼德博集合 | |
+| Functional Programming | 函数式编程 | |
 
 **Keep English (do not translate):**
 
@@ -230,6 +291,9 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | grace period | RCU-specific, no good Chinese equivalent |
 | cache line | Hardware term, universally used in English |
 | store / load | Memory model core terms, keep English in all chapters |
+| NUMA | Hardware architecture term, universally used in English |
+| lock | Commonly kept in English alongside Chinese 锁 in technical context |
+| futex | Linux-specific primitive |
 
 **Translation method for large files:**
 - Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph
