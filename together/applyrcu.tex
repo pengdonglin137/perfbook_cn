@@ -9,20 +9,20 @@
 	 {中国谚语}
 
 本节展示如何将 RCU 应用于本书前面讨论的一些示例。
-在某些情况下，RCU 提供更简洁的代码；
-在另一些情况下提供更好的性能和可扩展性；
-还有些情况下两者兼得。
+某些情况下，RCU 提供更简洁的代码；
+另一些情况下，提供更好的性能和可扩展性；
+还有一些情况下，同时提供两者的优势。
 
 \subsection{RCU 与基于每线程变量的统计计数器}
 \label{sec:together:RCU and Per-Thread-Variable-Based Statistical Counters}
 
 \Cref{sec:count:Per-Thread-Variable-Based Implementation}
-描述了一种统计计数器的实现，它提供了出色的
+描述了一种统计计数器的实现，它提供了良好的
 性能，大致等同于简单递增（如 C 语言的 \co{++}
 运算符），以及线性可扩展性——但仅限于通过
 \co{inc_count()} 进行递增。
 不幸的是，需要通过 \co{read_count()} 读取值的线程
-必须获取全局锁，因此产生了高开销且可扩展性差。
+必须获取全局锁，因此招致高开销，且可扩展性不佳。
 基于锁的实现代码如
 \cref{lst:count:Per-Thread Statistical Counters}
 （\cpageref{lst:count:Per-Thread Statistical Counters}）所示。
@@ -39,25 +39,25 @@
 
 \subsubsection{设计}
 
-希望使用 RCU 而非 \co{final_mutex} 来保护
+设计目的是使用 RCU 而非 \co{final_mutex} 来保护
 \co{read_count()} 中的线程遍历，
-以便从 \co{read_count()} 获得出色的
-性能和可扩展性，而不仅仅是从 \co{inc_count()}。
-然而，我们不想在计算的总和中牺牲任何精度。
+以获得良好的性能和可扩展性，而不仅仅是保护
+\co{inc_count()}。
+但是，我们并不希望放弃求和计算的精确性。
 特别是，当给定线程退出时，
-我们绝对不能丢失退出线程的计数，
-也不能重复计算它。
-这样的错误可能导致与结果的全精度相等的不准确性，
-换句话说，这样的错误将使结果完全无用。
-事实上，\co{final_mutex} 的目的之一就是
-确保线程不会在 \co{read_count()} 执行过程中进出。
+我们绝不能丢失退出线程的计数，
+也不能重复对它进行计数。
+这样的错误将导致不精确的结果等于完全精确的结果，
+换句话说，这样的错误将使得结果完全无用。
+并且事实上，\co{final_mutex} 的一个目的是，
+确保线程不会在 \co{read_count()} 运行过程中进入并退出。
 
-因此，如果我们要省去 \co{final_mutex}，
-就需要想出其他方法来确保一致性。
-一种方法是将所有先前退出线程的总计数
-和指向每线程计数器的指针数组放入单个结构中。
-这样的结构一旦对 \co{read_count()} 可用，
-就保持不变，确保 \co{read_count()} 看到一致的数据。
+因此，如果我们不用 \co{final_mutex}，就必须拿出其他
+确保一致性的方法。
+其中一种方法是将所有已经退出线程的计数和，
+以及指向每线程计数器的指针放到一个单一数据结构中。
+这样的数据结构一旦对 \co{read_count()} 可用，
+就保持不变，以确保 \co{read_count()} 看到一致性的数据。
 
 \subsubsection{实现}
 
@@ -65,11 +65,11 @@
 \cref{lst:together:RCU and Per-Thread Statistical Counters}
 的 \clnrefrange{struct:b}{struct:e}
 展示了 \co{countarray} 结构，它包含一个
-\co{->total} 字段用于先前退出线程的计数，
-以及一个 \co{counterp[]} 指针数组指向每个当前运行线程的
-每线程 \co{counter}。
-此结构允许 \co{read_count()} 的给定执行
-看到与指示的运行线程集一致的总计。
+\co{->total} 字段用于对之前已经退出线程的计数，
+以及一个 \co{counterp[]} 指针数组指向每个当前正在
+运行的每线程 \co{counter}。
+此结构允许 \co{read_count()} 的给定执行过程
+看到一致的计数总和以及运行线程的集合。
 
 \begin{listing}
 \ebresizeverb{.71}{\input{CodeSamples/count/count_end_rcu@whole.fcv}}
@@ -94,11 +94,12 @@
 \co{countarray} 结构快照到局部变量 \co{cap} 中。
 正确使用 RCU 将保证此 \co{countarray} 结构
 至少在 \clnref{rru} 处当前 RCU 读侧临界区（critical section）结束之前
-一直伴随我们。
+不会被释放。
 \Clnref{init} 将 \co{sum} 初始化为 \co{cap->total}，
-即先前退出线程的计数总和。
-\Clnrefrange{add:b}{add:e} 累加当前运行线程对应的每线程计数器，
-最后，\clnref{ret} 返回总和。
+即之前已经退出的线程的计数值之和。
+\Clnrefrange{add:b}{add:e} 将当前正在运行的线程对应的
+每线程计数值添加到 \co{sum} 中，
+最后，\clnref{ret} 返回 \co{sum}。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end_rcu:whole:init]
@@ -151,9 +152,9 @@
 \Clnref{retain} 保留指向当前（即将变为旧的）\co{countarray} 结构的指针，
 \clnref{assign} 使用 \co{rcu_assign_pointer()} 安装新版本的 \co{countarray} 结构。
 \Clnref{sync} 等待一个宽限期过去，
-以便任何可能正在 \co{read_count()} 中并发执行、
-从而可能持有对旧 \co{countarray} 结构引用的线程
-能够退出其 RCU 读侧临界区，从而释放此类引用。
+这样任何可能正在 \co{read_count()} 中并发执行、
+并且可能持有对旧 \co{countarray} 结构引用的线程，
+都能退出其 RCU 读侧临界区，从而放弃对该结构的引用。
 \Clnref{free} 然后可以安全地释放旧的 \co{countarray} 结构。
 \end{fcvref}
 
@@ -197,12 +198,13 @@
 	中展示的实现的所有可扩展性和性能优势！
 }\EQuickQuizEnd
 
-使用 RCU 使退出的线程能够等待，
-直到其他线程保证不再使用退出线程的 \co{__thread} 变量。
-这允许 \co{read_count()} 函数省去锁定，
+对 RCU 的使用，使得正在退出的线程能够等待，
+直到其他线程保证已经结束了对退出线程的
+\co{__thread} 变量的使用。
+这允许 \co{read_count()} 函数免于使用锁，
 从而为 \co{inc_count()} 和 \co{read_count()} 函数
-提供出色的性能和可扩展性。
-然而，这种性能和可扩展性的代价是代码复杂性的增加。
+提供了优良的性能和可扩展性。
+但是，这些性能和可扩展性来自于代码复杂性的增加。
 希望编译器和库的编写者使用用户级
 RCU~\cite{MathieuDesnoyers2009URCU}
 来提供对 \co{__thread} 变量的安全跨线程访问，
@@ -214,13 +216,13 @@ RCU~\cite{MathieuDesnoyers2009URCU}
 \Cref{sec:count:Applying Exact Limit Counters}
 展示了一对用于处理可移除设备 I/O 访问计数的
 虚构代码片段。
-这些代码片段由于需要获取读写锁而在快速路径
-（启动 I/O）上产生了高开销。
+由于需要获取读写锁，这些代码片段在快速路径
+（启动 I/O）上招致了过高的负载。
 
 本节展示如何使用 RCU 来避免此开销。
 
-执行 I/O 的代码与原始版本非常相似，
-用 RCU 读侧临界区替代了原始版本中的
+执行 I/O 的代码与原来的版本非常相似，
+它使用 RCU 读侧临界区替代了原来版本中的
 读写锁读侧临界区：
 
 \begin{VerbatimN}[tabsize=8]
@@ -237,9 +239,9 @@ if (removing) {
 \end{VerbatimN}
 \vspace{5pt}
 
-RCU 读侧原语具有最小开销，因此如期加快了快速路径。
+RCU 读侧原语拥有极小的开销，因此提升了快速路径的速度。
 
-移除设备的更新代码片段如下：
+移除设备的新代码片段如下：
 
 \begin{fcvlabel}[ln:together:applyrcu:Removing Device]
 \begin{VerbatimN}[tabsize=8,commandchars=\\\[\]]
@@ -256,14 +258,14 @@ remove_device();
 \end{fcvlabel}
 
 \begin{fcvref}[ln:together:applyrcu:Removing Device]
-这里我们用独占自旋锁替代读写锁，
+这里我们将读写锁替换为排他自旋锁，
 并添加 \co{synchronize_rcu()} 来等待所有 RCU 读侧临界区完成。
-由于 \co{synchronize_rcu()}，
+由于 \co{synchronize_rcu()} 的缘故，
 一旦到达 \clnref{nextofsync}，
-我们就知道所有剩余的 I/O 已被计入。
+我们就能够知道所有剩余的 I/O 已经被识别到了。
 
-当然，\co{synchronize_rcu()} 的开销可能很大，
-但鉴于设备移除相当罕见，这通常是一个好的权衡。
+当然，\co{synchronize_rcu()} 的开销可能比较大，
+但鉴于移除设备这种情况比较少，这通常是一个不错的权衡。
 \end{fcvref}
 
 \FloatBarrier
@@ -273,8 +275,8 @@ remove_device();
 假设我们有一个 RCU 保护的可变长度数组，
 如 \cref{lst:together:RCU-Protected Variable-Length Array} 所示。
 数组 \co{->a[]} 的长度可以动态变化，
-在任何给定时刻，其长度由字段 \co{->length} 给出。
-当然，这引入了以下\IX{race condition}：
+在任意时刻，其长度由字段 \co{->length} 表示。
+当然，这带来了以下竞争条件（\IX{race condition}）：
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -298,12 +300,12 @@ struct foo {
 	SEGV 或（更糟的是）内存损坏。
 \end{enumerate}
 
-我们如何防止这种情况？
+我们有什么办法防止这种情况？
 
-一种方法是小心使用内存屏障，
-这在 \cref{chp:Advanced Synchronization: Memory Ordering} 中介绍。
-这可以工作，但会产生读侧开销，
-而且也许更糟的是需要使用显式内存屏障。
+一种方法是小心使用内存屏障（memory barrier），
+内存屏障的内容在 \cref{chp:Advanced Synchronization: Memory Ordering} 中介绍。
+这个方法可行，但是带来了读侧开销，
+也许更糟糕的是需要显式使用内存屏障。
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -320,12 +322,13 @@ struct foo {
 \label{lst:together:Improved RCU-Protected Variable-Length Array}
 \end{listing}
 
-更好的方法是将值和数组放入同一结构中，
+一个更好的方法是将值和数组放入同一结构中，
 如 \cref{lst:together:Improved RCU-Protected Variable-Length Array}~\cite{Arcangeli03}
 所示。
-分配新数组（\co{foo_a} 结构）就自动为数组长度提供了新的位置。
-这意味着如果任何 CPU 获取了 \co{->fa} 的引用，
-\co{->length} 保证与 \co{->a[]} 匹配。
+分配一个新数组（\co{foo_a} 结构），就自动为数组长度
+提供了一个新的存储空间。
+这意味着如果某个 CPU 获取了 \co{->fa} 的引用，
+就能够确保 \co{->length} 与 \co{->a[]} 的长度相匹配。
 
 \begin{enumerate}
 \item	数组最初为 16 个字符长，因此 \co{->length} 等于 16。
@@ -337,14 +340,14 @@ struct foo {
 	赋给 \co{->fa}。
 \item	CPU~0 从 \co{->a[]} 获取新指针，
 	并在第 12 个元素中存储新值。
-	但因为 CPU~0 仍在引用包含 16 字节数组的
-	旧 \co{foo_a} 结构，一切正常。
+	但因为 CPU~0 仍然引用旧的 \co{foo_a} 结构，
+	该结构包含 16 字节的数组，一切正常。
 \end{enumerate}
 
-当然，在两种情况下，CPU~1 都必须在释放旧数组之前
+当然，在所有情况下，CPU~1 都必须在释放旧数组之前
 等待一个宽限期。
 
-下一节将介绍此方法的更通用版本。
+这种方法更通用的版本将在下一节中介绍。
 
 \subsection{关联字段}
 \label{sec:together:Correlated Fields}
@@ -354,12 +357,13 @@ struct foo {
 \cref{lst:together:Uncorrelated Measurement Fields}
 中所示的数据元素表示。
 \co{meas_1}、\co{meas_2} 和 \co{meas_3} 字段是
-定期更新的一组关联测量值。
-读者必须看到来自单次测量更新的这三个值，
+一组关联的测量值，它们被频繁更新。
+读者从单次完整更新的角度看到这三个值，
 这一点至关重要：
-如果读者看到 \co{meas_1} 的旧值但 \co{meas_2} 和
-\co{meas_3} 的新值，该读者将陷入致命的混乱。
-我们如何保证读者将看到这三个值的协调集合？\footnote{
+如果读者看到 \co{meas_1} 的旧值，
+而看到 \co{meas_2} 和 \co{meas_3} 的新值，
+读者将会变得非常迷惑。
+我们怎么才能确保读者看到这三个值的协调集合？\footnote{
 	这种情况类似于
 	\cref{sec:together:Correlated Data Elements}
 	中描述的情况，
@@ -386,10 +390,10 @@ struct animal {
 一种方法是分配一个新的 \co{animal} 结构，
 将旧结构复制到新结构中，
 更新新结构的 \co{meas_1}、\co{meas_2} 和 \co{meas_3} 字段，
-然后通过更新指针用新结构替换旧结构。
-这确实保证所有读者看到协调的测量值集合，
-但由于 \co{->photo[]} 字段，需要复制大型结构。
-这种复制可能产生不可接受的高开销。
+然后通过更新指针的方式，用新结构替换旧结构。
+这确实保证所有读者看到测量值的一致集合，
+但由于 \co{->photo[]} 字段的原因，需要复制一个大型结构。
+这样的复制可能带来不可接受的高开销。
 
 \begin{listing}
 \begin{VerbatimL}[tabsize=8]
@@ -410,14 +414,15 @@ struct animal {
 \label{lst:together:Correlated Measurement Fields}
 \end{listing}
 
-另一种方法是施加一层间接引用，
-如 \cref{lst:together:Correlated Measurement Fields}~\cite[Section 5.3.4]{PaulEdwardMcKenneyPhD}
-所示。
+另一种方法是如
+\cref{lst:together:Correlated Measurement Fields}~\cite[Section 5.3.4]{PaulEdwardMcKenneyPhD}
+所示，插入一个间接层。
 当进行新的测量时，分配一个新的 \co{measurement} 结构，
-填入测量值，并使用 \co{rcu_assign_pointer()}
-更新 \co{animal} 结构的 \co{->mp} 字段指向这个新的
+将测量值填充到该结构中，
+并使用 \co{rcu_assign_pointer()}
+更新 \co{animal} 结构的 \co{->mp} 字段使其指向这个新的
 \co{measurement} 结构。
-在宽限期过去后，旧的 \co{measurement} 结构可以被释放。
+在一个宽限期过去后，旧的 \co{measurement} 结构可以被释放。
 
 \QuickQuiz{
 	但 \cref{lst:together:Correlated Measurement Fields}
@@ -474,8 +479,7 @@ struct animal {
 	额外的缓存未命中仅在更新实际进行中时才会发生。
 }\QuickQuizEnd
 
-这种方法使读者能够看到选定字段的关联值，
-同时产生最小的读侧开销。
+这种方法允许读者以最小的开销，看到选定字段的关联值。
 在读者仅查看单个数据元素的常见情况下，
 这种每数据元素的一致性就已足够。
 
@@ -493,15 +497,15 @@ struct animal {
 	我也不知道！
 	但分组统计通常是有用的。}
 进一步假设 Schr\"odinger 愿意忽略
-由于在统计扫描进行期间动物被添加到
-hash table 或从中删除而导致的轻微误差。
-Schr\"odinger 应该怎样控制并发？
+由于在统计扫描进行期间，动物被添加到
+hash table 或从中删除而引起的轻微误差。
+Schr\"odinger 应当怎么来控制并发性？
 
-一种方法是将统计扫描封装在 RCU 读侧临界区中。
-这允许更新在不过度阻碍扫描的情况下并发进行。
-特别是，扫描不会阻塞更新，反之亦然，
-这使得即使面对非常高的更新速率，
-也能优雅地支持包含大量元素的 hash table 扫描。
+一种方法是将统计扫描置于 RCU 读侧临界区之内。
+这允许更新并发地进行，而不影响扫描过程。
+特别是，扫描过程不会阻塞更新，反之亦然，
+这允许即使面对高频率的更新，
+也能对包含大量数据元素的 hash table 进行优雅的扫描。
 
 \QuickQuiz{
 	但在调整 hash table 大小时，此扫描如何工作？
