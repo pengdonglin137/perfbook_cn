@@ -219,6 +219,8 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | Invented Store | 凭空存储 | |
 | Dead-code Elimination | 死代码消除 | |
 | Thread | 线程 | |
+| Convoy | 护送效应 | lock convoy |
+| Unfairness | 不公平 | |
 
 **Keep English (do not translate):**
 
