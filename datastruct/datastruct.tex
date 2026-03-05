@@ -497,7 +497,7 @@ RCU \IX{grace period}（例如，通过调用 \co{synchronize_rcu()}），
 \label{sec:datastruct:RCU-Protected Hash Table Validation}
 
 虽然验证这一主题在\cref{chp:Validation}中有详细介绍，
-但事实上，具有无锁 RCU 保护查找的 hash table 需要尽早对验证给予特别关注。
+但事实上，具有无锁（lock-free） RCU 保护查找的 hash table 需要尽早对验证给予特别关注。
 
 测试套件（``\path{hashtorture.h}''）包含一个 \co{smoketest()} 函数，
 用于验证一系列特定的单线程添加、删除和查找操作是否给出预期结果。
@@ -1628,7 +1628,7 @@ AVL 树和红黑树可能是最知名的例子~\cite{ThomasHCorman2001Algorithms
 然而，红黑树的更近期工作通过对读取者使用 RCU 和
 对更新使用 hash lock 数组\footnote{
 	以 swissTM~\cite{AleksandarDragovejic2011STMnotToy} 的形式，
-	这是软件事务内存的一种变体，
+	这是软件事务内存（transactional memory）的一种变体，
 	其中开发者标记非共享访问。}
 来保护读取和更新，提供了更好的性能和
 可扩展性~\cite{PhilHoward2011RCUTMRBTree,PhilipWHoward2013RCUrbtree}。

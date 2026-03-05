@@ -51,7 +51,7 @@ sec:memorder:Compile-Time Consternation}
 	早期的memory ordering章节根植于一对
 	Linux Journal文章~\cite{PaulMcKenney2005i,PaulMcKenney2005j}，
 	可以追溯到2005年。
-	从那以后，C和C++内存模型~\cite{PeteBecker2011N3242}
+	从那以后，C和C++内存模型（memory model）~\cite{PeteBecker2011N3242}
 	已经被形式化
 	(and critiqued~\cite{MarkBatty2013OOTA-WorkingNote,Boehm:2014:OGA:2618128.2618134,Vafeiadis:2015:CCO:2775051.2676995,conf/esop/BattyMNPS15,Lahav:2017:RSC:3140587.3062352,OlivierGiroux2017-P0668R1}),
 	计算机系统的可执行形式内存模型已经成为了
@@ -1147,7 +1147,7 @@ sec:memorder:Propagation}中所解释的。
 似乎是原子执行的，至少在汇编语言级别是这样。
 然而，C和C++语言没有定义处理程序和被中断线程
 共享普通变量的结果。
-相反，这样的共享变量必须是\co{sig_atomic_t}、无锁原子操作
+相反，这样的共享变量必须是\co{sig_atomic_t}、无锁（lock-free）原子操作
 或\co{volatile}。
 
 另一方面，因为处理程序在被中断线程的上下文中执行，
@@ -4044,7 +4044,7 @@ lst:memorder:Subsequent Accesses Into Critical Section (Ordering?)}
 这可能导致内核崩溃。
 编译器也无法可靠地确定哪些访问
 会导致 cache 未命中，因此编译器将访问重排序到临界区中
-也可能导致过多的锁竞争。
+也可能导致过多的锁竞争（lock contention）。
 因此，Linux 内核禁止编译器（但不禁止 CPU）
 将访问移入基于锁的临界区。
 
@@ -5368,7 +5368,7 @@ void synchronize_rcu(void)
 	因为硬件重排序只导致短暂的延迟，所以可以容忍。
 	另一方面，因为编译器重排序会导致死锁，所以必须禁止。
 
-	一些研究工作曾使用硬件事务内存来允许编译器更积极地
+	一些研究工作曾使用硬件事务内存（transactional memory）来允许编译器更积极地
 	安全重排序，但硬件事务的开销迄今为止使这种优化
 	缺乏吸引力。
 	% @@@ Citation for compilers use of HTM in this manner?

@@ -128,7 +128,7 @@
 	具有较高的开销，提高加速比的最佳方法
 	是减少原语被调用的次数。
 	这可以通过批处理临界区、
-	使用数据所有权（见\cref{chp:Data Ownership}）、
+	使用数据所有权（data ownership）（见\cref{chp:Data Ownership}）、
 	使用非对称原语
 	（见\cref{chp:Deferred Processing}）、
 	或使用粗粒度设计如\IXh{code}{locking}来实现。
@@ -141,7 +141,7 @@
 	增加并行性的最佳方法是转向
 	读写锁或非对称原语。
 \item	许多提高SMP性能的改变，例如
-	减少锁竞争，也会改善实时
+	减少锁竞争（lock contention），也会改善实时
 	延迟~\cite{PaulMcKenney2005h}。
 \end{enumerate}
 

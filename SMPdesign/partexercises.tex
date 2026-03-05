@@ -586,7 +586,7 @@
 	确实如此！
 
 	但其他声称具有这一属性的算法也是如此。
-	例如，在使用基于哈希锁数组的软件事务内存
+	例如，在使用基于哈希锁数组的软件事务内存（transactional memory）
 	机制的解法中，最左端和最右端元素的地址
 	有时恰好会哈希到同一个锁。
 	这些哈希冲突也会阻止并发访问。
@@ -617,7 +617,7 @@
 例如Michael的基于compare-and-swap的出队
 算法~\cite{DBLP:conf/europar/Michael03}。\footnote{
 	这篇论文很有趣，因为它表明不需要特殊的
-	double-compare-and-swap（DCAS）指令来实现双端队列的无锁实现。
+	double-compare-and-swap（DCAS）指令来实现双端队列的无锁（lock-free）实现。
 	相反，通用的compare-and-swap（例如x86 cmpxchg）
 	就足够了。}
 

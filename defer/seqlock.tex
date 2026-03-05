@@ -333,7 +333,7 @@ del:w_squnlock1,del:w_squnlock2}
 	一种微不足道的方式是用 \co{write_seqlock()} 和
 	\co{write_sequnlock()} 包围所有访问，包括只读访问。
 	当然，这个方案也禁止了所有读侧并行性，
-	导致大量锁竞争，而且可以用简单的锁来同样轻松地实现。
+	导致大量锁竞争（lock contention），而且可以用简单的锁来同样轻松地实现。
 
 	如果你确实想出了一种使用 \co{read_seqbegin()} 和
 	\co{read_seqretry()} 来保护读侧访问的方案，

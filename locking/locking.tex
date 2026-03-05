@@ -702,7 +702,7 @@ Livelock和deadlock在这类系统中是问题，但实用的解决方案
 一种这样的机制在
 \cref{sec:locking:Lock-Based Existence Guarantees}中讨论，
 然而，一个重要的限制条件是被处理的问题必须能够被分区。
-\Cref{chp:Data Ownership}对数据所有权进行了更详细的讨论，
+\Cref{chp:Data Ownership}对数据所有权（data ownership）进行了更详细的讨论，
 \cref{chp:Deferred Processing}中还介绍了其他几种方法。
 
 \subsubsection{信号/中断处理程序}
@@ -758,7 +758,7 @@ Livelock和deadlock在这类系统中是问题，但实用的解决方案
 不幸的是，在某些操作系统中阻塞和解除阻塞信号可能很昂贵，
 特别是包括Linux在内，因此性能方面的考虑通常意味着
 在信号处理程序中获取的lock只在信号处理程序中获取，
-并且使用无锁同步机制在应用程序代码和信号处理程序之间通信。
+并且使用无锁（lock-free）同步机制在应用程序代码和信号处理程序之间通信。
 
 或者完全避免信号处理程序，除非处理致命错误。
 
@@ -816,7 +816,7 @@ Livelock和deadlock在这类系统中是问题，但实用的解决方案
 		使用包含经验教训的更新预测重试。
 		这种方法在
 		\cref{sec:locking:Acquire Needed Locks First}中讨论。
-	\item	使用事务内存。
+	\item	使用事务内存（transactional memory）。
 		这种方法有许多优点和缺点，
 		将在\crefrange{sec:future:Transactional Memory}{sec:future:Hardware Transactional Memory}中讨论。
 	\item	重构应用程序使其更适合并发。

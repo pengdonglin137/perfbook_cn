@@ -841,7 +841,7 @@ v6.17 内核中的 \co{txopt_get()} 函数采用了这种方法，
 由下一个 \co{xchg()} 返回，
 允许调用者在 RCU 宽限期后释放它
 （\clnref{P0:sync, P1:sync}）。
-因为 Linux 内核内存模型不支持动态分配，
+因为 Linux 内核内存模型（memory model）不支持动态分配，
 此代码通过存储值零来模拟释放。
 \end{fcvref}
 

@@ -350,7 +350,7 @@ Linux 2.4 kernel~\cite{Molnar00a}.
 这意味着\co{rcu_refcnt[0]}的值将不再被递增，
 因此将单调递减。\footnote{
 	这个"单调递减"的说法忽略了一个\IX{race condition}。
-	这个竞争条件将由\co{synchronize_rcu()}的代码来处理。
+	这个竞态条件（race condition）将由\co{synchronize_rcu()}的代码来处理。
 	在此期间，我建议暂时搁置怀疑。}
 这意味着\co{synchronize_rcu()}所需做的就是等待\co{rcu_refcnt[0]}的值达到零。
 
