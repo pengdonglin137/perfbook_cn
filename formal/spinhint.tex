@@ -9,8 +9,8 @@
 	 {\emph{Climb Every Mountain}, Rodgers \& Hammerstein}
 
 本节介绍通用的 Promela 和 Spin 工具，
-它们可用于对多种多线程代码进行完整的状态空间搜索。
-这些工具被用于验证数据通信协议。
+它们可用于对多线程代码进行多种类型的完整状态空间搜索。
+对于数据通信协议验证来说，它们也非常有用。
 \Cref{sec:formal:Promela and Spin}
 介绍了 Promela 和 Spin，包括两个热身练习——
 分别验证非原子递增和原子递增。
@@ -29,18 +29,18 @@ Promela 语法与 C 语法的比较。
 \label{sec:formal:Promela and Spin}
 
 \IX{Promela} 是一种旨在帮助验证协议的语言，但也可以用于验证小型并行算法。
-你需要将你的算法和正确性约束用类 C 语言 Promela 重新编写，
+你需要用类似于 C 语言的 Promela 来重新编写你的算法和正确性约束，
 然后使用 \IX{Spin} 将其翻译为可以编译和运行的 C 程序。
 生成的程序会对你的算法执行完整的状态空间搜索，
-要么验证你在 Promela 程序中关联的断言，要么找到反例。
+要么确认通过你在 Promela 程序中关联的断言，要么找到反例。
 
-这种完整状态搜索功能极其强大，但也是一把双刃剑。
-如果你的算法过于复杂或者 Promela 实现不够仔细，
-状态数量可能会超出内存容量。
-此外，即使有足够的内存，状态空间搜索的运行时间
+这种完整的状态搜索非常强大，但也是一把双刃剑。
+如果算法太复杂，或者 Promela 实现得不够仔细，
+那么状态空间可能大到内存无法容纳。
+此外，即使有充足的内存，状态空间搜索的运行时间
 也可能超过宇宙的预期寿命。
-因此，请将此工具用于紧凑但复杂的并行算法。
-试图将其天真地应用于中等规模的算法（更不用说整个 Linux 内核）
+因此，请在复杂但紧凑的并行算法中使用此工具。
+轻率地试图将其应用于中等规模的算法（更不用说整个 Linux 内核）
 将会以失败告终。
 
 Promela 和 Spin 可以从
@@ -48,11 +48,11 @@ Promela 和 Spin 可以从
 
 上述网站还提供了 Gerard Holzmann 关于 Promela 和 Spin 的优秀
 著作~\cite{Holzmann03a}的链接，
-以及从以下地址开始的可搜索在线参考：
+可以通过以下地址进行在线搜索：
 \url{https://www.spinroot.com/spin/Man/index.html}。
 
 本节其余部分描述如何使用 Promela 调试并行算法，
-从简单示例开始，逐步过渡到更复杂的使用场景。
+从简单示例开始，然后逐步过渡到更复杂的使用场景。
 
 \subsubsection{热身：
 			非原子递增}
@@ -60,10 +60,10 @@ Promela 和 Spin 可以从
 
 \begin{fcvref}[ln:formal:promela:increment:whole]
 \Cref{lst:formal:Promela Code for Non-Atomic Increment}
-演示了非原子递增导致的典型\IX{竞态条件}。
+演示了教科书中所讲的非原子递增导致的\IX{竞态条件}。
 \Clnref{nprocs} 定义了要运行的进程数量（我们将改变此值
 以观察对状态空间的影响），\clnref{count} 定义了计数器，
-\clnref{prog} 用于实现出现在
+\clnref{prog} 用于实现
 \clnrefrange{assert:b}{assert:e} 上的断言。
 
 \begin{listing}
@@ -72,26 +72,26 @@ Promela 和 Spin 可以从
 \label{lst:formal:Promela Code for Non-Atomic Increment}
 \end{listing}
 
-\Clnrefrange{proc:b}{proc:e} 定义了一个非原子地递增计数器的进程。
-参数 \co{me} 是进程编号，由代码后面的初始化块设置。
+\Clnrefrange{proc:b}{proc:e} 定义了一个非原子地递增计数器的过程。
+参数 \co{me} 是进程编号，由后面的初始化代码进行设置。
 由于简单的 Promela 语句各自被假定为原子的，
 我们必须将递增操作拆分为
 \clnrefrange{incr:b}{incr:e} 上的两条语句。
-\clnref{setprog} 上的赋值标记该进程的完成。
-由于 Spin 系统会完整搜索状态空间，包括所有可能的状态序列，
-因此不需要常规压力测试中使用的循环。
+\clnref{setprog} 上的赋值标记该过程的完成。
+由于 Spin 系统会搜索整个状态空间，包括所有可能的状态序列，
+因此不需要传统压力测试中使用的循环。
 
-\Clnrefrange{init:b}{init:e} 是初始化块，最先执行。
-\Clnrefrange{doinit:b}{doinit:e} 执行实际的初始化操作，
+\Clnrefrange{init:b}{init:e} 是初始化代码块，它最先被执行。
+\Clnrefrange{doinit:b}{doinit:e} 实际进行初始化操作，
 而 \clnrefrange{assert:b}{assert:e} 执行断言。
 两者都是原子块，以避免不必要地增加状态空间：
-因为它们不是算法本身的一部分，
-将它们设为原子的不会损失任何验证覆盖率。
+因为它们不属于算法本身的一部分，
+将它们标记为原子的不会导致验证覆盖率的缺失。
 
 \clnrefrange{dood1:b}{dood1:e} 上的 \co{do-od} 构造实现了一个 Promela 循环，
 可以将其理解为一个 C 语言的 \co{for (;;)} 循环，
-其中包含一个允许表达式作为 case 标签的 \co{switch} 语句。
-条件块（以 \co{::} 为前缀）以非确定性方式扫描，
+其中包含一个允许在 case 标签中使用表达式的 \co{switch} 语句。
+条件块（以 \co{::} 为前缀）会被非确定性地扫描，
 不过在本例中，在任何给定时刻只有一个条件可能成立。
 \co{do-od} 的第一个块从
 \clnrefrange{block1:b}{block1:e}，
@@ -125,15 +125,15 @@ cc -DSAFETY -o pan pan.c    # Compile the model
 \cref{lst:formal:Non-Atomic Increment Spin Output}
 所示的输出。
 第一行告诉我们断言被违反了（考虑到非原子递增，这在预期之中！）。
-第二行表明已写入一个 \co{trail} 文件，描述了断言是如何被违反的。
-``Warning''行重申我们的模型存在问题。
-第二段描述了正在进行的状态搜索类型，
+第二行中的跟踪（trail）文件描述了断言是如何被违反的。
+``Warning''行重申在我们的模型中，并非所有事情都正确完成。
+第二段描述了执行的状态搜索类型，
 本例中是检查断言违反和无效终止状态。
 第三段给出了状态大小统计信息：
 这个小模型只有 45 个状态。
 最后一行显示了内存使用情况。
 
-可以按如下方式将 \co{trail} 文件转换为人类可读的形式：
+跟踪（trail）文件可以被整理为如下所示的人类可读格式：
 
 \begin{VerbatimU}
 spin -t -p increment.spin
@@ -147,22 +147,22 @@ spin -t -p increment.spin
 \label{lst:formal:Non-Atomic Increment Error Trail}
 \end{listing*}
 
-这给出了如
+它给出了如
 \cref{lst:formal:Non-Atomic Increment Error Trail}
 所示的输出。
-可以看出，init 块的第一部分创建了两个递增器进程，
-两者都先获取了计数器的值，然后都递增并存储了它，
-导致丢失了一次计数。
+正如我们所见，初始化块的第一部分创建了两个递增器进程，
+其中第一个进程获得了计数器的值，然后两个进程都递增并存储了它，
+从而丢失了一次计数。
 随后断言被触发，之后显示了全局状态。
 
 \subsubsection{热身：
 			原子递增}
 \label{sec:formal:Warm-Up: Atomic Increment}
 
-通过将递增器进程的主体放入原子块中，可以轻松修复此示例，
-如\cref{lst:formal:Promela Code for Atomic Increment}所示。
-也可以简单地将这对语句替换为
-\co{counter = counter + 1}，因为 Promela 语句是原子的。
+像\cref{lst:formal:Promela Code for Atomic Increment}那样，
+通过将递增过程的主体放入原子块中，可以简单地修复此示例。
+由于 Promela 语句是原子的，一个简单的方法是用
+\co{counter = counter + 1} 语句来替换递增语句对。
 无论哪种方式，运行修改后的模型都会给出无错误的状态空间遍历，
 如\cref{lst:formal:Atomic Increment Spin Output}所示。
 
@@ -207,7 +207,7 @@ spin -t -p increment.spin
 \label{tab:advsync:Memory Usage of Increment Model}
 \end{table}
 
-因此，运行不必要的大型模型会受到微妙的阻碍，尽管
+因此，不必要地运行大型模型的前景看起来不容乐观，尽管
 882\,MB 完全在现代台式机和笔记本电脑的限制范围内。
 
 有了这个示例的经验，让我们更仔细地看看
@@ -288,51 +288,51 @@ spin -t -p increment.spin
 \label{sec:formal:Promela Peculiarities}
 
 尽管所有计算机语言都有潜在的相似性，
-但 Promela 会给习惯于用 C、C++ 或 Java 编程的人带来一些意外。
+但 Promela 仍然会给习惯于用 C、C++ 或 Java 编程的人带来一些意外。
 
 \begin{enumerate}
-\item	在 C 中，\qco{;} 终止语句。
-	在 Promela 中它分隔语句。
-	幸运的是，较新版本的 Spin 对``多余的''分号更加宽容了。
-\item	Promela 的循环构造 \co{do} 语句接受条件。
-	这个 \co{do} 语句非常类似于循环的 if-then-else 语句。
-\item	在 C 的 \co{switch} 语句中，如果没有匹配的 case，
-	整个语句会被跳过。
-	在 Promela 的等价物中（令人困惑地被称为 \co{if}），
-	如果没有匹配的守卫表达式，你会得到一个错误，
-	且没有可识别的对应错误消息。
-	所以，如果错误输出指向一行无辜的代码，
-	请检查你是否遗漏了 \co{if} 或 \co{do} 语句中的某个条件。
-\item	在 C 中创建压力测试时，通常会反复让可疑操作相互竞争。
-	在 Promela 中，你只需设置一次竞争，因为 Promela
-	会搜索出该单次竞争的所有可能结果。
-	有时你确实需要在 Promela 中循环，例如，
-	当多个操作重叠时，但这样做会大大增加状态空间的大小。
+\item	在 C 中，\qco{;} 终止一条语句。
+	在 Promela 中，它将语句进行分隔。
+	幸运的是，较新版本的 Spin 已经对此比较宽容了。
+\item	Promela 的循环构造 \co{do} 语句需要循环条件。
+	该 \co{do} 语句类似于 if-then-else 语句的循环版本。
+\item	在 C 的 \co{switch} 语句中，如果没有匹配的情况，
+	整个语句被忽略。
+	在 Promela 中，其等价物令人困惑地被称为 \co{if}，
+	如果没有相应的守卫表达式匹配，将得到一个错误，
+	而且没有相应的可识别的错误消息。
+	因此，如果错误输出指向无辜的代码行，
+	请检查你是否在 \co{if} 或 \co{do} 语句中遗漏了某个条件。
+\item	在 C 中创建压力测试时，通常会将可疑操作相互放在一起运行。
+	在 Promela 中，取而代之的是只运行一次操作，因为 Promela
+	会搜索出该操作所有可能的结果。
+	有时你确实需要在 Promela 中循环操作，例如，
+	当多个操作交叉时，但这样做会大大增加状态空间的大小。
 \item	在 C 中，最简单的做法是维护一个循环计数器来跟踪进度和终止循环。
-	在 Promela 中，循环计数器必须像瘟疫一样避免，
-	因为它们会导致状态空间爆炸。
-	另一方面，在 Promela 中无限循环没有惩罚，
-	只要没有变量单调递增或递减——Promela 会找出
-	循环的多少次遍历真正有意义，
-	并自动修剪超出该点的执行。
-\item	在 C 压力测试代码中，保持每任务控制变量通常是明智的。
-	它们读取开销低，并且极大地帮助调试测试代码。
-	在 Promela 中，每任务控制变量只应在没有其他替代方案时使用。
-	为了理解这一点，考虑一个 5 任务验证，
-	每个任务使用一个比特来表示完成。
-	这给出 32 个状态。
+	在 Promela 中，循环计数器必须像躲避瘟疫一样避免使用，
+	因为它们会导致状态空间迅速膨胀。
+	但从另一方面来说，在 Promela 中使用无限循环是没有问题的，
+	只要循环里面没有变量单调递增或递减——Promela 会自行计算出
+	循环到底需要多少次遍历才有意义，
+	并自动删除超出该点的不必要执行。
+\item	在 C 压力测试代码中，使用每任务控制变量通常是明智的。
+	它们读取开销低，对调试测试代码也很有帮助。
+	在 Promela 中，仅仅在没有其他替代方案时，才使用每任务变量。
+	要明白这一点，考虑一个 5 任务的验证，
+	每一位表示一个任务的完成。
+	这会导致 32 个状态。
 	相比之下，一个简单的计数器只有六个状态，
-	减少了五倍多。
-	五倍的因子看起来可能不是什么问题，至少在你
-	挣扎于一个拥有超过 1.5 亿个状态、
-	消耗超过 10\,GB 内存的验证程序之前是这样的！
-\item	在 C 压力测试代码和 Promela 中最具挑战性的事情之一
-	是制定好的断言。
+	状态数整整少了五倍多。
+	五倍看起来可能不是什么问题，但如果你在为一个拥有超过
+	1.5 亿个状态、消耗超过 10\,GB 内存的验证程序而挣扎时，
+	就不会这样想了！
+\item	无论是在 C 压力测试代码还是 Promela 中，最具挑战性的事情之一
+	是编写好的断言。
 	Promela 还允许 \co{never} 声明，它的作用类似于
 	在每一行代码之间复制的断言。
-\item	分而治之在 Promela 中对控制状态空间极为有用。
+\item	在 Promela 中，分而治之对于将状态空间保持在可控范围内非常有用。
 	将一个大型模型分成大致相等的两半，
-	每一半的状态空间大致是整体的平方根。
+	会将状态空间减少到大约整体的平方根。
 	例如，一个百万状态的组合模型可能缩减为
 	一对千状态的模型。
 	Promela 不仅能以更少的内存更快地处理两个较小的模型，
@@ -343,15 +343,15 @@ spin -t -p increment.spin
 \subsubsection{Promela 编码技巧}
 \label{sec:formal:Promela Coding Tricks}
 
-Promela 设计用于分析协议，因此将其用于并行程序有点滥用。
-以下技巧可以帮助你安全地滥用 Promela：
+Promela 被设计用于分析协议，因此将其用于并行程序算是有点滥用。
+以下技巧可以帮助你安全地用好 Promela：
 
 \begin{enumerate}
-\item	内存重排序。
+\item	内存乱序。
 	假设你有一对语句将全局变量 \co{x} 和 \co{y}
-	复制到局部变量 \co{r1} 和 \co{r2}，其中顺序很重要（例如，未受锁保护），
+	复制到局部变量 \co{r1} 和 \co{r2}，其中顺序很重要（例如，没有锁保护），
 	但你没有\IXpl{memory barrier}。
-	这可以在 Promela 中如下建模：
+	这可以在 Promela 中用如下方法建模：
 
 \begin{VerbatimN}[samepage=true]
 if
@@ -362,28 +362,28 @@ if
 fi
 \end{VerbatimN}
 
-	\co{if} 语句的两个分支将被非确定性地选择，因为它们都是可用的。
+	\co{if} 语句的两个分支会被非确定性地选取，因为它们都是可用的。
 	由于进行了完整的状态空间搜索，在所有情况下
-	\emph{两种}选择最终都会被做出。
+	\emph{两种}选择最终都会被覆盖。
 
-	当然，如果过度使用，这个技巧会导致你的状态空间爆炸。
-	此外，它要求你预测可能的重排序。
+	当然，过度使用这个技巧会导致你的状态空间迅速增大。
+	此外，它要求你预料到可能的乱序情况。
 
-\item	状态缩减。
-	如果你有复杂的断言，请在 \co{atomic} 下求值。
+\item	状态压缩。
+	如果你有复杂的断言，请在 \co{atomic} 块内求值。
 	毕竟，它们不是算法的一部分。
-	一个复杂断言的例子（将在后面更详细地讨论）
+	一个复杂断言的例子（后面将更详细地讨论）
 	如\cref{lst:formal:Complex Promela Assertion}所示。
 
-	没有理由非原子地求值这个断言，
+	没有理由非原子地执行这个断言，
 	因为它实际上不是算法的一部分。
-	因为每条语句都会贡献状态，我们可以通过将其
-	包含在 \co{atomic} 块中来减少无用状态的数量，
+	因为每条语句都会增加状态数量，我们可以通过将其
+	放入 \co{atomic} 块中来减少无用状态的数量，
 	如\cref{lst:formal:Atomic Block for Complex Promela Assertion}所示。
 
 \item	Promela 不提供函数。
-	你必须改用 C 预处理器宏。
-	但是，你必须谨慎使用它们以避免组合爆炸。
+	必须使用 C 预处理器宏来代替。
+	但是，要小心使用它们以避免状态组合快速增加。
 \end{enumerate}
 
 \begin{listing}
@@ -424,7 +424,7 @@ atomic {
 \label{lst:formal:Atomic Block for Complex Promela Assertion}
 \end{listing}
 
-现在我们准备好看更多示例了。
+现在我们准备好见识更复杂的示例了。
 
 \subsection{Promela 示例：
 			     锁}
@@ -456,13 +456,13 @@ atomic {
 
 \co{spin_unlock()} 宏简单地将锁标记为不再被持有。
 
-请注意，不需要内存屏障（memory barrier），因为 Promela 假设完全排序。
-在任何给定的 Promela 状态中，所有进程对当前状态以及
+请注意，不需要内存屏障（memory barrier），因为 Promela 假设强序。
+在任何给定的 Promela 状态中，所有处理器对当前状态以及
 导致我们到达当前状态的状态变化顺序都达成一致。
 这类似于少数计算机系统（如 1990 年代的 MIPS 和 PA-RISC）
 所使用的``\IXalth{sequentially consistent}{sequential}{memory consistency}''
 \IX{memory model}。
-如前所述，并且将在后面的示例中看到，
+如前面的提示所述，并且将在后面的示例中看到，
 弱内存排序必须被显式编码。
 
 \begin{listing}
@@ -560,13 +560,13 @@ QRCU~\cite{OlegNesterov2006QRCU,OlegNesterov2006aQRCU}
 上实际使用 Promela 的情况，
 但进行了修改以加速 \co{synchronize_qrcu()} 的快速路径。
 
-但首先，QRCU 是什么？
+但首先需要搞清楚，QRCU 是什么？
 
 QRCU 是 SRCU~\cite{PaulEMcKenney2006c} 的一个变体，
 它以较高的读开销（对全局变量的原子递增和递减）换取
 极低的宽限期延迟。
 如果没有读者，宽限期将在不到一微秒内被检测到，
-而大多数其他 RCU 实现的宽限期延迟为数毫秒。
+而大多数其他 RCU 实现的宽限期延迟则为数毫秒。
 
 \begin{enumerate}
 \item	有一个 \co{qrcu_struct} 定义了一个 QRCU 域。
@@ -614,8 +614,8 @@ qrcu_read_unlock(&my_qrcu_struct, idx);
 这给了我们不止一种而是两种造成组合爆炸的方式。
 \co{idx} 变量控制 \co{ctr} 数组的两个元素中哪一个将被读者使用，
 \co{readerprogress} 变量允许断言判断所有读者何时完成
-（因为 QRCU 更新在所有先前存在的读者完成其 QRCU 读端临界区之前
-不允许完成）。
+（因为直到每个已存在的读者完成其 QRCU 读端临界区之前，
+QRCU 更新都不允许完成）。
 \co{readerprogress} 数组元素的值如下，
 表示相应读者的状态：
 
@@ -968,19 +968,19 @@ cc -DSAFETY -DMA=96 -O2 -o pan pan.c
 \subsubsection{到底需要多少读者和更新者？}
 \label{sec:formal:How Many Readers and Updaters Are Really Needed?}
 
-一种方法是仔细查看 \co{qrcu_updater()} 的 Promela 代码，
+一种方法是仔细检查 \co{qrcu_updater()} 的 Promela 代码，
 注意到唯一的全局状态变化发生在锁保护之下。
-因此，任何时候只有一个更新者可能在修改
+因此，在同一时刻只有一个更新者可能在修改
 对读者或其他更新者可见的状态。
-这意味着由于 Promela 进行完整的状态空间搜索，
-任何状态变化序列都可以由单个更新者串行执行。
+这意味着状态变化的任何序列都可以由单个更新者
+串行执行，这是由于 Promela 进行完整的状态空间搜索。
 因此，最多需要两个更新者：
-一个用于更改状态，另一个用于变得混乱。
+一个用于修改状态，另一个用于将其搞乱。
 
-读者的情况不太明确，因为每个读者
-只执行一个读端临界区然后终止。
-可以论证有用的读者数量是有限的，
-因为快速路径在计数器中最多只能看到一个零和一个一。
+读者的情况则不太明确，因为每个读者
+仅仅执行一个单一的读端临界区然后退出。
+可以论证有用的读者数量是受限的，
+因为快速路径必定看到计数器中为零或者为一。
 这是一个富有成效的研究方向，事实上，它导向了
 下一节中描述的完整正确性证明。
 
@@ -1031,20 +1031,20 @@ cc -DSAFETY -DMA=96 -O2 -o pan pan.c
 				     更强大的工具}
 \label{sec:formal:Alternative Approach: More Capable Tools}
 
-尽管 Promela 和 Spin 非常有用，
+虽然 Promela 和 Spin 十分有用，
 但有更强大的工具可用，特别是用于验证硬件的工具。
-这意味着如果可以将你的算法翻译为硬件设计的 VHDL 语言，
-对于低层并行算法通常如此，
+这意味着如果能将你的算法翻译为硬件设计的 VHDL 语言——
+对于非常底层的并行算法通常如此——
 则可以将这些工具应用于你的代码
 （例如，这曾被用于第一个实时 RCU 算法）。
 然而，这些工具可能相当昂贵。
 
-尽管商品化多处理的出现可能最终会产生
-具有高级状态空间缩减能力的强大自由软件模型检查器，
-但这对当下帮助不大。
+虽然商业化多处理器的出现可能最终会催生
+具有强大状态空间缩减能力的自由软件模型检查器，
+但这目前还没有什么大的帮助。
 
-顺便说一下，Spin 有一些特性支持需要固定内存量的近似搜索，
-然而，在验证并行算法时，我始终无法让自己信任近似方法。
+另外，Spin 有一些特性支持需要固定内存量的近似搜索，
+然而，在验证并行算法时，我始终无法让自己信任这种近似方法。
 
 另一种方法可能是分而治之。
 
@@ -1052,31 +1052,31 @@ cc -DSAFETY -DMA=96 -O2 -o pan pan.c
 				     分而治之}
 \label{sec:formal:Alternative Approach: Divide and Conquer}
 
-通常可以将较大的并行算法分解为较小的部分，
-然后分别证明。
+通常可以将较大的并行算法分割成较小的片段，
+然后分别证明它们。
 例如，一个 100 亿状态的模型可能被分解为
 一对 100,000 状态的模型。
 采用这种方法不仅使 Promela 等工具更容易验证你的算法，
-还可以使你的算法更容易理解。
+也会使你的算法更容易理解。
 
 \subsubsection{QRCU 真的正确吗？}
 \label{sec:formal:Is QRCU Really Correct?}
 
 QRCU 真的正确吗？
 我们有一个基于 Promela 的机械证明和一个手工证明，
-两者都说它是正确的。
+二者都说它是正确的。
 然而，\pplsur{Jade}{Alglave} 等人的一篇论文~\cite{JadeAlglave2013-cav}
-持相反意见（见论文第 12 页底部的 Section~5.1）。
-到底哪个对？
+却持相反意见（见论文第 12 页底部的 Section~5.1）。
+到底怎么回事？
 
 事实证明两者都是正确的！
 当 QRCU 被添加到形式验证基准测试套件中时，
-它的内存屏障被遗漏了，从而导致了一个有缺陷的 QRCU 版本。
-所以这里真正的新闻是许多形式验证工具
+它的内存屏障被遗漏了，从而产生了一个有缺陷的 QRCU 版本。
+所以这里真正的新闻是，许多形式验证工具
 错误地证明了这个有缺陷的 QRCU 是正确的。
 这就是为什么形式验证工具本身应该使用
 被验证代码的注入缺陷版本来进行测试。
-如果给定的工具无法找到注入的缺陷，那么该工具显然是不可信的。
+如果给定的工具无法找到注入的缺陷，那么它显然是不可信的。
 
 \QuickQuiz{
 	但不同的形式验证工具通常被设计为定位特定类别的缺陷。

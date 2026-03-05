@@ -7,19 +7,19 @@
 %
 \epigraph{样样通，样样松。}{佚名}
 
-虽然 Promela 和 Spin 允许你验证几乎任何（较小的）算法，
-但它们的通用性有时会成为一种负担。
+虽然 Promela 和 Spin 几乎允许你验证任何（较小的）算法，
+但有时候它们的通用性反而成为一种负担。
 例如，Promela 不理解 \IX{memory model} 或任何类型的
 重排序语义。
-因此，本节描述了一些理解生产系统使用的 memory model 的
-state-space search 工具，大大简化了弱序代码的验证。
+因此，本节描述了一些理解实际系统中使用的 memory model 的
+state-space search 工具，大大简化了对弱序代码的验证。
 
 例如，
 \cref{sec:formal:Promela Example: QRCU}
-展示了如何说服 Promela 来考虑弱内存排序。
-虽然这种方法可以很好地工作，但它要求开发者
-完全理解系统的 memory model。
-不幸的是，很少有（如果有的话）开发者完全理解
+展示了如何让 Promela 识别弱内存排序。
+虽然这种方法可以正常运行，但它要求开发者
+彻底理解系统的 memory model。
+不幸的是，很少有（如果有的话）开发者能彻底理解
 现代 CPU 的复杂 memory model。
 
 因此，另一种方法是使用已经理解内存排序的工具，

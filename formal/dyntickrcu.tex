@@ -17,24 +17,23 @@
 以支持实时工作负载。
 该变体类似于自2005年8月以来
 \rt\ 补丁集~\cite{IngoMolnar05a}中的RCU实现。
-实时工作负载需要可抢占RCU，因为早期的RCU实现在RCU
-读侧临界区内禁用抢占，导致过高的实时延迟。
+实时工作负载需要可抢占RCU，因为早期的RCU实现在整个RCU
+读侧临界区内禁用了抢占，导致过高的实时延迟。
 
 然而，早期\rt\ 实现的一个缺点是每个\IX{grace period}
 都需要在每个CPU上执行工作，即使该CPU处于低功耗的
-``dynticks-idle''状态，
-因而无法执行RCU读侧临界区。
-dynticks-idle状态背后的理念是，空闲的CPU应当被物理断电以
+``dynticks-idle''状态，因而无法执行RCU读侧临界区。
+dynticks-idle状态背后的理念是，空闲的CPU应当被完全断电以
 节省能源。
-简而言之，可抢占RCU可能会禁用近期Linux内核中一项
-有价值的节能特性。
+简而言之，可抢占RCU可能会使近期Linux内核中一项
+有价值的节能特性失效。
 尽管Josh Triplett和Paul McKenney曾讨论过一些方法，
 允许CPU在整个RCU宽限期内保持低功耗状态
 （从而保留Linux内核的节能能力），但直到Steve Rostedt
 在\rt\ 补丁集中将一个新的dyntick实现与可抢占RCU集成后，
-事情才到了必须解决的地步。
+事情才到了非解决不可的地步。
 
-这种组合导致Steve的一台系统在启动时挂起，因此在十月份，
+这种组合导致Steve的一台系统在启动时挂起，因此在2007年十月，
 Paul编写了一个对可抢占RCU宽限期处理的dynticks友好修改。
 Steve编写了\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
 接口，从\co{irq_enter()}和\co{irq_exit()}中断
@@ -42,17 +41,17 @@ Steve编写了\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
 这些\co{rcu_irq_enter()}和\co{rcu_irq_exit()}
 函数是必需的，以允许RCU可靠地处理dynticks-idle CPU
 被瞬间唤醒以执行包含RCU读侧临界区的中断处理程序的情况。
-有了这些修改，Steve的系统能够可靠启动，
-但Paul继续定期检查代码，因为他认为我们不可能在第一次
-就把代码写对了。
+有了这些修改，Steve的系统能够可靠启动。
+但Paul假定我们不可能在第一次就把代码写对了，
+因此继续定期检查代码。
 
 Paul从2007年10月到2008年2月反复审查代码，
 几乎每次都能发现至少一个bug。
-有一次，Paul甚至在编写并测试了修复程序之后才意识到
-该bug是虚幻的，实际上在所有情况下，这些``bug''都被证明
-是虚幻的。
+有一次，Paul甚至在意识到一个bug是虚幻的之前，
+就已经编写并测试了修复程序。
+实际上在所有情况下，这些``bug''都被证明是虚幻的。
 
-二月底时，Paul对这个游戏感到厌倦了。
+二月底时，Paul对这个游戏已经有点疲倦了。
 因此他决定借助Promela和Spin的帮助。
 以下内容呈现了一系列七个逐步增加复杂度的Promela模型，
 最后一个通过了验证，状态空间消耗了约40\,GB的主内存。
@@ -85,8 +84,8 @@ Paul从2007年10月到2008年2月反复审查代码，
 }\QuickQuizEnd
 
 更好的做法是设计出一个更简单、更快速且状态空间更小的算法。
-最好的情况是算法简单到其正确性对于一般观察者来说是
-显而易见的！
+最好的情况是算法如此简单，其正确性对于一般观察者来说
+显而易见！
 
 \Crefrange{sec:formal:Introduction to Preemptible RCU and dynticks}
 {sec:formal:Grace-Period Interface}
@@ -726,9 +725,9 @@ rcu_try_flip_waitack_needed(int cpu)
 得到一个包含661个状态的正确验证，无错误通过。
 然而，值得注意的是，活性验证的第一个版本未能捕获这个bug，
 原因是活性验证本身存在一个bug。
-这个活性验证bug是通过在\co{grace_period()}进程中
+这个活性验证的bug是通过在\co{grace_period()}进程中
 插入一个无限循环，并注意到活性验证代码未能检测到
-该问题而定位的！
+该问题而发现的！
 
 我们现在已经成功验证了安全性和活性条件，但仅限于进程运行
 和阻塞的情况。
@@ -1451,8 +1450,8 @@ Andy Lutomirski~\cite{PaulMcKenney2015dyntickAndyNMI}
 \subsubsection{讨论}
 \label{sec:formal:Discussion}
 
-观点的轻微转变导致了 RCU dynticks 接口的大幅简化。
-导致这种简化的关键变化是最小化 \IRQ\ 和 NMI 上下文之间的共享。
+一个小小的观点转变导致了 RCU dynticks 接口的实质性简化。
+导致这种简化的关键变化是将 \IRQ\ 和 NMI 上下文之间的共享减到最小。
 在这个简化接口中，唯一的共享是 NMI 上下文对
 \IRQ\ 变量（\co{dynticks} 变量）的引用。
 这种类型的共享是良性的，因为 NMI 函数从不更新该变量，
@@ -1460,9 +1459,9 @@ Andy Lutomirski~\cite{PaulMcKenney2015dyntickAndyNMI}
 这种共享的限制使得各个函数可以逐个理解，
 与\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
 中描述的情况形成鲜明对比——在那里，NMI 可能在
-\IRQ\ 函数执行期间的任何时刻更改共享状态。
+\IRQ\ 函数执行期间的任何时刻修改共享状态。
 
-验证是好事，但简单性更好。
+验证是一件非常好的事，但简单性更好。
 
 % Restore frame around VerbatimN in two-column layout
 \IfTwoColumn{
