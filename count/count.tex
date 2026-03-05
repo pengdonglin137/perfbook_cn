@@ -6,14 +6,13 @@
 %
 \Epigraph{简单如1、2、3！}{佚名}
 
-计数也许是计算机能做的最简单、最自然的事情。
-然而，在大型共享内存多处理器上高效且可扩展地计数可能颇具挑战性。
-此外，计数这一底层概念的简洁性使我们能够在不受复杂数据结构或
-精巧同步原语干扰的情况下，探索并发的基本问题。
-因此，计数为并行编程提供了一个绝佳的入门途径。
+计数也许是计算机能做的事情里，最简单也最自然的工作了。
+不过在大型共享内存多处理器系统上，想要高效且可扩展地计数，
+仍然颇具挑战性。不仅如此，计数这一概念的简洁性让我们可以
+在探索并发的基本问题时，无须被繁复的数据结构或精巧的同步原语干扰。
+因此，计数是并行编程的绝佳切入对象。
 
-本章涵盖了若干特殊情况，这些情况下存在简单、快速且可扩展的
-计数算法。
+本章涵盖了许多适用于特殊情况的简单、快速且可扩展的计数算法。
 但首先，让我们来看看你对并发计数了解多少。
 
 \EQuickQuiz{
@@ -112,19 +111,19 @@
 \QuickQuizLabel{\QcountQIOcnt}
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?}
-说明了为什么计数不是微不足道的。
+提出问题：为什么在多核系统上的计数问题不简单？
 \Cref{sec:count:Statistical Counters,sec:count:Approximate Limit Counters}
-分别研究了网络数据包计数和近似结构分配限制。
+分别探索了网络数据包计数问题和近似结构分配上限问题。
 \Cref{sec:count:Exact Limit Counters}
-处理精确结构分配限制。
+研究精确结构分配上限问题。
 最后，\cref{sec:count:Parallel Counting Discussion}
-展示了性能测量结果和讨论。
+对本章进行总结，同时展示各种方法的性能测量结果。
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?,%
 sec:count:Statistical Counters}
-包含入门材料，其余章节内容更为高级。
+都是介绍性的内容，之后的内容更为高级。
 
-\section{为什么并发计数不是微不足道的？}
+\section{为什么并发计数不可小看？}
 \label{sec:count:Why Isn't Concurrent Counting Trivial?}
 %
 \epigraph{追求简洁，但不要轻信它。}{Alfred North Whitehead}
@@ -156,14 +155,13 @@ sec:count:Statistical Counters}
 \label{lst:count:Just Count!}
 \end{listing}
 
-如果你进行大量读取而几乎不做递增操作，这种方法还具有极快速度的
-额外优势，而且在小型系统上性能非常出色。
+当计数器不停读取却又几乎不增加计数时，这种方法快得令人惊叹。
+在小型系统上，性能也非常出色。
 
-只有一个大问题：
-这种方法可能丢失计数。
+不过让人扫兴的是，这种方法可能丢失计数。
 在我的六核x86笔记本电脑上，一次短暂运行调用了\co{inc_count()}
 285,824,000次，但counter的最终值仅为35,385,525。
-虽然近似计算在计算领域确实占有重要地位，但丢失87\pct\ 的计数
+虽然近似值在计算领域确实占有一定地位，但丢失87\pct\ 的计数
 未免过于夸张了。
 
 \QuickQuizSeries{%
@@ -221,7 +219,7 @@ sec:count:Statistical Counters}
 \label{fig:count:Atomic Increment Scalability on x86}
 \end{figure}
 
-准确计数的直接方法是使用\IX{atomic}操作，
+精确计数的最直接的办法是使用\IX{atomic}操作，
 如\cref{lst:count:Just Count Atomically!}（\path{count_atomic.c}）
 所示。
 \begin{fcvref}[ln:count:count_atomic:inc-read]
@@ -229,8 +227,8 @@ sec:count:Statistical Counters}
 \clnref{inc}对其进行atomic递增，
 \clnref{read}读取其值。
 \end{fcvref}
-因为这是atomic的，所以能精确计数。
-然而，它更慢：
+因为都是atomic操作，所以计数非常精确。
+不过，程序执行得要慢一些：
 在我的六核x86笔记本电脑上，即使只有单个线程（thread）在递增，
 它也比非atomic递增慢了二十多倍。\footnote{
 	有趣的是，非atomic地递增counter会比atomic地递增
@@ -241,16 +239,16 @@ sec:count:Statistical Counters}
 	更好的性能和可扩展性的算法很可能有其用武之地
 	~\cite{Andrews91textbook,Arcangeli03,10.5555/3241639.3241645,DavidUngar2011unsync}。}
 
-这种糟糕的性能并不令人意外，鉴于
+这种糟糕的性能并不让人意外，鉴于
 \cref{chp:Hardware and its Habits}中的讨论，
-atomic递增的性能随CPU和线程数量的增加而变慢也不足为奇，
+atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 如\cref{fig:count:Atomic Increment Scalability on x86}所示。
-在这张图中，位于x轴上的水平虚线是
+在这张图中，x轴上的水平虚线代表
 完美可扩展算法所能达到的理想性能：
-在这样的算法中，每次递增操作的开销
-与单线程程序中相同。
+在这样的算法中，CPU和线程数目的增长带来的开销
+与单线程程序中的开销相同。
 对单个全局变量的atomic递增显然远非理想，
-随着CPU的增加，性能差距达到数个数量级。
+随着CPU个数的增加，性能差距达到数个数量级。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -306,18 +304,18 @@ atomic递增的性能随CPU和线程数量的增加而变慢也不足为奇，
 \ContributedBy{fig:count:Waiting to Count}{Melissa Broussard}
 \end{figure}
 
-从另一个角度来看全局atomic递增，请考虑
-\cref{fig:count:Data Flow For Global Atomic Increment}。
-为了让每个CPU有机会递增给定的全局变量，
-包含该变量的\IX{cache line}必须在所有CPU之间流转，
+\cref{fig:count:Data Flow For Global Atomic Increment}提供了
+另一种看全局atomic递增的视角。
+为了让每个CPU得到机会递增一个指定的全局变量，
+包含该变量的\IX{cache line}需要在所有CPU之间传播，
 如红色箭头所示。
-由于光速有限和原子大小非零，这种流转将花费大量时间，
+由于光速有限和原子大小非零，这种传播相当耗时，
 这些物理定律在\cref{sec:cpu:Hardware Free Lunch?}中已经讨论过。
-这种缓慢的流转反过来导致了
+这种缓慢的传播反过来导致了
 \cref{fig:count:Atomic Increment Scalability on x86}中
 所见的糟糕性能，
-或者如\cref{fig:count:Waiting to Count}所更生动描绘的那样。
-以下章节讨论高性能计数，它避免了此类流转所固有的延迟。
+\cref{fig:count:Waiting to Count}形象地描绘了这种情况。
+以下章节讨论高性能计数，这种方法可以避免此类传播所固有的延迟。
 
 \QuickQuiz{
 	但是为什么CPU设计者不能简单地将加法操作发送到
@@ -378,19 +376,18 @@ atomic递增的性能随CPU和线程数量的增加而变慢也不足为奇，
 \epigraph{事实是固执的东西，但统计数字是可以揉捏的。}
 	 {Mark Twain}
 
-本节涵盖statistical counters的常见特殊情况，其中计数值
+本节涵盖使用statistical counters的常见场景，其中计数值
 被极其频繁地更新，而很少甚至从不被读取。
-这些将被用来解决\QuickQuizRef{\QcountQstatcnt}中提出的
+这些方法将用于解决\QuickQuizRef{\QcountQstatcnt}中提出的
 网络数据包计数问题。
 
 \subsection{设计}
 
-Statistical counting通常通过为每个线程（或在内核中运行时为每个CPU）
-提供一个counter来处理，这样每个线程更新自己的counter，
+Statistical counting一般以每个线程一个counter的方式处理
+（或者在内核中运行时，每个CPU一个），这样每个线程只更新自己的counter，
 正如\cref{sec:toolsoftrade:Per-CPU Variables}
 （\cpageref{sec:toolsoftrade:Per-CPU Variables}）中所预示的那样。
-counter的聚合值通过简单地对所有线程的counter求和来读取，
-利用加法的交换律和结合律。
+根据加法的交换律和结合律，总的计数值就是所有线程counter值的简单相加。
 这是Data Ownership模式的一个例子，将在
 \cref{sec:SMPdesign:Data Ownership}
 （\cpageref{sec:SMPdesign:Data Ownership}）中介绍。
@@ -416,8 +413,8 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 \subsection{基于数组的实现}
 \label{sec:count:Array-Based Implementation}
 
-提供per-thread变量的一种方法是分配一个数组，
-每个线程一个元素（最好是cache对齐和填充的，以避免false sharing）。
+实现per-thread变量的一种方法是分配一个数组，数组每个元素
+对应一个线程（假设数组已按cache line对齐并且填充过了，以避免false sharing）。
 
 \QuickQuiz{
 	数组？
@@ -447,14 +444,14 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 展示了一个递增counter的函数，使用
 \apipf{__get_thread_var()}原语来定位当前运行线程
 在\co{counter}数组中的元素。
-因为该元素仅由相应线程修改，
+因为该元素只能由对应的线程修改，
 非atomic递增即可满足。
 然而，此代码使用\co{WRITE_ONCE()}来防止破坏性的
 编译器优化。
-举一个例子，编译器有权将即将被存储的位置
+举个例子，编译器有权将即将被存储的位置
 用作临时存储，从而在执行所需存储之前写入
-实际上就是垃圾的内容。
-这当然可能会让试图读取计数值的任何东西感到困惑。
+实际上是垃圾的内容。
+这当然可能会让试图读取计数值的代码感到困惑。
 使用\co{WRITE_ONCE()}可以防止这种优化及其他类似优化。
 
 \QuickQuiz{
@@ -510,10 +507,10 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 \label{fig:count:Data Flow For Per-Thread Increment}
 \end{figure}
 
-这种方法随着调用\co{inc_count()}的更新线程数量的增加而线性扩展。
+该方法随着调用\co{inc_count()}的更新者线程增加而线性扩展。
 如\cref{fig:count:Data Flow For Per-Thread Increment}中每个CPU上的
 绿色箭头所示，原因是每个CPU可以快速递增
-其线程的变量，而不需要任何昂贵的跨系统通信。
+自己线程的变量，不再需要代价昂贵的跨系统通信。
 换句话说，per-CPU counter的更新不会像单个全局counter的
 atomic递增那样受到慢光和大原子的困扰。\footnote{
 	同样，参见\cref{sec:cpu:Hardware Free Lunch?}。}
@@ -623,8 +620,8 @@ atomic递增那样受到慢光和大原子的困扰。\footnote{
 \QuickQuizLabel{\StatisticalCounterAccuracy}
 
 然而，许多实现提供了更廉价的per-thread数据机制，
-且不受任意数组大小限制。
-这是下一节的主题。
+且不受数组大小的限制。
+下一节将展示这样的方法。
 
 \subsection{基于per-thread变量的实现}
 \label{sec:count:Per-Thread-Variable-Based Implementation}
@@ -637,9 +634,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	是可以互换的。}
 如\cref{lst:count:Per-Thread Statistical Counters}
 （\path{count_end.c}）所示，
-可以使用它来实现一个不仅扩展性好且避免了任意线程数量限制，
-而且与简单的非atomic递增相比，对递增方几乎
-不产生性能损失的statistical counter。
+可以使用它来实现一个statistical counter，这个counter不仅能扩展，
+而且相对于简单的非atomic递增来说，对递增方几乎不产生性能损失。
 
 \begin{listing}
 \input{CodeSamples/count/count_end@whole.fcv}
@@ -651,8 +647,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \Clnrefrange{var:b}{var:e}定义了所需的变量：
 \co{counter}是per-thread counter变量，
 \co{counterp[]}数组允许线程访问彼此的counter，
-\co{finalcount}在各个线程退出时累积总数，
-\co{final_mutex}用于协调累积counter总值的线程和正在退出的线程。
+\co{finalcount}在各个线程退出时将计数值累加到总和里，
+\co{final_mutex}用于协调累加计数总值的线程和正在退出的线程。
 \end{fcvref}
 
 \QuickQuiz{
@@ -704,17 +700,16 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_end:whole:inc]
-更新方使用的\co{inc_count()}函数相当简单，
+更新方调用的\co{inc_count()}函数非常简单，
 如\clnrefrange{b}{e}所示。
 \end{fcvref}
 
 \begin{fcvref}[ln:count:count_end:whole:read]
-读取方使用的\co{read_count()}函数稍微复杂一些。
-\Clnref{acquire}获取一个lock以排斥正在退出的线程，
-\clnref{release}释放它。
-\Clnref{sum:init}将sum初始化为已退出线程累积的计数值，
-\clnrefrange{loop:b}{loop:e}对当前运行线程正在累积的
-计数值求和。
+读取方调用的\co{read_count()}函数稍微复杂一些。
+\Clnref{acquire}获取lock以与正在退出的线程互斥，
+\clnref{release}释放lock。
+\Clnref{sum:init}初始化已退出线程的per-thread计数的总和，
+\clnrefrange{loop:b}{loop:e}将还在运行的线程的per-thread计数累加进总和。
 最后，\clnref{return}返回总和。
 \end{fcvref}
 
@@ -762,8 +757,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \begin{fcvref}[ln:count:count_end:whole:reg]
 \Clnrefrange{b}{e}展示了\co{count_register_thread()}函数，
 每个线程在首次使用此counter之前必须调用该函数。
-该函数简单地设置此线程在\co{counterp[]}数组中的元素，
-使其指向自己的per-thread \co{counter}变量。
+该函数简单地将本线程对应\co{counterp[]}数组中的元素
+指向线程的per-thread \co{counter}变量。
 \end{fcvref}
 
 \QuickQuiz{
@@ -789,21 +784,19 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \clnref{release}释放它，从而排斥
 \co{read_count()}的调用以及其他
 \co{count_unregister_thread()}的调用。
-\Clnref{add}将此线程的\co{counter}加到全局\co{finalcount}上，
-然后\clnref{NULL}将其\co{counterp[]}数组条目设为\co{NULL}。
-随后的\co{read_count()}调用将在全局\co{finalcount}中看到
-退出线程的计数，并在遍历\co{counterp[]}数组时跳过该退出线程，
-从而获得正确的总数。
+\Clnref{add}将本线程的\co{counter}加到全局\co{finalcount}上，
+然后\clnref{NULL}将\co{counterp[]}数组的对应元素设为\co{NULL}。
+随后的\co{read_count()}调用可以在全局\co{finalcount}中找到
+退出线程的计数值，并在遍历\co{counterp[]}数组时跳过已退出的线程，
+这样就能获得正确的总数。
 \end{fcvref}
 
-这种方法使更新方获得与非atomic加法几乎完全相同的性能，
-并且也是线性扩展的。
-另一方面，并发读取争用单个全局lock，
-因此性能差且扩展性极差。
-然而，对于statistical counters来说这不是问题，
-因为递增频繁而读取几乎从不发生。
-当然，由于给定线程的per-thread变量在该线程退出时消失，
-这种方法比基于数组的方案复杂得多。
+这种方法让更新方的性能几乎和非atomic计数一样，并且也能线性扩展。
+另一方面，并发的读取方争用一个全局lock，因此性能不佳，扩展能力也很差。
+但是，对于statistical counters来说这不是问题，
+因为statistical counters总是在增加计数，很少读取计数。
+另外，由于给定线程的per-thread变量在该线程退出时消失，
+本方法比基于数组的方案要复杂一些。
 
 \QuickQuiz{
 	好吧，但Linux内核在读取per-CPU counter的
@@ -830,33 +823,32 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	以更加优雅的方式处理这种情况的同步机制。
 }\QuickQuizEnd
 
-基于数组和基于\co{_Thread_local}的方法都提供了出色的
-更新端性能和可扩展性。
-然而，这些优势导致大量线程时读取端的开销很大。
-下一节展示了一种在保持更新端可扩展性的同时
-降低读取端开销的方法。
+上述方法都提供了出色的更新端性能和可扩展性。
+然而，这种在更新端扩展极佳的方法，在存在大量线程时，会带来
+读取端的巨大开销。
+下一节将展示一种方法，能在保持更新端可扩展性的同时，
+减少读取端产生的开销。
 
 \subsection{最终一致性实现}
 \label{sec:count:Eventually Consistent Implementation}
 
-在保持更新端可扩展性的同时大幅提高读取端性能的一种方法
-是放松一致性要求。
-前一节中的计数算法保证返回的值介于
-\co{read_count()}执行开始附近理想counter的值和
-执行结束附近的值之间。
+一种保持更新端可扩展性的同时又提升读取端性能的方法是
+削弱一致性的要求。
+前几节介绍的计数算法保证返回的值介于
+\co{read_count()}执行前一刻的理想计数值和
+执行完毕时的理想计数值之间。
 \emph{最终一致性}~\cite{WernerVogels:2009:EventuallyConsistent}
 提供了更弱的保证：
 在没有\co{inc_count()}调用的情况下，
-\co{read_count()}调用将最终返回准确的计数值。
+\co{read_count()}调用最终会返回准确的计数值。
 
 我们通过维护一个全局counter来利用最终一致性。
-但是，更新方仅操作其per-thread counter。
-一个单独的线程负责将per-thread counter的计数值
-传输到全局counter。
-读取方只需访问全局counter的值。
-如果更新方处于活动状态，读取方使用的值将过时，
-然而，一旦更新停止，全局counter最终将收敛到
-真实值——因此这种方法属于最终一致性。
+但是因为写者只操纵它自己的per-thread counter，
+所以单独有一个线程负责将per-thread counter的计数值传递给全局counter，
+读者只是简单地访问全局counter的值。
+如果写者正在更新计数，读者读出的值将不是最新的，
+不过一旦写者更新完毕，全局counter最终会回归正确的值——
+这就是为什么这种方法被称为最终一致性。
 
 \begin{listing}
 \ebresizeverb{1.0}{\input{CodeSamples/count/count_stat_eventual@whole.fcv}}
@@ -897,10 +889,9 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \co{smp_store_release()}调用确保对\co{global_count}的所有更新
 对\co{count_cleanup()}调用之后的代码可见。
 
-这种方法提供了极快的counter读取，同时仍然支持
-线性的counter更新可扩展性。
-然而，这种出色的读取端性能和更新端可扩展性
-是以运行\co{eventual()}的额外线程为代价的。
+本方法在提供极快的读取端性能的同时，仍然保持线性的
+更新端可扩展性。但是，这种卓越的读取端性能和更新端可扩展性
+带来的代价是需要一个额外的线程来运行\co{eventual()}。
 \end{fcvref}
 
 \QuickQuizSeries{%
@@ -1001,8 +992,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \subsection{讨论}
 
-这三种实现表明，尽管运行在并行机器上，
-仍然可以为statistical counters获得接近单处理器的性能。
+上述实现表明，并发运行的statistical counters完全可以达到
+接近单处理器的性能。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -1056,7 +1047,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 }\QuickQuizEndE
 }
 
-根据本节所介绍的内容，你现在应该能够回答
+通过学习本节的内容，你现在应该能回答
 本章开头附近关于网络statistical counters的Quick Quiz了。
 
 \section{近似限值计数器（limit counter）}
@@ -1065,98 +1056,95 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \epigraph{对正确问题的近似答案远比对近似问题的精确答案更有价值。}
 	 {John Tukey}
 
-计数的另一个特殊情况涉及限制检查。
+计数的另一个特殊情况涉及上限检查。
 例如，如\QuickQuizRef{\QcountQapproxcnt}中的
-近似结构分配限制问题所述，
-假设你需要维护已分配结构数量的计数，
-以便在使用中的结构数量超过限制（本例中为10,000）时
-拒绝任何分配。
-进一步假设这些结构是短生命周期的，此限制很少被超过，
-且此限制是近似的——即偶尔超出某个有界数量
-或偶尔未达到某个有界数量都是可以接受的。
-如果你需要限制是精确的，参见\cref{sec:count:Exact Limit Counters}。
+近似结构分配上限问题所述，
+假设你需要维护一个已分配数据结构数目的计数器，
+来防止分配超过一个上限（本例中为10,000）。
+进一步假设这些结构的生命周期很短，数目极少能超出上限。
+所以对近似上限来说，偶尔超出少许是可以接受的。
+如果你需要上限必须精确，请参见\cref{sec:count:Exact Limit Counters}。
 
 \subsection{设计}
 
-limit counter的一种可能设计是将10,000的限制除以线程数量，
-给每个线程一个固定的结构池。
-例如，给定100个线程，每个线程将管理自己的100个结构的池。
-这种方法简单，在某些情况下效果很好，但它无法处理
-常见的情况：一个结构由一个线程分配而由另一个线程
+实现limit counter的一种可能方法是将10,000的限制值平均划分
+给每个线程，然后给每个线程一个固定个数的资源池。
+假如有100个线程，每个线程管理一个有100个结构的资源池。
+这种方法简单，在某些情况下也有效，但它无法处理
+一种常见情况：某个结构由一个线程分配，但由另一个线程
 释放~\cite{McKenney93}。
-一方面，如果给定线程为其释放的任何结构记账，
-那么做大部分分配的线程会耗尽结构，
-而做大部分释放的线程则拥有大量无法使用的额度。
-另一方面，如果释放的结构记在分配它们的CPU名下，
-则需要CPU操作彼此的counter，这将需要昂贵的
-\IX{atomic}指令或其他线程间通信手段。\footnote{
+一方面，如果线程释放一个结构就得一分的话，
+那么一直在分配的线程很快就耗尽了资源池，
+而一直在释放的线程则积攒了大量分数却无法使用。
+另一方面，如果每个被释放的结构都记在分配它的CPU名下，
+CPU就需要操纵其他CPU的计数，这将会带来代价昂贵的
+\IX{atomic}指令或其他跨线程通信手段。\footnote{
 	话虽如此，如果每个结构总是由分配它的
 	同一CPU（或线程）释放，那么这种简单的分区方法
 	效果极好。}
 
-简而言之，对于许多重要的工作负载，我们无法完全分区counter。
-鉴于分区counter正是
-\cref{sec:count:Statistical Counters}中讨论的三种方案
-带来出色更新端性能的原因，这可能令人悲观。
-然而，\cref{sec:count:Eventually Consistent Implementation}中
-提出的最终一致性算法提供了一个有趣的提示。
-回忆一下，该算法保持两套账目：
-用于更新方的per-thread \co{counter}变量和用于读取方的
+简而言之，在很多重要的场景下我们都不能将counter完全分区。
+在\cref{sec:count:Statistical Counters}中，考虑到对counter的分区才是
+让更新端性能卓越的原因，这个事实可能会让我们感到悲观。
+但是\cref{sec:count:Eventually Consistent Implementation}中
+展示的最终一致性算法为我们提供了有趣的暗示。
+该算法的关键是两套计数：
+给更新方提供的per-thread \co{counter}变量和给读取方提供的
 \co{global_count}变量，
-由一个\co{eventual()}线程周期性地更新\co{global_count}
-使其与per-thread \co{counter}的值最终一致。
-per-thread \co{counter}完美分区了counter值，
-而\co{global_count}保持完整值。
+还有一个定期更新\co{global_count}的\co{eventual()}线程，
+使得结果最终与per-thread \co{counter}的值一致。
+per-thread \co{counter}完美地分区了counter值，
+而\co{global_count}保存完整的全局数值。
 
-对于limit counters，我们可以使用这个主题的变体，
-即\emph{部分分区}counter。
-例如，考虑四个线程，每个线程不仅有一个
-per-thread \co{counter}，还有一个per-thread最大值
-（称之为\co{countermax}）。
+对于limit counters，我们也可以使用这种方法的变体，
+部分地分区counter。
+比如在四个线程中，每个线程都拥有一份per-thread \co{counter}，
+但同时每个线程也持有一份per-thread的最大值\co{countermax}。
 
-但如果给定线程需要递增其\co{counter}，
-而\co{counter}已等于其\co{countermax}，该怎么办？
-这里的技巧是将该线程\co{counter}值的一半
-移到\co{globalcount}，然后递增\co{counter}。
-例如，如果给定线程的\co{counter}和\co{countermax}
-变量都等于10，我们执行以下操作：
+如果某个线程需要递增它的\co{counter}，
+可是此时的\co{counter}等于\co{countermax}，该怎么办？
+这里面有个技巧：此时可把此线程\co{counter}值的一半
+转移给\co{globalcount}，然后再递增\co{counter}。
+举个例子，假如某个线程的\co{counter}和\co{countermax}
+现在都等于10，那么我们会执行如下操作：
 
 \begin{enumerate}
 \item	获取全局lock。
-\item	向\co{globalcount}加5。
-\item	为了平衡这次加法，从此线程的\co{counter}中减去5。
+\item	给\co{globalcount}增加5。
+\item	当前线程的\co{counter}减少5，以抵消全局的增加。
 \item	释放全局lock。
-\item	递增此线程的\co{counter}，得到值6。
+\item	增加当前线程的\co{counter}，变成6。
 \end{enumerate}
 
-虽然此过程仍然需要全局lock，但该lock只需要每五次递增操作
-获取一次，大大降低了该lock的\IXalt{竞争}{lock contention}程度。
-我们可以通过增加\co{countermax}的值将此竞争降低到任意水平。
-然而，增加\co{countermax}值的相应代价是
-\co{globalcount}的准确性降低。
-要看到这一点，请注意在四CPU系统上，如果\co{countermax}
-等于10，\co{globalcount}的误差最多为40次。
-相比之下，如果\co{countermax}增加到100，\co{globalcount}
-的误差可能高达400次。
+虽然这个办法仍然需要全局lock，但该lock只需要每五次递增操作
+获取一次，这就大大降低了该lock的\IXalt{竞争}{lock contention}程度。
+而且只要我们增大\co{countermax}的值，竞争程度还可以进一步降低。
+不过，增大\co{countermax}值带来的代价是
+\co{globalcount}精确度的降低。
+为了说明这一点，假设我们有一台四CPU系统，此时\co{countermax}
+的值为10，\co{globalcount}和真实计数值的误差最高可达40。
+如果\co{countermax}的值增大到100，那么\co{globalcount}
+和真实计数值的误差最高可达400。
 
-这引出了一个问题：我们究竟多关心\co{globalcount}
-偏离counter聚合值的程度，其中聚合值是
-\co{globalcount}和每个线程的\co{counter}变量之和。
-这个问题的答案取决于聚合值距counter限制
-（称之为\co{globalcountmax}）还有多远。
-这两个值之间的差距越大，\co{countermax}
-就可以越大而不冒超过\co{globalcountmax}限制的风险。
-这意味着给定线程的\co{countermax}变量值可以
-基于这个差距来设置。
-当远离限制时，\co{countermax} per-thread变量设置为较大值
-以优化性能和可扩展性，
-而接近限制时，这些变量设置为较小值
-以最小化对\co{globalcountmax}限制检查的误差。
+这就提出了一个问题：我们到底有多在意\co{globalcount}
+和真实计数值的偏差，其中真实计数值由\co{globalcount}
+和所有per-thread \co{counter}变量相加得出。
+这个问题的答案取决于真实计数值和计数上限
+（这里我们将其命名为\co{globalcountmax}）的差值有多大。
+这两个值的差值越大，\co{countermax}就越不容易
+超过\co{globalcountmax}的上限。
+这就意味着任何一个线程的\co{countermax}变量
+可以根据当前的差值来设置。
+当离上限还比较远时，可以给per-thread \co{countermax}赋一个较大的值，
+这样对性能和可扩展性比较有好处；
+当靠近上限时，可以给这些\co{countermax}赋一个较小的值，
+以降低超过\co{globalcountmax}上限的风险。
 
-这种设计是\emph{parallel fastpath}的一个例子，
-这是一种重要的设计模式，其中常见情况不执行昂贵指令
-且线程之间没有交互，但偶尔也使用更保守设计的
-（且开销更高的）全局算法。
+这种设计就是一个\emph{parallel fastpath}的例子，
+这是一种重要的设计模式，适用于以下情况：
+在多数情况下没有线程间通信和交互的开销，
+而偶尔进行的跨线程通信又使用了精心设计的
+（但开销仍然很大的）全局算法。
 此设计模式在\cref{sec:SMPdesign:Parallel Fastpath}中有更详细的介绍。
 
 \subsection{简单限值计数器实现}
@@ -1199,10 +1187,10 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \label{fig:count:Simple Limit Counter Variable Relationships}
 \end{figure}
 
-\co{counterp[]}数组的每个元素引用对应线程的\co{counter}变量，
+\co{counterp[]}数组的每个元素指向对应线程的\co{counter}变量。
 最后，\co{gblcnt_mutex} spinlock保护所有全局变量，
-换句话说，除非线程已获取\co{gblcnt_mutex}，
-否则不允许访问或修改任何全局变量。
+也就是说，除非线程获取了\co{gblcnt_mutex}，
+否则不能访问或修改任何全局变量。
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@add_sub_read.fcv}
@@ -1275,9 +1263,9 @@ per-thread \co{counter}和\co{countermax}变量分别是
 在成功情况下于\clnref{release:s}释放。
 \Clnref{globalize}调用\co{globalize_count()}
 （见\cref{lst:count:Simple Limit Counter Utility Functions}），
-该函数清除线程本地变量，并根据需要调整全局变量，
-从而简化全局处理。
-（但不要只听\emph{我}说，请自己尝试编写！）
+该函数清零线程本地变量，并根据需要调整全局变量，
+这就简化了全局处理过程。
+（别太相信我的话，试着自己写代码！）
 \Clnref{checkglb:b,checkglb:e}检查是否能容纳\co{delta}的加法，
 小于号前面表达式的含义如
 \cref{fig:count:Simple Limit Counter Variable Relationships}中
@@ -1562,21 +1550,21 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \subsection{简单限值计数器讨论}
 \label{sec:count:Simple Limit Counter Discussion}
 
-当聚合值接近零时，这种类型的counter相当快，
-由于\co{add_count()}和\co{sub_count()}快速路径中的
-比较和分支会有一些开销。
-然而，使用per-thread \co{countermax}储备意味着
-即使counter的聚合值远未接近\co{globalcountmax}，
+当聚合值接近零时，这种counter运行得相当快，
+只在\co{add_count()}和\co{sub_count()}快速路径中的
+比较和分支上存在一些开销。
+但是，per-thread \co{countermax}的使用表明
+即使counter的聚合值离\co{globalcountmax}很远，
 \co{add_count()}也可能失败。
-类似地，即使counter的聚合值远未接近零，
+同样，即使counter的聚合值远大于零，
 \co{sub_count()}也可能失败。
 
-在许多情况下，这是不可接受的。
-即使\co{globalcountmax}打算作为近似限制，
-通常也有一个可容忍的近似程度限制。
-限制近似程度的一种方法是对per-thread \co{countermax}实例
-的值施加上限。
-这个任务在下一节中进行。
+在许多情况下，这都是不可接受的。
+即使\co{globalcountmax}只不过是一个近似的上限，
+一般也有一个近似度的容忍限度。
+一种限制近似度的方法是对per-thread \co{countermax}的值
+强加一个上限。
+这个任务在下一节中完成。
 
 \subsection{近似限值计数器实现}
 \label{sec:count:Approximate Limit Counter Implementation}
@@ -1614,14 +1602,13 @@ lst:count:Simple Limit Counter Utility Functions}）
 
 \subsection{近似限值计数器讨论}
 
-这些更改大大减少了前一版本中看到的限制不准确性，
-但带来了另一个问题：
-任何给定的\co{MAX_COUNTERMAX}值都将导致取决于工作负载的
-一部分访问偏离快速路径。
-随着线程数量的增加，非快速路径执行将成为
-性能和可扩展性问题。
-然而，我们将暂缓讨论此问题，转而关注
-具有精确限制的counter。
+上述改动极大地减小了前一版本中出现的上限不准确程度，
+但又带来了另一个问题：
+任何给定大小的\co{MAX_COUNTERMAX}将导致取决于工作负载的
+一部分访问无法进入快速路径。
+随着线程数的增加，非快速路径的执行将成为
+性能和可扩展性上的问题。
+不过，我们暂时放下这个问题，先去看看具有精确上限的counter。
 
 \section{精确限值计数器}
 \label{sec:count:Exact Limit Counters}
@@ -1629,23 +1616,21 @@ lst:count:Simple Limit Counter Utility Functions}）
 \epigraph{精确是有代价的。请明智地花费。}{佚名}
 
 要解决\QuickQuizRef{\QcountQexactcnt}中提出的
-精确结构分配限制问题，
-我们需要一个能精确判断其限制何时被超过的limit counter。
-实现这样一个limit counter的一种方法是
-让已保留计数的线程交出这些计数。
-一种做法是使用\IX{atomic}指令。
+精确结构分配上限问题，
+我们需要一个能精确判断何时计数超过上限的limit counter。
+一种实现的办法是允许线程放弃自己的保留计数，
+另一种做法是采用\IX{atomic}指令。
 当然，atomic指令会减慢快速路径，但另一方面，
-至少试试也不失为明智之举。
+连试都不试又有点过于愚蠢了。
 
 \subsection{原子限值计数器实现}
 \label{sec:count:Atomic Limit Counter Implementation}
 
-不幸的是，如果一个线程要安全地从另一个线程移除计数，
-两个线程都需要atomic地操作该线程的
-\co{counter}和\co{countermax}变量。
+不幸的是，如果想要某个线程减少另一个线程上的计数，
+需要atomic地操纵两个线程的\co{counter}和\co{countermax}变量。
 通常的做法是将这两个变量合并为单个变量，
-例如，给定一个32位变量，使用高16位表示\co{counter}，
-低16位表示\co{countermax}。
+比如，一个32位变量，高16位代表\co{counter}，
+低16位代表\co{countermax}。
 
 \QuickQuiz{
 	为什么需要将线程的\co{counter}和\co{countermax}变量
@@ -2028,14 +2013,14 @@ lst:count:Atomic Limit Counter Utility Functions 2}
 
 \subsection{原子限值计数器讨论}
 
-这是第一个真正允许counter一直运行到其任一限制的实现，
-但代价是在快速路径中添加了atomic操作，
-这在某些系统上会显著减慢快速路径。
-虽然某些工作负载可能容忍这种减速，
-但值得寻找具有更好写入端性能的算法。
-一种这样的算法使用signal handler从其他线程窃取计数。
-因为signal handler在被信号中断的线程的上下文中运行，
-atomic操作不是必需的，如下一节所示。
+这是第一个真正允许counter一直增长到上限的实现，
+但这也带来了快速路径上atomic操作的开销，
+让快速路径明显变慢了。
+虽然在某些场合这种变慢是允许的，
+但仍然值得我们去探索让写入端性能更好的算法。
+使用signal handler从其他线程窃取计数就是其中一种算法。
+因为signal handler可以运行在收到信号的线程的上下文中，
+所以就不需要atomic操作了，下一节将讨论这一算法。
 
 \QuickQuiz{
 	但signal handler可以在运行时被迁移到其他CPU上。
@@ -2051,10 +2036,10 @@ atomic操作不是必需的，如下一节所示。
 \subsection{信号窃取限值计数器设计}
 \label{sec:count:Signal-Theft Limit Counter Design}
 
-即使per-thread状态现在仅由相应线程操作，
-仍然需要与signal handler进行同步。
-此同步由\cref{fig:count:Signal-Theft State Machine}
-所示的状态机提供。
+虽然per-thread状态只由对应线程更改，
+但signal handler仍然有必要进行同步。
+\cref{fig:count:Signal-Theft State Machine}所示的状态机
+提供了这种同步。
 
 \begin{figure}
 \centering
@@ -2064,29 +2049,29 @@ atomic操作不是必需的，如下一节所示。
 \end{figure}
 
 状态机从IDLE状态开始，当\co{add_count()}或\co{sub_count()}
-发现本地线程的计数与全局计数的组合无法容纳请求时，
-相应的慢速路径将每个线程的\co{theft}状态设置为REQ
-（除非该线程没有计数，此时直接转换到READY）。
-只有持有\co{gblcnt_mutex} lock的慢速路径才允许
-从IDLE状态转换，如绿色所示。\footnote{
+发现线程的本地计数和全局计数之和已经不足以容纳请求的大小时，
+对应的慢速路径将每个线程的\co{theft}状态设置为REQ
+（除非该线程没有计数值，这样它就直接转为READY）。
+只有在慢速路径获得\co{gblcnt_mutex} lock后，才允许
+从IDLE状态转换为其他状态，如绿色所示。\footnote{
 	对于持有黑白版本本书的读者，
 	IDLE和READY是绿色，REQ是红色，ACK是蓝色。}
-然后慢速路径向每个线程发送信号，
-相应的signal handler检查对应线程的\co{theft}和
+然后慢速路径向每个线程发送一个信号，
+对应的signal handler检查本线程的\co{theft}和
 \co{counting}变量。
-如果\co{theft}状态不是REQ，则signal handler
-不允许改变状态，因此简单地返回。
-否则，如果\co{counting}变量已设置（表示当前线程的
-快速路径正在进行中），signal handler将\co{theft}状态
-设置为ACK，否则设为READY。
+如果\co{theft}状态不为REQ，那么signal handler就不能
+改变其状态，只能直接返回。
+而\co{theft}状态为REQ时，如果设置了\co{counting}变量
+（表明当前线程正处于快速路径），signal handler将\co{theft}状态
+设置为ACK，而不是READY。
 
 如果\co{theft}状态为ACK，
-只有快速路径才允许改变\co{theft}状态，如蓝色所示。
-当快速路径完成时，它将\co{theft}状态设置为READY。
+那么只有快速路径才有权改变\co{theft}状态，如蓝色所示。
+当快速路径完成时，会将\co{theft}状态设置为READY。
 
-一旦慢速路径看到线程的\co{theft}状态为READY，
-慢速路径就被允许窃取该线程的计数。
-然后慢速路径将该线程的\co{theft}状态设置为IDLE。
+一旦慢速路径发现某个线程的\co{theft}状态为READY，
+这时慢速路径有权窃取此线程的计数。
+然后慢速路径将线程的\co{theft}状态设置为IDLE。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -2351,18 +2336,17 @@ per-thread theft状态机的状态和值。
 
 \subsection{信号窃取限值计数器讨论}
 
-Signal-theft实现在我的六核x86笔记本电脑上
-比atomic实现快八倍以上。
-它总是更好的选择吗？
+在我的六核x86笔记本电脑上，使用signal-theft的实现比
+atomic操作的实现快八倍以上。
+它总是这么好吗？
 
-Signal-theft实现在Pentium-4系统上将是极其可取的，
-鉴于其缓慢的atomic指令，但基于老式80386的
-Sequent Symmetry系统使用atomic实现较短的路径长度
-会做得更好。
-然而，这种增加的更新端性能是以更高的读取端开销为代价的：
-那些POSIX信号不是免费的。
-如果极致性能至关重要，你需要在应用程序将要部署的
-系统上对两者进行测量。
+由于atomic指令的相对缓慢，signal-theft实现在Pentium-4处理器上
+比atomic操作好得多，但后来，老式80386对称多处理器系统
+在atomic操作实现的路径深度更短，atomic操作的性能也随之提升。
+可是，更新端的性能提升是以读取端的高昂开销为代价的：
+那些POSIX信号不是没有开销的。
+如果考虑最终的性能，你需要在实际部署应用程序的
+系统上测试这两种手段。
 
 \QuickQuiz{
 	POSIX信号不仅慢，向每个线程发送一个信号
@@ -2376,8 +2360,8 @@ Sequent Symmetry系统使用atomic实现较短的路径长度
 	每个线程与更新线程的特定子集交互。
 }\QuickQuizEnd
 
-这只是高质量API如此重要的原因之一：
-它们允许随着不断变化的硬件性能特征按需更改实现。
+这就是为什么高质量的API如此重要的一个理由：
+它们让实现代码可以随着持续变动的硬件性能特征一起改变。
 
 \QuickQuiz{
 	如果你想要一个exact limit counter仅对其下限精确，
@@ -2392,22 +2376,20 @@ Sequent Symmetry系统使用atomic实现较短的路径长度
 \label{sec:count:Applying Exact Limit Counters}
 
 虽然本节介绍的exact limit counter实现非常有用，
-但如果counter的值始终接近零（例如计算对I/O设备的
-未完成访问次数时可能出现的情况），
-它们就帮不了什么忙了。
-考虑到我们通常不关心有多少引用，
-这种接近零计数的高开销尤为痛苦。
+但如果counter的值总是在零附近变动，它们就帮不了什么忙了，
+正如统计对I/O设备的未完成访问次数时可能出现的情况。
+如果我们并不关心当前有多少计数，这种值总在零附近变动的
+计数开销很大。
 如\QuickQuizRef{\QcountQIOcnt}中提出的
 可移除I/O设备访问计数问题所述，
-访问次数是无关紧要的，除了在某人实际尝试
-移除设备的罕见情况下。
+除非有人想移除设备，否则访问次数完全不重要，
+而移除设备这种情况本身又很少见。
 
-这个问题的一个简单解决方案是给counter添加一个大的``偏置''
-（例如十亿），以确保值距零足够远，
-使counter能够高效运行。
-当有人想要移除设备时，从counter值中减去此偏置。
+一种简单的解决办法是给counter添加一个很大的``偏置值''
+（例如十亿），确保counter的值远离零，让counter可以高效工作。
+当有人想要移除设备时，再从counter值中减去偏置值。
 计数最后几次访问将相当低效，
-但重要的是之前的许多访问都以全速被计数了。
+但对之前的许多访问却可以全速计数了。
 
 \QuickQuiz{
 	使用偏置counter时，你最好还做了什么？
@@ -2418,13 +2400,13 @@ Sequent Symmetry系统使用atomic实现较短的路径长度
 	访问次数达到最大值时也能高效工作。
 }\QuickQuizEnd
 
-虽然偏置counter可以非常有用，但它只是
+虽然偏置counter有效且有用，但它只是
 \cpageref{chp:Counting}上提出的可移除I/O设备
 访问计数问题的部分解决方案。
-当试图移除设备时，我们不仅必须知道当前I/O访问的
-精确数量，还需要防止任何未来的访问开始。
-一种实现方法是在更新counter时读获取读写lock，
-在检查counter时写获取同一读写lock。
+当尝试移除设备时，我们不仅需要知道当前精确的I/O访问计数，
+还需要从现在开始阻止未来的访问请求。
+一种解决办法是在更新counter时读获取读写lock，
+在读取counter时写获取同一读写lock。
 执行I/O的代码可能如下：
 
 \begin{fcvlabel}[ln:count:inline:I/O]
@@ -2515,11 +2497,11 @@ remove_device();		\lnlbl[remove]
 \epigraph{具体中蕴含普遍性这一思想具有深远的重要性。}
 	 {Douglas R. Hofstadter}
 
-本章介绍了传统计数原语的可靠性、性能和可扩展性问题。
-C语言的\co{++}运算符不保证在多线程代码中可靠运行，
-而对单个变量的atomic操作既不具备良好的性能也无法很好地扩展。
-因此，本章介绍了多种在某些特殊情况下
-性能和扩展性极好的计数算法。
+本章展示了传统计数原语会遇到的问题：可靠性、性能和可扩展性。
+C语言的\co{++}运算符不能在多线程代码中保证可靠运行，
+对单个变量的atomic操作性能不好，可扩展性也差。
+因此，本章还展示了一系列在特殊情况下
+性能和可扩展性俱佳的计数算法。
 
 回顾这些计数算法的经验教训很有价值。
 为此，\cref{sec:count:Parallel Counting Validation}
@@ -2668,11 +2650,11 @@ Limit counters也通过充当counter的测试
 
 \cref{tab:count:Statistical/Limit Counter Performance on x86}的下半部分
 展示了并行limit counting算法的性能。
-精确执行限制会导致显著的更新端性能损失，
-尽管在这个x86系统上，可以通过用信号替代atomic操作
-来减少这种损失。
-所有这些实现在面对并发读取者时都遭受
-读取端lock竞争。
+对上限计数的精确性要求带来了不小的更新端性能损失，
+不过在这个x86系统上，用信号替代atomic操作
+可以减轻这种损失。
+所有这些实现在面对多个读取者并发读取时都存在
+读取端lock竞争问题。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -2708,27 +2690,26 @@ Limit counters也通过充当counter的测试
 }\QuickQuizEndE
 }
 
-简而言之，本章展示了在多种特殊情况下
-性能和扩展性极好的计数算法。
-但我们的并行计数必须局限于特殊情况吗？
-拥有一个在所有情况下都高效运行的通用算法不是更好吗？
+简而言之，本章使用的算法只在它们特定的领域运转良好。
+但我们的并行计数算法是不是只能局限于这些特殊场合呢？
+如果有一种通用算法能在所有场合都性能出色是不是更好？
 下一节将探讨这些问题。
 
 \subsection{并行计数的专门化}
 \label{sec:count:Parallel Counting Specializations}
 
-这些算法仅在各自的特殊情况下才能良好工作，
-这一事实可能被视为并行编程整体的一个主要问题。
-毕竟，C语言的\co{++}运算符在单线程代码中工作得很好，
-而且不仅在特殊情况下，在一般情况下也是如此，对吧？
+上述算法只在各自的领域性能出色，
+这可以说是并行计算的一个主要问题。
+毕竟，C语言的\co{++}运算符在所有单线程程序中性能都不错，
+不仅仅是个别领域，而是所有情况，对吧？
 
-这种推理确实包含一粒真理，但本质上是误导的。
-问题不在于并行性本身，而在于可扩展性。
-要理解这一点，首先考虑C语言的\co{++}运算符。
-事实上它\emph{并不}在一般情况下工作，
-只在有限范围的数字内工作。
-如果你需要处理1,000位十进制数，
-C语言的\co{++}运算符对你不起作用。
+上述推论有一点道理，但本质上是误导的。
+我们提到的问题不仅是并行性，更是可扩展性。
+要弄明白这个，先来看看C语言的\co{++}运算符。
+事实上\co{++}运算符并不是``总能''工作的，
+只对一定范围的数字而言有效。
+假如你要处理1,000位的十进制数，
+C语言的\co{++}运算符对你来说就没用了。
 
 \QuickQuiz{
 	\co{++}运算符对1,000位数完全可以工作！
@@ -2739,46 +2720,37 @@ C语言的\co{++}运算符对你不起作用。
 	但截至2021年，C语言不允许运算符重载。
 }\QuickQuizEnd
 
-这个问题不限于算术运算。
-假设你需要存储和查询数据。
-你应该使用ASCII文件？
-XML？
-关系数据库？
-链表？
-密集数组？
-B树？
-基数树？
-还是允许存储和查询数据的众多其他数据结构和环境之一？
-这取决于你需要做什么、需要多快完成、以及数据集有多大
+我们提到的问题也不专属于算术。
+假设你需要存储和查询数据，
+是不是还会用ASCII文件、XML、关系型数据库、链表、
+密集数组、B树、基数树或者其他什么数据结构和环境来存取数据？
+这取决于你需要做什么、需要它做得有多快、以及数据集有多大
 ——即使在串行系统上也是如此。
 
-类似地，如果你需要计数，你的解决方案将取决于
-你需要处理多大的数字、多少个CPU需要并发操作
-同一个数字、该数字如何使用，以及你需要什么级别的
-性能和可扩展性。
+同样，如果你需要计数，你的方案取决于统计的数有多大、
+有多少个CPU并发操纵计数、如何使用计数，
+以及所需要的性能和可扩展性的程度。
 
-这个问题也不限于软件。
-一座用于让人步行穿过小溪的桥的设计
-可能简单到只是一块木板。
-但你可能不会用一块木板来跨越数公里宽的
-哥伦比亚河河口，这种设计也不适合
-承载混凝土运输车的桥梁。
-简而言之，正如桥梁设计必须随跨度和载荷的增加而改变，
-软件设计也必须随CPU数量的增加而改变。
-话虽如此，自动化这个过程会很好，
-使软件适应硬件配置和工作负载的变化。
-事实上，已经有一些关于这种自动化的研究
+这个问题也不仅限于软件。
+只需要简单地铺一块木板，就是一座让人跨过小溪的桥。
+但你不能用一块木板横跨哥伦比亚河数公里宽的出海口，
+也不能用于承载混凝土运输车的桥梁。
+简而言之，桥的设计必须随着跨度和负载而改变，
+并且，软件也要能适应硬件或者工作负载的变化，
+能够自动进行最好。
+事实上已经有一些关于这方面自动化的研究
 ~\cite{Appavoo03a,Soules03a}，
-Linux内核确实进行了一些启动时的重新配置，
-包括有限的二进制重写。
-随着主流系统上CPU数量的持续增加，
-这种适应将变得越来越重要。
+Linux内核也做了一些启动时的动态设定，
+其中包括有限的二进制重写。
+随着主流系统上CPU个数的逐步增加，
+软件的动态适应变得越来越重要。
 
-简而言之，如\cref{chp:Hardware and its Habits}所讨论的，
-物理定律对并行软件的约束与对桥梁等
-机械制品的约束同样确定。
-这些约束迫使专门化，尽管在软件的情况下，
-有可能自动选择适合当前硬件和工作负载的专门化方案。
+正如\cref{chp:Hardware and its Habits}所讨论的，
+物理定律对并行软件的限制并不逊于对桥梁等
+机械制品的限制。
+这些限制迫使软件针对特定问题特定处理，
+不过软件还是可以动态地选择特定算法，
+以适应不同情况下的硬件和工作负载。
 
 当然，即使是通用计数也是相当专门化的。
 我们需要用计算机做大量其他事情。
@@ -2788,17 +2760,15 @@ Linux内核确实进行了一些启动时的重新配置，
 \subsection{并行计数的经验教训}
 \label{sec:count:Parallel Counting Lessons}
 
-本章的开头段落承诺我们对计数的研究将为并行编程
-提供绝佳的入门。
-本节明确建立了本章经验教训与后续章节内容之间的联系。
+本章开头承诺读者，对计数的研究是并行编程的绝佳切入点。
+本节把本章学到的经验教训对应到后续章节的内容。
 
-本章的示例表明，一个重要的可扩展性和性能工具是\emph{分区}。
-Counter可以是完全分区的，
-如\cref{sec:count:Statistical Counters}中讨论的
-statistical counters，
-也可以是部分分区的，
+本章的例子表明，\emph{分区}是提升可扩展性和性能的重要工具。
+计数有时可以完全被分区，
+如\cref{sec:count:Statistical Counters}中的statistical counters，
+或者部分被分区，
 如\cref{sec:count:Approximate Limit Counters,%
-sec:count:Exact Limit Counters}中讨论的limit counters。
+sec:count:Exact Limit Counters}中的limit counters。
 分区将在\cref{chp:Partitioning and Synchronization Design}中
 更深入地讨论，
 特别是部分并行化将在\cref{sec:SMPdesign:Parallel Fastpath}中讨论，
@@ -2830,13 +2800,13 @@ sec:count:Exact Limit Counters}中讨论的limit counters。
 	一如既往，用合适的工具做合适的事！
 }\QuickQuizEnd
 
-部分分区的计数算法使用lock来保护全局数据，
-lock是\cref{chp:Locking}的主题。
-相比之下，已分区的数据往往完全由相应线程控制，
-因此根本不需要任何同步。
+部分分区的计数算法用lock来保护全局数据，
+而lock正是\cref{chp:Locking}的主题。
+与之相反，分区后的数据一般都完全处于各个线程的控制，
+所以无须使用同步。
 这种\emph{data ownership}将在
 \cref{sec:SMPdesign:Data Ownership}中介绍，
-并在\cref{chp:Data Ownership}中更详细地讨论。
+并在\cref{chp:Data Ownership}中得到更详细的讨论。
 
 由于整数加法和减法与典型的同步操作相比极其廉价，
 要实现合理的可扩展性，需要谨慎使用同步操作。
@@ -2846,48 +2816,49 @@ lock是\cref{chp:Locking}的主题。
 列出的每种计数算法都使用了某种形式的批量优化。
 
 最后，\cref{sec:count:Eventually Consistent Implementation}中
-讨论的最终一致性statistical counter表明，
-延迟活动（在此情况下是更新全局counter）
-可以提供显著的性能和可扩展性优势。
+提到的最终一致性statistical counter展示出，
+延迟处理（在这里是指更新全局counter）
+可以显著提升性能和可扩展性。
 这种方法允许常见情况下的代码使用
 比其他方式便宜得多的同步操作。
-\Cref{chp:Deferred Processing}将研究延迟可以改善性能、
-可扩展性甚至实时响应的多种其他方式。
+\Cref{chp:Deferred Processing}将研究很多可以提升性能、
+可扩展性甚至实时响应速度的延迟处理方法。
 
 总结要点：
 
 \begin{enumerate}
-\item	分区促进性能和可扩展性。
-\item	部分分区——即仅应用于常见代码路径的分区——
-	效果几乎一样好。
-\item	部分分区可以应用于代码（如
+\item	分区能够提升性能和可扩展性。
+\item	部分分区——也就是只分区主要情况的代码路径——
+	性能也很出色。
+\item	部分分区可以应用在代码上（如
 	\cref{sec:count:Statistical Counters}的statistical
-	counters的分区更新和非分区读取），也可以跨时间应用
+	counters只分区了写操作，没有分区读操作），
+	但是也可以应用在时间上
 	（如\cref{sec:count:Approximate Limit Counters}和
 	\cref{sec:count:Exact Limit Counters}的limit counters
-	在远离限制时运行快而接近限制时运行慢）。
+	在离上限较远时运行很快，离上限较近时运行变慢）。
 \item	跨时间分区通常在本地批量更新，
 	以减少昂贵的全局操作次数，
 	从而减少同步开销，进而改善性能和可扩展性。
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
 	中展示的所有算法都大量使用了批量处理。
-\item	只读代码路径应保持只读：
-	对共享内存的无谓同步写入会扼杀性能和可扩展性，
+\item	读取端的代码路径应保持只读：
+	对共享内存的无谓同步写入会严重降低性能和可扩展性，
 	如\cref{tab:count:Statistical/Limit Counter Performance on x86}的
 	\path{count_end.c}行所示。
-\item	明智地使用延迟可以促进性能和可扩展性，
+\item	经过审慎思考后的延迟处理能够提升性能和可扩展性，
 	如\cref{sec:count:Eventually Consistent Implementation}所示。
-\item	并行性能和可扩展性通常是一种平衡行为：
-	超过某个点后，优化某些代码路径会降低其他路径的性能。
+\item	并行性能和可扩展性通常是跷跷板的两端：
+	到达某种程度后，对代码的优化反而会降低另一方的表现。
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
 	的\path{count_stat.c}和\path{count_end_rcu.c}行
 	说明了这一点。
-\item	不同级别的性能和可扩展性将影响算法和
-	数据结构设计，许多其他因素也是如此。
+\item	对性能和可扩展性的不同需求，以及其他很多因素，
+	会影响算法和数据结构的设计。
 	\Cref{fig:count:Atomic Increment Scalability on x86}
-	说明了这一点：
-	对于双CPU系统，atomic递增可能完全可以接受，
-	但对于八CPU系统却可能完全不够用。
+	展现了这一点：
+	atomic递增对于双CPU系统来说完全可以接受，
+	但对于八CPU系统来说就完全不合适了。
 	% @@@ Rework the above sentence.
 \end{enumerate}
 
@@ -2918,9 +2889,9 @@ lock是\cref{chp:Locking}的主题。
 例如，GPGPU硬件线程和内存连接的结构
 可能极大地回报非常仔细的分区和批量处理设计决策。
 
-简而言之，正如本章开头所指出的，
-计数的简洁性使我们能够在不受复杂同步原语或
-精巧数据结构干扰的情况下探索许多基本的并发问题。
-这些同步原语和数据结构将在后续章节中介绍。
+简而言之，正如本章一开始介绍的，计数问题所蕴含的概念虽然简单，
+却让我们得以探索许多并发方面的基础问题，
+而不用分神于复杂的数据结构或精巧的同步手段。
+后续的章节会对这些基础问题进行更深入的研究。
 
 \QuickQuizAnswersChp{qqzcount}
