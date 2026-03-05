@@ -8,10 +8,11 @@
 	  优秀的程序员操心数据结构及其相互关系。}
 	 {Linus Torvalds}
 
-对算法的严肃讨论都会涉及其数据结构的时间复杂度~\cite{ThomasHCorman2001Algorithms}。
-然而，对于并行程序，时间复杂度还包括并发效应，因为这些效应可能非常巨大，如
-\cref{chp:Hardware and its Habits}所示。
-换句话说，优秀程序员关注的数据结构关系中也包括与并发相关的方面。
+访问数据的效率是如此重要，以至于对算法的讨论也包括相关数据结构的
+时间复杂度~\cite{ThomasHCorman2001Algorithms}。
+然而，对于并行程序，时间复杂度的度量还必须包括并发效应。
+如\cref{chp:Hardware and its Habits}所示，这些效应可能是压倒性的因素，
+这意味着对并发数据结构的设计，必须要像关注串行数据结构的时间复杂度那样关注并发复杂度。
 
 本章将揭示若干复杂情况：
 
@@ -56,19 +57,19 @@
 
 我们将使用 Schr\"odinger 的动物园应用来评估
 性能~\cite{McKenney:2013:SDS:2483852.2483867}。
-Schr\"odinger 拥有一个包含大量动物的动物园，
-他希望使用内存数据库来追踪这些动物，数据库中的每个数据项代表动物园中的一只动物。
-每只动物都有一个唯一的名字作为 key，并为每只动物跟踪各种数据。
+Schr\"odinger 拥有一家动物园，里面有大量的动物，他想使用内存数据库
+来记录它们。动物园中的每只动物在数据库中都有一个条目。
+每只动物都有一个唯一的名字作为 key，同时还有与每只动物有关的各种数据。
 
-出生、捕获和购买导致插入操作，而死亡、释放和出售导致删除操作。
-因为 Schr\"odinger 的动物园包含大量短命的动物（包括老鼠和昆虫），
-数据库必须处理高更新速率。
-对 Schr\"odinger 动物感兴趣的人可以查询它们，
-而 Schr\"odinger 注意到对他的猫的查询率高得可疑，
-以至于他怀疑是他的老鼠在监视它们的天敌。
-无论查询来自何处，Schr\"odinger 的应用都必须能处理对单个数据元素的高查询率。
+出生、捕获和购买将导致数据插入，而死亡、释放和出售导致数据删除。
+因为 Schr\"odinger 的动物园包含大量短命的动物，包括老鼠和昆虫，
+所以数据库必须能够支持高频更新请求。
+对 Schr\"odinger 的动物感兴趣的人可以查询它们，但是，
+Schr\"odinger 已经注意到他的猫拥有非常高的查询率，
+多到以至于他怀疑他的老鼠们可能正在使用数据库来检查它们的天敌。
+这意味着 Schr\"odinger 的应用必须支持对单个数据条目的高频查询请求。
 
-我们将看到，这个简单的应用可能对传统的并发数据结构构成挑战。
+请记住这个应用，因为接下来将涉及各种数据结构。
 
 \section{可分区数据结构}
 \label{sec:datastruct:Partitionable Data Structures}
@@ -76,10 +77,10 @@ Schr\"odinger 拥有一个包含大量动物的动物园，
 \epigraph{在当今找到一种过简单生活的方式，是最复杂的任务。}
 	 {Henry A. Courtney，改编}
 
-当今使用的数据结构种类繁多，多到有多本教科书专门介绍它们。
-本节聚焦于一种数据结构，即 hash table。
-这种聚焦的方法使我们能够更深入地研究并发如何与数据结构交互，
-同时也关注了一种在实践中被大量使用的数据结构。
+如今的计算机世界使用了各种各样的数据结构，市面上讲数据结构的教科书多如牛毛。
+本节专注于一种数据结构，即 hash table。
+这种方法允许我们更深入地研究如何与并发数据结构交互，
+同时也让我们更加熟悉这个在实践中被大量使用的数据结构。
 \Cref{sec:datastruct:Hash-Table Design}
 概述设计，
 \cref{sec:datastruct:Hash-Table Implementation}
@@ -92,15 +93,15 @@ Schr\"odinger 拥有一个包含大量动物的动物园，
 \label{sec:datastruct:Hash-Table Design}
 
 \Cref{chp:Partitioning and Synchronization Design}
-强调了需要应用分区来获得可观的性能和可扩展性，因此可分区性
+强调了通过分区来获得可观性能和可扩展性的必要，因此可分区性
 必须是选择数据结构时的首要标准。
-这一标准被并行计算的主力——hash table——很好地满足了。
-Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
+并行性的主力军——hash table——很好地满足了这个标准。
+Hash table 在概念上非常简单，由一个\emph{hash bucket}数组组成。
 \emph{Hash 函数}将给定元素的\emph{key}映射到该元素将被存储的 hash bucket。
 因此每个 hash bucket 都引导着一个元素的 linked list，
 称为\emph{hash chain}。
 配置得当时，这些 hash chain 会非常短，
-使得 hash table 能够极其高效地访问其元素。
+使得 hash table 能够非常高效地访问任意给定 key 的元素。
 
 \QuickQuiz{
 	但是链式 hash table 只是众多类型中的一种。
@@ -113,10 +114,9 @@ Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
 	因此我们聚焦于链式 hash table。
 }\QuickQuizEnd
 
-此外，每个 bucket 都有自己的 lock，因此 hash table 中不同 bucket 的元素可以
-完全独立地进行添加、删除和查找。
-一个拥有大量 bucket（因此也有大量 lock）的大型 hash table，
-每个 bucket 包含少量元素，因此应该能提供优秀的可扩展性。
+另外，每个 bucket 都有自己的 lock，因此 hash table 中不同 bucket 的元素可以
+完全独立地进行插入、删除和查找。
+因此，包含大量元素的 hash table 提供了极好的可扩展性。
 
 这种方法解决了\cref{sec:intro:Existing Sequential Designs}中指出的元素计数问题，
 方法是不让 \co{hashtab_add()} 或 \co{hashtab_del()} 返回 hash table 中的元素数量。
@@ -176,8 +176,7 @@ Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
 \Clnref{b,e}
 展示了宏 \co{HASH2BKT()}，它将 hash 值映射到对应的 \co{ht_bucket} 结构。
 该宏使用简单的取模运算：
-如果需要更激进的 hash 处理，
-调用者需要在从 key 映射到 hash 值时自行实现。
+如果需要更好的 hash 函数，调用者需要自行实现从 key 到 hash 值的映射。
 其余两个函数获取和释放与指定 hash 值对应的 \co{->htb_lock}。
 \end{fcvref}
 
@@ -239,8 +238,8 @@ Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
 \co{hashtab_add()} 函数只是在 \clnref{set} 上设置元素的 hash 值，
 然后在 \clnref{add:b,add:e} 上将其添加到对应的 bucket。
 \end{fcvref}
-\co{hashtab_del()} 函数只是将指定元素从其所在的 hash chain 中删除，
-这得益于 hash chain 链表的双向链接特性。
+\co{hashtab_del()} 函数简单地从 hash chain 中移除指定的元素，
+因为是双向链表所以这很容易。
 在调用这两个函数之前，调用者需要确保没有其他线程正在访问
 或修改同一个 bucket，例如，事先调用 \co{hashtab_lock()}。
 
@@ -291,14 +290,14 @@ Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
 \label{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; 448 CPUs}
 \end{figure}
 
-随着 CPU 数量增加，情况只会更糟，如
+随着 CPU 数量增加，情况只会变得更糟，如
 \cref{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; 448 CPUs}所示。
-我们甚至不需要展示理想性能：
-29 个 CPU 及以上的性能令人惨不忍睹。
-这清楚地说明了从少量 CPU 外推性能的危险性。
+我们甚至不需要额外的线来表示理想性能：
+29 个 CPU 及以上的性能非常糟糕。
+这清楚地警示了从中等数量的 CPU 外推性能的危险。
 
-当然，性能崩溃的一个可能原因是需要更多的 hash bucket。
-我们可以通过增加 hash bucket 数量来验证这一点。
+当然，性能大幅下降的一个可能原因是 hash bucket 的数目不足。
+这一点很容易通过增加 hash bucket 的数量来验证。
 
 \QuickQuiz{
 	与其简单地增加 hash bucket 数量，
@@ -320,25 +319,24 @@ Hash table 在概念上很简单，由一个\emph{hash bucket}数组组成。
 \label{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; Varying Buckets}
 \end{figure}
 
-然而，如
+然而如
 \cref{fig:datastruct:Read-Only Hash-Table Performance For Schroedinger's Zoo; Varying Buckets}
-所示，改变 bucket 数量几乎没有效果：
-可扩展性仍然很差。
-特别是，我们仍然看到在 29 个 CPU 及以上的急剧下降，
+所示，虽然增加 bucket 数量后性能确实有所提高，可扩展性仍然很差。
+特别是，我们仍然看到 29 个 CPU 及以上时性能的急剧下降，
 这清楚地证明了
 \cpageref{sec:datastruct:NUMA-induced failure to scale}上复杂情况列表中
 \cref{sec:datastruct:NUMA-induced failure to scale}提出的问题。
-显然，还有其他原因。
+显然还有别的东西在捣鬼。
 
-问题在于这是一个多 socket 系统，CPU~0--27
-和~224--251 映射到第一个 socket，如
+其实这是多 socket 系统惹的祸，CPU~0--27
+和~224--251 会映射到第一个 socket，如
 \cref{fig:datastruct:NUMA Topology of System Under Test}所示。
-因此，仅限于前 28 个 CPU 的测试运行表现相当好，
-但涉及 socket~0 的 CPU~0--27 以及
-socket~1 的 CPU~28 时，就会产生跨 socket 传输数据的开销。
+因此测试程序只用前 28 个 CPU 时性能相当好，
+但测试涉及 socket~0 的 CPU~0--27 以及
+socket~1 的 CPU~28 时，会产生跨 socket 边界传输数据的开销。
 正如\cref{sec:cpu:Hardware System Architecture}中所讨论的，
-这会严重降低性能。
-简而言之，大型多 socket 系统除了需要完全分区之外，还需要良好的引用局部性。
+这可能会严重降低性能。
+总之，对于大型多 socket 系统来说，除了数据结构完全分区之外，还需要良好的引用局部性。
 本章剩余部分将讨论在 hash table 本身内部提供良好引用局部性的方法，
 但同时请注意，提供良好引用局部性的另一种方式是在 hash table 中放置大型数据元素。
 例如，Schr\"odinger 可以通过在 hash table 的每个元素中放置动物的照片甚至视频来获得出色的 cache 局部性。
