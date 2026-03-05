@@ -152,27 +152,29 @@ CPU将指针加载与后续解引用该指针的内存操作重排序。
 \subsubsection{等待已有的RCU读者}
 \label{sec:defer:Wait For Pre-Existing RCU Readers}
 
-RCU最基本的组件是等待事情完成。
-当然，还有很多其他方式来等待事情完成，包括reference counting、
-读写锁、事件等。
-RCU的巨大优势在于它可以等待（比如说）20,000个不同的事情完成，
-而不必显式跟踪每一个，也不必担心显式跟踪方案固有的性能下降、
-可扩展性限制、复杂的死锁场景和内存泄漏风险。
+从最基本的角度来说，RCU就是一种等待事物结束的方式。
+当然，有很多其他的方式可以用来等待事物结束，比如reference counting、
+读写锁、事件等等。
+RCU的最伟大之处在于它可以等待（比如说）20,000种不同的事物，
+而无需显式地去跟踪它们中的每一个，也无需去担心对性能的影响、
+对可扩展性的限制、复杂的死锁场景，还有内存泄漏带来的危害等等
+使用显式跟踪手段会出现的问题。
 
-在RCU的情况下，等待的每一件事称为
+在RCU的例子中，被等待的事物称为
 \emph{\IXBhmr{RCU read-side}{critical section}}。
 如\cref{tab:defer:Core RCU API}中所述，
-RCU read-side critical section以\co{rcu_read_lock()}原语开始，
-以相应的\co{rcu_read_unlock()}原语结束。
-RCU read-side critical section可以嵌套，并且可以包含几乎任何代码，
-只要该代码不包含quiescent state。
+RCU read-side critical section从\co{rcu_read_lock()}原语开始，
+到对应的\co{rcu_read_unlock()}原语结束。
+RCU read-side critical section可以嵌套，也可以包含几乎任何代码，
+只要这其中的代码不包含quiescent state。
 例如，在Linux内核中，在RCU read-side critical section中睡眠是
 不允许的，因为上下文切换是一个quiescent state。\footnote{
 	然而，一种称为SRCU~\cite{PaulEMcKenney2006c}的特殊RCU形式
 	确实允许在SRCU read-side critical section中进行一般性睡眠。}
-如果你遵守这些约定，你可以使用RCU来等待\emph{任何}已有的
-RCU read-side critical section完成，而
-\co{synchronize_rcu()}使用间接方式来执行实际的
+如果你遵守这些约定，就可以使用RCU去等待\emph{任何}已有的
+RCU read-side critical section完成。
+RCU通过间接地确定这些事物何时完成来实现这一壮举，\co{synchronize_rcu()}
+正是用这种间接方式来执行实际的
 等待~\cite{MathieuDesnoyers2012URCU,McKenney:2013:SDS:2483852.2483867}。
 
 \begin{figure}
