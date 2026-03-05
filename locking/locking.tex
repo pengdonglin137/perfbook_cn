@@ -10,8 +10,8 @@
 	  以及他所引用的那个人致歉}
 
 在最近的并发研究中，加锁经常扮演反派角色。
-\IX{加锁}被指控引发deadlock、护送效应、\IX{starvation}、
-\IX{unfairness}、\IXpl{data race}，以及各种其他并发罪行。
+\IX{加锁}被指控引发死锁、护送效应（convoy）、\IX{starvation}饥饿、
+\IX{unfairness}不公平、\IXpl{data race}数据竞争，以及各种其他并发罪行。
 有趣的是，在生产级共享内存并行软件中，
 加锁同样扮演着主力军的角色。
 本章将探讨这种反派与英雄之间的对立，
@@ -97,11 +97,11 @@ fig:locking:Locking: Workhorse or Hero?}
 %
 \epigraph{我工作是为了活下去。}{Bette Davis}
 
-鉴于加锁被指控导致deadlock和starvation，
+鉴于加锁被指控导致死锁和饥饿，
 共享内存并行开发者的一个重要关切就是
 简单地保持存活。
-因此，以下各节将介绍deadlock、\IX{livelock}、starvation、
-unfairness和低效率。
+因此，以下各节将介绍死锁、\IX{livelock}活锁、饥饿、
+不公平和低效率。
 
 \subsection{死锁（deadlock）}
 \label{sec:locking:Deadlock}
