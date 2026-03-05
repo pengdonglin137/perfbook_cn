@@ -7,10 +7,10 @@
 \Epigraph{过早抽象是万恶之源。}
 	 {众人之见}
 
-大多数人凭直觉就能理解，在系统之间传递消息比在单个系统内部执行简单计算要昂贵得多。
-但同样需要认识到的是，在单个共享内存系统内部的线程（thread）之间进行通信也可能相当昂贵。
-因此，本章将探讨共享内存系统内部同步和通信的开销。
-这寥寥数页只能触及共享内存并行硬件设计的皮毛；希望深入了解的读者不妨从
+大多数人都有这样的直觉：在系统之间传递消息要比在单个系统内部执行简单计算更加耗时。
+不过，在共享内存系统的线程（thread）之间进行通信是不是也同样耗时呢？
+这可就不一定了。本章主要关注共享内存系统中同步和通信的开销，
+不过寥寥数页只能触及共享内存并行硬件设计的皮毛；希望深入了解的读者不妨从
 \pplsur{John L.}{Hennessy}和\pplsur{David A.}{Patterson}的经典教材的
 最新版本~\cite{Hennessy2017}开始阅读。
 
@@ -39,20 +39,20 @@
 \input{cpu/hwfreelunch}
 \input{cpu/swdesign}
 
-总结一下：
+总结如下：
 
 \begin{enumerate}
-\item	好消息是，多核系统价格低廉且随处可得。
-\item	更多好消息：
-	许多同步操作的开销比2000年代初期的并行系统要低得多。
+\item	好消息是，多核系统变得廉价且随处可得。
+\item	另一个好消息是，
+	现在许多同步操作的开销远远小于它们在2000年代初期系统上的开销。
 \item	坏消息是，cache miss的开销仍然很高，尤其是在大型系统上。
 \end{enumerate}
 
-本书的其余部分将介绍应对这一坏消息的方法。
+本书剩下的部分将主要讨论如何应对这一坏消息。
 
-具体而言，
-\cref{chp:Tools of the Trade}将介绍一些用于并行编程的底层工具，
-\cref{chp:Counting}将探讨并行计数的问题和解决方案，
-\cref{chp:Partitioning and Synchronization Design}将讨论促进性能和可扩展性的设计原则。
+具体来说，
+\cref{chp:Tools of the Trade}将涵盖一些用于并行编程的底层工具，
+\cref{chp:Counting}将研究并解决并行计数问题，
+\cref{chp:Partitioning and Synchronization Design}将讨论可以提升性能和可扩展性的设计准则。
 
 \QuickQuizAnswersChp{qqzcpu}

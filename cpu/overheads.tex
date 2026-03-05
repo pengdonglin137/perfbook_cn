@@ -8,8 +8,8 @@
 \epigraph{不要在不了解材料的情况下设计桥梁，也不要在不了解底层硬件的情况下设计底层软件。}
 	 {佚名}
 
-本节将展示上一节列出的性能障碍的实际\IXpl{overhead}。
-不过，首先需要对硬件系统架构有一个粗略的了解，这是下一节的主题。
+本节将概述前面列出的性能障碍的实际\IXpl{overhead}。
+不过在此之前，需要读者对硬件体系结构有一个粗略的认识，下一节将对此进行阐述。
 
 \subsection{硬件系统架构}
 \label{sec:cpu:Hardware System Architecture}
@@ -22,20 +22,19 @@
 \end{figure}
 
 \Cref{fig:cpu:System Hardware Architecture}
-展示了一个八核计算机系统的概略示意图。
-每个芯片包含一对CPU核心，每个核心都有自己的cache，
-以及一个允许这对CPU相互通信的互连。
-系统互连则允许四个芯片之间以及与主存之间进行通信。
+是一个粗略的八核计算机系统概要图。
+每个芯片上有两个CPU核心，每个核心都有自己的cache，
+芯片内还有一个互连模块，使芯片内的两个核心可以互相通信。
+系统互连模块则让四个芯片之间以及与主存之间可以进行通信。
 
-数据以``\IXpl{cache line}''为单位在该系统中流动，
-cache line是大小固定、地址对齐的2的幂次方内存块，
+数据以``\IXpl{cache line}''为单位在该系统中传输，
+cache line对应于内存中一个2的幂次方大小的字节块，
 通常在32到256字节之间。
-当CPU从内存加载一个变量到其寄存器时，
-它必须首先将包含该变量的cache line加载到其cache中，
-cache可以被视为一个硬件哈希表（hash table）。
-类似地，当CPU将一个值从其寄存器存储到内存时，
-它也必须将包含该变量的cache line加载到其cache中，
-但还必须确保没有其他CPU拥有该cache line的副本。
+当CPU从内存中读取一个变量到其寄存器时，
+必须首先将包含该变量的cache line读取到CPU的cache中。
+类似地，当CPU将寄存器中的一个值存储到内存时，
+不仅必须将包含该值的cache line读到CPU的cache中，
+还必须确保没有其他CPU拥有该cache line的副本。
 
 \begin{figure}
 \centering
@@ -191,15 +190,15 @@ cache可以被视为一个硬件哈希表（hash table）。
 \label{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}
 \end{table}
 
-对并行程序重要的一些常见操作的开销显示在
-\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}中。
+一些在并行程序中很重要的常见操作开销如
+\cref{tab:cpu:CPU 0 View of Synchronization Mechanisms on 8-Socket System With Intel Xeon Platinum 8176 CPUs at 2.10GHz}所示。
 该系统的时钟周期约为0.5\,ns。
-虽然现代微处理器在一个时钟周期内退役多条指令并不罕见，
-但这些操作的开销仍然在第三列（标记为``Ratio''）中以时钟周期为单位进行了归一化。
-关于这张表首先要注意的是，许多比率的值非常大。
+虽然现代微处理器在每时钟周期执行多条指令并非罕见，
+但在表格的第三列中，操作的开销被归一化到了整个时钟周期，称作``Ratio''。
+关于这张表，首先需要注意的是各个比率的值都很大。
 
 同CPU的\acrmf{cas}操作消耗约7纳秒，
-这个持续时间是时钟周期的十倍以上。
+超过14个时钟周期。
 CAS是一种原子操作，硬件将指定内存位置的内容与指定的``旧''值进行比较，
 如果相等，则存储指定的``新''值，此时CAS操作成功。
 如果不相等，则内存位置保持其（意外的）值，CAS操作失败。
@@ -207,11 +206,11 @@ CAS是一种原子操作，硬件将指定内存位置的内容与指定的``旧
 内存位置不会被更改。
 在x86上，CAS功能由\co{lock;cmpxchg}指令提供。
 
-``同CPU''前缀意味着当前对给定变量执行CAS操作的CPU也是最后一个访问
-该变量的CPU，因此相应的cache line已经在该CPU的cache中。
-类似地，同CPU的lock操作（由一次锁获取和一次锁释放组成的``往返''对）
+这里``同CPU''意味着当前对某个变量执行CAS操作的CPU正好是最后一个
+操作该变量的CPU，因此对应的cache line已经在该CPU的cache中了。
+类似地，同CPU的lock操作（一个包括获取锁和随后释放锁的``往返''对）
 消耗超过15纳秒，即超过30个时钟周期。
-lock操作比CAS更昂贵，因为它需要对lock数据结构执行两次原子操作，
+lock操作比CAS更昂贵，是因为锁操作的数据结构中需要两次原子操作，
 一次用于获取，另一次用于释放。
 
 核内操作涉及共享同一核心的硬件线程之间的交互，
@@ -257,15 +256,14 @@ CAS操作将存储新值，从而递增该共享变量。
 
 跨核（不同核心但在同一socket上）的blind CAS消耗近50纳秒，
 即近100个时钟周期。
-用于此cache miss测量的代码在一对CPU之间来回传递cache line，
-因此此cache miss是从另一个CPU的cache中满足的，而不是从内存。
+测量cache miss所使用的代码将cache line在一对CPU中来回传递，
+这样可以确保cache miss不是来自内存，而是来自其他CPU的cache。
 非blind CAS操作（如前所述，需要查看变量的旧值并存储新值）
 消耗超过100纳秒，即超过200个时钟周期。
-想一想这意味着什么。
-在执行\emph{一次}CAS操作所需的时间里，CPU本可以执行
-超过\emph{两百}条普通指令。
-这应该能说明不仅是细粒度锁的局限性，
-而且是任何依赖细粒度全局一致性的同步机制的局限性。
+想想这意味着什么：在执行\emph{一次}CAS操作的时间里，
+CPU本可以执行超过\emph{两百}条普通指令。
+这不仅体现了细粒度锁的局限性，
+也体现了所有依赖细粒度全局一致性的同步机制的局限性。
 
 如果这对CPU分别在不同的socket上，操作就会昂贵得多。
 一次blind CAS操作消耗近150纳秒，即超过300个时钟周期。
@@ -477,13 +475,13 @@ CAS操作将存储新值，从而递增该共享变量。
 
 空间局部性显然极其重要，数据在内存中的分散也同样重要。
 
-I/O操作甚至更加昂贵。
+I/O操作的开销更大。
 如``Comms Fabric''行所示，
 高性能（且昂贵！）的通信架构，如InfiniBand或众多专有互连，
 端到端往返延迟约为5微秒，
-在此期间可能已经执行了超过\emph{一万}条指令。
+在此期间CPU可以执行超过\emph{一万}条指令。
 基于标准的通信网络通常需要某种协议处理，
-这进一步增加了\IX{latency}。
+这更进一步增加了\IX{latency}。
 当然，地理距离也会增加延迟，
 光在光纤中绕地球一圈的光速延迟约为195\emph{毫秒}，
 即超过4亿个时钟周期，
@@ -590,10 +588,10 @@ I/O操作甚至更加昂贵。
 \ContributedBy{fig:cpu:Hardware and Software: On Same Side}{Melissa Broussard}
 \end{figure}
 
-简而言之，硬件工程师和软件工程师实际上是站在同一边的，
-都在努力让计算机跑得更快，尽管物理定律竭尽全力加以阻挠，
+简而言之，硬件工程师和软件工程师其实都在同一个战壕里战斗，
+让计算机在物理定律允许的范围内跑得更快，
 如\cref{fig:cpu:Hardware and Software: On Same Side}
-中所夸张描绘的那样，其中我们的数据流正竭尽全力超越光速，
+中异想天开地描绘的那样，其中我们的数据流正竭尽全力超越光速，
 还受到非零原子大小的进一步阻碍。
 下一节将讨论硬件工程师可能（也可能无法）做的一些额外事项，
 这取决于近期研究转化为实践的程度。
