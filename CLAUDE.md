@@ -295,10 +295,21 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 | lock | Commonly kept in English alongside Chinese 锁 in technical context |
 | futex | Linux-specific primitive |
 
+**Human translation reference:**
+
+`zh.txt` in the repo root is a text export of the published Chinese translation (《深入理解并行编程》, 电子工业出版社, 2017, translated by 鲁阳 and 谢宝友). It covers an older version of perfbook (chapters 1–17 + appendices, ~24K lines).
+
+How to use as reference when translating or reviewing:
+- **Chapter mapping** (zh.txt line numbers): Ch1=597, Ch2=860, Ch3=1388, Ch4=1879, Ch5=2328, Ch6=3493, Ch7=4727, Ch8=5899, Ch9=6053, Ch10=8450, Ch11=9491, Ch12=10881, Ch13=12541, Ch14=12888, Ch15=14107, Ch16=15159, Ch17=15350
+- **Use for**: Natural phrasing, sentence flow, paragraph structure, term choices
+- **Cautions**: Based on an older perfbook version — sections may have been added, removed, or rewritten. Always verify against the current English source (master branch) before adopting phrasing.
+- **Do NOT blindly copy**: The AI translation follows the current English text structure. Only adopt human translation phrasing where the English source content is unchanged.
+
 **Translation method for large files:**
 - Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph
 - Read 200-300 lines at a time, Edit each prose paragraph
 - This avoids timeout issues with large files
+- When improving existing translations, read corresponding section from `zh.txt` for reference on natural phrasing
 
 ### Build Notes for Chinese Translation
 
