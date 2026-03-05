@@ -34,12 +34,12 @@
 \epigraph{我们面临着不可逾越的机遇。}
 	 {Walt Kelly}
 
-虽然锁是生产环境中并行性的主力，但在许多情况下，
-通过使用无锁技术可以大大改善性能、可扩展性和real-time响应。
+虽然锁是生产环境中并行处理的主力，但在许多情况下，
+性能、可扩展性和real-time响应都可以通过使用无锁技术来大大提升。
 这种无锁技术的一个特别令人印象深刻的例子是
 \cref{sec:count:Statistical Counters}中描述的统计计数器（statistical counter），
 它不仅避免了锁，还避免了读-修改-写原子操作（atomic operation）、
-内存屏障（memory barrier），甚至避免了计数器递增时的缓存未命中（cache miss）。
+内存屏障（memory barrier），甚至避免了递增计数器时的缓存未命中（cache miss）。
 我们已经涵盖的其他例子包括：
 
 \begin{enumerate}
@@ -54,11 +54,11 @@
 \end{enumerate}
 
 简而言之，无锁技术非常有用且被大量使用。
-然而，最好是将无锁技术隐藏在定义良好的API之后，
+然而，最好是将无锁技术隐藏在定义良好的API之中，
 例如\co{inc_count()}、\co{memblock_alloc()}、
 \co{rcu_read_lock()}等。
-这样做的原因是，无纪律地使用无锁技术是制造
-难以发现的bug的好方法。
+这样做的原因是，随意使用无锁技术是制造
+难以发现的bug的良好途径。
 如果你相信发现和修复这类bug比避免它们更容易，
 请重新阅读
 \cref{chp:Validation,chp:Formal Verification}。
@@ -122,8 +122,8 @@ NBS第1类是在2015年之前的某个时期提出的，
 	通常是没有帮助的。
 }\QuickQuizEnd
 
-理论上，任何并行算法都可以转换为wait-free形式，
-但在实际中常用的NBS算法只是相对较小的一个子集。
+从原理上讲，任何并行算法都可以转换为wait-free形式，
+但实际中常用的NBS算法只是一个相对较小的子集。
 下一节列出了其中的一些。
 
 \subsection{简单NBS}
@@ -712,23 +712,22 @@ Verification}中讨论的几种证明技术已经能处理
 
 创建完全非阻塞的队列是可能的~\cite{MichaelScott96}，
 然而，这种队列比上面概述的半NBS算法复杂得多。
-这里的教训是仔细考虑你的实际需求。
-放宽不相关的需求通常可以带来
-简洁性、性能和可扩展性的巨大改进。
+这里的经验是，认真考虑你真正需要的是什么。
+放宽不相关的需求通常可以在
+简洁性、性能和可扩展性方面带来巨大改进。
 
 最近的研究指出了另一种放宽需求的重要方式。
-事实证明，提供公平调度的系统可以享受
-wait-free同步的大部分好处，即使运行
-仅提供non-blocking同步的算法，
-无论是在理论上~\cite{DanAlitarh2013PracticalProgress}
-还是在实践中~\cite{SamyAlBahra2013NBS}。
-因为大多数生产中使用的调度器确实提供公平性，
-提供wait-free同步的更复杂算法通常
-比更简单、更快的非wait-free算法没有实际优势。
+结果表明，不管是从理论上~\cite{DanAlitarh2013PracticalProgress}
+还是从实践上~\cite{SamyAlBahra2013NBS}来说，
+提供公平调度的系统可以获得wait-free同步的大部分好处，
+即使其运行的算法仅提供non-blocking同步。
+事实上，由于大多数生产环境中使用的调度器确实提供公平性，
+提供wait-free同步的更复杂算法通常与更简单、
+更快的非wait-free算法相比并没有实际优势。
 
-有趣的是，公平调度只是实践中经常被遵守的
-一个有益约束。
-其他约束集合可以允许阻塞算法
+有趣的是，公平调度仅仅是一个在实践中经常得到满足的
+有益约束。
+其他的约束集合同样可以允许阻塞算法
 实现确定性的real-time响应。
 例如，给定：
 \begin{enumerate*}[(1)]
@@ -745,8 +744,8 @@ inheritance~\cite{Takada:1995:RSN:527074.828566,Cai-DongWang1996PrioInherLock}
 基于锁的应用程序可以提供确定性的
 响应时间~\cite{BjoernBrandenburgPhD,DipankarSarma2004OLSscalability}。
 这种方法当然模糊了阻塞和wait-free同步之间的区别，
-这完全是好事。
-希望理论框架能继续改进其描述
+这无疑是一件好事。
+期望理论框架持续改进，进一步提高其描述
 实际使用的软件的能力。
 
 那些认为理论应该引领道路的人可以参考
@@ -758,7 +757,7 @@ inheritance~\cite{Takada:1995:RSN:527074.828566,Cai-DongWang1996PrioInherLock}
 科学家就没有什么可以
 研究的！''~\cite{RichardMorris2007TonyHoareInterview}。
 当然，一旦适当的理论体系可用，
-明智地利用它是明智的。
+善加利用它才是明智之举。
 然而，请注意，第一个\emph{适当的}理论体系
 往往是一回事，而第一个\emph{被提出的}理论体系
 则往往是另一回事。

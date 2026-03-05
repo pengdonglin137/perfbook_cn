@@ -61,8 +61,8 @@ sec:advsync:Implementing Parallel Real-Time Applications}
 快速但不精确方法的一个候选方案是在当前时间段内不采取任何控制动作，
 另一个候选方案是采取与前一时间段相同的控制动作。
 
-简而言之，讨论软实时如果不对其"软"的程度做出某种度量，
-就毫无意义。
+简而言之，不对软实时的"软"的程度做出某种精确度量，
+讨论软实时就没有任何意义。
 
 \subsubsection{硬实时}
 \label{sec:Hard Real Time}
@@ -93,12 +93,12 @@ sec:advsync:Implementing Parallel Real-Time Applications}
 \ContributedBy{fig:advsync:Real-Time Response: Hardware Matters}{Melissa Broussard}
 \end{figure}
 
-话说回来，将明显不仅仅是硬件问题——而且确实是大型硬件问题——
-归咎于软件，也许并不公平。\footnote{
+不过话说回来，由于这明显不仅仅是一个硬件问题——而实在是一个大硬件问题——
+将其归咎于软件也许并不公平。\footnote{
 	或者，考虑到现代的锤子，应该说是大型钢铁问题。}
-这表明我们应该将硬实时软件定义为总是能满足其截止时间的软件，
-但仅限于没有硬件故障的情况下。
-不幸的是，故障并非总是一种可以接受的选项，
+这表明我们可以将硬实时软件定义为总是能满足其截止时间的软件，
+前提是没有硬件故障。
+不幸的是，故障并非总是可选项，
 如\cref{fig:advsync:Real-Time Response: Hardware Matters}
 中形象描绘的那样。
 我们不能指望图中那位可怜的先生在听到这样的话时感到安慰：
@@ -447,7 +447,7 @@ sec:advsync:Implementing Parallel Real-Time Applications}
 \label{sec:advsync:Who Needs Parallel Real-Time?}
 
 谁真正需要并行实时计算还不太清楚，但低成本多核系统的出现
-已经使这个问题变得突出。
+已经将并行实时计算推向了前沿。
 不幸的是，实时计算的传统数学基础假设的是单CPU系统，
 只有少数例外证明了这一规则~\cite{BjoernBrandenburgPhD}。
 幸运的是，有几种方法可以让现代计算硬件适配实时数学的框架，
@@ -493,12 +493,12 @@ sec:advsync:Implementing Parallel Real-Time Applications}
 \subsection{实现并行实时系统}
 \label{sec:advsync:Implementing Parallel Real-Time Systems}
 
-我们将研究两种主要的实时系统风格：事件驱动和轮询。
-事件驱动的实时系统大部分时间保持空闲，
-实时地响应通过操作系统传递给应用的事件。
-或者，系统也可以运行一个后台非实时工作负载。
+我们将着眼于两种主要类型的实时系统：事件驱动和轮询。
+事件驱动的实时系统大部分时间处于空闲状态，
+对实时事件的响应通过操作系统传递给应用。
+可选地，系统也可以在后台运行非实时工作负载，而不是让其处于空闲。
 轮询式实时系统具有一个CPU密集型的实时线程，
-在一个紧密循环中运行，每次迭代都轮询输入并更新输出。
+在一个紧凑循环中运行，每次迭代都轮询输入并更新输出。
 这种紧密轮询循环通常完全在用户模式下执行，
 读写已映射到用户模式应用地址空间的硬件寄存器。
 另一种方式是，某些应用将轮询循环放在内核中，
@@ -511,7 +511,7 @@ sec:advsync:Implementing Parallel Real-Time Applications}
 \label{fig:advsync:Real-Time Response Regimes}
 \end{figure}
 
-无论选择哪种风格，实现实时系统所使用的方法将取决于截止时间，
+无论选择哪种类型，用来实现实时系统的方法都取决于截止时间，
 例如，如\cref{fig:advsync:Real-Time Response Regimes}所示。
 从该图的顶部开始，如果你能接受超过一秒的响应时间，
 你可能完全可以使用脚本语言来实现你的实时应用——
@@ -598,9 +598,9 @@ Linux 4.x和5.x内核可以提供亚百微秒级的延迟，
 \label{fig:advsync:Linux-Kernel Real-Time Implementations}
 \end{figure*}
 
-虽然将RTOS与Linux内核配对在Linux内核实时功能最少的时期
-是一种聪明而有用的短期应对措施，
-但它也激发了向Linux内核添加实时功能的动力。
+虽然在Linux仅拥有最少实时功能的时期，将Linux内核与RTOS配对
+不失为一种明智而有用的短期应对措施，
+但这也激发了向Linux内核添加实时功能的动力。
 朝着这一目标的进展如
 \cref{fig:advsync:Linux-Kernel Real-Time Implementations}所示。
 上面一行展示了禁用抢占的Linux内核图，
@@ -738,9 +738,9 @@ Zhou等人~\cite{ZhouyiZhou2025deterministicsub05responselinux}
 以及
 可抢占自旋锁。
 
-\paragraph{定时器}对实时操作显然至关重要。
-毕竟，如果你不能指定在特定时间完成某事，
-你怎么能在那个时间之前做出响应？
+\paragraph{定时器}对实时操作来说显然极其重要。
+毕竟，如果你不能指定某些事情在特定时间完成，
+又怎么能在那个时间之前做出响应？
 即使在非实时系统中，也会产生大量的定时器，
 因此它们必须被极其高效地处理。
 使用示例包括TCP连接的重传定时器（几乎总是在有机会触发
@@ -811,7 +811,7 @@ Zhou等人~\cite{ZhouyiZhou2025deterministicsub05responselinux}
 \ContributedBy{fig:advsync:Timer Wheel at 100kHz}{Melissa Broussard}
 \end{figure}
 
-不幸的是，时间轮不太适合实时系统，原因有二。
+不过，时间轮对实时系统来说并不太合适，原因有二。
 第一个原因是定时器精度和定时器开销之间存在严酷的权衡，
 如\cref{fig:advsync:Timer Wheel at 1kHz,fig:advsync:Timer Wheel at 100kHz}
 形象地所示。
@@ -955,9 +955,9 @@ Linux内核\rt\ 补丁集选择的解决方案是区分
 因为低优先级线程在持有锁时必须禁用中断，
 这将阻止中等优先级线程抢占它。
 
-在优先级继承解决方案中，试图获取锁的高优先级线程将其优先级
-捐赠给持有锁的低优先级线程，直到锁被释放，
-从而防止长期优先级反转。
+在优先级继承方案中，试图获取锁的高优先级线程将其优先级
+传递给持有锁的低优先级线程，直到锁被释放，
+从而防止长时间的优先级反转。
 
 \begin{figure}
 \centering
@@ -971,7 +971,7 @@ Linux内核\rt\ 补丁集选择的解决方案是区分
 你可能会获得更好的延迟~\cite{VictorYodaiken2004a}。
 鉴于优先级继承为最坏情况延迟增加了一对上下文切换，
 这并不令人惊讶。
-尽管如此，优先级继承可以将无限期推迟转换为有限的延迟增加，
+尽管如此，优先级继承可以将无限期的延迟转换为有限的延迟增加，
 而且在许多应用中，优先级继承的软件工程优势
 可能超过其延迟成本。
 
@@ -1631,7 +1631,7 @@ if (clock_gettime(CLOCK_REALTIME, &timeend) != 0) {
 可能需要仔细选择硬件和驱动程序，
 而且很可能需要仔细选择内核配置。
 
-从这个例子可以看出，实时计算可以是相当不容宽恕的。
+从这个例子可以看出，实时计算确实不是省油的灯。
 
 \subsubsection{RCU的角色}
 \label{sec:advsync:The Role of RCU}
