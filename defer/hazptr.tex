@@ -7,25 +7,25 @@
 %
 \epigraph{如有疑虑，就将它翻转过来。}{Zara Carpenter}
 
-避免并发 reference counting 问题的一种方法是将引用计数器
+避免并发引用计数问题的一种方法是将引用计数器
 内翻实现，即不是递增存储在数据元素中的整数，
 而是在每 CPU（或每线程）列表中存储指向该数据元素的指针。
 这些列表中的每个元素称为
 \emph{\IX{hazard pointer}}~\cite{MagedMichael04a}。\footnote{
 	也由其他人独立发明~\cite{HerlihyLM02}。}
 给定数据元素的``虚拟引用计数器''的值可以通过计算引用该元素的
-hazard pointer 数量来获得。
+风险指针数量来获得。
 因此，如果该元素已经对读者不可访问，
-并且不再有任何 hazard pointer 引用它，
+并且不再有任何风险指针引用它，
 那么该元素就可以安全释放。
 
 \begin{listing}
 \input{CodeSamples/defer/hazptr@record_clear.fcv}
-\caption{Hazard-Pointer 记录和清除}
+\caption{风险指针记录和清除}
 \label{lst:defer:Hazard-Pointer Recording and Clearing}
 \end{listing}
 
-当然，这意味着 hazard-pointer 的获取必须非常小心地进行，
+当然，这意味着风险指针的获取必须非常小心地进行，
 以避免与并发删除的破坏性竞争。
 \begin{fcvref}[ln:defer:hazptr:record_clear]
 一种实现如\cref{lst:defer:Hazard-Pointer Recording and Clearing}所示，
@@ -35,17 +35,17 @@ hazard pointer 数量来获得。
 
 \co{hp_try_record()} 宏在\clnref{htr:e}只是
 \co{_h_t_r_impl()} 函数的类型转换包装器，
-它尝试将 \co{p} 引用的指针存储到 \co{hp} 引用的 hazard pointer 中。
+它尝试将 \co{p} 引用的指针存储到 \co{hp} 引用的 风险指针 中。
 如果成功，它返回存储指针的值。
 如果由于该指针为 \co{NULL} 而失败，它返回 \co{NULL}。
 最后，如果由于与更新竞争而失败，它返回一个特殊的
 \co{HAZPTR_POISON} 标记。
 
 \QuickQuiz{
-	鉴于关于 hazard pointers 的论文使用每个指针的低位来标记已删除的元素，
+	鉴于关于风险指针的论文使用每个指针的低位来标记已删除的元素，
 	\co{HAZPTR_POISON} 是怎么回事？
 }\QuickQuizAnswer{
-	hazard pointers 的已发布实现使用非阻塞同步技术来进行插入和删除。
+	风险指针的已发布实现使用非阻塞同步技术来进行插入和删除。
 	这些技术要求遍历数据结构的读者``帮助''更新者完成其更新，
 	这反过来意味着读者需要查看已删除元素的后继。
 
@@ -59,12 +59,12 @@ hazard pointer 数量来获得。
 如果\clnref{htr:check}发现该指针为 \co{NULL} 或
 特殊的 \co{HAZPTR_POISON} 已删除对象标记，
 则\clnref{htr:race1}返回指针的值以通知调用者失败。
-否则，\clnref{htr:store}将指针存储到指定的 hazard pointer 中，
+否则，\clnref{htr:store}将指针存储到指定的风险指针中，
 \clnref{htr:mb}强制该存储与\clnref{htr:ro2}上原始指针的重新加载
 之间的完全排序。
 （参见\cref{chp:Advanced Synchronization: Memory Ordering}了解
 更多关于内存排序的信息。）
-如果原始指针的值没有改变，则 hazard pointer 保护了指向的对象，
+如果原始指针的值没有改变，则风险指针保护了指向的对象，
 在这种情况下，\clnref{htr:success}返回指向该对象的指针，
 这也向调用者表示成功。
 否则，如果指针在两次 \co{READ_ONCE()} 调用之间发生了变化，
@@ -92,19 +92,19 @@ hazard pointer 数量来获得。
 }\QuickQuizEnd
 
 \co{hp_clear()} 函数更加直接，
-使用 \co{smp_mb()} 来强制调用者对 hazard pointer 保护的对象的使用
-与将 hazard pointer 设置为 \co{NULL} 之间的完全排序。
+使用 \co{smp_mb()} 来强制调用者对 风险指针 保护的对象的使用
+与将 风险指针 设置为 \co{NULL} 之间的完全排序。
 \end{fcvref}
 
 \begin{listing}
 \ebresizeverb{.91}{\input{CodeSamples/defer/hazptr@scan_free.fcv}}
-\caption{Hazard-Pointer 扫描和释放}
+\caption{风险指针扫描和释放}
 \label{lst:defer:Hazard-Pointer Scanning and Freeing}
 \end{listing}
 
 \begin{fcvref}[ln:defer:hazptr:scan_free:free]
-一旦受 hazard-pointer 保护的对象从其链式数据结构中移除，
-使其对未来的 hazard-pointer 读者不可访问，
+一旦受风险指针保护的对象从其链式数据结构中移除，
+使其对未来的风险指针读者不可访问，
 它就被传递给 \co{hazptr_free_later()}，
 如\cref{lst:defer:Hazard-Pointer Scanning and Freeing}
 的\clnrefrange{b}{e}所示（\path{hazptr.c}）。
@@ -117,17 +117,17 @@ hazard pointer 数量来获得。
 \begin{fcvref}[ln:defer:hazptr:scan_free:scan]
 \co{hazptr_scan()} 函数如列表的\clnrefrange{b}{e}所示。
 该函数依赖于固定的最大线程数（\co{NR_THREADS}）和
-每个线程固定的最大 hazard pointer 数（\co{K}），
-这允许使用固定大小的 hazard pointer 数组。
-因为任何线程都可能需要扫描 hazard pointers，每个线程维护自己的数组，
+每个线程固定的最大 风险指针 数（\co{K}），
+这允许使用固定大小的风险指针数组。
+因为任何线程都可能需要扫描风险指针，每个线程维护自己的数组，
 由每线程变量 \co{gplist} 引用。
 如果\clnref{check}确定该线程尚未分配其 \co{gplist}，
 \clnrefrange{alloc:b}{alloc:e}执行分配。
 \clnref{mb1}上的\IX{memory barrier}确保所有线程看到此线程移除的所有对象，
 然后\clnrefrange{loop:b}{loop:e}扫描
-所有 hazard pointers，将非 NULL 指针累积到 \co{plist} 数组中，
+所有 风险指针，将非 NULL 指针累积到 \co{plist} 数组中，
 并在 \co{psize} 中计数。
-\clnref{mb2}上的 memory barrier 确保对 hazard pointers 的读取
+\clnref{mb2}上的 memory barrier 确保对风险指针的读取
 发生在任何对象被释放之前。
 \Clnref{sort}然后对该数组排序以便下面使用二分搜索。
 
@@ -137,33 +137,33 @@ hazard pointer 数量来获得。
 \clnrefrange{loop2:b}{loop2:e}的循环的每次遍历处理每个
 待释放对象。
 \Clnref{rem1st:b,rem1st:e}从 \co{tmplist} 中移除第一个对象，
-如果\clnref{chkhazp:b,chkhazp:e}确定有 hazard pointer
+如果\clnref{chkhazp:b,chkhazp:e}确定有风险指针
 保护此对象，\clnrefrange{back:b}{back:e}将其放回 \co{rlist}。
 否则，\clnref{free}释放该对象。
 \end{fcvref}
 
 \begin{listing}
 \input{CodeSamples/defer/route_hazptr@lookup.fcv}
-\caption{Hazard-Pointer Pre-BSD 路由表查找}
+\caption{风险指针 Pre-BSD 路由表查找}
 \label{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}
 \end{listing}
 
-Pre-BSD 路由示例可以使用 hazard pointers，
+Pre-BSD 路由示例可以使用风险指针，
 如\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}
 中数据结构和 \co{route_lookup()} 所示，以及
 \cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}
 中 \co{route_add()} 和 \co{route_del()} 所示
 （\path{route_hazptr.c}）。
-与 reference counting 一样，hazard-pointers 实现与
+与引用计数一样，风险指针实现与
 \cpageref{lst:defer:Sequential Pre-BSD Routing Table}上
 \cref{lst:defer:Sequential Pre-BSD Routing Table}
 中展示的顺序算法非常相似，因此只讨论差异之处。
 
 \begin{fcvref}[ln:defer:route_hazptr:lookup]
 从\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}开始，
-\clnref{hh}显示了用于排队待 hazard-pointer 释放的对象的 \co{->hh} 字段，
+\clnref{hh}显示了用于排队待 风险指针 释放的对象的 \co{->hh} 字段，
 \clnref{re_freed}显示了用于检测释放后使用错误的 \co{->re_freed} 字段，
-\clnref{tryrecord}调用 \co{hp_try_record()} 尝试获取一个 hazard pointer。
+\clnref{tryrecord}调用 \co{hp_try_record()} 尝试获取一个 风险指针。
 如果返回值为 \co{NULL}，\clnref{NULL}向调用者返回未找到的指示。
 如果对 \co{hp_try_record()} 的调用与删除竞争，
 \clnref{deleted}分支回\clnref{retry}的 \co{retry} 标签，
@@ -177,21 +177,21 @@ Pre-BSD 路由示例可以使用 hazard pointers，
 重新启动完整搜索。
 这种重新启动对于正确性是绝对必要的。
 为了理解这一点，考虑一个包含元素~A、B 和~C 的
-受 hazard-pointer 保护的链表，它经历以下事件序列：
+受风险指针保护的链表，它经历以下事件序列：
 \end{fcvref}
 
 \begin{enumerate}
-\item	线程~0 存储一个指向元素~B 的 hazard pointer
+\item	线程~0 存储一个指向元素~B 的风险指针
 	（大概是从元素~A 遍历到元素~B）。
 \item	线程~1 从列表中移除元素~B，
 	这将元素~B 到元素~C 的指针设置为特殊的
 	\co{HAZPTR_POISON} 值以标记删除。
-	因为线程~0 有一个指向元素~B 的 hazard pointer，
+	因为线程~0 有一个指向元素~B 的风险指针，
 	它还不能被释放。
 \item	线程~1 从列表中移除元素~C。
-	因为没有 hazard pointers 引用元素~C，
+	因为没有风险指针引用元素~C，
 	它被立即释放。
-\item	线程~0 尝试获取一个指向已移除元素~B 的后继的 hazard pointer，
+\item	线程~0 尝试获取一个指向已移除元素~B 的后继的风险指针，
 	但 \co{hp_try_record()} 返回 \co{HAZPTR_POISON} 值，
 	迫使调用者从列表开头重新启动遍历。
 \end{enumerate}
@@ -199,7 +199,7 @@ Pre-BSD 路由示例可以使用 hazard pointers，
 这是一件非常好的事，因为 B 的后继是现在已释放的元素~C，
 这意味着线程~0 的后续访问可能导致任意严重的内存损坏，
 特别是如果元素~C 的内存已经被重新分配用于其他目的。
-因此，hazard-pointer 读者在遇到并发删除时通常必须从头重新启动完整遍历。
+因此，风险指针读者在遇到并发删除时通常必须从头重新启动完整遍历。
 通常重新启动必须回到某个全局（因此不朽的）指针，
 但有时可以从某个中间位置重新启动，
 如果该位置保证仍然存活，例如由于当前线程持有锁、
@@ -210,7 +210,7 @@ Pre-BSD 路由示例可以使用 hazard pointers，
 	有哪些例外？
 }\QuickQuizAnswer{
 	如果指针来自全局变量或以其他方式不会被释放，
-	则可以使用 \co{hp_record()} 来反复尝试记录 hazard pointer，
+	则可以使用 \co{hp_record()} 来反复尝试记录 风险指针，
 	即使在面对并发删除时也是如此。
 
 	在某些情况下，可以通过使用 link counting 来避免重新启动，
@@ -219,36 +219,36 @@ Pre-BSD 路由示例可以使用 hazard pointers，
 		\url{https://github.com/facebook/folly}}
 }\QuickQuizEnd
 
-因为使用 hazard pointers 的算法可能在其遍历链式数据结构的
+因为使用风险指针的算法可能在其遍历链式数据结构的
 任何步骤被重新启动，这些算法通常必须注意在获取所需更新的
-所有 hazard pointers 之前避免对数据结构进行任何更改。
+所有风险指针之前避免对数据结构进行任何更改。
 
 \QuickQuiz{
-	但是这些对 hazard pointers 的限制是否也适用于
-	其他形式的 reference counting？
+	但是这些对风险指针的限制是否也适用于
+	其他形式的引用计数？
 }\QuickQuizAnswer{
 	是也不是。
 	这些限制只适用于引用获取可能失败的引用计数机制。
 }\QuickQuizEnd
 
-这些 hazard-pointer 限制给读者带来了巨大的好处，
-这要归功于 hazard pointers 存储在每个 CPU 或线程的本地位置，
+这些风险指针限制给读者带来了巨大的好处，
+这要归功于风险指针存储在每个 CPU 或线程的本地位置，
 这反过来允许遍历在不对被遍历的数据结构进行任何写操作的情况下进行。
 回顾\cpageref{fig:count:Optimization and the Four Parallel-Programming Tasks}上的
 \cref{fig:count:Optimization and the Four Parallel-Programming Tasks}，
-hazard pointers 使 CPU 缓存能够进行资源复制，
+风险指针使 CPU 缓存能够进行资源复制，
 这反过来允许弱化并行访问控制机制，
 从而提升性能和可扩展性。
 
-重新启动 hazard pointers 遍历的另一个优势是减少了最小内存占用：
-任何当前没有被某个 hazard pointer 引用的对象都可以被立即释放。
+重新启动风险指针遍历的另一个优势是减少了最小内存占用：
+任何当前没有被某个风险指针引用的对象都可以被立即释放。
 相比之下，\cref{sec:defer:Read-Copy Update (RCU)}将讨论
 一种避免读侧重试（并最小化读侧开销）的机制，
 但这可能导致更大的内存占用。
 
 \begin{listing}
 \input{CodeSamples/defer/route_hazptr@add_del.fcv}
-\caption{Hazard-Pointer Pre-BSD 路由表添加\slash 删除}
+\caption{风险指针 Pre-BSD 路由表添加\slash 删除}
 \label{lst:defer:Hazard-Pointer Pre-BSD Routing Table Add/Delete}
 \end{listing}
 
@@ -266,21 +266,21 @@ hazard pointers 使 CPU 缓存能够进行资源复制，
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/defer/data/hps.2019.12.17a/perf-hazptr}}
-\caption{受 Hazard Pointers 保护的 Pre-BSD 路由表}
+\caption{受风险指针保护的 Pre-BSD 路由表}
 \label{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 \end{figure}
 
 \Cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-显示了受 hazard-pointers 保护的 Pre-BSD 路由算法在与
+显示了受风险指针保护的 Pre-BSD 路由算法在与
 \cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
 相同的只读工作负载下的性能。
-虽然 hazard pointers 的可扩展性远优于 reference counting，
-但 hazard pointers 仍然需要读者对共享内存进行写操作
+虽然风险指针的可扩展性远优于引用计数，
+但风险指针仍然需要读者对共享内存进行写操作
 （虽然引用局部性有了很大改善），
 并且还需要为每个遍历的对象进行完整的 memory barrier 和重试检查。
-因此，hazard-pointers 的性能仍然远不够理想。
-另一方面，与朴素的并发 reference-counting 方法不同，
-hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
+因此，风险指针的性能仍然远不够理想。
+另一方面，与朴素的并发引用计数方法不同，
+风险指针不仅在涉及并发更新的工作负载中能正确运行，
 而且还表现出出色的可扩展性。
 与其他机制的更多性能比较可以在\cref{chp:Data Structures}
 以及其他出版物~\cite{ThomasEHart2007a,McKenney:2013:SDS:2483852.2483867,MagedMichael04a}中找到。
@@ -293,7 +293,7 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 }\QuickQuizAnswerB{
 	现代微处理器是复杂的怪兽，因此对任何简单答案都应持
 	相当程度的怀疑。
-	撇开这点不谈，最可能的原因是 hazard-pointers 读者所需的
+	撇开这点不谈，最可能的原因是风险指针读者所需的
 	完整 memory barriers。
 	由这些 memory barriers 导致的任何延迟都会为共享核心的
 	另一个硬件线程提供可用时间，
@@ -304,7 +304,7 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 	论文``Structured Deferral:
 	Synchronization via
 	Procrastination''~\cite{McKenney:2013:SDS:2483852.2483867}
-	表明 hazard pointers 具有接近理想的性能。
+	表明风险指针具有接近理想的性能。
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 	中到底发生了什么？
 }\QuickQuizAnswerM{
@@ -313,7 +313,7 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 	有对数刻度 y 轴。
 	其次，该论文使用轻量加载的哈希表，而
 	\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
-	使用 10 元素的简单链表，这意味着 hazard pointers
+	使用 10 元素的简单链表，这意味着风险指针
 	在这个工作负载中面临比该论文中更大的 memory-barrier 惩罚。
 	最后，该论文使用了一个较旧的中等规模 x86 系统，
 	而生成\cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
@@ -321,25 +321,25 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 
 	此外，已有人提议使用成对的非对称
 	barriers~\cite{Windows2008FlushProcessWriteBuffers,JonathanCorbet2010sys-membarrier,Linuxmanpage2018sys-membarrier}
-	在支持此概念的系统上消除读侧 hazard-pointer
+	在支持此概念的系统上消除读侧风险指针
 	memory barriers~\cite{DavidGoldblatt2018asymmetricFences}，
-	这可能将 hazard pointers 的性能提升到超出图中所示的水平。
+	这可能将风险指针的性能提升到超出图中所示的水平。
 
 	一如既往，结果因人而异。
-	鉴于性能差异，很明显 hazard pointers 在以下情况下
+	鉴于性能差异，很明显风险指针在以下情况下
 	给你最佳性能：非常大的数据结构（其中 memory-barrier 开销
 	至少部分与缓存未命中惩罚重叠）或像哈希表这样的数据结构，
-	其中查找操作只需要最少数量的 hazard pointers。
+	其中查找操作只需要最少数量的风险指针。
 }\QuickQuizEndM
 %
 \QuickQuizE{
-	将 reference-counted 代码转换为使用 hazard pointers
+	将引用计数代码转换为使用风险指针
 	需要做什么？
 }\QuickQuizAnswerE{
 	你需要：
 	\begin{enumerate}
-	\item	分配和释放 hazard pointers，
-	\item	在受 hazard-pointer 保护的数据元素中添加
+	\item	分配和释放风险指针，
+	\item	在受风险指针保护的数据元素中添加
 		\tco{hazptr_head} 结构，以及
 	\item	一旦从数据结构中移除了这样的元素，
 		就将其传递给 \tco{hazptr_free_later()}。
@@ -347,16 +347,16 @@ hazard pointers 不仅在涉及并发更新的工作负载中能正确运行，
 	最后这个要求被称为``延迟释放''
 	（或在 C++ 标准中称为``retire''），
 	这是必需的，因为与引用计数不同，没有高效且可扩展的方法来
-	精确确定引用给定数据元素的 hazard pointers 数量何时降为零。
+	精确确定引用给定数据元素的风险指针数量何时降为零。
 }\QuickQuizEndE
 }
 
-2023 年 6 月 17 日，ISO C++ 标准委员会投票将 hazard pointers
+2023 年 6 月 17 日，ISO C++ 标准委员会投票将风险指针
 纳入 C++26~\cite{MagedMichael2023C++26Hazptr3}。
-Daniel Anderson 基于 hazard pointers 制作了一个 C++ 原子
+Daniel Anderson 基于风险指针制作了一个 C++ 原子
 shared-pointer 实现的原型~\cite{DanielAnderson2023HazptrSharedPtr}。
 
-hazard pointers 就是本章开头在\cpageref{sec:defer:Mysteries hazard pointers}
+风险指针就是本章开头在\cpageref{sec:defer:Mysteries hazard pointers}
 提到的并发引用计数器。
-下一节试图通过使用 sequence locks 来改进 hazard pointers，
-sequence locks 既避免了读侧写操作，也避免了每对象的 memory barriers。
+下一节试图通过使用顺序锁来改进风险指针，
+顺序锁既避免了读侧写操作，也避免了每对象的 memory barriers。

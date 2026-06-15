@@ -19,7 +19,7 @@ HMassalinPhD,ValerieAurora2008Synthesis}。
 那些愿意并且能够阅读和理解本章的人将揭开许多秘密，包括：
 
 \begin{enumerate}
-\item	等待并发代码粗心开发者的 reference counting 陷阱。
+\item	等待并发代码粗心开发者的引用计数陷阱。
 \label{sec:defer:Mysteries reference-counting trap}
 \item	一种并发引用计数器，它不仅避免了这个陷阱，
 	而且还避免了昂贵的原子读-修改-写访问，
@@ -38,9 +38,9 @@ HMassalinPhD,ValerieAurora2008Synthesis}。
 \end{enumerate}
 
 工作延迟的一般方法包括
-reference counting（\cref{sec:defer:Reference Counting}）、
-hazard pointers（\cref{sec:defer:Hazard Pointers}）、
-sequence locking（\cref{sec:defer:Sequence Locks}）、
+引用计数（\cref{sec:defer:Reference Counting}）、
+风险指针（\cref{sec:defer:Hazard Pointers}）、
+顺序锁（\cref{sec:defer:Sequence Locks}）、
 和 RCU（\cref{sec:defer:Read-Copy Update (RCU)}）。
 最后，\cref{sec:defer:Which to Choose?}
 描述如何在本章涵盖的工作延迟方案中进行选择，

@@ -1691,7 +1691,7 @@ RCU将时间和空间同步相结合，这与
 }\QuickQuizAnswer{
 	完全不是。
 
-	Hazard pointer可以被认为以类似的方式
+	风险指针可以被认为以类似的方式
 	结合了时间和空间同步。
 	参考\cref{lst:defer:Hazard-Pointer Recording and Clearing}，
 	\co{hp_record()}函数获取引用的操作
@@ -1704,16 +1704,16 @@ RCU将时间和空间同步相结合，这与
 	提供标记引用结束的时间同步，
 	因此类似于RCU的\co{rcu_read_unlock()}。
 	\co{hazptr_free_later()}函数退役
-	一个受hazard pointer保护的对象提供时间同步，
+	一个受风险指针保护的对象提供时间同步，
 	类似于RCU的\co{call_rcu()}。
-	用于变更受hazard pointer保护的结构的原语
+	用于变更受风险指针保护的结构的原语
 	提供空间同步，类似于RCU的
 	\co{rcu_assign_pointer()}。
 
 	另外，也可以通过与引用计数的类比
-	来理解hazard pointer。
+	来理解风险指针。
 	这样做就会发现，引用计数也以上述
-	hazard pointer描述的方式结合了
+	风险指针描述的方式结合了
 	时间和空间同步。
 }\QuickQuizEnd
 
@@ -1857,7 +1857,7 @@ RCU可以被看作一种"批量引用计数"机制，
 read-side critical section中睡眠的规定会破坏
 整个目的。
 这种情况可能更适合使用
-\cref{sec:defer:Hazard Pointers}中描述的hazard pointer机制。
+\cref{sec:defer:Hazard Pointers}中描述的风险指针机制。
 代码很少睡眠的情况已通过以下方式处理：
 在常见的不睡眠情况下使用RCU作为引用计数，
 在需要睡眠时桥接到显式引用计数器。
@@ -1869,7 +1869,7 @@ RCU（SRCU）~\cite{PaulEMcKenney2006c}来适应。
 不少见情况，例如，在启动I/O时获取引用
 并在相应的完成中断处理程序中释放引用。
 同样，这种情况可能更适合用显式引用计数器
-或hazard pointer来处理。
+或风险指针来处理。
 
 当然，SRCU也有自身的限制，即
 \co{srcu_read_lock()}的返回值必须传入

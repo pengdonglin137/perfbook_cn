@@ -407,7 +407,7 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 	因此如果你的代码允许有符号整数溢出，即使在现代的
 	二进制补码硬件上也可能遇到麻烦。
 
-	话虽如此，当试图从32位per-thread counter中
+	话虽如此，当试图从32位每线程counter中
 	收集（比方说）64位的和时，确实可能产生额外的复杂性。
 	处理这种额外复杂性留作读者的练习，
 	本章后面介绍的一些技术可能会很有帮助。
@@ -416,7 +416,7 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 \subsection{基于数组的实现}
 \label{sec:count:Array-Based Implementation}
 
-提供per-thread变量的一种方法是分配一个数组，
+提供每线程变量的一种方法是分配一个数组，
 每个线程一个元素（最好是cache对齐和填充的，以避免false sharing）。
 
 \QuickQuiz{
@@ -436,11 +436,11 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 \label{lst:count:Array-Based Per-Thread Statistical Counters}
 \end{listing}
 
-这样的数组可以被封装成per-thread原语，如
+这样的数组可以被封装成每线程原语，如
 \cref{lst:count:Array-Based Per-Thread Statistical Counters}
 （\path{count_stat.c}）所示。
 \begin{fcvref}[ln:count:count_stat:inc-read]
-\Clnref{define}定义了一个包含per-thread counter集合的数组，
+\Clnref{define}定义了一个包含每线程counter集合的数组，
 类型为\co{unsigned long}，创造性地命名为\co{counter}。
 
 \Clnrefrange{inc:b}{inc:e}
@@ -486,7 +486,7 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 \QuickQuizSeries{%
 \QuickQuizB{
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
-	中的per-thread \co{counter}变量是如何初始化的？
+	中的每线程\co{counter}变量是如何初始化的？
 }\QuickQuizAnswerB{
 	C标准规定全局变量的初始值为零（除非显式初始化），
 	因此隐式地将\co{counter}的所有实例初始化为零。
@@ -514,13 +514,13 @@ counter的聚合值通过简单地对所有线程的counter求和来读取，
 如\cref{fig:count:Data Flow For Per-Thread Increment}中每个CPU上的
 绿色箭头所示，原因是每个CPU可以快速递增
 其线程的变量，而不需要任何昂贵的跨系统通信。
-换句话说，per-CPU counter的更新不会像单个全局counter的
+换句话说，每CPU counter的更新不会像单个全局counter的
 atomic递增那样受到慢光和大原子的困扰。\footnote{
 	同样，参见\cref{sec:cpu:Hardware Free Lunch?}。}
 因此，本节解决了本章开头提出的网络数据包计数问题。
 
 \QuickQuiz{
-	读取操作需要时间来汇总per-thread的值，
+	读取操作需要时间来汇总每线程的值，
 	在此期间counter很可能正在变化。
 	这意味着
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
@@ -622,15 +622,15 @@ atomic递增那样受到慢光和大原子的困扰。\footnote{
 
 \QuickQuizLabel{\StatisticalCounterAccuracy}
 
-然而，许多实现提供了更廉价的per-thread数据机制，
+然而，许多实现提供了更廉价的每线程数据机制，
 且不受任意数组大小限制。
 这是下一节的主题。
 
-\subsection{基于per-thread变量的实现}
+\subsection{基于每线程变量的实现}
 \label{sec:count:Per-Thread-Variable-Based Implementation}
 
 C语言自C11起提供了\apic{_Thread_local}存储类，
-用于提供per-thread存储。\footnote{
+用于提供每线程存储。\footnote{
 	\GCC\ 提供了自己的\apig{__thread}存储类，
 	在本书以前的版本中使用。
 	使用\GCC\ 时，这两种指定thread-local变量的方法
@@ -649,7 +649,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \begin{fcvref}[ln:count:count_end:whole]
 \Clnrefrange{var:b}{var:e}定义了所需的变量：
-\co{counter}是per-thread counter变量，
+\co{counter}是每线程counter变量，
 \co{counterp[]}数组允许线程访问彼此的counter，
 \co{finalcount}在各个线程退出时累积总数，
 \co{final_mutex}用于协调累积counter总值的线程和正在退出的线程。
@@ -661,22 +661,22 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	施加了任意限制吗？
 	为什么C语言不提供一个\co{per_thread()}接口，类似于
 	Linux内核的\co{per_cpu()}原语，以便让线程
-	更容易地访问其他线程的per-thread变量？
+	更容易地访问其他线程的每线程变量？
 }\QuickQuizAnswer{
 	确实如此，为什么不呢？
 
 	公平地说，用户模式的thread-local存储面临一些
 	Linux内核可以忽略的挑战。
-	当用户级线程退出时，其per-thread变量全部消失，
-	这使per-thread变量的访问变得复杂，
+	当用户级线程退出时，其每线程变量全部消失，
+	这使每线程变量的访问变得复杂，
 	特别是在用户级RCU出现之前
 	（参见\cref{sec:defer:Read-Copy Update (RCU)}）。
 	相比之下，在Linux内核中，当CPU离线时，
-	该CPU的per-CPU变量仍然保持映射和可访问。
+	该CPU的每CPU变量仍然保持映射和可访问。
 
 	类似地，当创建新的用户级线程时，
-	其per-thread变量突然出现。
-	相比之下，在Linux内核中，所有per-CPU变量
+	其每线程变量突然出现。
+	相比之下，在Linux内核中，所有每CPU变量
 	在启动时就被映射和初始化，无论相应的CPU是否已经存在，
 	甚至无论相应的CPU是否会存在。
 
@@ -687,10 +687,10 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 	当然，两种环境都必须处理动态加载的代码
 	（用户空间的动态库，Linux内核的内核模块），
-	这增加了per-thread变量的复杂性。
+	这增加了每线程变量的复杂性。
 
 	这些复杂性使得用户空间环境提供对其他线程的
-	per-thread变量的访问变得困难得多。
+	每线程变量的访问变得困难得多。
 	尽管如此，这种访问非常有用，
 	希望它有朝一日能出现。
 
@@ -710,7 +710,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \begin{fcvref}[ln:count:count_end:whole:read]
 读取方使用的\co{read_count()}函数稍微复杂一些。
-\Clnref{acquire}获取一个lock以排斥正在退出的线程，
+\Clnref{acquire}获取一个锁以排斥正在退出的线程，
 \clnref{release}释放它。
 \Clnref{sum:init}将sum初始化为已退出线程累积的计数值，
 \clnrefrange{loop:b}{loop:e}对当前运行线程正在累积的
@@ -740,22 +740,22 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	的\co{read_count()}函数中需要像\emph{lock}这样
 	重量级的东西来保护求和？
 }\QuickQuizAnswerE{
-	记住，当线程退出时，其per-thread变量会消失。
+	记住，当线程退出时，其每线程变量会消失。
 	因此，如果我们在线程退出后试图访问该线程的
-	per-thread变量，将会得到段错误。
-	lock协调求和和线程退出，防止这种情况发生。
+	每线程变量，将会得到段错误。
+	锁协调求和和线程退出，防止这种情况发生。
 
-	当然，我们可以使用读写lock来读获取，
+	当然，我们可以使用读写锁来读获取，
 	但\cref{chp:Deferred Processing}将介绍
 	更轻量级的机制来实现所需的协调。
 
-	另一种方法是使用数组而不是per-thread变量，
+	另一种方法是使用数组而不是每线程变量，
 	正如Alexey Roytman指出的，这将消除
 	对\co{NULL}的测试。
-	然而，数组访问通常比per-thread变量的访问慢，
+	然而，数组访问通常比每线程变量的访问慢，
 	而且使用数组意味着线程数量有固定上限。
 	另外，请注意\co{inc_count()}快速路径上
-	既不需要测试也不需要lock。
+	既不需要测试也不需要锁。
 }\QuickQuizEndE
 }
 
@@ -763,7 +763,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \Clnrefrange{b}{e}展示了\co{count_register_thread()}函数，
 每个线程在首次使用此counter之前必须调用该函数。
 该函数简单地设置此线程在\co{counterp[]}数组中的元素，
-使其指向自己的per-thread \co{counter}变量。
+使其指向自己的每线程\co{counter}变量。
 \end{fcvref}
 
 \QuickQuiz{
@@ -773,11 +773,11 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	机器字大小的位置进行存储，所以它应该本身就是
 	atomic的，对吧？
 }\QuickQuizAnswer{
-	这个lock实际上可以省略，但安全起见更好，
+	这个锁实际上可以省略，但安全起见更好，
 	特别是考虑到这个函数仅在线程启动时执行，
 	因此不在任何关键路径上。
 	现在，如果我们在有数千个CPU的机器上测试，
-	可能需要省略lock，但在``仅有''一百个左右CPU的机器上，
+	可能需要省略锁，但在``仅有''一百个左右CPU的机器上，
 	没有必要花哨。
 }\QuickQuizEnd
 
@@ -785,7 +785,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \Clnrefrange{b}{e}展示了\co{count_unregister_thread()}函数，
 之前调用过\co{count_register_thread()}的每个线程在退出前
 必须调用该函数。
-\Clnref{acquire}获取lock，
+\Clnref{acquire}获取锁，
 \clnref{release}释放它，从而排斥
 \co{read_count()}的调用以及其他
 \co{count_unregister_thread()}的调用。
@@ -798,19 +798,19 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 这种方法使更新方获得与非atomic加法几乎完全相同的性能，
 并且也是线性扩展的。
-另一方面，并发读取争用单个全局lock，
+另一方面，并发读取争用单个全局锁，
 因此性能差且扩展性极差。
 然而，对于statistical counters来说这不是问题，
 因为递增频繁而读取几乎从不发生。
-当然，由于给定线程的per-thread变量在该线程退出时消失，
+当然，由于给定线程的每线程变量在该线程退出时消失，
 这种方法比基于数组的方案复杂得多。
 
 \QuickQuiz{
-	好吧，但Linux内核在读取per-CPU counter的
-	聚合值时不需要获取lock。
+	好吧，但Linux内核在读取每CPU counter的
+	聚合值时不需要获取锁。
 	那为什么用户空间代码需要这样做？
 }\QuickQuizAnswer{
-	记住，Linux内核的per-CPU变量始终是可访问的，
+	记住，Linux内核的每CPU变量始终是可访问的，
 	即使相应的CPU离线——即使相应的CPU从未存在且永远不会存在。
 
 \begin{listing}
@@ -850,8 +850,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \co{read_count()}调用将最终返回准确的计数值。
 
 我们通过维护一个全局counter来利用最终一致性。
-但是，更新方仅操作其per-thread counter。
-一个单独的线程负责将per-thread counter的计数值
+但是，更新方仅操作其每线程counter。
+一个单独的线程负责将每线程counter的计数值
 传输到全局counter。
 读取方只需访问全局counter的值。
 如果更新方处于活动状态，读取方使用的值将过时，
@@ -869,7 +869,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
 （\path{count_stat_eventual.c}）所示。
 \Clnrefrange{per_thr_cnt}{glb_cnt}
-展示了跟踪counter值的per-thread变量和全局变量，
+展示了跟踪counter值的每线程变量和全局变量，
 \clnref{stopflag}展示了用于协调终止的\co{stopflag}
 （用于我们希望以准确counter值终止程序的情况）。
 \clnrefrange{inc:b}{inc:e}所示的\co{inc_count()}函数类似于
@@ -880,7 +880,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 然而，\clnrefrange{init:b}{init:e}上的\co{count_init()}函数
 创建了\clnrefrange{eventual:b}{eventual:e}所示的\co{eventual()}线程，
 该线程循环遍历所有线程，
-对per-thread本地\co{counter}求和并将结果存储到
+对每线程本地\co{counter}求和并将结果存储到
 \co{global_count}变量中。
 \co{eventual()}线程在每次遍历之间等待任意选择的一毫秒。
 
@@ -907,7 +907,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \QuickQuizB{
 	为什么\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中的
 	\co{inc_count()}不需要使用atomic指令？
-	毕竟，我们现在有多个线程访问per-thread counter！
+	毕竟，我们现在有多个线程访问每线程counter！
 }\QuickQuizAnswerB{
 	因为两个线程中的一个只进行读取，并且由于
 	变量是对齐的且是机器字大小的，非atomic指令即可满足。
@@ -920,14 +920,14 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	该算法的早期版本实际上使用了atomic指令，
 	感谢Ersoy Bayramoglu指出它们实际上是不必要的。
 	然而，请注意在32位系统上，
-	per-thread \co{counter}变量可能需要限制为32位
+	每线程\co{counter}变量可能需要限制为32位
 	才能准确求和，但使用64位的\co{global_count}变量
 	来避免溢出。
-	在这种情况下，有必要周期性地将per-thread
+	在这种情况下，有必要周期性地将每线程
 	\co{counter}变量清零以避免溢出，
 	这确实需要atomic指令。
 	极其重要的是，这种清零不能延迟太久，
-	否则较小的per-thread变量将会溢出。
+	否则较小的每线程变量将会溢出。
 	因此这种方法对底层系统施加了实时要求，
 	必须极其谨慎地使用。
 
@@ -1042,8 +1042,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 }\QuickQuizAnswerE{
 	一种方法是维护一个全局近似值，
 	类似于\cref{sec:count:Eventually Consistent Implementation}中描述的方法。
-	更新方会递增其per-thread变量，但当它达到某个预定限制时，
-	将其atomic地加到全局变量上，然后将per-thread变量清零。
+	更新方会递增其每线程变量，但当它达到某个预定限制时，
+	将其atomic地加到全局变量上，然后将每线程变量清零。
 	这将允许在平均递增开销和读取值的准确性之间进行权衡。
 	特别是，它将允许对读取端不准确性设定明确的界限。
 
@@ -1101,17 +1101,17 @@ limit counter的一种可能设计是将10,000的限制除以线程数量，
 然而，\cref{sec:count:Eventually Consistent Implementation}中
 提出的最终一致性算法提供了一个有趣的提示。
 回忆一下，该算法保持两套账目：
-用于更新方的per-thread \co{counter}变量和用于读取方的
+用于更新方的每线程\co{counter}变量和用于读取方的
 \co{global_count}变量，
 由一个\co{eventual()}线程周期性地更新\co{global_count}
-使其与per-thread \co{counter}的值最终一致。
-per-thread \co{counter}完美分区了counter值，
+使其与每线程\co{counter}的值最终一致。
+每线程\co{counter}完美分区了counter值，
 而\co{global_count}保持完整值。
 
 对于limit counters，我们可以使用这个主题的变体，
 即\emph{部分分区}counter。
 例如，考虑四个线程，每个线程不仅有一个
-per-thread \co{counter}，还有一个per-thread最大值
+每线程\co{counter}，还有一个每线程最大值
 （称之为\co{countermax}）。
 
 但如果给定线程需要递增其\co{counter}，
@@ -1122,15 +1122,15 @@ per-thread \co{counter}，还有一个per-thread最大值
 变量都等于10，我们执行以下操作：
 
 \begin{enumerate}
-\item	获取全局lock。
+\item	获取全局锁。
 \item	向\co{globalcount}加5。
 \item	为了平衡这次加法，从此线程的\co{counter}中减去5。
-\item	释放全局lock。
+\item	释放全局锁。
 \item	递增此线程的\co{counter}，得到值6。
 \end{enumerate}
 
-虽然此过程仍然需要全局lock，但该lock只需要每五次递增操作
-获取一次，大大降低了该lock的\IXalt{竞争}{lock contention}程度。
+虽然此过程仍然需要全局锁，但该锁只需要每五次递增操作
+获取一次，大大降低了该锁的\IXalt{竞争}{lock contention}程度。
 我们可以通过增加\co{countermax}的值将此竞争降低到任意水平。
 然而，增加\co{countermax}值的相应代价是
 \co{globalcount}的准确性降低。
@@ -1148,12 +1148,12 @@ per-thread \co{counter}，还有一个per-thread最大值
 就可以越大而不冒超过\co{globalcountmax}限制的风险。
 这意味着给定线程的\co{countermax}变量值可以
 基于这个差距来设置。
-当远离限制时，\co{countermax} per-thread变量设置为较大值
+当远离限制时，\co{countermax} 每线程变量设置为较大值
 以优化性能和可扩展性，
 而接近限制时，这些变量设置为较小值
 以最小化对\co{globalcountmax}限制检查的误差。
 
-这种设计是\emph{parallel fastpath}的一个例子，
+这种设计是\emph{parallel快速路径}的一个例子，
 这是一种重要的设计模式，其中常见情况不执行昂贵指令
 且线程之间没有交互，但偶尔也使用更保守设计的
 （且开销更高的）全局算法。
@@ -1164,8 +1164,8 @@ per-thread \co{counter}，还有一个per-thread最大值
 
 \begin{fcvref}[ln:count:count_lim:variable]
 \Cref{lst:count:Simple Limit Counter Variables}
-展示了此实现使用的per-thread和全局变量。
-per-thread \co{counter}和\co{countermax}变量分别是
+展示了此实现使用的每线程和全局变量。
+每线程\co{counter}和\co{countermax}变量分别是
 相应线程的本地counter和该counter的上限。
 \clnref{globalcountmax}上的\co{globalcountmax}变量
 包含聚合counter的上限，
@@ -1173,7 +1173,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \co{globalcount}和每个线程的\co{counter}之和给出了
 整体counter的聚合值。
 \clnref{globalreserve}上的\co{globalreserve}变量
-至少是所有per-thread \co{countermax}变量之和。
+至少是所有每线程\co{countermax}变量之和。
 \end{fcvref}
 这些变量之间的关系如
 \cref{fig:count:Simple Limit Counter Variable Relationships}所示：
@@ -1232,7 +1232,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 是否有空间容纳\co{delta}，
 如果有，\clnref{add}执行加法，\clnref{return:ls}返回成功。
 这是\co{add_counter()}的快速路径，它不执行任何atomic操作，
-仅引用per-thread变量，不应引起任何cache miss。
+仅引用每线程变量，不应引起任何cache miss。
 \end{fcvref}
 
 \begin{listing}
@@ -1290,7 +1290,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \Clnref{addglb}将\co{delta}加到\co{globalcount}上，然后
 \clnref{balance}调用\co{balance_count()}
 （见\cref{lst:count:Simple Limit Counter Utility Functions}）
-以更新全局和per-thread变量。
+以更新全局和每线程变量。
 这次\co{balance_count()}调用通常会设置此线程的
 \co{countermax}以重新启用快速路径。
 \Clnref{release:s}然后释放\co{gblcnt_mutex}（同样如前所述），
@@ -1299,9 +1299,9 @@ per-thread \co{counter}和\co{countermax}变量分别是
 
 \QuickQuiz{
 	为什么在\cref{lst:count:Simple Limit Counter Add; Subtract; and Read}中
-	\co{globalize_count()}先将per-thread变量清零，
+	\co{globalize_count()}先将每线程变量清零，
 	然后再调用\co{balance_count()}来重新填充它们？
-	为什么不直接让per-thread变量保持非零？
+	为什么不直接让每线程变量保持非零？
 }\QuickQuizAnswer{
 	实际上，该代码的早期版本就是这么做的。
 	但加法和减法极其廉价，而处理所有出现的特殊情况
@@ -1312,7 +1312,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \begin{fcvref}[ln:count:count_lim:add_sub_read:sub]
 \Clnrefrange{b}{e}展示了\co{sub_count()}，
 它从counter中减去指定的\co{delta}。
-\Clnref{checklocal}检查per-thread counter是否能容纳此次减法，
+\Clnref{checklocal}检查每线程counter是否能容纳此次减法，
 如果能，\clnref{sub}执行减法，
 \clnref{return:ls}返回成功。
 这些行构成了\co{sub_count()}的快速路径，
@@ -1368,7 +1368,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 \Clnref{subglb}执行减法，然后
 \clnref{balance}调用\co{balance_count()}
 （见\cref{lst:count:Simple Limit Counter Utility Functions}）
-以更新全局和per-thread变量
+以更新全局和每线程变量
 （希望能重新启用快速路径）。
 然后\clnref{release:s}释放\co{gblcnt_mutex}，
 \clnref{return:gs}返回成功。
@@ -1399,7 +1399,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 并且如我们将看到的，还排斥线程创建和退出。
 \Clnref{initsum}将局部变量\co{sum}初始化为\co{globalcount}的值，
 然后\clnrefrange{loop:b}{loop:e}的循环
-对per-thread \co{counter}变量求和。
+对每线程\co{counter}变量求和。
 \Clnref{return}然后返回总和。
 \end{fcvref}
 
@@ -1416,12 +1416,12 @@ per-thread \co{counter}和\co{countermax}变量分别是
 
 \begin{fcvref}[ln:count:count_lim:utility:globalize]
 \Clnrefrange{b}{e}展示了\co{globalize_count()}，
-它将当前线程的per-thread counter清零，并适当调整全局变量。
+它将当前线程的每线程counter清零，并适当调整全局变量。
 重要的是，此函数不改变counter的聚合值，
 而是改变counter当前值的表示方式。
 \Clnref{add}将线程的\co{counter}变量加到\co{globalcount}上，
 \clnref{zero}将\co{counter}清零。
-类似地，\clnref{sub}从\co{globalreserve}中减去per-thread
+类似地，\clnref{sub}从\co{globalreserve}中减去每线程
 \co{countermax}，\clnref{zeromax}将\co{countermax}清零。
 阅读此函数和下面的\co{balance_count()}时，
 参考\cref{fig:count:Simple Limit Counter Variable Relationships}
@@ -1565,7 +1565,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 当聚合值接近零时，这种类型的counter相当快，
 由于\co{add_count()}和\co{sub_count()}快速路径中的
 比较和分支会有一些开销。
-然而，使用per-thread \co{countermax}储备意味着
+然而，使用每线程\co{countermax}储备意味着
 即使counter的聚合值远未接近\co{globalcountmax}，
 \co{add_count()}也可能失败。
 类似地，即使counter的聚合值远未接近零，
@@ -1574,7 +1574,7 @@ per-thread \co{counter}和\co{countermax}变量分别是
 在许多情况下，这是不可接受的。
 即使\co{globalcountmax}打算作为近似限制，
 通常也有一个可容忍的近似程度限制。
-限制近似程度的一种方法是对per-thread \co{countermax}实例
+限制近似程度的一种方法是对每线程\co{countermax}实例
 的值施加上限。
 这个任务在下一节中进行。
 
@@ -1588,7 +1588,7 @@ lst:count:Simple Limit Counter Utility Functions}）
 非常相似，这里只展示差异。
 \Cref{lst:count:Approximate Limit Counter Variables}
 与\cref{lst:count:Simple Limit Counter Variables}相同，
-增加了\co{MAX_COUNTERMAX}，它设置per-thread
+增加了\co{MAX_COUNTERMAX}，它设置每线程
 \co{countermax}变量的最大允许值。
 
 \begin{listing}
@@ -1608,7 +1608,7 @@ lst:count:Simple Limit Counter Utility Functions}）
 与\cref{lst:count:Simple Limit Counter Utility Functions}中的
 \co{balance_count()}函数相同，
 增加了\clnref{enforce:b,enforce:e}，
-它们对per-thread \co{countermax}变量强制执行
+它们对每线程\co{countermax}变量强制执行
 \co{MAX_COUNTERMAX}限制。
 \end{fcvref}
 
@@ -1874,9 +1874,9 @@ lst:count:Simple Limit Counter Utility Functions}）
 \Clnref{acquire}获取\co{gblcnt_mutex}，
 \clnref{release}释放它。
 \Clnref{initsum}将局部变量\co{sum}初始化为\co{globalcount}的值，
-\clnrefrange{loop:b}{loop:e}的循环将per-thread counter
+\clnrefrange{loop:b}{loop:e}的循环将每线程counter
 加到此总和中，在\clnref{split}使用\co{split_counterandmax}
-隔离每个per-thread counter。
+隔离每个每线程counter。
 最后，\clnref{return}返回总和。
 \end{fcvref}
 
@@ -1914,7 +1914,7 @@ lst:count:Atomic Limit Counter Utility Functions 2}
 \clnrefrange{b}{e}上展示，
 它将所有线程的本地counter状态移到全局counter。
 \Clnref{checkrsv}检查\co{globalreserve}的值
-是否允许任何per-thread计数，如果不允许，\clnref{return:n}返回。
+是否允许任何每线程计数，如果不允许，\clnref{return:n}返回。
 否则，\clnref{initzero}将局部变量\co{zero}初始化为
 合并的零\co{counter}和\co{countermax}。
 \clnrefrange{loop:b}{loop:e}的循环遍历每个线程。
@@ -2008,7 +2008,7 @@ lst:count:Atomic Limit Counter Utility Functions 2}
 }\QuickQuizAnswerE{
 	不需要。
 	就相关代码而言，\co{atomic_set()}更新的是
-	其自身线程的per-thread变量\co{counterandmax}，
+	其自身线程的每线程变量\co{counterandmax}，
 	该变量的值只能由其自身线程的快速路径或
 	所有更新方的慢速路径更新。
 	由于\co{atomic_set()}在慢速路径中，它永远不会
@@ -2051,7 +2051,7 @@ atomic操作不是必需的，如下一节所示。
 \subsection{信号窃取限值计数器设计}
 \label{sec:count:Signal-Theft Limit Counter Design}
 
-即使per-thread状态现在仅由相应线程操作，
+即使每线程状态现在仅由相应线程操作，
 仍然需要与signal handler进行同步。
 此同步由\cref{fig:count:Signal-Theft State Machine}
 所示的状态机提供。
@@ -2144,7 +2144,7 @@ atomic操作不是必需的，如下一节所示。
 （\path{count_lim_sig.c}）
 展示了基于signal-theft的counter实现使用的数据结构。
 \Clnrefrange{value:b}{value:e}定义了前一节描述的
-per-thread theft状态机的状态和值。
+每线程theft状态机的状态和值。
 \Clnrefrange{var:b}{var:e}与早期实现类似，
 增加了\clnref{maxp,theftp}以允许远程访问
 线程的\co{countermax}和\co{theft}变量。
@@ -2158,7 +2158,7 @@ per-thread theft状态机的状态和值。
 
 \begin{fcvref}[ln:count:count_lim_sig:migration:globalize]
 \Cref{lst:count:Signal-Theft Limit Counter Value-Migration Functions}
-展示了负责在per-thread变量和全局变量之间迁移计数的函数。
+展示了负责在每线程变量和全局变量之间迁移计数的函数。
 \Clnrefrange{b}{e}展示了\co{globalize_count()}，
 与早期实现相同。
 \end{fcvref}
@@ -2210,9 +2210,9 @@ per-thread theft状态机的状态和值。
 	为什么\clnrefr{ln:count:count_lim_sig:migration:flush:checkmax}
 	可以安全地直接访问其他线程的\co{countermax}变量？
 }\QuickQuizAnswerB{
-	因为除非持有\co{gblcnt_mutex} lock，
+	因为除非持有\co{gblcnt_mutex} 锁，
 	否则不允许其他线程更改其\co{countermax}变量的值。
-	但调用者已获取此lock，因此其他线程不可能持有它，
+	但调用者已获取此锁，因此其他线程不可能持有它，
 	因此不允许更改其\co{countermax}变量。
 	所以我们可以安全地访问它——但不能更改它。
 }\QuickQuizEndB
@@ -2290,13 +2290,13 @@ per-thread theft状态机的状态和值。
 展示了\co{add_count()}函数。
 快速路径覆盖\clnrefrange{fast:b}{return:fs}，
 慢速路径覆盖\clnrefrange{acquire}{return:ss}。
-\Clnref{fast:b}将per-thread \co{counting}变量设为1，
+\Clnref{fast:b}将每线程\co{counting}变量设为1，
 这样任何后续中断此线程的signal handler将
 把\co{theft}状态设为ACK而不是READY，
 允许此快速路径正确完成。
 \Clnref{barrier:1}防止编译器将快速路径主体的任何部分
 重排到\co{counting}的设置之前。
-\Clnref{check:b,check:e}检查per-thread数据是否能容纳
+\Clnref{check:b,check:e}检查每线程数据是否能容纳
 \co{add_count()}且没有正在进行的theft，
 如果是，\clnref{add:f}执行快速路径加法，
 \clnref{fasttaken}记录快速路径已被采用。
@@ -2423,8 +2423,8 @@ Sequent Symmetry系统使用atomic实现较短的路径长度
 访问计数问题的部分解决方案。
 当试图移除设备时，我们不仅必须知道当前I/O访问的
 精确数量，还需要防止任何未来的访问开始。
-一种实现方法是在更新counter时读获取读写lock，
-在检查counter时写获取同一读写lock。
+一种实现方法是在更新counter时读获取读写锁，
+在检查counter时写获取同一读写锁。
 执行I/O的代码可能如下：
 
 \begin{fcvlabel}[ln:count:inline:I/O]
@@ -2443,24 +2443,24 @@ if (removing) {			\lnlbl[check]
 \end{fcvlabel}
 
 \begin{fcvref}[ln:count:inline:I/O]
-\Clnref{acq}读获取lock，
+\Clnref{acq}读获取锁，
 \clnref{rel1}或~\lnref{rel2}释放它。
 \Clnref{check}检查设备是否正在被移除，如果是，
-\clnref{rel1}释放lock，
+\clnref{rel1}释放锁，
 \clnref{cancel}取消I/O或采取设备即将移除时适当的操作。
 否则，\clnref{inc}递增访问计数，
-\clnref{rel2}释放lock，
+\clnref{rel2}释放锁，
 \clnref{do}执行I/O，
 \clnref{dec}递减访问计数。
 \end{fcvref}
 
 \QuickQuiz{
 	这太荒谬了！
-	我们在\emph{读}获取读写lock来\emph{更新}counter？
+	我们在\emph{读}获取读写锁来\emph{更新}counter？
 	你在搞什么？
 }\QuickQuizAnswer{
 	奇怪，也许，但确实如此！
-	几乎足以让你觉得``读写lock''这个名字起得不好，不是吗？
+	几乎足以让你觉得``读写锁''这个名字起得不好，不是吗？
 }\QuickQuizEnd
 
 移除设备的代码可能如下：
@@ -2478,7 +2478,7 @@ remove_device();		\lnlbl[remove]
 \end{fcvlabel}
 
 \begin{fcvref}[ln:count:inline:remove]
-\Clnref{acq}写获取lock，\clnref{rel}释放它。
+\Clnref{acq}写获取锁，\clnref{rel}释放它。
 \Clnref{note}记录设备正在被移除，
 \clnrefrange{loop:b}{loop:e}的循环等待所有I/O操作完成。
 最后，\clnref{remove}执行为设备移除准备所需的额外处理。
@@ -2503,8 +2503,8 @@ remove_device();		\lnlbl[remove]
 		在这种情况下，可能需要某种超时来允许错误恢复。
 	\item	\co{add_count()}和\co{sub_count()}都可能失败，
 		但它们的返回值没有被检查。
-	\item	读写lock扩展性不好。
-		避免读写lock高读获取成本的一种方法在
+	\item	读写锁扩展性不好。
+		避免读写锁高读获取成本的一种方法在
 		\cref{chp:Locking,chp:Deferred Processing}中介绍。
 	\end{enumerate}
 }\QuickQuizEnd
@@ -2594,7 +2594,7 @@ C语言的\co{++}运算符不保证在多线程代码中可靠运行，
 Statistical counters通过充当counter的测试
 （``\path{counttorture.h}''）进行验证，
 即counter中的聚合总和随各个更新端线程添加的
-金额总和而变化。
+数值总和而变化。
 
 Limit counters也通过充当counter的测试
 （``\path{limtorture.h}''）进行验证，
@@ -2616,7 +2616,7 @@ Limit counters也通过充当counter的测试
 \cref{tab:count:Statistical/Limit Counter Performance on x86}的上半部分
 展示了四种并行statistical counting算法的性能。
 所有四种算法在更新方面都提供了近乎完美的线性可扩展性。
-基于per-thread变量的实现（\path{count_end.c}）
+基于每线程变量的实现（\path{count_end.c}）
 在更新方面明显快于基于数组的实现
 （\path{count_stat.c}），但在大量核心的读取上更慢，
 并且在有许多并行读取者时遭受严重的\IX{lock contention}。
@@ -2632,7 +2632,7 @@ Limit counters也通过充当counter的测试
 	在\cref{tab:count:Statistical/Limit Counter Performance on x86}的
 	\path{count_stat.c}行中，我们看到读取端随线程数量
 	线性扩展。
-	考虑到线程越多需要汇总的per-thread counter越多，
+	考虑到线程越多需要汇总的每线程counter越多，
 	这怎么可能？
 }\QuickQuizAnswerB{
 	读取端代码必须扫描整个固定大小的数组，
@@ -2672,7 +2672,7 @@ Limit counters也通过充当counter的测试
 尽管在这个x86系统上，可以通过用信号替代atomic操作
 来减少这种损失。
 所有这些实现在面对并发读取者时都遭受
-读取端lock竞争。
+读取端锁竞争。
 
 \QuickQuizSeries{%
 \QuickQuizB{
@@ -2696,7 +2696,7 @@ Limit counters也通过充当counter的测试
 \QuickQuizE{
 	是否可以应用高级技术来解决
 	\cref{tab:count:Statistical/Limit Counter Performance on x86}
-	下半部分中读取者看到的lock竞争？
+	下半部分中读取者看到的锁竞争？
 }\QuickQuizAnswerE{
 	一种方法是牺牲一些更新端性能，
 	就像可扩展非零指示器
@@ -2704,7 +2704,7 @@ Limit counters也通过充当counter的测试
 	还有其他多种方法可以做到这一点，
 	留作读者的练习。
 	任何应用层次结构的方法——用对应于层次结构较低级别的
-	本地lock获取替代频繁的全局lock获取——都应该效果很好。
+	本地锁获取替代频繁的全局锁获取——都应该效果很好。
 }\QuickQuizEndE
 }
 
@@ -2802,7 +2802,7 @@ sec:count:Exact Limit Counters}中讨论的limit counters。
 分区将在\cref{chp:Partitioning and Synchronization Design}中
 更深入地讨论，
 特别是部分并行化将在\cref{sec:SMPdesign:Parallel Fastpath}中讨论，
-在那里它被称为\emph{parallel fastpath}。
+在那里它被称为\emph{parallel快速路径}。
 
 \QuickQuiz{
 	但如果我们要将所有东西都分区，
@@ -2830,8 +2830,8 @@ sec:count:Exact Limit Counters}中讨论的limit counters。
 	一如既往，用合适的工具做合适的事！
 }\QuickQuizEnd
 
-部分分区的计数算法使用lock来保护全局数据，
-lock是\cref{chp:Locking}的主题。
+部分分区的计数算法使用锁来保护全局数据，
+锁是\cref{chp:Locking}的主题。
 相比之下，已分区的数据往往完全由相应线程控制，
 因此根本不需要任何同步。
 这种\emph{data ownership}将在
