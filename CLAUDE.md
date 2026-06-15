@@ -176,36 +176,154 @@ The merge conflicts will pinpoint exactly which content changed and needs transl
 - Index entries (`\IX{}`, `\IXr{}`, `\api{}`, etc.)
 - Figures/images text (not translated)
 
-**Technical term translation table:**
+**Technical term translation strategy:**
+
+- **First occurrence in each chapter**: Chinese translation + English in parentheses, e.g., `死锁（deadlock）`
+- **Subsequent occurrences**: Chinese only, e.g., `死锁`
+- **Exception — always keep English**: Terms listed in the "Keep English" section below
+- **In `\item[]` definition labels**: Always use `中文（English）` format, e.g., `\item[加载撕裂（Load tearing）]`
+- **With `\IX{}` index macros**: `\IX{term}` renders "term" as visible text AND creates an index entry. When a term has both `\IX{}` and Chinese annotation, use `中文（\IX{term}）` — this renders as `中文（term）` and preserves the index. Never use the reverse format `\IX{term}（中文）`.
+- **Annotation status**: First-occurrence annotations have been applied to all chapters (toolsoftrade was already compliant). The terms in the translation table below are annotated at their first occurrence in each chapter with `中文（English）` format.
+
+**Translation table (translate to Chinese):**
+
+*Synchronization & locking:*
 
 | English | Chinese | Notes |
 |---------|---------|-------|
 | Deadlock | 死锁 | |
 | Livelock | 活锁 | |
 | Starvation | 饥饿 | |
+| Unfairness | 不公平 | |
+| Convoy | 护送效应 | lock convoy |
 | Lock / Locking | 锁 / 加锁 | |
 | Exclusive Lock | 互斥锁 | |
 | Reader-Writer Lock | 读写锁 | |
-| Memory Barrier | 内存屏障 | |
-| Cache Miss | 缓存未命中 | |
-| Hash Table | 哈希表 | |
+| Spinlock | 自旋锁 | |
+| Critical Section | 临界区 | |
+| Lock Contention | 锁竞争 | |
+| Code Locking | 代码锁 | |
+| Data Locking | 数据锁 | |
+| Lock-free | 无锁 | |
+| Wait-free | 无等待 | |
+| Obstruction-free | 无阻碍 | |
+| Non-blocking Synchronization (NBS) | 非阻塞同步 | |
+| Reference Counting | 引用计数 | |
 | Hazard Pointer | 风险指针 | |
 | Sequence Lock | 顺序锁 | |
+| Transactional Memory | 事务内存 | |
+| Software Transactional Memory (STM) | 软件事务内存 | |
+| Hardware Transactional Memory (HTM) | 硬件事务内存 | |
+| Data Race | 数据竞争 | |
+| Race Condition | 竞态条件 | 统一用"竞态条件"，不用"竞争条件" |
+| Data Ownership | 数据所有权 | |
+| Existence Guarantee | 存在保证 | |
+| Quiescent State | 静止状态 | |
+| Priority Inversion | 优先级反转 | |
+| Priority Inheritance | 优先级继承 | |
+| Dining Philosophers | 哲学家就餐 | |
+| Zombie Pointer | 僵尸指针 | |
+
+*Memory model & ordering:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Memory Barrier | 内存屏障 | |
+| Full Memory Barrier | 完整内存屏障 | |
+| Read Memory Barrier | 读内存屏障 | |
+| Write Memory Barrier | 写内存屏障 | |
+| Memory Model | 内存模型 | |
+| Sequential Consistency | 顺序一致性 | |
+| Atomic Operations | 原子操作 | |
+| Atomic Read-Modify-Write | 原子读-修改-写 | |
+| Acquire Load | 获取加载 | |
+| Release Store | 释放存储 | |
+| Data Dependency | 数据依赖 | |
+| Address Dependency | 地址依赖 | |
+| Control Dependency | 控制依赖 | |
+| Load Tearing | 加载撕裂 | |
+| Store Tearing | 存储撕裂 | |
+| Load Fusing | 加载融合 | |
+| Store Fusing | 存储融合 | |
+| Invented Load | 凭空加载 | |
+| Invented Store | 凭空存储 | |
+| Dead-code Elimination | 死代码消除 | |
+| Code Reordering | 代码重排序 | |
+| Store-to-load Transformation | 存储转加载转换 | |
+
+*Hardware & performance:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Cache Miss | 缓存未命中 | |
+| Cache Coherence | 缓存一致性 | |
+| False Sharing | 伪共享 | |
+| Hot Spot | 热点 | |
+| Superscalar | 超标量 | |
+| Out-of-order Execution | 乱序执行 | |
+| Speculative Execution | 推测执行 | |
+| Scheduling Latency | 调度延迟 | |
+| Partitioning | 分区 | context-dependent |
+
+*Data structures & algorithms:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Hash Table | 哈希表 | |
+| Statistical Counter | 统计计数器 | |
+| Limit Counter | 限值计数器 | |
+
+*Other:*
+
+| English | Chinese | Notes |
+|---------|---------|-------|
+| Thread | 线程 | |
+| Quick Quiz | 快速测验 | |
 | Heisenbug | 海森bug | 音译+保留bug |
 | Mandelbrot Set | 曼德博集合 | |
 | Functional Programming | 函数式编程 | |
-| Reference Counting | 引用计数 | |
-| Data Race | 数据竞争 | |
-| Atomic Operations | 原子操作 | |
-| Statistical Counter | 统计计数器 | |
-| Limit Counter | 限值计数器 | |
-| Quick Quiz | 快速测验 | |
-| RCU | RCU | Keep English |
-| grace period | grace period | Keep English |
-| cache line | cache line | Keep English |
-| thread | thread | Keep in most contexts |
+
+**Keep English (do not translate):**
+
+| Term | Reason |
+|------|--------|
+| RCU | Domain standard term |
+| grace period | RCU-specific, no good Chinese equivalent |
+| cache line | Hardware term, universally used in English |
+| store / load | Memory model core terms, keep English in all chapters |
+| NUMA | Hardware architecture term, universally used in English |
+| lock | Commonly kept in English alongside Chinese 锁 in technical context |
+| futex | Linux-specific primitive |
+
+**Human translation reference:**
+
+`zh.txt` in the repo root is a text export of the published Chinese translation (《深入理解并行编程》, 电子工业出版社, 2017, translated by 鲁阳 and 谢宝友). It covers an older version of perfbook (chapters 1–17 + appendices, ~24K lines).
+
+How to use as reference when translating or reviewing:
+- **Chapter mapping** (zh.txt line numbers): Ch1=597, Ch2=860, Ch3=1388, Ch4=1879, Ch5=2328, Ch6=3493, Ch7=4727, Ch8=5899, Ch9=6053, Ch10=8450, Ch11=9491, Ch12=10881, Ch13=12541, Ch14=12888, Ch15=14107, Ch16=15159, Ch17=15350
+- **Use for**: Natural phrasing, sentence flow, paragraph structure, term choices
+- **Cautions**: Based on an older perfbook version — sections may have been added, removed, or rewritten. Always verify against the current English source (master branch) before adopting phrasing.
+- **Do NOT blindly copy**: The AI translation follows the current English text structure. Only adopt human translation phrasing where the English source content is unchanged.
 
 **Translation method for large files:**
 - Use `Edit` tool (NOT `Write`) to translate paragraph by paragraph
 - Read 200-300 lines at a time, Edit each prose paragraph
 - This avoids timeout issues with large files
+- When improving existing translations, read corresponding section from `zh.txt` for reference on natural phrasing
+
+### Build Notes for Chinese Translation
+
+**All PDF targets and expected output:**
+
+| Target | File | Layout | Pages (approx) |
+|--------|------|--------|-----------------|
+| `make` / `make 2c` | `perfbook.pdf` | 2-column letter | ~715 |
+| `make 1c` | `perfbook-1c.pdf` | 1-column letter | ~1047 |
+| `make lt` | `perfbook-lt.pdf` | 2-column letter | ~715 |
+| `make hb` | `perfbook-hb.pdf` | 2-column hardbound | ~715 |
+| `make a4` | `perfbook-a4.pdf` | 2-column A4 | ~715 |
+| `make eb` | `perfbook-eb.pdf` | 1-column ebook | ~1555 |
+
+**CJK-specific build issues:**
+- Chinese typesetting with xelatex requires more LaTeX passes for cross-reference convergence than the English original. `utilities/runlatex.sh` has been patched to run one extra pass after warnings stabilize.
+- The `eb` (ebook) format has a smaller page size. Code listings using `\ebresizeverb{}` may need smaller scale factors than the English version to avoid "Float too large for page" warnings. When adding new code listings, test with `make eb` to verify fit.
