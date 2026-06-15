@@ -1083,27 +1083,25 @@ v6.17 内核中的 \co{txopt_get()} 函数采用了这种方法，
 	然而，随着元素大小的增长，这个优势会减弱。
 }\QuickQuizEnd
 
-\subsection{Polling Patchups}
+\subsection{轮询修补}
 \label{sec:together:Polling Patchups}
 
-Over a period of about ten years, Linux-kernel RCU has gained polling
-grace-period APIs.
-This section gives an overview of their use cases, focusing on RCU\@.
-The material in this section also applies to SRCU via the
-\apik{get_state_synchronize_srcu()}, \apik{start_poll_synchronize_srcu()},
-and \apik{poll_state_synchronize_srcu()} APIs.
+在大约十年的时间里，Linux 内核的 RCU 逐渐增加了轮询
+grace period 的 API。
+本节概述这些 API 的使用场景，重点介绍 RCU\@。
+本节内容同样适用于 SRCU 的
+\apik{get_state_synchronize_srcu()}、\apik{start_poll_synchronize_srcu()}
+和 \apik{poll_state_synchronize_srcu()} API。
 
-\subsubsection{Detecting Broken Readers}
+\subsubsection{检测中断的读者}
 \label{sec:together:Detecting Broken Readers}
 
-One of the challenges with any scoped synchronization mechanism, whether
-locking, interrupt disabling, or RCU, is that a called function might
-momentarily exit the critical section.
-Such exiting is considered bad practice, but there are situations where
-it is necessary in order to avoid deadlocks, RCU CPU stall warnings, or
-other consequences of remaining within the critical section for too long.
-Except that such exiting can be a fatal surprise to the caller of the
-function that momentarily exited the critical section.
+任何基于作用域的同步机制（无论是加锁、中断禁止还是 RCU）面临的
+挑战之一是，被调用的函数可能临时退出临界区。
+这种做法被认为是不好的编程习惯，但有时为了
+避免死锁、RCU CPU stall 警告，或者因为
+在临界区停留太久而引发其他后果，不得不这样做。
+只不过这种临时退出对于调用者来说可能是致命的意外。
 
 \begin{listing}[tbp] 
 { \scriptsize
@@ -1122,18 +1120,17 @@ rcu_read_unlock();					\lnlbl[rrul]
 \end{listing}
 
 \begin{fcvref}[ln:together:Broken RCU Readers?]
-For example, see
-\cref{lst:together:Broken RCU Readers?}.
-\Clnref{rrl} enters an RCU read-side critical section, and \clnref{rrul}
-exits it.
-\Clnref{rd} loads a global pointer \co{gp} into local variable \co{p},
-preparing it to be dereferenced.
-\Clnref{sf} invokes a function that might possibly (and erroneously)
-momentarily exit the critical section.
-\Clnref{dsw} passes \co{p} to \co{do_something_with()}, which might
-dereference this pointer, which could fail if \co{suspicious_function()}
-had exited the critical section, even if only
-momentarily~\cite{LorenzoStoakes2025ReaderLeak,VlastimilBabka2025PollReaderLeak}.
+例如，参见
+\cref{lst:together:Broken RCU Readers?}。
+\Clnref{rrl} 进入 RCU 读侧临界区，\clnref{rrul}
+退出临界区。
+\Clnref{rd} 将全局指针 \co{gp} 加载到局部变量 \co{p} 中，
+准备对其解引用。
+\Clnref{sf} 调用一个可能（错误地）
+临时退出临界区的函数。
+\Clnref{dsw} 将 \co{p} 传递给 \co{do_something_with()}，该函数可能
+解引用此指针，如果 \co{suspicious_function()}
+已经退出了临界区（哪怕只是短暂退出），这就会失败~\cite{LorenzoStoakes2025ReaderLeak,VlastimilBabka2025PollReaderLeak}。
 
 \end{fcvref}
 
@@ -1156,116 +1153,105 @@ rcu_read_unlock();					\lnlbl[rrul]
 \end{listing}
 
 \begin{fcvref}[ln:together:Polling For Broken RCU Readers]
-Polled RCU grace periods provide at least some chance of detecting such
-fatal surprises, as shown in
-\cref{lst:together:Polling For Broken RCU Readers}.\footnote{
-	Kudos to \ppl{Lorenzo}{Stoakes} and \ppl{Vlastimil}{Babka} for
-	suggesting this approach.}
-The \apik{get_state_synchronize_rcu()} and \apik{poll_state_synchronize_rcu()}
-functions may be used to detect a momentary exit from the critical section,
-as shown on \clnref{gssr,pssr}.\footnote{
-	Kudos to Vlastimil Babka for inventing this technique.}
-\Clnref{gssr} invokes \co{get_state_synchronize_rcu()}, placing its
-return value in \co{oldstate}.
-\Clnref{pssr} then passes \co{oldstate} to
-\co{poll_state_synchronize_rcu()}, which returns \co{true}
-only if a full RCU grace period has elapsed since the call to
-\co{get_state_synchronize_rcu()}.
-Assuming a correctly operating RCU implementation, this \co{true} return
-can happen only if \co{suspicious_function()} exited the critical section,
-hence the \apik{WARN_ON_ONCE()}.
+轮询 RCU grace period 至少提供了检测此类
+致命意外的可能性，如
+\cref{lst:together:Polling For Broken RCU Readers} 所示。\footnote{
+	感谢 \ppl{Lorenzo}{Stoakes} 和 \ppl{Vlastimil}{Babka}
+	提出这一方法。}
+\apik{get_state_synchronize_rcu()} 和 \apik{poll_state_synchronize_rcu()}
+函数可用于检测临界区的临时退出，
+如 \clnref{gssr,pssr} 所示。\footnote{
+	感谢 Vlastimil Babka 发明此技术。}
+\Clnref{gssr} 调用 \co{get_state_synchronize_rcu()}，将其
+返回值保存在 \co{oldstate} 中。
+\Clnref{pssr} 将 \co{oldstate} 传递给
+\co{poll_state_synchronize_rcu()}，该函数仅在
+自调用 \co{get_state_synchronize_rcu()} 以来已经过了
+一个完整的 RCU grace period 时才返回 \co{true}。
+假设 RCU 实现正常，返回 \co{true} 只可能是
+\co{suspicious_function()} 退出了临界区，
+因此使用了 \apik{WARN_ON_ONCE()}。
 \end{fcvref}
 
-Unfortunately, RCU grace periods persist for many milliseconds, and
-\co{suspicious_function()} might well exit the critical section for only
-a handful of microseconds.
-This means that the probability of the \co{WARN_ON_ONCE()} triggering is
-quite tiny.
-This probability can be increased by building the Linux kernel with
-\co{CONFIG_RCU_STRICT_GRACE_PERIOD=y}, which speeds up RCU grace periods,
-but restricts the number of CPUs to four.
+不幸的是，RCU grace period 持续时间长达数毫秒，
+而 \co{suspicious_function()} 可能仅退出临界区
+几微秒。
+这意味着 \co{WARN_ON_ONCE()} 触发的概率
+非常小。
+可以通过使用 \co{CONFIG_RCU_STRICT_GRACE_PERIOD=y} 编译 Linux 内核来
+提高这一概率，该选项加速了 RCU grace period，
+但将 CPU 数量限制为四个。
 
-It is also possible to expedite synchronous RCU grace periods booting the
-Linux kernel with \co{rcupdate.rcu_expedited=1}.
-In addition, the kernel address sanitizer (KASAN) can help locate
-use-after-free bugs, including those induced by momentarily exiting
-RCU read-side critical sections.
+还可以通过以 \co{rcupdate.rcu_expedited=1} 启动
+Linux 内核来加速同步 RCU grace period。
+此外，内核地址消毒器（KASAN）可以帮助定位
+use-after-free bug，包括由临时退出
+RCU 读侧临界区引发的那些。
 
-\subsubsection{Restraining Reclamation}
+\subsubsection{抑制回收}
 \label{sec:together:Restraining Reclamation}
 
-RCU implementations typically invoke callbacks\footnote{
-	From Linux-kernel \co{call_rcu()} or C++26 \co{rcu_retire()}.}
-at a time of their choosing, which might or might not be at all convenient
-for the workload.
-This can be especially annoying for real-time workloads, for which
-resuming a high-priority thread immediately after it is awakened will
-usually be much more urgent than freeing a little memory.
+RCU 实现在自己选择的时间调用回调\footnote{
+	来自 Linux 内核的 \co{call_rcu()} 或 C++26 的 \co{rcu_retire()}}，
+这个时间未必方便当前工作负载。
+这对于实时工作负载尤其烦人，因为在这些场景中，
+在高优先级线程唤醒后立即恢复它
+通常比释放少量内存紧急得多。
 
-In the Linux kernel, this situation can usually be handled with callback
-offloading by building the kernel with \co{CONFIG_RCU_NOCB_CPU=y} and
-setting the to-be-offloaded CPUs' bits in the \co{rcu_nocbs} kernel
-boot parameter.
-The system administrator can then set priorities and CPU bindings for
-the resulting \co{rcuo} kernel threads, thus preventing these threads from
-disturbing higher-priority threads or threads running on other CPUs.\footnote{
-	See \url{https://lwn.net/Articles/988641/} for more information.}
-This works, but requires global management of CPUs and priorities,
-which is becoming increasingly difficult as larger and larger numbers
-of workloads are consolidated onto a single system.
-In addition, each individual RCU callback is invoked with softirq (also
-known as ``bottom halves'') disabled, which means that a given callback
-cannot be preempted even by the highest-priority thread, regardless of
-whether that thread is running in the kernel or in userspace.
+在 Linux 内核中，这种情况通常可以通过回调卸载来处理，
+使用 \co{CONFIG_RCU_NOCB_CPU=y} 编译内核并在
+\co{rcu_nocbs} 内核引导参数中设置需要卸载的 CPU 的位。
+系统管理员可以为生成的 \co{rcuo} 内核线程设置优先级和 CPU 绑定，
+从而防止这些线程干扰更高优先级的线程或运行在其他 CPU 上的线程。\footnote{
+	更多信息参见 \url{https://lwn.net/Articles/988641/}}。
+这可行，但需要全局管理 CPU 和优先级，
+随着越来越多的工作负载整合到单个系统上，这变得越来越困难。
+此外，每个 RCU 回调在禁用 softirq（也称为"下半部"）的情况下调用，
+这意味着即使最高优先级的线程也无法抢占
+给定的回调，无论该线程运行在内核空间还是用户空间。
 
-Another approach is for the in-kernel user to tag each data element
-(or groups of them) with the return value from either
-\apik{get_state_synchronize_rcu()} or \apik{start_poll_synchronize_rcu()},
-then periodically call \apik{poll_state_synchronize_rcu()} when it is
-a good time to free the memory.
-Alternatively, the \co{_free()} counterparts of these three APIs may be
-used, which consumes more memory, but more accurately accounts for both
-normal and expedited RCU grace periods.
+另一种方法是内核用户使用
+\apik{get_state_synchronize_rcu()} 或 \apik{start_poll_synchronize_rcu()} 的
+返回值标记每个数据元素（或它们的组），
+然后在合适的时间定期调用 \apik{poll_state_synchronize_rcu()} 来释放内存。
+或者，可以使用这三个 API 的 \co{_free()} 对应版本，
+它们消耗更多内存，但能更准确地处理
+普通和加速的 RCU grace period。
 
-\subsubsection{Proactive Reclamation}
+\subsubsection{主动回收}
 \label{sec:together:Proactive Reclamation}
 
-There are sharp tradeoffs among the traditional RCU grace-period-wait
-APIs.
-On the one hand, \apik{synchronize_rcu()} incurs zero storage overhead,
-but on the other hand it inflicts many milliseconds of latency on
-its caller.
-Although \apik{synchronize_rcu_expedited()} inflicts less latency
-on its caller than does \co{synchronize_rcu()}, it still inflicts
-tens of microseconds even on small systems, ranging beyond a
-millisecond on larger systems.
-For their part, \apik{call_rcu()} and \apik{kfree_rcu()} avoid this
-latency, but at the expense of adding to pointers worth of \co{rcu_head}
-to each RCU-protected data structure.
-Finally, \apik{kfree_rcu_mightsleep()} avoids the \co{rcu_head} storage
-overhead, and also avoids the multi-millisecond latency, but only if
-there is ample free memory available.
-When there is no free memory, \co{kfree_rcu_mightsleep()} inflicts just
-as much latency on its caller as does \co{synchronize_rcu()}.
+传统的 RCU grace period 等待 API 之间存在尖锐的权衡。
+一方面，\apik{synchronize_rcu()} 的存储开销为零，
+但另一方面它给调用者带来数毫秒的延迟。
+虽然 \apik{synchronize_rcu_expedited()} 给调用者带来的延迟
+比 \co{synchronize_rcu()} 小，但在小型系统上仍有
+数十微秒，在大型系统上则超过一毫秒。
+至于 \apik{call_rcu()} 和 \apik{kfree_rcu()}，它们避免了这种
+延迟，但代价是给每个 RCU 保护的数据结构
+增加一个 \co{rcu_head} 指针。
+最后，\apik{kfree_rcu_mightsleep()} 避免了 \co{rcu_head} 的存储
+开销，也避免了数毫秒的延迟，但前提是
+有足够的空闲内存。
+当没有空闲内存时，\co{kfree_rcu_mightsleep()} 给调用者带来的延迟
+与 \co{synchronize_rcu()} 一样大。
 
-Those wanting the best of all possible worlds would of course advocate
-for something that never inflicts any latency and that requires no pesky
-\co{rcu_head} structures be added to RCU-protected data elements.
+想要两全其美的人当然会主张一种
+既不产生延迟、又不需要给 RCU 保护的数据元素
+添加烦人的 \co{rcu_head} 结构的方案。
 
-It \emph{is} possible to inflict minimal latency while also reducing the
-per-data-element overhead (almost) to a single pointer by constructing a
-singly linked list of data elements that have recently been removed from
-an RCU-protected linked data structure, and then periodically passing
-the full list to \co{call_rcu()}.
-However, this means that a single RCU callback will be traversing and
-and freeing each element of this list, thereby further increasing the
-disruption that invoking callbacks inflicts on the workload.
-The priority level of the disruption (though not its duration) can
-be reduced by using \apik{queue_rcu_work()}, which invokes the callback
-in a workqueue handler with preemption enabled.
-Except that this can result in per-callback context switches, and even
-ignoring that, the callbacks are being invoked at a time of RCU's and
-the workqueue subsystem's choosing.
+通过构造一个单向链表来存放最近从 RCU 保护的链式数据结构中
+移除的数据元素，然后定期将整个链表传递给 \co{call_rcu()}，
+确实可以实现最小延迟的同时将每个数据元素的开销
+（几乎）降低到一个指针。
+然而，这意味着单个 RCU 回调将遍历并
+释放该链表的每个元素，从而进一步增加
+调用回调对工作负载造成的干扰。
+可以通过使用 \apik{queue_rcu_work()} 来降低干扰的优先级（但不减少其持续时间），
+它在一个启用了抢占的 workqueue 处理函数中调用回调。
+不过这可能导致每次回调都发生上下文切换，而且
+即使忽略这一点，回调也是在 RCU 和
+workqueue 子系统选择的时间被调用的。
 
 \begin{figure}[tbp]
 \centering
@@ -1274,67 +1260,64 @@ the workqueue subsystem's choosing.
 \label{fig:together:Polled RCU Cache}
 \end{figure}
 
-This situation might seem grim, but there are use cases where the
-RCU-protected data elements are linked into a search structure that
-caches some fraction of the universe of such structures.
-This is represented by the leftmost ``Accessible to readers'' box in
-\cref{fig:together:Polled RCU Cache}.
+这种情况看起来不太乐观，但在某些使用场景中，
+RCU 保护的数据元素被链接到一个搜索结构中，
+该结构缓存了此类结构的一部分。
+这由 \cref{fig:together:Polled RCU Cache} 中最左边的"可被读者访问"框表示。
 
-Data elements that are unused for some time might be removed from the
-reader-accessible cache and moved to a holding area (see the arrow
-labeled ``A''), which is represented by the ``Old readers access''
-box in the figure.
-Such elements can be tagged with the return value from
-one of the polled-grace-period API members, for example,
-\co{get_state_synchronize_rcu()}.
-Because there is only a limited number of polled values that can represent
-a pending RCU grace period, this holding area could contain a small array,
-each element of which contains the grace-period \co{oldstate} value.
-The number of elements is specifed by \apik{NUM_ACTIVE_RCU_POLL_OLDSTATE}
-and \apik{NUM_ACTIVE_RCU_POLL_OLDSTATE_FULL} macros.
-Each entry of this array would head a list of elements that have been
-removed from the left-most ``Accessible to readers'' list, but that might
-still be referenced by old readers.
-If a reader needs a data element that has been relegated to the
-``Old readers access'' area, it can be once again made accessible to
-readers, as indicated by the arrow at the top of the figure.
+一段时间未使用的数据元素可能会从读者可访问的缓存中
+移除并转移到一个暂存区域（参见标记为"A"的箭头），
+该区域由图中的"旧读者访问"框表示。
+这些元素可以用轮询 grace period API 成员之一的
+返回值来标记，例如
+\co{get_state_synchronize_rcu()}。
+由于能够表示待处理 RCU grace period 的轮询值数量有限，
+这个暂存区可以包含一个小数组，
+每个元素保存一个 grace period 的 \co{oldstate} 值。
+元素数量由 \apik{NUM_ACTIVE_RCU_POLL_OLDSTATE} 和
+\apik{NUM_ACTIVE_RCU_POLL_OLDSTATE_FULL} 宏指定。
+该数组的每个条目都作为链表头，链接那些已从
+最左边的"可被读者访问"列表中移除、但仍可能被旧读者引用的元素。
+如果读者需要已被降级到"旧读者访问"区域的数据元素，
+它可以使该元素再次对读者可访问，
+如图顶部的箭头所示。
 
-When one of the polling APIs (for example, \co{poll_state_synchronize_rcu()}
-indicates that the corresponding RCU grace period has elapsed, then there
-can be \emph{no} readers accessing them.
-Those data elements are then moved to the ``No reader access'' area, as
-indicated by the arrow labeled ``B''\@.
-They can still be made accessible to readers, again as indicated by the
-arrow at the top of the figure.
+当某个轮询 API（例如 \co{poll_state_synchronize_rcu()}）
+指示对应的 RCU grace period 已经过期时，就\emph{不再有}
+读者访问这些数据。
+然后这些数据元素被移动到"无读者访问"区域，
+如标记为"B"的箭头所示。
+它们仍然可以被重新设为读者可访问，
+同样如图顶部的箭头所示。
 
-Finally, should memory run low, data elements can be freed, as indicated
-by the arrow labeled ``C''.
+最后，当内存不足时，数据元素可以被释放，
+如标记为"C"的箭头所示。
 
-This approach requires negligible additional per-data-element storage,
-inflicts almost no latency on calling functions, and provides full
-control of both the ``when'' and ``how'' of reclamation.
+这种方法几乎不需要额外的每数据元素存储开销，
+对调用函数几乎没有延迟，并且完全控制回收的"何时"和"如何"。
 
-\subsubsection{Nurturing Non-Blocking Synchronization}
+\subsubsection{培育非阻塞同步}
 \label{sec:together:Nurturing Non-Blocking Synchronization}
 
-As noted in the previous section, \apik{synchronize_rcu()} and
-\apik{synchronize_rcu_expedited()} both inflict significant latencies
-on their callers.
-Although \apik{call_rcu()} and \apik{kfree_rcu()} inflict almost no
-latency in the common case, in the Linux kernel \co{call_rcu()} can
-inflict wake-up latencies and \co{kfree_rcu()} can inflict
-memory-allocation latencies, both involving acquiring in-kernel locks.
-Any of these latencies might be unacceptable for low-latency applications
-that often choose to use non-blocking synchronization.
+如上一节所述，\apik{synchronize_rcu()} 和
+\apik{synchronize_rcu_expedited()} 都会给调用者
+带来显著的延迟。
+虽然 \apik{call_rcu()} 和 \apik{kfree_rcu()} 在常见情况下
+几乎不产生延迟，但在 Linux 内核中 \co{call_rcu()} 可能
+产生唤醒延迟，\co{kfree_rcu()} 可能产生
+内存分配延迟，两者都涉及获取内核锁。
+对于低延迟应用来说，这些延迟中的任何一个都可能是不可接受的，
+而这些应用通常选择使用非阻塞同步。
 
-The in-kernel portions of such applications can use the polled APIs called
-out earlier in this section, of which \apik{get_state_synchronize_rcu()},
-\apik{get_state_synchronize_rcu_full()},
-\apik{poll_state_synchronize_rcu()}, and
+这些应用的内核部分可以使用本节前面提到的轮询 API，
+其中 \apik{get_state_synchronize_rcu()}、
+\apik{get_state_synchronize_rcu_full()}、
+\apik{poll_state_synchronize_rcu()} 和
 \apik{poll_state_synchronize_rcu_full()}
-are wait-free.
-None of these APIs will actually start a grace period,
-however, any of the traditional grace-period-wait
-APIs plus both \apik{start_poll_synchronize_rcu()} and
-\apik{start_poll_synchronize_rcu_full()} may be invoked from some
-latency-insensitive time or place to start the needed grace periods.
+是无等待的。
+这些 API 都不会实际启动 grace period，
+但是，可以在某个对延迟不敏感的时间或地点
+调用传统的 grace period 等待 API，以及
+\apik{start_poll_synchronize_rcu()} 和
+\apik{start_poll_synchronize_rcu_full()}，
+来启动所需的 grace period。
