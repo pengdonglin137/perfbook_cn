@@ -30,6 +30,16 @@
 #          Akira Yokosawa <akiyks@gmail.com>
 
 : ${LATEX:=pdflatex}
+: ${WARNEXIT:=1}
+
+WARN_REMAIN=0
+
+if iconv -l | grep -q -i iso-8859-1
+then
+	ICONV="iconv -f ISO-8859-1 -t UTF-8"
+else
+	ICONV="cat"
+fi
 
 diff_warning () {
 	if diff -q $basename-warning.log $basename-warning-prev.log >/dev/null
@@ -61,7 +71,10 @@ excerpt_warnings () {
 		echo "----- You can see $basename-warning.log for the warnings above. -----"
 		echo "----- If you need to, see $basename.log for details. -----"
 		rm -f $basename-warning-prev.log
-		exit 1
+		WARN_REMAIN=1
+		if [ $WARNEXIT -ne 0 ] ; then
+			exit $WARNEXIT
+		fi
 	fi
 }
 
@@ -76,6 +89,11 @@ iterate_latex () {
 		echo "----- Warning in makeindex, see .ilg log files. -----"
 		exit 1
 	fi
+	if grep -q '!! Input index error' $basename.ilg $basename-ppl.ilg $basename-api.ilg
+	then
+		echo "----- Error in makeindex, see .ilg log files. -----"
+		exit 1
+	fi
 	makeglossaries $basename > /dev/null 2>&1
 	$LATEX $LATEX_OPT $basename > /dev/null 2>&1 < /dev/null
 	exitcode=$?
@@ -85,7 +103,7 @@ iterate_latex () {
 		if encguess -s iso-8859-1 $basename.log | grep -q ISO-8859-1
 		then
 			mv $basename.log $basename-tmp.log
-			iconv -f ISO-8859-1 -t UTF-8 $basename-tmp.log > $basename.log
+			$ICONV $basename-tmp.log > $basename.log
 			rm $basename-tmp.log
 		fi
 	fi
@@ -157,8 +175,14 @@ do
 	iterate_latex
 done
 excerpt_warnings
-rm -f $basename-warning.log $basename-warning-prev.log
-echo "'$basename.pdf' is ready."
+if [ $WARNEXIT -ne 0 ] ; then
+	rm -f $basename-warning.log $basename-warning-prev.log
+fi
+if [ $WARN_REMAIN -eq 0 ] ; then
+	echo "'$basename.pdf' is ready."
+else
+	echo "'$basename.pdf' is ready, with above warning(s) ignored."
+fi
 # cleveref version check (Ubuntu 18.04 LTS has buggy one
 if grep -q -F "packageversion{0.21.1}" `kpsewhich cleveref.sty`
 then

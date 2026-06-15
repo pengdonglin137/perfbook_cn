@@ -40,7 +40,7 @@
 通常\emph{至少}需要三个时钟周期才能完成一条指令，然后才能开始下一条。
 相比之下，1990年代末和2000年代的CPU同时执行许多条指令，
 使用\emph{流水线}、\emph{超标量}技术、\emph{乱序}指令和数据处理、
-\emph{推测执行}等更多技术~\cite{Hennessy2017}来优化指令和数据
+\emph{推测执行}等更多技术~\cite{Hennessy2026}来优化指令和数据
 在CPU中的流动。
 一些核心拥有多个硬件线程，这被称为
 \emph{同步多线程}（SMT）或\emph{超线程}
@@ -93,7 +93,8 @@
 由一个微操作调度器来协调。
 这样一个双线程核心的概略图如
 \cref{fig:cpu:Rough View of Modern Micro-Architecture}所示，
-更精确（因而也更复杂）的图可以在教科书和学术论文中找到。\footnote{
+更精确（因而也更复杂）的图可以在教科书~\cite{Hennessy2026}、
+学术论文和培训材料~\cite{GuilhermeAmadio2026CPUHWopt}中找到。\footnote{
 	这是一个2010年代末的Intel核心的示例：
 	\url{https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(server)}。}
 因此，一个硬件线程的执行可能而且经常会受到共享同一核心的
@@ -364,6 +365,44 @@ spin_unlock(&mylock);
 \caption{CPU遭遇Cache Miss}
 \ContributedBy{fig:cpu:CPU Meets a Cache Miss}{Melissa Broussard}
 \end{figure}
+
+\subsection{中断}
+\label{sec:cpu:Interrupts}
+
+在20世纪中叶，许多计算机在孤立环境中进行计算，
+不受外界干扰地输出数值结果。
+但在2026年的今天，这样的计算机已是例外而非常态。
+事实上，大多数计算机的存在只是为了响应从世界各地传来的请求。
+这些请求由计算机系统内的设备接收，
+然后这些设备\emph{\IXB{interrupt}}（中断）CPU以通知其有新请求到达。
+CPU还必须通过这些相同的设备发送响应，
+而当传输完成时，这些设备又可能中断CPU。
+CPU之间也可以使用\IXacrfpl{ipi}（处理器间中断）互相中断。
+
+无论哪种方式，CPU都会禁用进一步的中断，
+开始执行\emph{\IXB{interrupt handler}}（中断处理程序），
+一旦处理程序完成，CPU重新启用中断并恢复执行被中断的指令序列。
+这些中断会占用CPU原本正在执行的任务的时间，
+如\cref{fig:cpu:CPU; Interrupted}中所描绘的那样。
+
+\begin{figure}
+\centering
+\resizebox{3in}{!}{\includegraphics{cartoons/r-2026-CPU-track-meet-interrupt}}
+\caption{CPU遭遇中断}
+\ContributedBy{fig:cpu:CPU; Interrupted}{Melissa Broussard, remixed}
+\end{figure}
+
+所花费的时间不仅来自执行中断处理程序中的指令，
+还包括CPU在当前执行的指令流中``找到一个合适的停止点''所需的时间。
+之所以需要时间，是因为CPU可能正在执行数百条指令。
+在开始执行中断处理程序和返回被中断的指令流时，
+可能还需要额外的时间来重新填充CPU的指令执行流水线。
+CPU的禁用和启用中断指令还带来了额外的挑战，
+因为在寻找合适的停止点时，该停止点必须位于中断被启用的代码区域内。
+当然，CPU设计者努力减轻这些延迟，但总有极限。
+
+关于CPU指令执行固有挑战的更多信息，
+请参见\cref{sec:memorder:Why Hardware Misordering?}。
 
 \subsection{I/O操作}
 \label{sec:cpu:I/O Operations}

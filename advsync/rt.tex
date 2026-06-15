@@ -1736,6 +1736,33 @@ bool update_cal(short a, short b, short c)		\lnlbl[upd:b]
 
 此示例展示了 RCU 如何为实时程序提供确定性的读端数据结构访问。
 
+\QuickQuiz{
+	但如果也需要确定性的更新呢？
+	这不会因为非确定性的 RCU grace period 而产生问题吗？
+}\QuickQuizAnswer{
+	使用 \co{synchronize_rcu()} 确实会有问题，因为它会阻塞
+	等待 RCU grace period 过期，但还有其他方法来处理 grace period。
+
+	一种方法是改用 \co{call_rcu()}，它只是将 RCU 回调排队
+	然后继续执行。
+	经过一个 grace period 后，该回调将被调用，
+	从而将 RCU grace period 延迟从执行更新的线程中卸载。
+	然而，一些 RCU 实现会使 \co{call_rcu()} 执行大量工作，
+	包括调用任意数量的回调。
+	这类实现需要不同的方法。
+
+	截至 2020 年代初期，Linux 内核中的一种不同方法是使用
+	\cref{sec:defer:RCU has a Family of Wait-to-Finish APIs}
+	中描述的轮询 RCU grace period API。
+	\apik{get_state_synchronize_rcu()} 和
+	\apik{poll_state_synchronize_rcu()} API 都是非阻塞的，
+	这允许非阻塞算法使用 RCU，
+	至少在周期性地调用其他 RCU 函数（如
+	\apik{start_poll_synchronize_rcu()}）以确保启动所需的
+	RCU grace period 的情况下是如此。
+	希望轮询 RCU grace period API 能出现在更多 RCU 实现中。
+}\QuickQuizEnd
+
 \subsection{实时 vs.~极速：
 				     如何选择？}
 \label{sec:advsync:Real Time vs. Real Fast: How to Choose?}

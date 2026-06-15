@@ -614,9 +614,14 @@ Linux内核中的类型安全内存算法利用slab缓存，
 
 	因此，slab缓存只需等待那些在最后一个元素
 	释放之前开始的RCU read-side critical section。
+	后来的RCU read-side critical section在先前的
+	临界区结束之前开始并不重要。
+	那些后来的临界区不可能访问所讨论的slab中的数据。
 	这反过来意味着，在最后一个元素释放之后
 	开始的任何RCU grace period都可以——在该grace period
 	结束后，slab可以被归还给系统。
+	并且无穷无尽的有限持续时间的RCU read-side critical section
+	流不会无限期地延迟grace period。
 }\QuickQuizEnd
 
 重要的是要注意，\co{SLAB_TYPESAFE_BY_RCU}

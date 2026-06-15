@@ -298,16 +298,25 @@
 	（假设有足够的 CPU 可用）。
 \item[\IXG{Immutable}:]
 	在本书中，是 read-mostly 的同义词。
+\item[Inter-Processor Interrupt (IPI):]\glsuseriii{ipi}
+	处理器间中断，即由 CPU 而非 I/O 设备发送的中断。
+	IPI 在 Linux 内核中被大量使用，例如，
+	调度器使用 IPI 来通知 CPU 一个高优先级进程现在可以运行了。
+\item[\IXG{Interrupt}:]
+	发送给 CPU 的信号，导致 CPU 停止正在执行的任务，
+	禁用中断，并执行中断处理程序。
+	当中断处理程序完成后，CPU 重新启用中断并恢复
+	中断到达时正在执行的任务。
+	另请参阅 IRQ。
+\item[\IXG{Interrupt Handler}:]
+	CPU 为响应中断而执行的函数（此时进一步的中断被禁用）。
 \item[\IXG{Invalidation}:]
 	当 CPU 希望写入一个数据项时，
 	它必须首先确保该数据项不存在于任何其他 CPU 的缓存中。
 	如有必要，通过写入 CPU 向拥有副本的其他 CPU
 	发送"无效化"消息来将该项从其他 CPU 的缓存中移除。
-\item[IPI:]\glsuseriii{ipi}
-	处理器间中断（Inter-processor interrupt），
-	即从一个 CPU 发送到另一个 CPU 的中断。
-	IPI 在 Linux 内核中被大量使用，例如，
-	调度器使用 IPI 来通知 CPU 一个高优先级进程现在可以运行了。
+\item[IPI:]
+	参见 ``Inter-Processor Interrupt (IPI)''。
 \item[IRQ:]\glsuseriii{irq}
 	中断请求（Interrupt request），在 Linux 内核社区中
 	常被用作"中断"的缩写，如"irq handler"。

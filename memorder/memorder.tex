@@ -292,7 +292,11 @@ store了CPU~2的acquire所load的值，依此类推。
 \cref{lst:memorder:Long LB Release-Acquire Chain,%
 lst:memorder:Long ISA2 Release-Acquire Chain,%
 lst:memorder:Long Z6.2 Release-Acquire Chain}
-在\cpagerefrange{lst:memorder:Long LB Release-Acquire Chain}{lst:memorder:Long Z6.2 Release-Acquire Chain}上分别说明。
+在
+\cpageref{lst:memorder:Long LB Release-Acquire Chain,,%
+lst:memorder:Long ISA2 Release-Acquire Chain,,%
+lst:memorder:Long Z6.2 Release-Acquire Chain}
+上分别说明。
 
 看到和没有看到访问的工作方式与\cref{sec:memorder:Locking Intuitions}中描述的相同。
 
@@ -406,6 +410,21 @@ on
 在图中，如果CPU~1对Y的引用在CPU~0之后，
 并且两个CPU在它们的两个访问之间提供了足够的排序，
 那么CPU~0对X的访问也将先于CPU~1的访问。
+
+请注意，CPU~0 和 CPU~1 的排序都是必需的。
+原因在于，给定 CPU 执行的普通 memory-ordering 指令
+仅影响该 CPU 和内存子系统，包括在
+\cref{sec:memorder:Why Hardware Misordering?}
+中更详细讨论的 store buffer、cache 和互连。
+因此，如果两个 CPU 需要彼此同步，它们都需要执行
+memory-ordering 指令，以便它们都能与内存子系统正确交互，
+从而间接地与彼此交互。
+也就是说，两个 CPU 的 memory-ordering 指令必须彼此
+\emph{配对}，
+这有时被称为 \emph{memory-barrier 配对}。
+这种 memory-barrier 配对可以在
+\cref{fig:memorder:If-Then Nature of Memory Ordering} 中看到，
+其中 CPU~0 和~1 提供的排序协同工作以提供 if-then 排序。
 
 第一条经验法则是，memory-ordering操作仅在
 至少两个线程共享的至少两个变量之间有可能
@@ -2125,7 +2144,7 @@ on the order of \co{P0()}'s and \co{P1()}'s stores.
 
 	In contrast, on an other-multicopy-atomic platform, \co{P0()}
 	could see its own store early, so that there would be no constraint
-	on the order of visibility of the two stores from \co{P1()},
+	on the order of visibility of the two stores from \co{P0()},
 	which in turn allows the \co{exists} clause to trigger.
 }\QuickQuizEnd
 
@@ -2169,7 +2188,7 @@ might reach \co{P2()} before \co{P0()}'s store does.
 This leads to the question of why a real system constrained by the
 usual laws of physics would ever trigger the \co{exists} clause of
 \cref{lst:memorder:WRC Litmus Test With Dependencies (No Ordering)}.
-The cartoonish diagram of a such a real system is shown in
+The cartoonish diagram of such a real system is shown in
 \cref{fig:memorder:Shared Store Buffers And Multi-Copy Atomicity}.
 CPU~0 and CPU~1 share a store buffer, as do CPUs~2 and~3.
 This means that CPU~1 can load a value out of the store buffer, thus
@@ -2465,11 +2484,14 @@ This situation might seem completely counter-intuitive, but keep
 in mind that the speed of light is finite and computers are of
 non-zero size.
 It therefore takes time for the effect of the \co{P2()}'s store to
-\co{x} to propagate to \co{P1()}, which in turn means that it is possible
-that \co{P1()}'s read from \co{x} happens much later in time, but
+\co{z} to propagate to \co{P1()}, which in turn means that it is possible
+that \co{P1()}'s read from \co{z} happens much later in time, but
 nevertheless still sees the old value of zero.
 This situation is depicted in
-\cref{fig:memorder:Load-to-Store is Counter-Temporal}:
+\cref{fig:memorder:Load-to-Store is Counter-Temporal}:\footnote{
+	The figure uses \co{x} as a generic variable name for the same
+	counter-temporal pattern that uses the variable \co{z} in
+	\cref{lst:memorder:W+RWC Litmus Test With Release (No Ordering)}.}
 Just because a load sees the old value does \emph{not} mean that
 this load executed at an earlier time than did the store of the
 new value.
@@ -3246,8 +3268,8 @@ can be satisfied:
 
 At this point, you should see something like
 \cref{fig:memorder:PPCMEM Final R State}.
-Note that the satisified \co{exists} clause is shown in blue near the
-bottom, confirming that this counter-intuitive really can happen.
+Note that the satisfied \co{exists} clause is shown in blue near the
+bottom, confirming that this counter-intuitive result really can happen.
 If you wish, you can click on ``Undo'' to explore other options or
 click on ``Reset'' to start over.
 It can be very helpful to carry out these steps in different orders
@@ -4133,92 +4155,80 @@ special attention to your memory references and dependencies.
 本节将探讨更高抽象层次如何也能提供
 对同步原语本身更深层的理解。
 \Cref{sec:memorder:Memory Allocation}
-takes a look at memory allocation,
+考察内存分配，
 \cref{sec:memorder:Locking}
-examines the surprisingly varied semantics of locking, and
+审视锁的惊人多样化的语义，
 \cref{sec:memorder:RCU}
-digs more deeply into RCU\@.
+更深入地探讨 RCU，
+\cref{sec:memorder:SRCU}
+考察 SRCU 的特性，以及
+\cref{sec:memorder:Asymmetric Memory Barriers}
+讨论非对称 memory barrier。
 
 \subsection{内存分配}
 \label{sec:memorder:Memory Allocation}
 
 \Cref{sec:SMPdesign:Parallel Fastpath for Resource Allocation}
-touched upon memory allocation, and this section expands upon the relevant
-memory-ordering issues.
+涉及了内存分配，本节扩展讨论相关的
+memory-ordering 问题。
 
-The key requirement is that any access executed on a given block of
-memory before freeing that block must be ordered before any access
-executed after that same block is reallocated.
-It would after all be a cruel and unusual memory-allocator bug if a store
-preceding the free were to be reordered after another store following
-the reallocation!
-However, it would also be cruel and unusual to require developers to use
-\co{READ_ONCE()} and \co{WRITE_ONCE()} to access dynamically allocated
-memory.
-Full ordering must therefore be provided for plain accesses, in spite of
+关键要求是在释放给定内存块之前在该块上执行的任何访问
+必须在该块被重新分配之后执行的任何访问之前排序。
+毕竟，如果释放之前的 store 被重排到重新分配之后的另一个
+store 之后，那将是一个残酷且异常的内存分配器 bug！
+然而，要求开发者使用 \co{READ_ONCE()} 和 \co{WRITE_ONCE()}
+来访问动态分配的内存也将是残酷且异常的。
+因此，必须为普通访问提供完全排序，尽管
 all the shared-variable shenanigans called out in
 \cref{sec:toolsoftrade:Shared-Variable Shenanigans}.
 
-Of course, each CPU sees its own accesses in order and the compiler
-always has fully accounted for intra-CPU shenanigans, give or take
-the occasional compiler bug.
-These facts are what enables the lockless fastpaths in
-\co{memblock_alloc()} and \co{memblock_free()}, which are shown in
+当然，每个 CPU 按顺序看到自己的访问，编译器
+总是充分考虑了 CPU 内部的混乱，偶尔会有编译器 bug。
+这些事实使得 \co{memblock_alloc()} 和 \co{memblock_free()}
+中的无锁快速路径成为可能，分别如
 \cref{lst:SMPdesign:Allocator-Cache Allocator Function,%
-lst:SMPdesign:Allocator-Cache Free Function},
-respectively.
-However, this is also why the developer is responsible for providing
-appropriate ordering (for example, by using \co{smp_store_release()})
-when publishing a pointer to a newly allocated block of memory.
-After all, in the CPU-local case, the allocator has not necessarily
-provided any cross-CPU ordering.
+lst:SMPdesign:Allocator-Cache Free Function} 所示。
+然而，这也是为什么开发者在发布指向新分配内存块的指针时
+负责提供适当的排序（例如，通过使用 \co{smp_store_release()}）。
+毕竟，在 CPU 本地的情况下，分配器不一定
+提供了任何跨 CPU 排序。
 
-This means that the allocator must provide ordering when rebalancing
-its per-thread pools.
-This ordering is provided by the calls to \co{spin_lock()} and
-\co{spin_unlock()} from \co{memblock_alloc()} and \co{memblock_free()}.
-For any block that has migrated from one thread to another, the old
-thread will have executed \co{spin_unlock(&globalmem.mutex)} after
-placing the block in the \co{globalmem} pool, and the new thread will
-have executed \co{spin_lock(&globalmem.mutex)} before moving that
-block to its per-thread pool.
-This \co{spin_unlock()} and \co{spin_lock()} ensures that both the
-old and new threads see the old thread's accesses as having happened
-before those of the new thread.
+这意味着分配器在重新平衡其每线程池时必须提供排序。
+这种排序由 \co{memblock_alloc()} 和 \co{memblock_free()}
+中对 \co{spin_lock()} 和 \co{spin_unlock()} 的调用提供。
+对于从一个线程迁移到另一个线程的任何块，旧线程
+在将块放入 \co{globalmem} 池之后执行了 \co{spin_unlock(&globalmem.mutex)}，
+新线程在将该块移动到其每线程池之前执行了
+\co{spin_lock(&globalmem.mutex)}。
+这个 \co{spin_unlock()} 和 \co{spin_lock()} 确保新旧线程
+都看到旧线程的访问发生在新线程的访问之前。
 
 \QuickQuiz{
-	But doesn't PowerPC have weak unlock-lock ordering properties
-	within the Linux kernel, allowing a write before the unlock to
-	be reordered with a read after the lock?
+	PowerPC 在 Linux 内核中不是具有较弱的 unlock-lock 排序属性
+	吗？这允许 unlock 之前的 write 与 lock 之后的 read 被重排？
 }\QuickQuizAnswer{
-	Yes, but only from the perspective of a third thread not holding
-	that lock.
-	In contrast, memory allocators need only concern themselves with
-	the two threads migrating the memory.
-	It is after all the developer's responsibility to properly
-	synchronize with any other threads that need access to the newly
-	migrated block of memory.
+	是的，但仅从不持有该锁的第三个线程的角度来看是这样。
+	相比之下，内存分配器只需要关注迁移内存的两个线程。
+	毕竟，与任何其他需要访问新迁移内存块的线程
+	正确同步是开发者的责任。
 }\QuickQuizEnd
 
-Therefore, the ordering required by conventional uses of memory allocation
-can be provided solely by non-fastpath locking, allowing the fastpath to
-remain synchronization-free.
+因此，内存分配的传统使用所需的排序可以完全由
+非快速路径锁提供，允许快速路径保持无同步。
 
 \subsection{锁}
 \label{sec:memorder:Locking}
 
-Locking is a well-known synchronization primitive with which the
-parallel-programming community has had decades of experience.
-As such, locking's semantics are quite simple.
+锁是一个众所周知的同步原语，并行编程社区已经
+拥有数十年的经验。
+因此，锁的语义非常简单。
 
-That is, they are quite simple until you start trying to mathematically
-model them.
+也就是说，它们非常简单，直到你开始尝试对它们进行数学建模。
 
-The simple part is that any CPU or thread holding a given lock is
-guaranteed to see any accesses executed by CPUs or threads while they
-were previously holding that same lock.
-Similarly, any CPU or thread holding a given lock is guaranteed not
-to see accesses that will be executed by other CPUs or threads while
+简单的部分是，持有给定锁的任何 CPU 或线程
+保证看到之前持有同一锁时由 CPU 或线程执行的任何访问。
+类似地，持有给定锁的任何 CPU 或线程保证不会
+看到其他 CPU 或线程在
 subsequently holding that same lock.
 And what else is there?
 
@@ -4241,17 +4251,15 @@ As it turns out, quite a bit:
 \item	What ordering guarantees are provided by \co{spin_is_locked()}?
 \end{enumerate}
 
-The reaction to some or even all of these questions might well be ``Why
-would anyone do \emph{that}?''
-However, any complete mathematical definition of locking must have
-answers to all of these questions.
-Therefore, the following sections address these questions in the context
-of the Linux kernel.
+对这些部分甚至全部问题的反应很可能是"为什么有人会
+做\emph{那件事}？"
+然而，任何完整的锁的数学定义都必须回答所有这些问题。
+因此，以下章节在 Linux 内核的背景下解决这些问题。
 
 \subsubsection{访问可以移入临界区吗？}
 \label{sec:memorder:Accesses Into Critical Sections?}
 
-Can memory accesses be reordered into lock-based critical sections?
+内存访问可以被重排到基于锁的临界区中吗？
 
 \begin{listing}
 \input{CodeSamples/formal/herd/C-Lock-before-into@whole.fcv}
@@ -4265,23 +4273,21 @@ Can memory accesses be reordered into lock-based critical sections?
 \label{lst:memorder:Subsequent Accesses Into Critical Section (Ordering?)}
 \end{listing}
 
-Within the context of the Linux-kernel memory model, the simple answer
-is ``yes''.
-This may be verified by running the litmus tests shown in
+在 Linux 内存模型的背景下，简单的答案是"可以"。
+这可以通过运行
 \cref{lst:memorder:Prior Accesses Into Critical Section (Ordering?),%
 lst:memorder:Subsequent Accesses Into Critical Section (Ordering?)}
-(\path{C-Lock-before-into.litmus} and \path{C-Lock-after-into.litmus},
-respectively), both of which will yield the \co{Sometimes} result.
-This result indicates that the \co{exists} clause can be satisfied, that
-is, that the final value of both \co{P0()}'s and \co{P1()}'s \co{r1} variable
-can be zero.
-This means that neither \co{spin_lock()} nor \co{spin_unlock()}
-are required to act as a \IXh{full}{memory barrier}.
+中显示的 litmus test 来验证
+（分别为 \path{C-Lock-before-into.litmus} 和 \path{C-Lock-after-into.litmus}），
+两者都将产生 \co{Sometimes} 结果。
+此结果表明 \co{exists} 子句可以被满足，即
+\co{P0()} 和 \co{P1()} 的 \co{r1} 变量的最终值都可以为零。
+这意味着 \co{spin_lock()} 和 \co{spin_unlock()} 都不需要
+充当 \IXh{full}{memory barrier}。
 
-However, other environments might make other choices.
-For example, locking implementations that run only on the x86 CPU
-family will have lock-acquisition primitives that fully order the lock
-acquisition with any prior and any subsequent accesses.
+然而，其他环境可能会做出其他选择。
+例如，仅在 x86 CPU 系列上运行的锁实现将具有完全排序锁
+获取与任何先前和任何后续访问的锁获取原语。
 Therefore, on such systems the ordering shown in
 \cref{lst:memorder:Prior Accesses Into Critical Section (Ordering?)}
 comes for free.
@@ -4997,18 +5003,244 @@ ordering between \co{P1()} and \co{P2()}.
 	Further analysis is left as an exercise for the reader.
 }\QuickQuizEnd
 
-In short, where RCU's semantics were once purely pragmatic, they are
-now fully
-formalized~\cite{PaulMcKenney2005RCUSemantics,MathieuDesnoyers2012URCU,AlexeyGotsman2013ESOPRCU,Alglave:2018:FSC:3173162.3177156}.
+简而言之，RCU 的语义曾经纯粹是实用主义的，现在已完全
+形式化~\cite{PaulMcKenney2005RCUSemantics,MathieuDesnoyers2012URCU,AlexeyGotsman2013ESOPRCU,Alglave:2018:FSC:3173162.3177156}。
 
-% \subsection{SRCU}
-% \label{sec:memorder:SRCU}
-% @@@ After LWN article
+\subsection{SRCU}
+\label{sec:memorder:SRCU}
 
-% Nesting vs. value passed from \co{srcu_read_lock()} to
-% \co{srcu_read_unlock()}.
+虽然 SRCU（sleepable RCU）的属性与 RCU 非常相似，
+但它在几个重要方面与 RCU 不同：
+\begin{enumerate*}[(1)]
+\item	Linux 内核中的 SRCU 读者可以阻塞，
+\item	每个 \tco{srcu_struct} 结构提供一个独立的 SRCU 域，以及
+\item	SRCU 读者既不嵌套也不展平。
+\end{enumerate*}
 
-% When augmented by \co{smp_mb__after_srcu_read_unlock()}.
+阻塞目前不在大多数形式化验证工具的范围内，因此
+以下章节将重点讨论 SRCU 域和非嵌套的
+RCU 读者。
+
+\subsubsection{SRCU 域}
+\label{sec:memorder:SRCU Domains}
+
+SRCU 提供多个独立域，系统中的每个 \co{srcu_struct}
+结构一个域。
+这意味着为一个 \co{srcu_struct}
+结构调用的 \co{synchronize_srcu()} 不会等待为另一个 \co{srcu_struct}
+结构调用的 SRCU 读者（\co{srcu_read_lock()} 和
+\co{srcu_read_unlock()} 对）。
+
+\begin{listing}
+\input{CodeSamples/formal/herd/C-SRCU-xdomain@whole.fcv}
+\caption{SRCU 域}
+\label{lst:memorder:SRCU Domains}
+\end{listing}
+
+\Cref{lst:memorder:SRCU Domains}
+演示了此属性。
+\co{P0()} 跨越第~11 和~14 行的 SRCU 读侧临界区使用
+\co{srcu_struct} 结构 \co{s1}，但 \co{P1()} 在第~20 行的
+\co{synchronize_srcu()} 使用 \co{srcu_struct} 结构
+\co{s2}。
+因此这两个进程完全独立，这意味着
+\co{P1()} 的 \co{synchronize_srcu()} 不保证等待
+\co{P0()} 的 SRCU 读者，这反过来意味着第~25 行的 \co{exists}
+子句可以被满足。
+
+将 \co{P1()} 修改为使用 \co{s1} 而非 \co{s2} 将禁止此结果。
+
+\subsubsection{SRCU 非嵌套读者}
+\label{sec:memorder:SRCU Non-Nesting Readers}
+
+RCU 读者可以嵌套，但如
+\cref{sec:defer:RCU has a Family of Wait-to-Finish APIs}
+中所述，
+\co{srcu_read_lock()} 及其同族函数返回一个值，该值被传递给
+相应的 \co{srcu_read_unlock()} 函数（有关同族函数列表，请参见
+\cref{tab:defer:SRCU Markers for Read-Side Critical Sections}）。
+当 \co{srcu_read_lock()} 调用返回的值被传递给
+\co{srcu_read_unlock()} 时，这两个调用标记了 SRCU
+读侧临界区的边界，该边界不与任何其他 SRCU
+读侧临界区交互。
+
+\begin{listing}
+\input{CodeSamples/formal/herd/C-SRCU-readers-no-nest@whole.fcv}
+\caption{SRCU 读者不嵌套}
+\label{lst:memorder:SRCU Readers Don't Nest}
+\end{listing}
+
+\Cref{lst:memorder:SRCU Readers Don't Nest}
+演示了此属性。
+第~12 行的 \co{srcu_read_lock()} 的返回值被传递给
+第~15 行的 \co{srcu_read_unlock()}，第~14 行的返回值被传递给
+第~17 行。
+如果这是 RCU 而非 SRCU，这将被解释为跨越第~12--17 行的外部
+读侧临界区，其中包含跨越第~14--15 行的（空的）内部
+临界区，这将足以禁止第~28 行 \co{exists} 子句中显示的结果。
+
+但这是 SRCU，因此有两个独立的 SRCU 读侧临界区，
+一个跨越第~12--15 行，另一个跨越第~14-17 行。
+它们重叠的事实并没有帮助，你可以通过考虑
+以下事件序列来看到这一点：
+
+\begin{enumerate}
+\item	\co{P0()} 执行第~12 行，进入其第一个 SRCU
+	读侧临界区。
+\item	\co{P1()} 执行第~22 和~23 行，将值 \co{1} 写入
+	\co{y} 并启动其 SRCU grace period。
+\item	\co{P0()} 执行第~13 行，从 \co{y} 读取值 \co{1}。
+\item	\co{P0()} 执行第~14 和~15 行，退出其第一个临界区
+	并进入第二个。
+\item	\co{P1()} 从 \co{synchronize_srcu()} 返回，因为 \co{P0()} 的
+	第一个临界区已完成。
+	此 \co{synchronize_srcu()} 调用无需等待 \co{P0()} 的
+	第二个临界区，因为它在此 \co{synchronize_srcu()} 调用
+	之后开始。
+\item	\co{P0()} 执行第~16 和~17 行，从 \co{x} 读取值 \co{0}。
+\item	\co{P1()} 执行第~24 行，将值 \co{1} 写入 \co{x}，
+	但为时已晚，无法影响 \co{P0()} 读取的值。
+\item	\co{P0()} 执行第~17 行，退出其第二个临界区。
+\end{enumerate}
+
+这个简单的事件序列满足了 \co{exists} 子句，
+这可以通过 \co{herd7} 来确认。
+当然，删除第~14 和~15 行并将第~17 行的 \co{r4} 替换为
+\co{r3} 将禁止此结果，这也可以通过 \co{herd7} 来确认。
+最后，将此 litmus test 从 SRCU 转换为 RCU 也将禁止
+此结果。
+
+% @@@ When augmented by \co{smp_mb__after_srcu_read_unlock()}.
+
+\subsection{非对称 Memory Barrier}
+\label{sec:memorder:Asymmetric Memory Barriers}
+
+鉴于读写锁和 RCU 是非对称的，两者都偏向读者，
+并且 \co{smp_mb()} 全内存屏障的开销对某些用例来说过高，
+那么是否有具有轻量级 API 成员用于快速路径的
+非对称 memory barrier 呢？
+
+答案是"有"。
+
+\begin{figure}
+\centering
+\resizebox{2.5in}{!}{\includegraphics{memorder/SystemArchSB-smb}}
+\caption{对称 Memory Barrier 交互}
+\label{fig:memorder:Symmetric Memory Barriers Interactions}
+\end{figure}
+
+回顾在
+\cref{sec:memorder:Rules of Thumb}
+中对
+\cref{fig:memorder:If-Then Nature of Memory Ordering}
+的讨论（在
+\cpageref{fig:memorder:If-Then Nature of Memory Ordering} 上），
+给定 CPU 的 memory-barrier 指令仅与内存子系统（store buffer、cache 和互连）交互，
+而不直接与其他 CPU 交互。
+这意味着为了两个 CPU 彼此同步，每个 CPU 都必须执行
+memory-barrier 指令，如
+\cref{fig:memorder:Symmetric Memory Barriers Interactions}
+中 CPU~0 和~1 所示。
+考虑到 memory-barrier 配对及其推广 cycle 的需求，这并不令人惊讶。
+
+\QuickQuiz{
+	\cref{fig:memorder:Symmetric Memory Barriers Interactions}
+	显示 memory barrier 与 store buffer、cache、互连和内存交互。
+	但轻量级 memory-ordering 操作（load-acquire、
+	store-release 和 PowerPC \co{lwsync} 指令）不是只与
+	store buffer 交互吗？
+}\QuickQuizAnswer{
+	在很多情况下确实如此，如
+	\cref{fig:memorder:Light-Weight Symmetric Memory Barriers Interactions}
+	所示。
+
+	\begin{figure}
+	\centering
+	\resizebox{2.5in}{!}{\includegraphics{memorder/SystemArchSB-slmb}}
+	\caption{轻量级对称 Memory Barrier 交互}
+	\label{fig:memorder:Light-Weight Symmetric Memory Barriers Interactions}
+	\end{figure}
+
+	然而，尽管这通常是正确的，但它是一种过度简化。
+	轻量级 memory-ordering 操作之所以可以只与 store buffer 交互，
+	唯一的原因是 cache-coherence 协议将这些交互传播到
+	cache 中，cache 进而将所需的排序通过互连传播，
+	如果需要的话，传播到内存。
+}\QuickQuizEnd
+
+\begin{figure}
+\centering
+\resizebox{2.5in}{!}{\includegraphics{memorder/SystemArchSB-amb}}
+\caption{非对称 Memory Barrier 交互}
+\label{fig:memorder:Asymmetric Memory Barriers Interactions}
+\end{figure}
+
+\emph{非对称 memory barrier} 背后的技巧是创建一个
+\emph{重量级} memory barrier，当给定 CPU 执行它时，
+不仅与内存子系统交互，还直接与目标 CPU 交互，
+例如，通过向这些 CPU 发送 \IXacrfpl{ipi}。
+这些目标 CPU 然后与内存子系统交互，在许多架构上，
+这仅通过处理 IPI 就可以发生。
+这由
+\cref{fig:memorder:Asymmetric Memory Barriers Interactions}
+描绘，它显示 CPU~0 执行 memory-barrier 指令但也向 CPU~1 发送 IPI。
+当 CPU~1 执行 IPI 处理程序时，它也执行 memory-barrier 指令，
+从而提供所需的 memory-barrier 配对，但不需要 CPU~1 自行
+执行任何 memory-barrier 指令。
+CPU~0 的 memory barrier 结合其 IPI（因此结合 CPU~1 的非自愿
+memory barrier）构成了重量级 memory barrier。
+
+然而，CPU~1 不能完全被动，因为编译器可以重排内存引用操作，
+这可能会破坏排序。
+因此 CPU~1 的代码必须包含 Linux 内核的 \co{barrier()}
+编译器指令，这被称为\emph{轻量级} memory barrier。
+
+重量级非对称 memory barrier 可以与对称 memory barrier
+（或任何其他提供足够排序的操作）配对，
+也可以与重量级或轻量级非对称 memory barrier 配对。
+换句话说，重量级非对称 memory barrier 可以与对称
+memory barrier 能配对的所有东西配对，它还可以与
+轻量级非对称 memory barrier 配对。
+然而，轻量级非对称 memory barrier \emph{只能}与
+重量级 memory barrier 配对。
+% @@@ Double-check this with litmus tests.
+
+许多系统提供对重量级非对称 memory barrier 的用户空间访问。
+例如，Linux 提供了 \co{membarrier()} 系统
+调用~\cite{Corbet2010membarrier}。
+但公平地说，早在 2008 年，Windows 就开始
+提供 \co{FlushProcessWriteBuffers()} 系统调用。
+
+\QuickQuiz{
+	RCU 不是早在 2000 年之前就作为非对称 memory barrier 的
+	一个例子吗？重量级 barrier 由 \co{synchronize_rcu()} 提供，
+	轻量级 barrier 则是 \co{rcu_read_lock()} 和
+	\co{rcu_read_unlock()} 之间你想要的任何地方的隐式 barrier？
+}\QuickQuizAnswer{
+	算是吧？
+
+	如果你持这种观点，你可以将非对称 memory barrier
+	视为针对特定 RCU 用例的优化。
+	毕竟，与 \co{synchronize_rcu()} 不同，重量级非对称
+	barrier 无需等待 RCU 静默状态。
+
+	但如果你想追溯到 2008 年之前，2001 年的一个 Linux 内核
+	补丁针对 DEC Alpha 上维护地址依赖的特殊情况实现了
+	非对称 memory barrier~\cite{McKenney01f}。
+	还有未经证实的传言称 DEC 的 Digital UNIX 在 1990 年代
+	就使用了非对称 memory barrier。
+
+	但我们可能需要面对这样一个事实：非对称 memory barrier 的
+	发明已经消失在时间的沙尘中。
+}\QuickQuizEnd
+
+% @@@ Formal verification emulation in ~/paper/cpp-threads/2026/afence.
+% @@@ Could add these to LKMM by encoding memory order into function name.
+% @@@ Might be able to prototype them in herd7's C++ memory model?
+
+目前，不同的环境中存在不同的非对称 barrier API，
+但有一个提案建议向 C++ 标准添加特定的非对称 fence
+API~\cite{DavidGoldblatt2022asymmetricFences}。
 
 \subsection{更高层次原语：
 	    讨论}
@@ -5017,7 +5249,7 @@ formalized~\cite{PaulMcKenney2005RCUSemantics,MathieuDesnoyers2012URCU,AlexeyGot
 It is quite beneficial to verify code in terms of a higher-level primitive
 instead of in terms of the low-level memory accesses used in a particular
 implementation of that primitive.
-First, this allows code using`those primitives to be
+First, this allows code using those primitives to be
 verified against an abstract representation of those primitives,
 thus making that code less vulnerable to implementation changes.
 Second, partitioning the verification at API boundaries results in
@@ -5424,7 +5656,9 @@ This software barrier could be implemented by sending \IXacrfpl{ipi}
 to all other CPUs.
 Upon receipt of such an IPI, a CPU would execute a memory-barrier
 instruction, implementing a system-wide memory barrier similar to that
-provided by the Linux kernel's \co{sys_membarrier()} system call.
+provided by the Linux kernel's \co{sys_membarrier()} system call, thus
+being an early example of the asymmetric memory barriers discussed in
+\cref{sec:memorder:Asymmetric Memory Barriers}.
 Additional logic is required to avoid deadlocks.
 Of course, CPUs that respect address dependencies would define such a barrier
 to simply be \co{smp_store_release()}.

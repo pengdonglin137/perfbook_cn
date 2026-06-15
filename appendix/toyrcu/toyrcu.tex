@@ -1324,6 +1324,39 @@ RCU读端临界区之外时将为零。
 此外，这个实现不允许并发的\co{synchronize_rcu()}调用共享宽限期。
 话虽如此，可以很容易地想象基于这个版本的RCU构建一个生产级RCU实现\@。
 
+\section{固定空间RCU}
+\label{sec:app:toyrcu:Fixed-Space RCU}
+
+\Cref{sec:defer:Waiting for Readers}
+描述了一类宽限期为固定时间间隔的RCU实现。
+\Cref{fig:defer:RCU Spatial/Temporal Synchronization}及其在
+\cref{sec:defer:Quasi Reader-Writer Lock}中的讨论
+表明可能存在一类对应的RCU实现，
+其中宽限期不是固定的时间段，而是固定数量的地址空间，
+2026年与\ppl{Hui}{Xie}的一次讨论使我关注到了这种可能性。
+
+可以说，Linux内核地址消毒器
+(KASAN)~\cite{AndreyRyabinin2015KASAN}包含了固定空间RCU\@。
+KASAN将新释放的内存块保存在固定大小的隔离区中。
+这样做是为了增加释放后使用访问发生在相应内存块尚未被重新分配的概率，
+从而减少如果在任何仍然（错误地）引用它的悬挂指针的生命周期结束之前
+内存被重新分配时可能发生的假阴性数量。
+然而，这可以被视为一种固定空间RCU实现，
+其中"读者"（持有指向新释放内存块的悬挂指针的任务）
+被假定在相应内存块通过固定大小的隔离区并被重新分配之前完成。
+
+就其本身而言，rcutorture做了类似的事情，它延迟释放
+全局变量\co{rcu_torture_current}先前引用的
+\co{RCU_TORTURE_PIPE_LEN}（即10个）内存块。
+此外，总共有10倍的元素（即100个）。
+与KASAN一样，目的是减少假阴性的发生，
+使得一个极长的RCU读者与一系列极短的RCU宽限期相结合时，
+仍然有大约99\pct\的概率让每个读者为那些过短的宽限期发出诊断。
+
+尽管在这两个例子中，固定缓冲区的目的是检测错误，
+但它们也可以用来创建一个极其有限且相当尖锐的RCU宽限期检测机制。
+因此固定空间RCU是相当真实的，尽管可能只是非常罕见地值得推荐。
+
 \section{玩具RCU实现总结}
 \label{sec:app:toyrcu:Summary of Toy RCU Implementations}
 

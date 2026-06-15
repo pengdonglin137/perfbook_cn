@@ -358,7 +358,7 @@ Tasks RCU Rude、Tasks RCU Trace和通用API的等待读者部分，
 \tco{cond_synchronize_rcu_expedited_full()} &
 	（如需要）以加速方式等待该状态的grace period结束。 \\
 \tco{NUM_ACTIVE_RCU_POLL_OLDSTATE}
-\tco{NUM_ACTIVE_RCU_POLL_OLDSTATE} &
+\tco{NUM_ACTIVE_RCU_POLL_OLDSTATE_FULL} &
 	对应进行中grace period的最大状态数。 \\
 \tco{same_state_synchronize_rcu()}
 \tco{same_state_synchronize_rcu_full()} &
@@ -439,6 +439,20 @@ RCU read-side critical section可以嵌套。\footnote{
 	因此，只要每个RCU read-side critical section
 	的持续时间是有限的，RCU grace period也将保持有限。
 }\QuickQuizEndB
+%
+\QuickQuizM{
+	为什么没有与\co{rcu_read_lock()}配对的\co{rcu_write_lock()}？
+}\QuickQuizAnswerM{
+	如果你还记得RCU更新者没有办法延迟
+	（更不用说阻塞）RCU读者，那么拥有
+	\co{rcu_write_lock()}是没有意义的。
+
+	或者，你可以将锁、非阻塞同步、原子操作、
+	指定的单线程更新者或任何其他同步方法
+	视为\co{rcu_write_lock()}的替代品。
+	RCU根本不关心也不需要关心写者如何
+	彼此同步——只要他们正确地做到了即可。
+}\QuickQuizEndM
 %
 \QuickQuizM{
 	\co{synchronize_rcu()} API会等待所有已有的
@@ -599,7 +613,7 @@ critical section~\cite{PaulEMcKenney2006c}中进行通用的睡眠，
 这些临界区由\apik{srcu_read_lock()}和\apik{srcu_read_unlock()}界定。
 然而，与RCU不同，SRCU的\apik{srcu_read_lock()}返回一个值，
 必须将其传入对应的\apik{srcu_read_unlock()}。
-这一区别是因为SRCU用户为每种不同的SRCU用法分配一个
+这一区别是因为SRCU用户为每种不同的SRCU \emph{域}分配一个
 \apik{srcu_struct}，因此没有方便的地方存储每任务的
 读者嵌套计数。
 （请记住，虽然Linux内核提供动态分配的
@@ -607,6 +621,12 @@ critical section~\cite{PaulEMcKenney2006c}中进行通用的睡眠，
 SRCU read-side critical section也可以用
 \cref{tab:defer:SRCU Markers for Read-Side Critical Sections}中显示的API标记，
 同样注意新的RAII变体。
+
+重要安全提示：
+与RCU不同，SRCU读者\emph{不会}嵌套和扁平化，即使它们
+都关联到同一个\co{srcu_struct}域。
+两个重叠的SRCU读者是两个不同的读者，如
+\cref{sec:memorder:SRCU}中进一步讨论的那样。
 
 给定的\co{srcu_struct}结构可以用\co{DEFINE_SRCU()}定义为
 全局变量（如果该结构必须在多个翻译单元中使用），
@@ -1478,6 +1498,106 @@ RCU链表遍历原语包括\apik{list_for_each_entry_rcu()}、
 请注意，作为一般规则，其他RCU系列的原语可以替代使用，
 不过\co{srcu_read_lock_nmisafe()}而非
 \co{srcu_read_lock()}可以在NMI上下文中使用。
+
+\subsubsection{用户空间应用程序中的RCU？}
+\label{sec:defer:RCU in Userspace Applications?}
+
+用户空间RCU库使用类似于内核核心RCU API的C语言API~\cite{PaulMcKenney2013LWNURCUAPI}，
+并扩展了哈希表~\cite{PaulMcKenney2013LWNURCUhashAPI}、
+队列和栈~\cite{PaulMcKenney2013LWNURCUqueuestackAPI}、
+原子操作~\cite{PaulMcKenney2013LWNURCUatomicop}和
+链表~\cite{PaulMcKenney2013LWNURCUlist}的支持。
+
+\begin{table*}
+\rowcolors{1}{}{lightgray}
+\renewcommand*{\arraystretch}{1.15}
+\footnotesize
+\centering\OneColumnHSpace{-.4in}
+\ebresizewidth{
+\begin{tabular}{ll}
+\toprule
+\multicolumn{1}{c}{Linux内核} &
+	\multicolumn{1}{c}{C++26} \\
+\midrule
+\tco{guard(rcu)()} &
+	\tco{std::scoped_lock l(std::rcu_default_domain())} \\
+\tco{rcu_read_lock()} &
+	\tco{std::rcu_default_domain().lock()} \\
+\tco{rcu_read_unlock()} &
+	\tco{std::rcu_default_domain().unlock()} \\
+\tco{synchronize_rcu()} &
+	\tco{std::rcu_synchronize()} \\
+\tco{struct rcu_head} &
+	\tco{std::rcu_obj_base<T>} \\
+\tco{call_rcu()} &
+	\tco{std::rcu_obj_base<T> .retire()} \\
+\tco{kfree_rcu_mightsleep()} &
+	\tco{std::rcu_retire()} \\
+\tco{rcu_barrier()} &
+	\tco{std::rcu_barrier()} \\
+\bottomrule
+\end{tabular}
+}
+\caption{Linux内核与C++26的RCU API对照表}
+\label{tab:defer:RCU API Decoder Ring For Linux Kernel and C++26}
+\end{table*}
+
+尽管用户空间RCU库多年来一直作为C语言用户空间RCU API的事实标准，
+但在2023年，RCU API被添加到C++26草案标准~\cite{PaulEMcKennney2023C++26RCU4,ThomasKoeppe2025N5032}中。
+从Linux内核RCU API到C++~\cite{PaulEMcKenney2023P0124R8-LKMM,PaulEMcKenney2026cppRCU}
+的映射如\cref{tab:defer:RCU API Decoder Ring For Linux Kernel and C++26}所示。
+C和C++之间的许多差异确实使这种映射变得复杂。
+
+\co{std::rcu_default_domain()}函数返回对\co{rcu_domain}类
+唯一可能成员的引用，该成员仅用于允许RCU读者
+由现有的C++作用域锁定API成员管理，
+本例中为\co{std::scoped_lock}。
+C++标准的未来版本可能会提供多个\co{rcu_domain}对象，
+可能类似于Linux内核的SRCU，但目前只能有一个。
+在作用域RCU读者不够用的情况下，可以直接调用
+\co{rcu_domain}对象的\co{.lock()}和\co{.unlock()}成员函数，
+提供与\co{rcu_read_lock()}和\co{rcu_read_unlock()}相同的功能（和风险）。
+
+也许Linux内核的\co{synchronize_rcu()}应该被命名为\co{rcu_synchronize()}，
+但从已有的\co{synchronize_irq()}到\co{synchronize_kernel()}再到\co{synchronize_rcu()}
+的历史路径迫使Linux内核采用了这种命名。
+
+在Linux内核中，你将\co{rcu_head}结构嵌入到RCU保护的结构中
+以使用\co{call_rcu()}及其相关函数。
+鉴于C++的面向对象特性，你改为让RCU保护的类
+继承自\co{std::rcu_obj_base}类。
+你不是调用像\co{call_rcu()}这样的自由函数，
+而是使用\co{rcu_obj_base}类的\co{.retire()}成员函数，
+当向\co{.retire()}提供\emph{deleter}函数时，
+它是\co{call_rcu()}的C++对应物，
+否则是\co{kfree_rcu()}的C++对应物。
+C++还提供了\co{std::rcu_retire()}自由函数，
+可以传递不继承自\co{std::rcu_obj_base}的对象，
+就像传递给Linux内核的\co{kfree_rcu_mightsleep()}的结构
+不需要包含\co{rcu_head}结构一样。
+
+然而，Linux内核的\co{rcu_barrier()}函数直接映射到
+C++的\co{std::rcu_barrier()}自由函数。
+
+一个额外的复杂性源于C++语言需要支持
+最小化的非托管和独立平台。
+此类平台可能无法创建后台线程，
+这意味着必须允许它们从\co{.retire()}和\co{rcu_retire()}的调用中
+驱动RCU的grace period状态机向前推进。
+这反过来意味着必须允许这两个函数
+从\co{.retire()}或\co{rcu_retire()}的调用中
+调用RCU删除器（C++对Linux内核RCU回调函数的对应物）。
+因此，在C++中（但在Linux内核中不是），完全可移植的C++代码
+不能在\co{.retire()}或\co{rcu_retire()}之间持有互斥锁，
+如果该互斥锁是通过应用程序中\emph{任何}位置的
+\co{.retire()}或\co{rcu_retire()}的\emph{任何}调用
+传递的\emph{任何}删除器获取的。
+
+简而言之，尽管Linux内核RCU和C++ RCU之间有许多相似之处，
+但也存在许多重要差异。
+观察这两种API随时间的演变方式，
+以及RCU将如何在其他语言（例如Rust）中使用，
+将会很有趣。
 
 \subsubsection{那么，RCU\emph{到底}是什么？}
 \label{sec:defer:So; What is RCU Really?}
