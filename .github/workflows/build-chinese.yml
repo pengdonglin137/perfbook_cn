@@ -1,0 +1,65 @@
+name: Build Chinese PDF
+
+on:
+  push:
+    branches: [zh-cn]
+  pull_request:
+    branches: [zh-cn]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: akiyks/perfbook-build:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CJK fonts and XeLaTeX
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            texlive-xetex \
+            fonts-noto-cjk \
+            tex-gyre \
+            latexpand \
+            poppler-utils \
+            texlive-latex-extra \
+            texlive-fonts-recommended
+
+      - name: Install steel-city-comic font
+        run: |
+          mkdir -p /usr/local/share/fonts/
+          cp fonts/steel-city-comic.regular.ttf /usr/local/share/fonts/
+
+      - name: Build code samples
+        run: |
+          make -C CodeSamples/ pthreads
+          make -C CodeSamples/
+
+      - name: Build all PDF variants
+        run: |
+          make perfbook.pdf
+          make perfbook-1c.pdf
+          make perfbook-lt.pdf
+          make perfbook-a4.pdf
+          make perfbook-eb.pdf
+          make perfbook-hb.pdf
+
+      - name: Verify PDFs
+        run: |
+          echo "=== Built PDFs ==="
+          ls -lh *.pdf
+          for f in *.pdf; do
+            pages=$(pdfinfo "$f" 2>/dev/null | grep Pages | awk '{print $2}')
+            echo "$f: $pages pages"
+          done
+
+      - name: Upload PDF artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perfbook-chinese
+          path: "*.pdf"
+          retention-days: 30
