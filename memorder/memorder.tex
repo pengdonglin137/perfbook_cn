@@ -9,7 +9,7 @@
 %
 \Epigraph{进步的艺术在于在变化中保持秩序，在秩序中保持变化。}{Alfred North Whitehead}
 
-因果关系和顺序性是深度直觉性的概念，程序员通常
+因果关系和顺序性是高度直觉性的概念，黑客们通常
 对这些概念有很强的把握。
 这些直觉在编写、分析和调试顺序代码时非常有帮助，
 对于使用标准互斥机制（如锁）的并行代码也同样如此。
@@ -17,10 +17,10 @@
 例如Linux内核中经常使用弱序原子操作（atomic operation）和memory barrier的代码。
 这类代码的一个例子是标准互斥机制本身的实现，
 另一个例子是使用较弱同步的快速路径。
-尽管对直觉构成了冒犯，有些人认为弱序是一种
+虽然冒犯了直觉，但有人认为弱序恰恰是一种
 美德~\cite{JadeAlglave2013-WeaknessIsVirtue}。
-无论是缺陷还是美德，本章将帮助你获得对memory ordering的理解，
-通过实践，这将足以实现同步原语和性能关键的快速路径。
+无论它是缺陷还是美德，本章将帮助你理解memory ordering，
+经过练习后，你将能够实现同步原语和性能关键的快速路径。
 
 首先，\cref{sec:memorder:Memory-Model Intuitions}
 提供了一些可靠的直觉和有用的经验法则，
@@ -81,9 +81,9 @@ sec:memorder:Compile-Time Consternation}
 	  他们缺乏的是方法。}
 	 {F. W. Nichol}
 
-本节面向那些希望避免学习\IXalthmr{Linux-kernel memory model (\acr{lkmm})}
-{Linux kernel}{memory model}所有细节
-以便更好地继续其并发编程生活的人。
+本节面向希望跳过\IXalthmr{Linux-kernel memory model (\acr{lkmm})}
+{Linux kernel}{memory model}全部细节的读者，
+让他们可以更快地回到并发编程实践中来。
 好消息是，学习LKMM的很小一部分就能获得
 其大部分好处。
 % @@@ \cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}
@@ -95,8 +95,8 @@ sec:memorder:Compile-Time Consternation}
 组件的属性，而是系统整体的属性。
 例如，如果编译器不同时保持排序，
 硬件保持排序也没有帮助。
-同样，如果开发者不使用它们，硬件和编译器都提供了
-保持排序的方法也没有帮助。
+同理，即使硬件和编译器都提供了保持排序的方法，
+如果开发者不使用这些方法，也同样无济于事。
 Linux内核在此基础上添加了特定于架构的汇编语言原语，
 这些原语也必须保持所需的排序。
 简而言之，系统的所有组件必须协同工作才能提供
@@ -109,10 +109,9 @@ Linux内核在此基础上添加了特定于架构的汇编语言原语，
 关键点在于，虽然load和store在概念上很简单，
 但在真实的多核硬件上，需要相当长的时间
 其效果才能对所有其他线程可见。
-虽然看起来很奇怪，但这意味着给定store的值
-可能不会被在挂钟时间上稍后发生的load返回，
-同时也意味着给定store的值可能被在
-挂钟时间上更早发生的store覆盖。
+虽然听起来不可思议，但给定store的值可能不会被
+挂钟时间上更晚的load返回，
+也可能被挂钟时间上更早的store覆盖。
 
 简单且直觉的情况发生在一个线程加载另一个线程
 所存储的值时。
@@ -124,7 +123,7 @@ Linux内核在此基础上添加了特定于架构的汇编语言原语，
 软件将看到预期的时序因果行为，
 这将在\cref{sec:memorder:Happens-Before}中讨论。
 
-这种直觉的时序行为为下一节的传递性直觉提供了基础。
+这种符合直觉的时序行为为下一节关于传递性的直觉奠定了基础。
 
 \subsection{传递性直觉}
 \label{sec:memorder:Transitive Intuitions}
@@ -145,8 +144,8 @@ RCU和完全有序代码的直觉。
 \subsubsection{锁的直觉}
 \label{sec:memorder:Locking Intuitions}
 
-另一个传递性直觉涉及那个饱受诟病的工作马——
-锁，这将在以下章节中更详细地描述：
+另一个传递性直觉与那个饱受诟病的主力——锁——有关，
+这将在以下章节中更详细地描述：
 \cref{sec:memorder:Locking},
 to say nothing of
 \cref{chp:Locking}.
@@ -633,7 +632,7 @@ CPU有权重排Thread~\co{P0()}和Thread~\co{P1()}中的语句，
 最后，\cref{sec:memorder:Basic Rules of Thumb}
 列出了一些基本经验法则，这些将在后续章节中进一步细化。
 这些章节重点关注硬件重排，但请放心，编译器
-的重排比硬件曾经梦想的要积极得多。
+的重排激进程度远超硬件所能想象。
 编译器引起的重排将在以下章节中讨论：
 \cref{sec:memorder:Compile-Time Consternation}.
 

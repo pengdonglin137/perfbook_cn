@@ -219,7 +219,7 @@ sec:count:Statistical Counters}
 \label{fig:count:Atomic Increment Scalability on x86}
 \end{figure}
 
-精确计数的最直接的办法是使用\IX{atomic}操作，
+要精确计数，最直接的方法是使用\IX{atomic}操作，
 如\cref{lst:count:Just Count Atomically!}（\path{count_atomic.c}）
 所示。
 \begin{fcvref}[ln:count:count_atomic:inc-read]
@@ -231,8 +231,7 @@ sec:count:Statistical Counters}
 不过，程序执行得要慢一些：
 在我的六核x86笔记本电脑上，即使只有单个线程（thread）在递增，
 它也比非atomic递增慢了二十多倍。\footnote{
-	有趣的是，非atomic地递增counter会比atomic地递增
-	counter更快地推进counter值。
+	有趣的是，非原子递增counter的速度反而比原子递增更快。
 	当然，如果你的唯一目标是让counter快速增长，
 	更简单的方法是直接给counter赋一个大值。
 	尽管如此，使用适当放松的正确性概念来获得
@@ -383,7 +382,7 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 
 \subsection{设计}
 
-Statistical counting一般以每个线程一个counter的方式处理
+统计计数通常按每个线程一个counter来处理
 （或者在内核中运行时，每个CPU一个），这样每个线程只更新自己的counter，
 正如\cref{sec:toolsoftrade:Per-CPU Variables}
 （\cpageref{sec:toolsoftrade:Per-CPU Variables}）中所预示的那样。
