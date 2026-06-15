@@ -1,0 +1,58 @@
+# perfbook 翻译项目配置
+
+project:
+  name: "perfbook"
+  title: "Is Parallel Programming Hard, And, If So, What Can You Do About It?"
+  title_translated: "并行编程难吗？如果是的话，你能做些什么？"
+  author: "Paul E. McKenney"
+  license: "CC-BY-SA-3.0 (text), GPLv2 (code)"
+  version: "6.19"
+
+source:
+  type: latex
+  upstream: "git://git.kernel.org/pub/scm/linux/kernel/git/paulmck/perfbook.git"
+  branch: master
+  sync_strategy: subtree
+
+translation:
+  target_language: zh-CN
+  engine: xelatex
+  font_family:
+    main: "Noto Serif CJK SC"
+    sans: "Noto Sans CJK SC"
+    mono: "Noto Sans Mono CJK SC"
+
+formats:
+  latex:
+    translate: [prose, captions, titles, quiz, epigraph]
+    preserve: [code, labels, cites, refs, math, index]
+    extra_packages: [xeCJK, ctex, fontspec]
+
+terminology:
+  file: terms.yaml
+  auto_check: true
+  strict_mode: false
+
+quality:
+  min_score: 3.5
+  checks:
+    - terminology_consistency
+    - untranslated_detection
+    - latex_validation
+    - build_success
+
+build:
+  targets: [pdf]
+  latex_engine: xelatex
+  pdf_variants:
+    - name: "2c"
+      target: "perfbook.pdf"
+    - name: "1c"
+      target: "perfbook-1c.pdf"
+    - name: "a4"
+      target: "perfbook-a4.pdf"
+    - name: "eb"
+      target: "perfbook-eb.pdf"
+    - name: "hb"
+      target: "perfbook-hb.pdf"
+  output_suffix: "_cn"

@@ -1,0 +1,118 @@
+# perfbook 术语表
+# 基于 CLAUDE.md 翻译规范
+
+version: "1.0"
+language: zh-CN
+
+terms:
+  # ===== 同步原语 =====
+  - en: "lock"
+    zh: "锁"
+    context: "同步原语"
+    first_occurrence: "锁（lock）"
+
+  - en: "locking"
+    zh: "加锁"
+    context: "动作/概念"
+
+  - en: "deadlock"
+    zh: "死锁"
+
+  - en: "livelock"
+    zh: "活锁"
+
+  - en: "starvation"
+    zh: "饥饿"
+
+  - en: "data race"
+    zh: "数据竞争"
+
+  - en: "race condition"
+    zh: "竞态条件"
+
+  # ===== 内存模型 =====
+  - en: "memory barrier"
+    zh: "内存屏障"
+
+  - en: "memory ordering"
+    zh: "内存排序"
+
+  - en: "store buffer"
+    zh: "store buffer"
+    rule: "keep_english"
+
+  # ===== RCU 相关 =====
+  - en: "hazard pointer"
+    zh: "风险指针"
+
+  - en: "reference counting"
+    zh: "引用计数"
+
+  - en: "sequence lock"
+    zh: "顺序锁"
+
+  - en: "grace period"
+    zh: "grace period"
+    rule: "keep_english"
+
+  # ===== 硬件/架构 =====
+  - en: "per-thread"
+    zh: "每线程"
+
+  - en: "per-CPU"
+    zh: "每CPU"
+
+  - en: "fastpath"
+    zh: "快速路径"
+
+  - en: "cache line"
+    zh: "cache line"
+    rule: "keep_english"
+
+  # ===== 保留英文的术语 =====
+  - en: "RCU"
+    zh: "RCU"
+    rule: "keep_english"
+
+  - en: "thread"
+    zh: "thread"
+    rule: "keep_english"
+
+  - en: "CPU"
+    zh: "CPU"
+    rule: "keep_english"
+
+  - en: "GPU"
+    zh: "GPU"
+    rule: "keep_english"
+
+  - en: "POSIX"
+    zh: "POSIX"
+    rule: "keep_english"
+
+  - en: "Linux"
+    zh: "Linux"
+    rule: "keep_english"
+
+  # ===== 视上下文决定 =====
+  - en: "counter"
+    zh: "counter"
+    rule: "keep_english"
+
+  - en: "handler"
+    zh: "处理程序"
+    rule: "context_dependent"
+    contexts:
+      - pattern: "signal handler"
+        zh: "信号处理程序"
+      - pattern: "interrupt handler"
+        zh: "中断处理程序"
+      - default: true
+        zh: "handler"
+
+rules:
+  strict: false
+  warn_on_mismatch: true
+  check_in_code: false
+  check_in_labels: false
+  check_in_citations: false
