@@ -48,11 +48,17 @@ jobs:
           make perfbook-eb.pdf
           make perfbook-hb.pdf
 
+      - name: Rename PDFs with _cn suffix
+        run: |
+          for f in perfbook*.pdf; do
+            mv "$f" "${f%.pdf}_cn.pdf"
+          done
+
       - name: Verify PDFs
         run: |
           echo "=== Built PDFs ==="
           ls -lh *.pdf
-          for f in *.pdf; do
+          for f in *_cn.pdf; do
             pages=$(pdfinfo "$f" 2>/dev/null | grep Pages | awk '{print $2}')
             echo "$f: $pages pages"
           done
@@ -61,5 +67,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: perfbook-chinese
-          path: "*.pdf"
+          path: "*_cn.pdf"
           retention-days: 30
