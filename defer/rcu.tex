@@ -12,7 +12,7 @@
 \cref{sec:defer:Reference Counting}中讨论的引用计数器
 使用显式计数器来延迟可能干扰读者的操作，
 这导致了读侧竞争，从而可扩展性差。
-\cref{sec:defer:Hazard Pointers}涵盖的 hazard pointers
+\cref{sec:defer:Hazard Pointers}涵盖的风险指针
 以每线程指针列表的形式使用隐式计数器。
 这避免了读侧竞争，但要求读者执行存储和条件分支，
 以及在读侧原语中使用\IXhpl{full}{memory barrier}
@@ -21,9 +21,9 @@
 	这些额外工作，如 Folly 开源库中实现的 UnboundedQueue 和
 	ConcurrentHashMap 数据结构所示
 	（\url{https://github.com/facebook/folly}）。}
-\cref{sec:defer:Sequence Locks}中介绍的 sequence lock
+\cref{sec:defer:Sequence Locks}中介绍的顺序锁
 也避免了读侧竞争，但不保护指针遍历，
-并且像 hazard pointers 一样，需要在读侧原语中使用完整的 memory barriers，
+并且像风险指针一样，需要在读侧原语中使用完整的 memory barriers，
 或在更新侧原语中使用处理器间中断。
 这些方案的不足引发了一个问题：是否可以做得更好。
 

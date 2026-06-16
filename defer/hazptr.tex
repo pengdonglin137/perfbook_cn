@@ -35,7 +35,7 @@
 
 \co{hp_try_record()} 宏在\clnref{htr:e}只是
 \co{_h_t_r_impl()} 函数的类型转换包装器，
-它尝试将 \co{p} 引用的指针存储到 \co{hp} 引用的 风险指针 中。
+它尝试将 \co{p} 引用的指针存储到 \co{hp} 引用的风险指针中。
 如果成功，它返回存储指针的值。
 如果由于该指针为 \co{NULL} 而失败，它返回 \co{NULL}。
 最后，如果由于与更新竞争而失败，它返回一个特殊的
@@ -92,8 +92,8 @@
 }\QuickQuizEnd
 
 \co{hp_clear()} 函数更加直接，
-使用 \co{smp_mb()} 来强制调用者对 风险指针 保护的对象的使用
-与将 风险指针 设置为 \co{NULL} 之间的完全排序。
+使用 \co{smp_mb()} 来强制调用者对风险指针保护的对象的使用
+与将风险指针设置为 \co{NULL} 之间的完全排序。
 \end{fcvref}
 
 \begin{listing}
@@ -117,7 +117,7 @@
 \begin{fcvref}[ln:defer:hazptr:scan_free:scan]
 \co{hazptr_scan()} 函数如列表的\clnrefrange{b}{e}所示。
 该函数依赖于固定的最大线程数（\co{NR_THREADS}）和
-每个线程固定的最大 风险指针 数（\co{K}），
+每个线程固定的最大风险指针数（\co{K}），
 这允许使用固定大小的风险指针数组。
 因为任何线程都可能需要扫描风险指针，每个线程维护自己的数组，
 由每线程变量 \co{gplist} 引用。
@@ -161,7 +161,7 @@ Pre-BSD 路由示例可以使用风险指针，
 
 \begin{fcvref}[ln:defer:route_hazptr:lookup]
 从\cref{lst:defer:Hazard-Pointer Pre-BSD Routing Table Lookup}开始，
-\clnref{hh}显示了用于排队待 风险指针 释放的对象的 \co{->hh} 字段，
+\clnref{hh}显示了用于排队待风险指针释放的对象的 \co{->hh} 字段，
 \clnref{re_freed}显示了用于检测释放后使用错误的 \co{->re_freed} 字段，
 \clnref{tryrecord}调用 \co{hp_try_record()} 尝试获取一个 风险指针。
 如果返回值为 \co{NULL}，\clnref{NULL}向调用者返回未找到的指示。

@@ -128,8 +128,8 @@
 	更详细地讨论了这一点。
 
 	请注意，容忍不一致和过时数据的需要不仅限于 RCU\@。
-	它也适用于 reference counting、hazard pointers、sequence
-	locks，甚至某些锁的使用场景。
+	它也适用于引用计数、风险指针、顺序锁，
+	甚至某些锁的使用场景。
 	例如，如果你在持有锁时计算某个值，
 	但在释放锁后使用该值，
 	你很可能在使用过时的数据。
@@ -274,7 +274,7 @@
 \cpageref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}上的
 \cref{fig:defer:Pre-BSD Routing Table Protected by Reference Counting}
 所证实。
-Hazard pointers 大幅降低了此开销，但正如我们在
+风险指针大幅降低了此开销，但正如我们在
 \cpageref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}上的
 \cref{fig:defer:Pre-BSD Routing Table Protected by Hazard Pointers}
 中看到的，没有降到零。
@@ -610,9 +610,9 @@ RCU 的一个关键属性是读操作不需要等待更新操作。
 	相比之下，RCU 读者即使在并发 RCU 更新者存在的情况下
 	也能执行有用的工作。
 
-	然而，reference counters
+	然而，引用计数器
 	（\cref{sec:defer:Reference Counting}）
-	和 hazard pointers
+	和风险指针
 	（\cref{sec:defer:Hazard Pointers}）
 	确实允许更新者和读者都进行有用的并发前进，
 	只是成本稍高。

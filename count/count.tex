@@ -19,7 +19,7 @@
 	为什么高效且可扩展的计数会很困难？
 	毕竟，计算机拥有专门用于计数的硬件！
 }\EQuickQuizAnswer{
-	因为直接的计数算法——例如对共享counter进行atomic操作——要么
+	因为直接的计数算法——例如对共享计数器进行原子操作——要么
 	速度慢且扩展性差，要么不准确，这将在
 	\cref{sec:count:Why Isn't Concurrent Counting Trivial?}中说明。
 }\EQuickQuizEnd
@@ -30,12 +30,12 @@
 	数据包可能由系统上的任何CPU发送或接收。
 	进一步假设你的系统每个CPU每秒能处理数百万个数据包，
 	而系统监控程序每五秒读取一次计数值。
-	你将如何实现这个counter？
+	你将如何实现这个计数器？
 }\EQuickQuizAnswer{
 	提示：
-	更新counter的操作必须极快，但由于counter大约每五百万次更新
-	才被读取一次，读取counter的操作可以相当慢。
-	此外，读取的值通常不需要非常精确——毕竟，既然counter
+	更新计数器的操作必须极快，但由于计数器大约每五百万次更新
+	才被读取一次，读取计数器的操作可以相当慢。
+	此外，读取的值通常不需要非常精确——毕竟，既然计数器
 	每毫秒更新一千次，我们应该能够接受与``真实值''相差
 	几千次的值，不管在这个语境下``真实值''意味着什么。
 	但是，读取的值应随时间保持大致相同的绝对误差。
@@ -54,7 +54,7 @@
 	且``宽松的''近似限制是可以接受的。
 }\EQuickQuizAnswer{
 	提示：
-	更新counter的操作必须再次极快，但每次增加counter时
+	更新计数器的操作必须再次极快，但每次增加计数器时
 	都要读取它。
 	然而，读取的值不需要精确，
 	\emph{除了}它必须能大致区分低于限制的值和大于或
@@ -70,11 +70,11 @@
 	超过精确限制（同样假设为10,000）时拒绝任何分配。
 	进一步假设这些结构是短生命周期的，
 	限制很少被超过，几乎总是至少有一个结构在使用中，
-	并且还需要精确知道counter何时到达零——例如，
+	并且还需要精确知道计数器何时到达零——例如，
 	为了释放某些只在至少有一个结构在使用时才需要的内存。
 }\EQuickQuizAnswer{
 	提示：
-	更新counter的操作必须再次极快，但每次增加counter时
+	更新计数器的操作必须再次极快，但每次增加计数器时
 	都要读取它。
 	然而，读取的值不需要精确，
 	\emph{除了}它绝对必须完美地区分处于限制值与零之间的值
@@ -93,12 +93,12 @@
 	系统告知用户何时可以安全执行此操作。
 }\EQuickQuizAnswer{
 	提示：
-	再次，更新counter的操作必须极快且可扩展，
+	再次，更新计数器的操作必须极快且可扩展，
 	以避免减慢I/O操作，
-	但由于counter仅在用户希望移除设备时才被读取，
-	counter的读取操作可以极慢。
+	但由于计数器仅在用户希望移除设备时才被读取，
+	计数器的读取操作可以极慢。
 	此外，除非用户已经表示希望移除设备，
-	否则根本不需要读取counter。
+	否则根本不需要读取计数器。
 	另外，读取的值不需要精确，
 	\emph{除了}它绝对必须完美地区分非零值和零值，
 	而且仅在设备处于移除过程中时才需如此。
@@ -111,13 +111,13 @@
 \QuickQuizLabel{\QcountQIOcnt}
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?}
-提出问题：为什么在多核系统上的计数问题不简单？
+说明了为什么并发计数并不简单。
 \Cref{sec:count:Statistical Counters,sec:count:Approximate Limit Counters}
-分别探索了网络数据包计数问题和近似结构分配上限问题。
+分别研究了网络数据包计数问题和近似结构分配上限问题。
 \Cref{sec:count:Exact Limit Counters}
-研究精确结构分配上限问题。
+讨论精确结构分配上限问题。
 最后，\cref{sec:count:Parallel Counting Discussion}
-对本章进行总结，同时展示各种方法的性能测量结果。
+展示性能测量结果并进行讨论。
 
 \Cref{sec:count:Why Isn't Concurrent Counting Trivial?,%
 sec:count:Statistical Counters}
@@ -132,7 +132,7 @@ sec:count:Statistical Counters}
 \cref{lst:count:Just Count!}（\path{count_nonatomic.c}）中展示的
 直接使用算术运算的方式。
 \begin{fcvref}[ln:count:count_nonatomic:inc-read]
-这里，我们在\clnref{counter}处有一个counter，在\clnref{inc}处
+这里，我们在\clnref{counter}处有一个计数器，在\clnref{inc}处
 递增它，并在\clnref{read}处读取其值。
 还有什么比这更简单的呢？
 \end{fcvref}
@@ -155,12 +155,12 @@ sec:count:Statistical Counters}
 \label{lst:count:Just Count!}
 \end{listing}
 
-当计数器不停读取却又几乎不增加计数时，这种方法快得令人惊叹。
+当计数器频繁被读取却几乎不递增时，这种方法快得令人惊叹。
 在小型系统上，性能也非常出色。
 
 不过让人扫兴的是，这种方法可能丢失计数。
 在我的六核x86笔记本电脑上，一次短暂运行调用了\co{inc_count()}
-285,824,000次，但counter的最终值仅为35,385,525。
+285,824,000次，但计数器的最终值仅为35,385,525。
 虽然近似值在计算领域确实占有一定地位，但丢失87\pct\ 的计数
 未免过于夸张了。
 
@@ -170,18 +170,18 @@ sec:count:Statistical Counters}
 	\cref{lst:count:Just Count!}的
 	\clnrefr{ln:count:count_nonatomic:inc-read:inc}
 	等价于\co{++}运算符，从而生成一条x86加法到内存的指令吗？
-	而且CPU缓存不会使其成为atomic的吗？
+	而且CPU缓存不会使其原子化吗？
 }\QuickQuizAnswerB{
-	虽然\co{++}运算符\emph{可能}是atomic的，但除非将其应用于
+	虽然\co{++}运算符\emph{可能}是原子的，但除非将其应用于
 	C11的\co{_Atomic}变量，否则没有要求它必须如此。
 	事实上，在没有\co{_Atomic}的情况下，\GCC\ 通常
 	选择将值加载到寄存器中，递增寄存器，然后将值存储回内存，
-	这显然不是atomic的。
+	这显然不是原子的。
 
 	此外，请注意\co{READ_ONCE()}和\co{WRITE_ONCE()}中的
-	volatile强制类型转换，它们告诉编译器该位置很可能是一个
+	volatile类型转换，它们告诉编译器该位置很可能是一个
 	MMIO设备寄存器。
-	因为MMIO寄存器不被缓存，编译器假设递增操作是atomic的
+	因为MMIO寄存器不被缓存，编译器假设递增操作是原子的
 	将是不明智的。
 }\QuickQuizEndB
 %
@@ -215,7 +215,7 @@ sec:count:Statistical Counters}
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{CodeSamples/count/atomic_hps.pdf}}
-\caption{x86上的Atomic递增可扩展性}
+\caption{x86上的原子递增可扩展性}
 \label{fig:count:Atomic Increment Scalability on x86}
 \end{figure}
 
@@ -223,38 +223,38 @@ sec:count:Statistical Counters}
 如\cref{lst:count:Just Count Atomically!}（\path{count_atomic.c}）
 所示。
 \begin{fcvref}[ln:count:count_atomic:inc-read]
-\Clnref{counter}定义了一个atomic变量，
-\clnref{inc}对其进行atomic递增，
+\Clnref{counter}定义了一个原子变量，
+\clnref{inc}对其进行原子递增，
 \clnref{read}读取其值。
 \end{fcvref}
-因为都是atomic操作，所以计数非常精确。
+因为都是原子操作，所以计数非常精确。
 不过，程序执行得要慢一些：
 在我的六核x86笔记本电脑上，即使只有单个线程（thread）在递增，
-它也比非atomic递增慢了二十多倍。\footnote{
-	有趣的是，非原子递增counter的速度反而比原子递增更快。
-	当然，如果你的唯一目标是让counter快速增长，
-	更简单的方法是直接给counter赋一个大值。
+它也比非原子递增慢了二十多倍。\footnote{
+	有趣的是，非原子递增计数器的速度反而比原子递增更快。
+	当然，如果你的唯一目标是让计数器快速增长，
+	更简单的方法是直接给计数器赋一个大值。
 	尽管如此，使用适当放松的正确性概念来获得
 	更好的性能和可扩展性的算法很可能有其用武之地
 	~\cite{Andrews91textbook,Arcangeli03,10.5555/3241639.3241645,DavidUngar2011unsync}。}
 
 这种糟糕的性能并不让人意外，鉴于
 \cref{chp:Hardware and its Habits}中的讨论，
-atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
+原子递增的性能随CPU和线程数量的增加而下降也不足为奇，
 如\cref{fig:count:Atomic Increment Scalability on x86}所示。
 在这张图中，x轴上的水平虚线代表
 完美可扩展算法所能达到的理想性能：
 在这样的算法中，CPU和线程数目的增长带来的开销
 与单线程程序中的开销相同。
-对单个全局变量的atomic递增显然远非理想，
+对单个全局变量的原子递增显然远非理想，
 随着CPU个数的增加，性能差距达到数个数量级。
 
 \QuickQuizSeries{%
 \QuickQuizB{
 	为什么x轴上的水平虚线没有在$x=1$处与对角线相交？
 }\QuickQuizAnswerB{
-	因为atomic操作的开销。
-	x轴上的虚线表示单次\emph{非atomic}递增的开销。
+	因为原子操作的开销。
+	x轴上的虚线表示单次\emph{非原子}递增的开销。
 	毕竟，一个\emph{理想的}算法不仅应该线性扩展，
 	还应该与单线程代码相比不产生任何性能损失。
 
@@ -263,14 +263,14 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	但atomic递增还是挺快的。
+	但原子递增还是挺快的。
 	而且在紧密循环中递增单个变量听起来
 	相当不切实际，毕竟程序的大部分执行时间应该
 	用于实际工作，而不是记录已完成的工作！
 	为什么我要关心让它更快？
 }\QuickQuizAnswerE{
-	在许多情况下，atomic递增实际上足够快。
-	在这些情况下，你完全应该使用atomic递增。
+	在许多情况下，原子递增实际上足够快。
+	在这些情况下，你完全应该使用原子递增。
 
 	话虽如此，在许多实际场景中确实需要
 	更复杂的计数算法。
@@ -292,7 +292,7 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/GlobalInc}}
-\caption{全局Atomic递增的数据流}
+\caption{全局原子递增的数据流}
 \label{fig:count:Data Flow For Global Atomic Increment}
 \end{figure}
 
@@ -304,13 +304,13 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 \end{figure}
 
 \cref{fig:count:Data Flow For Global Atomic Increment}提供了
-另一种看全局atomic递增的视角。
+另一种审视全局原子递增的视角。
 为了让每个CPU得到机会递增一个指定的全局变量，
 包含该变量的\IX{cache line}需要在所有CPU之间传播，
 如红色箭头所示。
-由于光速有限和原子大小非零，这种传播相当耗时，
+由于光速有限和原子大小非零，这种传播需要大量时间，
 这些物理定律在\cref{sec:cpu:Hardware Free Lunch?}中已经讨论过。
-这种缓慢的传播反过来导致了
+这种缓慢的传播进而导致了
 \cref{fig:count:Atomic Increment Scalability on x86}中
 所见的糟糕性能，
 \cref{fig:count:Waiting to Count}形象地描绘了这种情况。
@@ -318,18 +318,18 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 
 \QuickQuiz{
 	但是为什么CPU设计者不能简单地将加法操作发送到
-	数据所在位置，从而避免需要流转包含被递增的全局变量的
+	数据所在位置，从而避免流转包含待递增全局变量的
 	cache line呢？
 }\QuickQuizAnswer{
 	在某些情况下可能确实能做到这一点。
 	但是，存在一些复杂因素：
 	\begin{enumerate}
 	\item	如果需要变量的值，那么线程将被迫等待
-		操作被发送到数据所在位置，然后等待结果
-		被返回。
-	\item	如果atomic递增必须相对于之前和/或之后的操作
-		有序，那么线程将被迫等待操作被发送到
-		数据所在位置，并等待操作完成的指示被返回。
+		操作发送到数据所在位置，然后等待结果
+		返回。
+	\item	如果原子递增必须相对于之前和/或之后的操作
+		有序，那么线程将被迫等待操作发送到
+		数据所在位置，并等待操作完成的指示返回。
 	\item	在CPU之间传输操作可能需要系统互连中的
 		更多线路，这将消耗更多的芯片面积和更多的电能。
 	\end{enumerate}
@@ -340,7 +340,7 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 \begin{figure}
 \centering
 \resizebox{3in}{!}{\includegraphics{count/GlobalTreeInc}}
-\caption{全局组合树Atomic递增的数据流}
+\caption{全局组合树原子递增的数据流}
 \label{fig:count:Data Flow For Global Combining-Tree Atomic Increment}
 \end{figure}
 
@@ -348,9 +348,9 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 	还是有\emph{一些}希望的。
 	可以设想硬件实现一个组合树，
 	这样来自多个CPU的递增请求在到达硬件时
-	被合并为单次加法。
+	合并为单次加法。
 	硬件还可以对请求施加顺序，从而
-	向每个CPU返回与其特定atomic递增对应的返回值。
+	向每个CPU返回与其特定原子递增对应的返回值。
 	这导致指令延迟为$\O{\log N}$，
 	其中$N$是CPU数量，如
 	\cref{fig:count:Data Flow For Global Combining-Tree Atomic Increment}
@@ -382,11 +382,11 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 
 \subsection{设计}
 
-统计计数通常按每个线程一个counter来处理
-（或者在内核中运行时，每个CPU一个），这样每个线程只更新自己的counter，
+统计计数通常按每个线程一个计数器来处理
+（或者在内核中运行时，每个CPU一个），这样每个线程只更新自己的计数器，
 正如\cref{sec:toolsoftrade:Per-CPU Variables}
 （\cpageref{sec:toolsoftrade:Per-CPU Variables}）中所预示的那样。
-根据加法的交换律和结合律，总的计数值就是所有线程counter值的简单相加。
+根据加法的交换律和结合律，总的计数值就是所有线程计数器值的简单相加。
 这是Data Ownership模式的一个例子，将在
 \cref{sec:SMPdesign:Data Ownership}
 （\cpageref{sec:SMPdesign:Data Ownership}）中介绍。
@@ -403,7 +403,7 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 	因此如果你的代码允许有符号整数溢出，即使在现代的
 	二进制补码硬件上也可能遇到麻烦。
 
-	话虽如此，当试图从32位每线程counter中
+	话虽如此，当试图从32位每线程计数器中
 	收集（比方说）64位的和时，确实可能产生额外的复杂性。
 	处理这种额外复杂性留作读者的练习，
 	本章后面介绍的一些技术可能会很有帮助。
@@ -413,7 +413,7 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 \label{sec:count:Array-Based Implementation}
 
 实现per-thread变量的一种方法是分配一个数组，数组每个元素
-对应一个线程（假设数组已按cache line对齐并且填充过了，以避免false sharing）。
+对应一个线程（假设数组已按cache line对齐并且填充过了，以避免伪共享）。
 
 \QuickQuiz{
 	数组？
@@ -432,19 +432,19 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 \label{lst:count:Array-Based Per-Thread Statistical Counters}
 \end{listing}
 
-这样的数组可以被封装成每线程原语，如
+这样的数组可以封装成每线程原语，如
 \cref{lst:count:Array-Based Per-Thread Statistical Counters}
 （\path{count_stat.c}）所示。
 \begin{fcvref}[ln:count:count_stat:inc-read]
-\Clnref{define}定义了一个包含每线程counter集合的数组，
+\Clnref{define}定义了一个包含每线程计数器集合的数组，
 类型为\co{unsigned long}，创造性地命名为\co{counter}。
 
 \Clnrefrange{inc:b}{inc:e}
-展示了一个递增counter的函数，使用
+展示了一个递增计数器的函数，使用
 \apipf{__get_thread_var()}原语来定位当前运行线程
 在\co{counter}数组中的元素。
 因为该元素只能由对应的线程修改，
-非atomic递增即可满足。
+非原子递增即可满足。
 然而，此代码使用\co{WRITE_ONCE()}来防止破坏性的
 编译器优化。
 举个例子，编译器有权将即将被存储的位置
@@ -454,20 +454,20 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 使用\co{WRITE_ONCE()}可以防止这种优化及其他类似优化。
 
 \QuickQuiz{
-	\GCC\ 还可能应用什么其他恶意优化？
+	\GCC\ 还可能应用什么其他有问题的优化？
 }\QuickQuizAnswer{
 	参见\cref{sec:toolsoftrade:Shared-Variable Shenanigans,%
 	sec:memorder:Compile-Time Consternation}
 	获取更多信息。
-	一种恶意优化是对\co{read_count()}函数的连续调用
+	一种有问题的优化是对\co{read_count()}函数的连续调用
 	应用公共子表达式消除，这可能会让期望从连续调用中
 	获得不同返回值的代码感到意外。
 }\QuickQuizEnd
 
 \Clnrefrange{read:b}{read:e}
-展示了一个读取counter聚合值的函数，
+展示了一个读取计数器聚合值的函数，
 使用\apipf{for_each_thread()}原语遍历当前运行线程的列表，
-并使用\apipf{per_thread()}原语获取指定线程的counter。
+并使用\apipf{per_thread()}原语获取指定线程的计数器。
 此代码还使用\co{READ_ONCE()}来确保编译器不会
 将这些加载操作优化掉。
 举一个例子，一对连续的\co{read_count()}调用可能被内联，
@@ -492,10 +492,10 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 %
 \QuickQuizE{
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
-	中的代码如何支持多于一个counter？
+	中的代码如何支持多于一个计数器？
 }\QuickQuizAnswerE{
-	确实，这个玩具示例不支持多于一个counter。
-	修改它使其能够提供多个counter留作读者的练习。
+	确实，这个玩具示例不支持多于一个计数器。
+	修改它使其能够提供多个计数器留作读者的练习。
 }\QuickQuizEndE
 }
 
@@ -510,18 +510,18 @@ atomic递增的性能随CPU和线程数量的增加而下降也不足为奇，
 如\cref{fig:count:Data Flow For Per-Thread Increment}中每个CPU上的
 绿色箭头所示，原因是每个CPU可以快速递增
 自己线程的变量，不再需要代价昂贵的跨系统通信。
-换句话说，per-CPU counter的更新不会像单个全局counter的
-atomic递增那样受到慢光和大原子的困扰。\footnote{
+换句话说，per-CPU计数器的更新不会像单个全局计数器的
+原子递增那样受到慢光和大原子的困扰。\footnote{
 	同样，参见\cref{sec:cpu:Hardware Free Lunch?}。}
 因此，本节解决了本章开头提出的网络数据包计数问题。
 
 \QuickQuiz{
 	读取操作需要时间来汇总每线程的值，
-	在此期间counter很可能正在变化。
+	在此期间计数器很可能正在变化。
 	这意味着
 	\cref{lst:count:Array-Based Per-Thread Statistical Counters}
 	中\co{read_count()}返回的值不一定精确。
-	假设counter以每单位时间$r$次的速率递增，
+	假设计数器以每单位时间$r$次的速率递增，
 	而\co{read_count()}的执行消耗$\Delta$个时间单位。
 	返回值的期望误差是多少？
 }\QuickQuizAnswer{
@@ -532,19 +532,19 @@ atomic递增那样受到慢光和大原子的困扰。\footnote{
 	此时最坏情况误差简单地为$r \Delta$。
 
 	这种最坏情况行为相当不可能，因此让我们考虑
-	从$N$个counter中的每个读取均匀分布在时间段$\Delta$内的情况。
+	从$N$个计数器中的每个读取均匀分布在时间段$\Delta$内的情况。
 	在$N$次读取之间将有$N+1$个持续时间为$\frac{\Delta}{N+1}$
 	的间隔。
-	递增速率$r$预计均匀分布在$N$个counter上，
-	每个counter每单位时间$\frac{r}{N}$次递增。
-	从最后一个线程的counter读取后的延迟引起的误差
+	递增速率$r$预计均匀分布在$N$个计数器上，
+	每个计数器每单位时间$\frac{r}{N}$次递增。
+	从最后一个线程的计数器读取后的延迟引起的误差
 	为$\frac{r \Delta}{N \left( N + 1 \right)}$，
-	倒数第二个线程的counter为
+	倒数第二个线程的计数器为
 	$\frac{2 r \Delta}{N \left( N + 1 \right)}$，
 	倒数第三个为
 	$\frac{3 r \Delta}{N \left( N + 1 \right)}$，
 	依此类推。
-	总误差由从每个线程counter读取产生的误差之和给出：
+	总误差由从每个线程计数器读取产生的误差之和给出：
 
 	\begin{equation}
 		\frac{r \Delta}{N \left( N + 1 \right)}
@@ -576,41 +576,41 @@ atomic递增那样受到慢光和大原子的困扰。\footnote{
 		r \left( \frac{\Delta}{2} + t \right)
 	\end{equation}
 
-	当然，有时counter在读取操作期间继续递增
+	当然，有时计数器在读取操作期间继续递增
 	是不可接受的。
 	\Cref{sec:count:Applying Exact Limit Counters}
 	讨论了处理这种情况的方法。
 
-	到目前为止，我们一直在考虑一个只增不减的counter。
-	如果counter值以每单位时间$r$次的速率变化，
+	到目前为止，我们一直在考虑一个只增不减的计数器。
+	如果计数器值以每单位时间$r$次的速率变化，
 	但可以是任一方向，我们应该期望误差会减少。
-	然而，最坏情况不变，因为虽然counter\emph{可以}
+	然而，最坏情况不变，因为虽然计数器\emph{可以}
 	向任一方向移动，但最坏情况是读取操作立即完成，
 	然后延迟$\Delta$个时间单位，在此期间
-	counter值的所有变化都朝同一方向，
+	计数器值的所有变化都朝同一方向，
 	再次给出$r \Delta$的绝对误差。
 
 	有多种方法可以基于各种关于递增和递减模式的
 	假设来计算平均误差。
 	为简单起见，让我们假设$f$比例的操作是递减，
-	而感兴趣的误差是偏离counter长期趋势线的偏差。
+	而感兴趣的误差是偏离计数器长期趋势线的偏差。
 	在此假设下，如果$f$小于或等于0.5，
 	每次递减将被一次递增抵消，因此
 	$2f$的操作将相互抵消，留下
 	$1-2f$的操作是未抵消的递增。
 	另一方面，如果$f$大于0.5，$1-f$的
-	递减被递增抵消，因此counter在负方向移动
+	递减被递增抵消，因此计数器在负方向移动
 	$-1+2\left(1-f\right)$，
-	简化为$1-2f$，因此counter在两种情况下
+	简化为$1-2f$，因此计数器在两种情况下
 	平均每次操作移动$1-2f$。
-	因此，counter的长期移动由$\left( 1-2f \right) r$给出。
+	因此，计数器的长期移动由$\left( 1-2f \right) r$给出。
 	代入\cref{eq:count:CounterErrorAverage}得到：
 
 	\begin{equation}
 		\frac{\left( 1 - 2 f \right) r \Delta}{2}
 	\end{equation}
 
-	除上述所有内容外，在statistical counters的大多数用途中，
+	除上述所有内容外，在统计计数器的大多数用途中，
 	\co{read_count()}返回值中的误差是无关紧要的。
 	这种无关紧要是因为\co{read_count()}执行所需的时间
 	通常远小于\co{read_count()}连续调用之间的时间间隔。
@@ -633,8 +633,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	是可以互换的。}
 如\cref{lst:count:Per-Thread Statistical Counters}
 （\path{count_end.c}）所示，
-可以使用它来实现一个statistical counter，这个counter不仅能扩展，
-而且相对于简单的非atomic递增来说，对递增方几乎不产生性能损失。
+可以使用它来实现一个统计计数器，这个计数器不仅能扩展，
+而且相对于简单的非原子递增来说，对递增方几乎不产生性能损失。
 
 \begin{listing}
 \input{CodeSamples/count/count_end@whole.fcv}
@@ -644,8 +644,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \begin{fcvref}[ln:count:count_end:whole]
 \Clnrefrange{var:b}{var:e}定义了所需的变量：
-\co{counter}是每线程counter变量，
-\co{counterp[]}数组允许线程访问彼此的counter，
+\co{counter}是每线程计数器变量，
+\co{counterp[]}数组允许线程访问彼此的计数器，
 \co{finalcount}在各个线程退出时将计数值累加到总和里，
 \co{final_mutex}用于协调累加计数总值的线程和正在退出的线程。
 \end{fcvref}
@@ -718,7 +718,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	\cref{lst:count:Per-Thread Statistical Counters}中
 	\clnref{check}处对\co{NULL}的检查不会增加
 	额外的分支预测错误吗？
-	为什么不设一个永远为零的变量，让未使用的counter指针
+	为什么不设一个永远为零的变量，让未使用的计数器指针
 	指向该变量而不是设为\co{NULL}？
 	\end{fcvref}
 }\QuickQuizAnswerB{
@@ -755,7 +755,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \begin{fcvref}[ln:count:count_end:whole:reg]
 \Clnrefrange{b}{e}展示了\co{count_register_thread()}函数，
-每个线程在首次使用此counter之前必须调用该函数。
+每个线程在首次使用此计数器之前必须调用该函数。
 该函数简单地将本线程对应\co{counterp[]}数组中的元素
 指向线程的per-thread \co{counter}变量。
 \end{fcvref}
@@ -765,7 +765,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	的\co{count_register_thread()}中需要获取lock？
 	它只是对一个没有其他线程在修改的、正确对齐的
 	机器字大小的位置进行存储，所以它应该本身就是
-	atomic的，对吧？
+	原子的，对吧？
 }\QuickQuizAnswer{
 	这个锁实际上可以省略，但安全起见更好，
 	特别是考虑到这个函数仅在线程启动时执行，
@@ -790,15 +790,15 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 这样就能获得正确的总数。
 \end{fcvref}
 
-这种方法让更新方的性能几乎和非atomic计数一样，并且也能线性扩展。
+这种方法让更新方的性能几乎和非原子计数一样，并且也能线性扩展。
 另一方面，并发的读取方争用一个全局锁，因此性能不佳，扩展能力也很差。
-但是，对于statistical counters来说这不是问题，
-因为statistical counters总是在增加计数，很少读取计数。
+但是，对于统计计数器来说这不是问题，
+因为统计计数器总是在增加计数，很少读取计数。
 另外，由于给定线程的per-thread变量在该线程退出时消失，
 本方法比基于数组的方案要复杂一些。
 
 \QuickQuiz{
-	好吧，但Linux内核在读取每CPU counter的
+	好吧，但Linux内核在读取每CPU计数器的
 	聚合值时不需要获取锁。
 	那为什么用户空间代码需要这样做？
 }\QuickQuizAnswer{
@@ -815,7 +815,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	如\cref{lst:count:Per-Thread Statistical Counters With Lockless Summation}
 	（\path{count_tstat.c}）所示。
 	此代码的分析留作读者的练习，
-	但请注意它需要对\path{counttorture.h} counter评估方案
+	但请注意它需要对\path{counttorture.h}计数器评估方案
 	进行调整。
 	（提示：参见\co{#ifndef KEEP_GCC_THREAD_LOCAL}。）
 	\Cref{chp:Deferred Processing}将介绍
@@ -841,12 +841,12 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 在没有\co{inc_count()}调用的情况下，
 \co{read_count()}调用最终会返回准确的计数值。
 
-我们通过维护一个全局counter来利用最终一致性。
-但是因为写者只操纵它自己的per-thread counter，
-所以单独有一个线程负责将per-thread counter的计数值传递给全局counter，
-读者只是简单地访问全局counter的值。
+我们通过维护一个全局计数器来利用最终一致性。
+但是因为写者只操纵它自己的per-thread计数器，
+所以单独有一个线程负责将per-thread计数器的计数值传递给全局计数器，
+读者只是简单地访问全局计数器的值。
 如果写者正在更新计数，读者读出的值将不是最新的，
-不过一旦写者更新完毕，全局counter最终会回归正确的值——
+不过一旦写者更新完毕，全局计数器最终会回归正确的值——
 这就是为什么这种方法被称为最终一致性。
 
 \begin{listing}
@@ -860,9 +860,9 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}
 （\path{count_stat_eventual.c}）所示。
 \Clnrefrange{per_thr_cnt}{glb_cnt}
-展示了跟踪counter值的每线程变量和全局变量，
+展示了跟踪计数器值的每线程变量和全局变量，
 \clnref{stopflag}展示了用于协调终止的\co{stopflag}
-（用于我们希望以准确counter值终止程序的情况）。
+（用于我们希望以准确计数器值终止程序的情况）。
 \clnrefrange{inc:b}{inc:e}所示的\co{inc_count()}函数类似于
 \cref{lst:count:Array-Based Per-Thread Statistical Counters}中的对应函数。
 \clnrefrange{read:b}{read:e}所示的\co{read_count()}函数
@@ -896,18 +896,18 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 \QuickQuizSeries{%
 \QuickQuizB{
 	为什么\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中的
-	\co{inc_count()}不需要使用atomic指令？
-	毕竟，我们现在有多个线程访问每线程counter！
+	\co{inc_count()}不需要使用原子指令？
+	毕竟，我们现在有多个线程访问每线程计数器！
 }\QuickQuizAnswerB{
 	因为两个线程中的一个只进行读取，并且由于
-	变量是对齐的且是机器字大小的，非atomic指令即可满足。
+	变量是对齐的且是机器字大小的，非原子指令即可满足。
 	话虽如此，使用了\co{READ_ONCE()}宏来防止
-	可能阻止counter更新对\co{eventual()}可见的
+	可能阻止计数器更新对\co{eventual()}可见的
 	编译器优化。\footnote{
 		\co{READ_ONCE()}的一个简单定义见
 		\cref{lst:toolsoftrade:Compiler Barrier Primitive (for GCC)}。}
 
-	该算法的早期版本实际上使用了atomic指令，
+	该算法的早期版本实际上使用了原子指令，
 	感谢Ersoy Bayramoglu指出它们实际上是不必要的。
 	然而，请注意在32位系统上，
 	每线程\co{counter}变量可能需要限制为32位
@@ -915,7 +915,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	来避免溢出。
 	在这种情况下，有必要周期性地将每线程
 	\co{counter}变量清零以避免溢出，
-	这确实需要atomic指令。
+	这确实需要原子指令。
 	极其重要的是，这种清零不能延迟太久，
 	否则较小的每线程变量将会溢出。
 	因此这种方法对底层系统施加了实时要求，
@@ -928,12 +928,12 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 %
 \QuickQuizM{
 	\cref{lst:count:Array-Based Per-Thread Eventually Consistent Counters}中
-	\co{eventual()}函数中的单个全局线程不会像全局lock一样
+	\co{eventual()}函数中的单个全局线程不会像全局锁一样
 	成为严重的瓶颈吗？
 }\QuickQuizAnswerM{
 	在这种情况下不会。
 	相反会发生的是，随着线程数量的增加，
-	\co{read_count()}返回的counter值估计将变得更加不准确。
+	\co{read_count()}返回的计数器值估计将变得更加不准确。
 }\QuickQuizEndM
 %
 \QuickQuizM{
@@ -956,22 +956,22 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	考虑到它昂贵的读取端代码？
 }\QuickQuizAnswerM{
 	执行\co{eventual()}的线程消耗CPU时间。
-	随着越来越多的最终一致性counter被添加，
+	随着越来越多的最终一致性计数器被添加，
 	产生的\co{eventual()}线程最终将消耗所有可用CPU。
 	因此，这种实现存在不同类型的可扩展性限制，
-	该限制体现在最终一致性counter的数量上，
+	该限制体现在最终一致性计数器的数量上，
 	而非线程或CPU的数量上。
 
 	当然，可以做出其他权衡。
-	例如，可以创建单个线程来处理所有最终一致性counter，
+	例如，可以创建单个线程来处理所有最终一致性计数器，
 	这将把开销限制在单个CPU上，
-	但随着counter数量的增加，更新到读取的延迟会增加。
-	或者，该单个线程可以跟踪counter的更新速率，
-	更频繁地访问频繁更新的counter。
-	此外，处理counter的线程数量可以设置为
+	但随着计数器数量的增加，更新到读取的延迟会增加。
+	或者，该单个线程可以跟踪计数器的更新速率，
+	更频繁地访问频繁更新的计数器。
+	此外，处理计数器的线程数量可以设置为
 	CPU总数的某个比例，并且也许还可以在运行时调整。
-	最后，每个counter可以指定其延迟，
-	可以使用截止时间调度技术为每个counter
+	最后，每个计数器可以指定其延迟，
+	可以使用截止时间调度技术为每个计数器
 	提供所需的延迟。
 
 	毫无疑问还有许多其他可能的权衡。
@@ -984,14 +984,14 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	评估此估计的一种直接方法是使用
 	\QuickQuizARef{\StatisticalCounterAccuracy}中推导的分析，
 	但将$\Delta$设置为\co{eventual()}线程连续运行开始之间的间隔。
-	处理给定counter具有多个\co{eventual()}线程的情况
+	处理给定计数器具有多个\co{eventual()}线程的情况
 	留作读者的练习。
 }\QuickQuizEndE
 }
 
 \subsection{讨论}
 
-上述实现表明，并发运行的statistical counters完全可以达到
+上述实现表明，并发运行的统计计数器完全可以达到
 接近单处理器的性能。
 
 \QuickQuizSeries{%
@@ -999,23 +999,23 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	计数数据包和计数数据包中的总字节数之间有什么根本区别，
 	假设数据包大小不同？
 }\QuickQuizAnswerB{
-	计数数据包时，counter仅递增值1。
-	另一方面，计数字节时，counter可能递增
+	计数数据包时，计数器仅递增值1。
+	另一方面，计数字节时，计数器可能递增
 	相当大的数字。
 
 	为什么这很重要？
 	因为在递增值为1的情况下，返回的值在以下意义上是精确的：
-	counter在某个时间点必然取过该值，
+	计数器在某个时间点必然取过该值，
 	即使无法准确说出该时间点何时发生。
 	相比之下，在计数字节时，两个不同的线程可能返回
 	与操作的任何全局排序不一致的值。
 
-	为了看到这一点，假设线程~0向其counter加3，
-	线程~1向其counter加5，
-	线程~2和线程~3对counter求和。
+	为了看到这一点，假设线程~0向其计数器加3，
+	线程~1向其计数器加5，
+	线程~2和线程~3对计数器求和。
 	如果系统是``弱排序''的，或者编译器使用激进的优化，
 	线程~2可能发现总和为3，线程~3可能发现总和为5。
-	counter值序列仅有的全局顺序是0,3,8和0,5,8，
+	计数器值序列仅有的全局顺序是0,3,8和0,5,8，
 	两种顺序都与获得的结果不一致。
 
 	如果你没答对这个问题，你并不孤单。
@@ -1024,8 +1024,8 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 }\QuickQuizEndB
 %
 \QuickQuizE{
-	鉴于读取方必须对所有线程的counter求和，
-	当线程数量很大时，这个counter读取操作可能需要很长时间。
+	鉴于读取方必须对所有线程的计数器求和，
+	当线程数量很大时，这个计数器读取操作可能需要很长时间。
 	有没有什么方法使递增操作保持快速和可扩展，
 	同时让读取方也能享有不仅合理的性能和可扩展性，
 	而且还有良好的准确性？
@@ -1033,7 +1033,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 	一种方法是维护一个全局近似值，
 	类似于\cref{sec:count:Eventually Consistent Implementation}中描述的方法。
 	更新方会递增其每线程变量，但当它达到某个预定限制时，
-	将其atomic地加到全局变量上，然后将每线程变量清零。
+	将其原子地加到全局变量上，然后将每线程变量清零。
 	这将允许在平均递增开销和读取值的准确性之间进行权衡。
 	特别是，它将允许对读取端不准确性设定明确的界限。
 
@@ -1047,7 +1047,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 }
 
 通过学习本节的内容，你现在应该能回答
-本章开头附近关于网络statistical counters的Quick Quiz了。
+本章开头附近关于网络统计计数器的快速测验了。
 
 \section{近似限值计数器（limit counter）}
 \label{sec:count:Approximate Limit Counters}
@@ -1066,7 +1066,7 @@ C语言自C11起提供了\apic{_Thread_local}存储类，
 
 \subsection{设计}
 
-实现limit counter的一种可能方法是将10,000的限制值平均划分
+实现限值计数器的一种可能方法是将10,000的限制值平均划分
 给每个线程，然后给每个线程一个固定个数的资源池。
 假如有100个线程，每个线程管理一个有100个结构的资源池。
 这种方法简单，在某些情况下也有效，但它无法处理
@@ -1082,8 +1082,8 @@ CPU就需要操纵其他CPU的计数，这将会带来代价昂贵的
 	同一CPU（或线程）释放，那么这种简单的分区方法
 	效果极好。}
 
-简而言之，在很多重要的场景下我们都不能将counter完全分区。
-在\cref{sec:count:Statistical Counters}中，考虑到对counter的分区才是
+简而言之，在很多重要的场景下我们都不能将计数器完全分区。
+在\cref{sec:count:Statistical Counters}中，考虑到对计数器的分区才是
 让更新端性能卓越的原因，这个事实可能会让我们感到悲观。
 但是\cref{sec:count:Eventually Consistent Implementation}中
 展示的最终一致性算法为我们提供了有趣的暗示。
@@ -1092,11 +1092,11 @@ CPU就需要操纵其他CPU的计数，这将会带来代价昂贵的
 \co{global_count}变量，
 还有一个定期更新\co{global_count}的\co{eventual()}线程，
 使得结果最终与per-thread \co{counter}的值一致。
-per-thread \co{counter}完美地分区了counter值，
+per-thread \co{counter}完美地分区了计数器值，
 而\co{global_count}保存完整的全局数值。
 
-对于limit counters，我们也可以使用这种方法的变体，
-部分地分区counter。
+对于限值计数器，我们也可以使用这种方法的变体，
+部分地分区计数器。
 比如在四个线程中，每个线程都拥有一份per-thread \co{counter}，
 但同时每个线程也持有一份per-thread的最大值\co{countermax}。
 
@@ -1153,12 +1153,12 @@ per-thread \co{counter}完美地分区了counter值，
 \Cref{lst:count:Simple Limit Counter Variables}
 展示了此实现使用的每线程和全局变量。
 每线程\co{counter}和\co{countermax}变量分别是
-相应线程的本地counter和该counter的上限。
+相应线程的本地计数器和该计数器的上限。
 \clnref{globalcountmax}上的\co{globalcountmax}变量
-包含聚合counter的上限，
-\clnref{globalcount}上的\co{globalcount}变量是全局counter。
+包含聚合计数器的上限，
+\clnref{globalcount}上的\co{globalcount}变量是全局计数器。
 \co{globalcount}和每个线程的\co{counter}之和给出了
-整体counter的聚合值。
+整体计数器的聚合值。
 \clnref{globalreserve}上的\co{globalreserve}变量
 至少是所有每线程\co{countermax}变量之和。
 \end{fcvref}
@@ -1175,14 +1175,14 @@ per-thread \co{counter}完美地分区了counter值，
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@variable.fcv}
-\caption{简单Limit Counter变量}
+\caption{简单限值计数器变量}
 \label{lst:count:Simple Limit Counter Variables}
 \end{listing}
 
 \begin{figure}
 \centering
 \resizebox{2.5in}{!}{\includegraphics{count/count_lim}}
-\caption{简单Limit Counter变量关系}
+\caption{简单限值计数器变量关系}
 \label{fig:count:Simple Limit Counter Variable Relationships}
 \end{figure}
 
@@ -1193,7 +1193,7 @@ per-thread \co{counter}完美地分区了counter值，
 
 \begin{listing}
 \input{CodeSamples/count/count_lim@add_sub_read.fcv}
-\caption{简单Limit Counter的加法、减法和读取}
+\caption{简单限值计数器的加法、减法和读取}
 \label{lst:count:Simple Limit Counter Add; Subtract; and Read}
 \end{listing}
 
@@ -1208,17 +1208,17 @@ per-thread \co{counter}完美地分区了counter值，
 	\co{inc_count()}和\co{dec_count()}接口？
 }\QuickQuizAnswer{
 	因为结构有不同的大小。
-	当然，对应于特定大小结构的limit counter
+	当然，对应于特定大小结构的限值计数器
 	可能仍然可以使用\co{inc_count()}和\co{dec_count()}。
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:count:count_lim:add_sub_read:add]
 \Clnrefrange{b}{e}展示了\co{add_count()}，
-它将指定值\co{delta}加到counter上。
+它将指定值\co{delta}加到计数器上。
 \Clnref{checklocal}检查此线程的\co{counter}上
 是否有空间容纳\co{delta}，
 如果有，\clnref{add}执行加法，\clnref{return:ls}返回成功。
-这是\co{add_counter()}的快速路径，它不执行任何atomic操作，
+这是\co{add_counter()}的快速路径，它不执行任何原子操作，
 仅引用每线程变量，不应引起任何cache miss。
 \end{fcvref}
 
@@ -1619,7 +1619,7 @@ lst:count:Simple Limit Counter Utility Functions}）
 我们需要一个能精确判断何时计数超过上限的limit counter。
 一种实现的办法是允许线程放弃自己的保留计数，
 另一种做法是采用\IX{atomic}指令。
-当然，atomic指令会减慢快速路径，但另一方面，
+当然，原子指令会减慢快速路径，但另一方面，
 连试都不试又有点过于愚蠢了。
 
 \subsection{原子限值计数器实现}
@@ -1633,8 +1633,8 @@ lst:count:Simple Limit Counter Utility Functions}）
 
 \QuickQuiz{
 	为什么需要将线程的\co{counter}和\co{countermax}变量
-	作为一个整体进行atomic操作？
-	单独对它们进行atomic操作不够吗？
+	作为一个整体进行原子操作？
+	单独对它们进行原子操作不够吗？
 }\QuickQuizAnswer{
 	这也许是可能的，但需要非常小心。
 	注意，如果不先将\co{countermax}清零就移除\co{counter}，
@@ -1655,7 +1655,7 @@ lst:count:Simple Limit Counter Utility Functions}）
 	\end{enumerate}
 
 	同样，分别对\co{countermax}和\co{counter}进行
-	atomic操作也许是可能的，
+	原子操作也许是可能的，
 	但显然需要非常小心。
 	而且这样做很可能会减慢快速路径。
 

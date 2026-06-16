@@ -140,7 +140,7 @@ CPU将指针加载与后续解引用该指针的内存操作重排序。
 	并不知道或关心其他项目的存在与否。
 
 	如果需要更强的一致性，则需要更高代价的同步机制，
-	例如sequence locking或读写锁。
+	例如顺序锁或读写锁。
 	但如果不需要更强的一致性（实际上很多时候不需要），
 	为什么要付出更高的代价呢？
 }\QuickQuizEnd
@@ -153,7 +153,7 @@ CPU将指针加载与后续解引用该指针的内存操作重排序。
 \label{sec:defer:Wait For Pre-Existing RCU Readers}
 
 从最基本的角度来说，RCU就是一种等待事物结束的方式。
-当然，有很多其他的方式可以用来等待事物结束，比如reference counting、
+当然，有很多其他的方式可以用来等待事物结束，比如引用计数、
 读写锁、事件等等。
 RCU的最伟大之处在于它可以等待（比如说）20,000种不同的事物，
 而无需显式地去跟踪它们中的每一个，也无需去担心对性能的影响、
@@ -372,9 +372,9 @@ RCU实现都必须正确工作。
 \cref{fig:defer:Insertion With Concurrent Readers}
 可以发现，\co{ins_route()}的调用也可能导致并发读者看到不同版本：
 要么是初始的空列表，要么是新插入的\co{route}结构。
-注意，reference counting
+注意，引用计数
 （\cref{sec:defer:Reference Counting}）
-和hazard pointer
+和风险指针
 （\cref{sec:defer:Hazard Pointers}）
 也可能导致并发读者看到不同版本，但RCU的轻量级读者使得这种情况
 更为可能。
@@ -447,7 +447,7 @@ RCU实现都必须正确工作。
 摄像头、鼠标、打印机等等。
 此外，\cref{fig:defer:RCU Usage in the Linux Kernel}所示的
 大量Linux内核RCU API使用，
-加上Linux内核大量使用reference counting以及其他项目越来越多地
+加上Linux内核大量使用引用计数以及其他项目越来越多地
 使用\IXpl{hazard pointer}，表明对此类不一致性的容忍比人们
 想象的更为常见。
 
@@ -480,7 +480,7 @@ RCU实现都必须正确工作。
 然而，确实有些算法完全无法处理多个版本。
 有一些技术可以使此类算法适应
 RCU~\cite{PaulEdwardMcKenneyPhD}，例如
-\cref{sec:together:Correlated Data Elements}中描述的sequence locking的
+\cref{sec:together:Correlated Data Elements}中描述的顺序锁的
 使用。
 
 \paragraph{练习}
