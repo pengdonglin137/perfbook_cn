@@ -22,17 +22,17 @@
 拥有一个工具能以某种方式定位所有的竞态条件（race condition），那将非常有帮助。
 已经存在许多这样的工具，例如，
 \cref{sec:formal:State-Space Search}介绍了
-通用 state-space search 工具 Promela 和 Spin，
+通用状态空间搜索工具 Promela 和 Spin，
 \cref{sec:formal:Special-Purpose State-Space Search}
 类似地介绍了专用的 ppcmem 工具，
 \cref{sec:formal:Axiomatic Approaches}
-考察了一个 axiomatic approach 示例，
+考察了一个公理化方法的示例，
 \cref{sec:formal:SAT Solvers}
-简要概述了 SAT solvers，
+简要概述了 SAT solver，
 \cref{sec:formal:Stateless Model Checkers}
-简要概述了 stateless model checkers，
+简要概述了无状态模型检查器，
 \cref{sec:formal:Summary}
-总结了 formal verification 工具在验证并行算法中的使用，
+总结了形式化验证工具在验证并行算法中的使用，
 最后
 \cref{sec:formal:Choosing a Validation Plan}
 讨论了如何决定对给定软件项目应用多少以及什么类型的验证。
@@ -56,9 +56,9 @@
 % to shift the concern to Robust-Fragile, and social epistemology to the
 % more serious problem of Sucker-Nonsucker.
 
-本章描述的 formal verification 技术是验证小型并行算法的
+本章描述的形式化验证技术是验证小型并行算法的
 非常强大的工具，但它们不应该是你工具箱中的唯一工具。
-尽管数十年来一直关注 formal verification，测试仍然是大型并行软件
+尽管数十年来一直关注形式化验证，测试仍然是大型并行软件
 系统的验证主力~\cite{JonathanCorbet2006lockdep,DaveJones2011Trinity,PaulEMcKenney2016Formal}。
 
 然而，情况不一定永远如此。
@@ -75,10 +75,10 @@
 和最后一个 bug 的角度来思考。
 
 第一个 bug 通常通过检查或编译器诊断发现。
-尽管日益复杂的编译器诊断构成了一种轻量级的 formal verification，
+尽管日益复杂的编译器诊断构成了一种轻量级的形式化验证，
 但人们通常不会这样看待它们。
 这部分是由于一种奇特的从业者偏见，一方面说
-``如果我在使用它，它就不可能是 formal verification''，
+``如果我在使用它，它就不可能是形式化验证''，
 另一方面编译器诊断和验证研究之间存在很大的差距。
 
 虽然第一个相关 bug 可能通过检查或编译器诊断找到，
@@ -87,16 +87,16 @@
 通常是通过测试发现的。
 
 当测试由预期或实际的用例驱动时，
-最后一个相关 bug 通过测试找到的情况并不少见。
-这种情况可能会激发对 formal verification 的完全拒绝，
-然而，不相关的 bug 有一个恼人的特点，它们会在最不方便的时刻
+最后一个相关 bug 通过测试找到的情况并不罕见。
+这种情况可能会让人完全否定形式化验证的价值，
+然而，不相关的 bug 有一个恼人的特点：它们会在最不方便的时刻
 突然变得相关——这要拜黑帽攻击所赐。
-对于安全关键的软件，它似乎是总量中持续增长的一部分，
-因此可能有强烈的动机来找到并修复最后一个 bug。
-测试显然无法找到最后一个 bug，因此 formal verification 有
-一个潜在的角色，当然前提是 formal verification 能够
-证明自己有能力承担这个角色。
-正如本章所示，当前的 formal verification 系统
+对于安全关键的软件（它在总量中的占比似乎持续增长），
+找到并修复最后一个 bug 因此有着强烈的动机。
+测试显然无法找到最后一个 bug，因此形式化验证
+有一席之地——当然前提是形式化验证能够
+证明自己有能力胜任这个角色。
+正如本章所示，当前的形式化验证系统
 极为有限。
 
 \QuickQuiz{
@@ -115,22 +115,22 @@
 	进入了客观现实的确凿领域~\cite{McKenney:2019:CRS:3319647.3325836}。
 }\QuickQuizEnd
 
-请注意，formal verification 通常比测试难用得多。
-这在一定程度上是一个文化声明，有理由希望
-随着熟悉度的增加，formal verification 会被认为更容易。
+请注意，形式化验证通常比测试难用得多。
+这在一定程度上是一个文化观念问题，有理由希望
+随着熟悉度的增加，形式化验证会被认为更容易。
 话虽如此，非常简单的测试框架就能在任意大的软件系统中
 找到重大 bug。
-相比之下，应用 formal verification 所需的工作量
+相比之下，应用形式化验证所需的工作量
 似乎随着系统规模的增加而急剧增长。
 
-尽管如此，我在近30年中偶尔使用 formal verification，
-利用 formal verification 的优势，
+尽管如此，我在近30年中偶尔使用形式化验证，
+利用形式化验证的优势，
 即在设计时验证整体软件构造中小型复杂部分。
 更大的整体软件构造当然是通过测试来验证的。
 
 \QuickQuiz{
 	鉴于 L4 微内核的完整验证，
-	这种对 formal verification 的有限观点
+	这种对形式化验证的有限观点
 	不是有点过时了吗？
 }\QuickQuizAnswer{
 	不幸的是，不是。
@@ -140,7 +140,7 @@
 	手工验证代码。
 	这种程度的工作量无法应用于大多数软件项目，
 	因为变更速度太快了。
-	此外，虽然 L4 微内核从 formal verification 的
+	此外，虽然 L4 微内核从形式化验证的
 	角度来看是一个大型软件工件，但与大量项目相比它很小，
 	包括 LLVM、\GCC、Linux 内核、Hadoop、MongoDB
 	以及许多其他项目。
@@ -148,7 +148,7 @@
 	坦然承认，值得赞扬：
 	\url{https://docs.sel4.systems/projects/sel4/frequently-asked-questions.html\#does-sel4-have-zero-bugs}。
 
-	虽然 formal verification 终于开始显示出一些
+	虽然形式化验证终于开始显示出一些
 	前景，包括涉及更高自动化水平的更新的 L4 验证，
 	但它目前在可预见的未来完全没有可能
 	取代测试。
@@ -157,7 +157,7 @@
 	真实工具的形式出现，而不是以大量
 	激动人心的言辞出现。
 
-	也许有一天 formal verification 将被大量用于
+	也许有一天形式化验证将被大量用于
 	验证，包括现在所知的回归测试。
 	\Cref{sec:future:Formal Regression Testing?}审视了
 	使这种可能性成为现实所需的条件。
@@ -184,8 +184,8 @@
 为平凡程序数量的急剧增加提供了极大的动力。
 
 然而，如果你的代码复杂到你发现自己过度依赖
-formal verification 工具，你应该仔细重新考虑你的设计，
-特别是如果你的 formal verification 工具要求你将代码
+形式化验证工具，你应该仔细重新考虑你的设计，
+特别是如果你的形式化验证工具要求你将代码
 手动翻译到专用语言的话。
 例如，\cref{sec:formal:Promela Parable: dynticks and Preemptible RCU}
 中介绍的可抢占 RCU 的 dynticks 接口的复杂实现
@@ -194,7 +194,7 @@ formal verification 工具，你应该仔细重新考虑你的设计，
 在其他条件相同的情况下，一个简单的实现远胜于
 一个复杂实现的正确性证明。
 
-对于那些从事 formal verification 技术和系统工作的人，
+对于那些从事形式化验证技术和系统工作的人，
 公开的挑战是证明这个总结是错误的！
 为了协助完成这项任务，Verification Challenge~6 现已
 发布~\cite{PaulEMcKenney2017VerificationChallenge6}。
@@ -212,7 +212,7 @@ formal verification 工具，你应该仔细重新考虑你的设计，
 正如软件领域特别是工程领域通常的情况一样，
 答案是``视情况而定''。
 
-请注意，运行测试或进行 formal verification
+请注意，运行测试或进行形式化验证
 都不会改变你的项目。
 充其量，这种努力通过定位一个随后被修复的 bug 而产生间接效果。
 然而，修复一个 bug 可能会避免不便、经济损失、
@@ -225,13 +225,12 @@ formal verification 工具，你应该仔细重新考虑你的设计，
 特别是如果开发估算过于乐观或预算意外紧张的话，
 这些情况在现实世界的软件项目中几乎总会出现。
 
-决定仍然投资于验证通常是由具有强势个性的
-经验丰富的人推动的。
+决定投资于验证往往依赖于经验丰富且性格强势的人来推动。
 但这并不能保证成功，因为其他利益相关者可能
-同样具有强势的个性。
-更糟糕的是，这些其他利益相关者可能会带来关于昂贵的
-验证工作仍然让令人尴尬的 bug 逃逸到
-最终用户的故事。
+同样性格强势。
+更糟糕的是，这些利益相关者可能会举出这样的例子：
+昂贵的验证工作最终还是让令人尴尬的 bug 逃逸到了
+最终用户手中。
 因此，虽然一个伤痕累累、满头白发、脾气暴躁的老手
 可能会占上风，但也许一种更有组织的方法会更有用。
 
@@ -268,9 +267,8 @@ formal verification 工具，你应该仔细重新考虑你的设计，
 然而，有必要构建项目，使验证投资在项目开始时就开始，
 否则编码支出中不可避免的超支将挤占验证工作。
 
-用经验丰富的人员来配置创业项目可能导致
-验证工作的过度投资。
-正如购买过多保险可能导致破产一样，
+用经验丰富的人员来启动项目可能导致
+对验证工作的过度投资。正如购买过多保险可能导致破产一样，
 在测试上投入过多也可能扼杀一个项目。
 这对于首创性项目尤其如此，因为尚不清楚
 哪些用例将是重要的，在这种情况下，
@@ -282,8 +280,8 @@ formal verification 工具，你应该仔细重新考虑你的设计，
 对验证的需求。
 管理这种投资转变可能极其具有挑战性，
 特别是在用户不愿意或无法披露其用例确切性质的
-太常见的情况下。
-这时就需要从 bug 报告和与用户的讨论中
+常见情况下。
+此时，从 bug 报告和与用户的讨论中
 逆向工程用例变得至关重要。
 随着这些用例被更好地理解，使用持续集成
 可以帮助降低发现和修复所定位 bug 的成本。
@@ -383,22 +381,22 @@ RCU 风格实现其 API。
 我们已经确定验证预算因项目而异，
 也会在任何给定项目的生命周期中变化。
 但是验证投资应该如何在测试和
-formal verification 之间分配呢？
+形式化验证之间分配呢？
 
-这个问题正在自然地被回答，因为编译器采用了日益
-激进的 formal verification 技术到其诊断中，
-而且 formal verification 工具继续成熟。
+这个问题正在自然地得到解答：编译器在其诊断中
+采用了日益激进的形式化验证技术，
+同时形式化验证工具也在持续成熟。
 此外，Linux 内核的 lockdep 和 KCSAN 工具说明了
-将 formal verification 技术与运行时分析相结合的优势，
+将形式化验证技术与运行时分析相结合的优势，
 如\cref{sec:debugging:Assertions}中所讨论的。
 其他组合技术分析从执行中收集的
 轨迹~\cite{DanielBristot2019RTtrace}。
 目前，最佳实践是首先关注测试，并将
-formal verification 的显式工作保留给项目中
-测试不能很好服务的那些部分，以及对鲁棒性有
+形式化验证的专门工作保留给项目中
+测试不能很好覆盖的那些部分，以及对鲁棒性有
 特殊需求的部分。
 例如，Linux 内核的 RCU 主要依赖测试，但
-如本章所讨论的，偶尔使用 formal verification。
+如本章所讨论的，偶尔也会使用形式化验证。
 
 总之，为并发软件选择验证计划仍然更多的是一门
 艺术而非科学，更不用说工程领域了。

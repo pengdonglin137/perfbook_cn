@@ -9,35 +9,34 @@
 %
 \Epigraph{进步的艺术在于在变化中保持秩序，在秩序中保持变化。}{Alfred North Whitehead}
 
-因果关系和顺序性是高度直觉性的概念，黑客们通常
+因果关系和顺序性是非常直觉的概念，黑客们通常
 对这些概念有很强的把握。
 这些直觉在编写、分析和调试顺序代码时非常有帮助，
 对于使用标准互斥机制（如锁）的并行代码也同样如此。
 不幸的是，在复杂的并发代码中这些直觉完全失效，
-例如Linux内核中经常使用弱序原子操作（atomic operation）和memory barrier的代码。
+例如Linux内核中经常使用弱序原子操作和内存屏障的代码。
 这类代码的一个例子是标准互斥机制本身的实现，
 另一个例子是使用较弱同步的快速路径。
 虽然冒犯了直觉，但有人认为弱序恰恰是一种
 美德~\cite{JadeAlglave2013-WeaknessIsVirtue}。
-无论它是缺陷还是美德，本章将帮助你理解memory ordering，
+无论它是缺陷还是美德，本章将帮助你理解内存排序，
 经过练习后，你将能够实现同步原语和性能关键的快速路径。
 
 首先，\cref{sec:memorder:Memory-Model Intuitions}
 提供了一些可靠的直觉和有用的经验法则，
-这些通常可以作为学习完整Linux内核
-memory model (LKMM)的有用替代方案\@。
+它们通常可以作为学习完整Linux内核
+内存模型（LKMM）的有用替代方案\@。
 然而，从事快速路径或并发原语工作的人将
 需要后续章节提供的额外细节。
 \Cref{sec:memorder:Ordering: Why and How?}
 将演示真实计算机系统可以重排内存引用，
-给出这样做的一些原因，并提供关于如何
-防止不需要的重排的信息。
+给出这样做的原因，并提供防止不需要的重排的信息。
 \Cref{sec:memorder:Tricks and Traps,%
 sec:memorder:Compile-Time Consternation}
 将分别涵盖硬件和编译器可能给
 粗心的并行程序员带来的各种痛苦。
 \Cref{sec:memorder:Higher-Level Primitives}
-概述了在更高抽象层次建模memory ordering的好处。
+概述了在更高抽象层次建模内存排序的好处。
 最后，
 \cref{sec:memorder:Hardware Specifics}
 对几个代表性硬件平台提供了更多细节。
@@ -48,7 +47,7 @@ sec:memorder:Compile-Time Consternation}
 	Memory ordering自2014年以来真的变化了\emph{那么}多吗，
 	更不用说自2021年以来？
 }\QuickQuizAnswer{
-	早期的memory ordering章节根植于一对
+	早期的内存排序章节根植于一对
 	Linux Journal文章~\cite{PaulMcKenney2005i,PaulMcKenney2005j}，
 	可以追溯到2005年。
 	从那以后，C和C++内存模型（memory model）~\cite{PeteBecker2011N3242}
@@ -69,7 +68,7 @@ sec:memorder:Compile-Time Consternation}
 	并已被大量使用。
 
 	最后，现在有更好的方式来描述Linux内核
-	memory model (LKMM)。
+	内存模型（LKMM）。
 
 	鉴于所有这些进展，实质性的变化是必要的。
 }\QuickQuizEnd
@@ -91,29 +90,29 @@ sec:memorder:Compile-Time Consternation}
 % @@@ summarizing the intervening discussion with some appeals to transitive
 % @@@ intuitions and with more sophisticated rules of thumb.
 
-但首先，有必要理解有用的排序不是系统任何单个
-组件的属性，而是系统整体的属性。
-例如，如果编译器不同时保持排序，
-硬件保持排序也没有帮助。
+但首先，需要理解的是，有用的排序并非系统中某个
+单独组件的属性，而是整个系统的属性。
+例如，如果编译器不保持排序，
+硬件保持排序也无济于事。
 同理，即使硬件和编译器都提供了保持排序的方法，
-如果开发者不使用这些方法，也同样无济于事。
+如果开发者不使用这些方法，同样无济于事。
 Linux内核在此基础上添加了特定于架构的汇编语言原语，
 这些原语也必须保持所需的排序。
 简而言之，系统的所有组件必须协同工作才能提供
 任何所需的排序。
 
-接下来，有必要理解使用内存作为通信媒介时，
-从一个线程（thread）到另一个线程的通信的时序性和非时序性，
+接下来，需要理解的是，使用内存作为通信媒介时，
+从一个线程到另一个线程的通信具有时序性和非时序性，
 这将在以下章节中详细讨论：
 \cref{sec:memorder:Multicopy Atomicity}.
 关键点在于，虽然load和store在概念上很简单，
-但在真实的多核硬件上，需要相当长的时间
-其效果才能对所有其他线程可见。
+但在真实的多核硬件上，它们的效果需要相当长的时间
+才能对所有其他线程可见。
 虽然听起来不可思议，但给定store的值可能不会被
 挂钟时间上更晚的load返回，
 也可能被挂钟时间上更早的store覆盖。
 
-简单且直觉的情况发生在一个线程加载另一个线程
+简单且直观的情况发生在一个线程加载另一个线程
 所存储的值时。
 这种直接的因果情况表现出时序行为，因此
 软件可以安全地假设store指令在load指令开始之前完成。
@@ -374,7 +373,7 @@ RCU的大部分复杂性不在于其保证，而在于其使用场景，
 不幸的是，当一个线程的store覆盖了另一个线程
 加载或存储的值时，硬件没有义务提供
 时序因果假象。
-从软件的角度来看，很有可能一个较早的store
+从软件的角度来看，一个较早的store很有可能
 会覆盖一个较晚store的值，但只有当这两个store
 由不同的线程执行时才会发生，这将由以下内容说明：
 \cref{fig:memorder:Store-to-Store is Counter-Temporal}
@@ -402,30 +401,30 @@ on
 因此，一个线程读取另一个线程写入的值的情况
 可以使用远比一个线程覆盖另一个线程加载或存储的值的情况
 更弱的排序。
-这些差异被以下经验法则所捕获。
-然而，重要的是要注意这些规则都不涉及互斥。
-这些规则具有if-then的性质，如以下所示：
+以下经验法则捕捉了这些差异。
+然而，需要注意的是，这些规则都不涉及互斥。
+这些规则具有if-then的性质，如下所示：
 \cref{fig:memorder:If-Then Nature of Memory Ordering}.
 在图中，如果CPU~1对Y的引用在CPU~0之后，
 并且两个CPU在它们的两个访问之间提供了足够的排序，
 那么CPU~0对X的访问也将先于CPU~1的访问。
 
 请注意，CPU~0 和 CPU~1 的排序都是必需的。
-原因在于，给定 CPU 执行的普通 memory-ordering 指令
+原因在于，给定 CPU 执行的普通内存排序指令
 仅影响该 CPU 和内存子系统，包括在
 \cref{sec:memorder:Why Hardware Misordering?}
 中更详细讨论的 store buffer、cache 和互连。
 因此，如果两个 CPU 需要彼此同步，它们都需要执行
-memory-ordering 指令，以便它们都能与内存子系统正确交互，
+内存排序指令，以便它们都能与内存子系统正确交互，
 从而间接地与彼此交互。
-也就是说，两个 CPU 的 memory-ordering 指令必须彼此
+也就是说，两个 CPU 的内存排序指令必须彼此
 \emph{配对}，
-这有时被称为 \emph{memory-barrier 配对}。
-这种 memory-barrier 配对可以在
+这有时被称为 \emph{内存屏障配对}。
+这种内存屏障配对可以在
 \cref{fig:memorder:If-Then Nature of Memory Ordering} 中看到，
 其中 CPU~0 和~1 提供的排序协同工作以提供 if-then 排序。
 
-第一条经验法则是，memory-ordering操作仅在
+第一条经验法则是，内存排序操作仅在
 至少两个线程共享的至少两个变量之间有可能
 交互时才是必需的，这是以下章节中提出的单一性直觉福音的基础：
 \cref{sec:memorder:Singular Intuitive Bliss}.
@@ -433,11 +432,11 @@ memory-ordering 指令，以便它们都能与内存子系统正确交互，
 \cpageref{sec:memorder:Basic Rules of Thumb}上的
 \cref{sec:memorder:Basic Rules of Thumb}中呈现的
 许多基本经验法则，
-例如，请记住``memory-barrier配对''是``cycle''的双线程特殊情况。
+例如，请记住``内存屏障配对''是``cycle''的双线程特殊情况。
 而且，一如既往，如果单线程程序能提供足够的
 性能，为什么要费心并行化呢？\footnote{
 	当然，爱好者和研究人员可以随意忽略这个和许多其他警告。}
-毕竟，避免并行也避免了memory-ordering操作的额外成本和复杂性。
+毕竟，避免并行也避免了内存排序操作的额外成本和复杂性。
 
 第二条经验法则涉及load-buffering情况：
 如果给定cycle中的所有线程间通信使用store-to-load
@@ -496,12 +495,12 @@ sec:memorder:Control-Dependency Calamities}，
 	store-to-load链接的这种时序性允许使用最小排序。
 }\QuickQuizEnd
 
-第四条也是最后一条经验法则确定了需要full memory barrier
+第四条也是最后一条经验法则确定了需要完整内存屏障
 （或更强）的场合：
 如果给定的cycle包含两个或更多non-store-to-load链接
 （即总共两个或更多load-to-store或store-to-store链接），
 你将需要在该cycle中每对non-store-to-load链接之间
-至少有一个full barrier，
+至少有一个完整屏障，
 如\cpageref{lst:memorder:W+WRC Litmus Test With More Barriers}上的
 \cref{lst:memorder:W+WRC Litmus Test With More Barriers}所示，
 尤其是\cpageref{sec:memorder:A Counter-Intuitive Case Study}上的
@@ -509,12 +508,12 @@ sec:memorder:Control-Dependency Calamities}，
 % @@@ \cref{lst:memorder:W+WRC Litmus Test With More Barriers}
 % @@@ as well as in the answer to
 % @@@ \QuickQuizARef{\MemorderQQLitmusTestR}.
-Full barrier包括\co{smp_mb()}、成功的全强度非\co{void}
+完整屏障包括\co{smp_mb()}、成功的全强度非\co{void}
 原子RMW操作，以及与\co{smp_mb__before_atomic()}或
 \co{smp_mb__after_atomic()}结合使用的其他原子RMW操作。
 任何RCU的grace-period等待原语（\co{synchronize_rcu()}及其同族）
-也作为full barrier起作用，但代价远比\co{smp_mb()}高。
-力量伴随着代价，尽管full barrier通常对性能的损害
+也作为完整屏障起作用，但代价远比\co{smp_mb()}高。
+力量伴随着代价，尽管完整屏障通常对性能的损害
 大于对可扩展性的损害。
 这条经验法则的极端逻辑终点是
 \cref{sec:memorder:Fully Ordered Intuitions}中提出的完全有序直觉的基础。
@@ -522,7 +521,7 @@ Full barrier包括\co{smp_mb()}、成功的全强度非\co{void}
 回顾这些规则：
 
 \begin{enumerate}
-\item	Memory-ordering操作仅在至少两个线程共享至少两个变量时才是必需的。
+\item	内存排序操作仅在至少两个线程共享至少两个变量时才是必需的。
 \item	如果一个cycle中的所有链接都是store-to-load链接，
 	那么最小排序就足够了。
 \item	如果一个cycle中除一个之外的所有链接都是store-to-load链接，
@@ -530,21 +529,21 @@ Full barrier包括\co{smp_mb()}、成功的全强度非\co{void}
 \item	否则，每对non-store-to-load链接之间至少需要一个full barrier。
 \end{enumerate}
 
-注意，架构被允许提供更强的保证，这将在以下章节中讨论：
+注意，架构可以提供更强的保证，这将在以下章节中讨论：
 \cref{sec:memorder:Hardware Specifics},
 但这些保证只能在仅为该架构运行的代码中依赖。
 此外，更精确的\IX{memory model}~\cite{Alglave:2018:FSC:3173162.3177156}
 可能以比这些经验法则更低开销的操作提供更强的保证，
 尽管代价是更大的复杂性。
-在这些更正式的memory-ordering论文中，store-to-load链接是
+在这些更正式的内存排序论文中，store-to-load链接是
 reads-from (rf)链接的一个例子，load-to-store链接是
 from-reads (fr)链接的一个例子，store-to-store链接是
 coherence (co)链接的一个例子。
 
 最后一个建议：
-使用原始memory-ordering原语是最后的手段。
+使用原始内存排序原语是最后的手段。
 使用现有的原语（如锁或RCU）几乎总是更好的选择，
-这样让这些原语为你处理memory ordering。
+这样让这些原语为你处理内存排序。
 
 话虽如此，下一节描述了为什么硬件会对内存引用乱序
 以及你可以采取的一些对策。
@@ -576,7 +575,7 @@ litmus test中看到：
 从而\nbco{1:r2=2}，因此永远不会触发\co{exists}子句。
 该示例是对称的，因此类似的推理可能
 让我们希望\nbco{1:r2=0}保证\nbco{0:r2=2}。
-不幸的是，缺少memory barrier打破了这些希望。
+不幸的是，缺少内存屏障打破了这些希望。
 CPU有权重排Thread~\co{P0()}和Thread~\co{P1()}中的语句，
 即使在x86这样相对强序的系统上也是如此。
 
@@ -621,14 +620,14 @@ CPU有权重排Thread~\co{P0()}和Thread~\co{P1()}中的语句，
 % 49999894:>0:r2=0; 1:r2=2;
 % 167   :>0:r2=2; 1:r2=2;
 
-以下章节准确展示了这种直觉是如何失效的，
-然后提出了一些memory ordering的思维模型，可以帮助
-你避免这些陷阱。
+以下章节将展示这种直觉是如何失效的，
+然后提出一些内存排序的思维模型，帮助你
+避免这些陷阱。
 
 \Cref{sec:memorder:Why Hardware Misordering?}
-简要概述了为什么硬件会对内存访问乱序，然后
+简要概述了为什么硬件会对内存访问乱序，
 \cref{sec:memorder:How to Force Ordering?}
-同样简要概述了你如何阻止这种乱序。
+同样简要概述了如何阻止这种乱序。
 最后，\cref{sec:memorder:Basic Rules of Thumb}
 列出了一些基本经验法则，这些将在后续章节中进一步细化。
 这些章节重点关注硬件重排，但请放心，编译器
@@ -639,9 +638,9 @@ CPU有权重排Thread~\co{P0()}和Thread~\co{P1()}中的语句，
 \subsection{为什么硬件会乱序？}
 \label{sec:memorder:Why Hardware Misordering?}
 
-但为什么内存乱序会首先发生？
+但为什么内存乱序会发生？
 CPU不能自行跟踪排序吗？
-这不就是我们首先拥有计算机的原因吗，为了跟踪事物？
+我们拥有计算机不就是为了跟踪事物吗？
 
 \begin{figure*}
 \centering
@@ -661,7 +660,7 @@ CPU不能自行跟踪排序吗？
 随着老化而退化时，软件将不再在其上快速运行。
 例如，如果最左边的ALU失败，为充分利用所有ALU而调优的软件
 可能比未调优的软件运行得更慢。
-这个问题的一个解决方案是一旦CPU开始退化就将系统退出服务。
+解决这个问题的一个方案是，一旦CPU开始退化就将系统退出服务。
 
 \begin{figure*}
 \centering
@@ -670,11 +669,11 @@ CPU不能自行跟踪排序吗？
 \ContributedBy{fig:memorder:Intel Core 2 Architecture Simplified}{Wikipedia user “I, Appaloosa” CC BY-SA 3.0, reformatted}
 \end{figure*}
 
-另一个选择是回忆\cref{chp:Hardware and its Habits}中的教训，
+另一个选择是回顾\cref{chp:Hardware and its Habits}中的教训，
 特别是对于许多重要的工作负载，主存跟不上现代CPU，
 现代CPU可以在从内存获取单个变量所需的时间内
 执行数百条指令。
-对于这样的工作负载，CPU的详细内部结构是无关紧要的，
+对于这样的工作负载，CPU的详细内部结构无关紧要，
 CPU可以用\cref{fig:memorder:Intel Core 2 Architecture Simplified}中
 标记为CPU、store buffer和cache的蓝色形状来近似。
 
@@ -825,9 +824,9 @@ CPU~1的cache现在包含\co{x1}。
 \label{sec:memorder:How to Force Ordering?}
 
 事实证明，有编译器指令和同步原语（如锁和RCU）
-负责通过使用\emph{\IXBpl{memory barrier}}
+负责通过使用\emph{\IXBpl{memory barrier}}（内存屏障）
 （例如Linux内核中的\co{smp_mb()}）来维持排序的假象。
-这些memory barrier可以是显式指令，如在\ARM、\Power{}、Itanium和Alpha上，
+这些内存屏障可以是显式指令，如在\ARM、\Power{}、Itanium和Alpha上，
 也可以由其他指令隐含，如在x86上经常出现的情况。
 由于这些标准同步原语保持了排序的假象，
 你最省力的路径就是简单地使用这些原语，
@@ -841,12 +840,12 @@ CPU~1的cache现在包含\co{x1}。
 \end{listing}
 
 然而，如果你需要实现同步原语本身，或者你只是
-对理解memory ordering的工作原理感兴趣，请继续阅读！
+对理解内存排序的工作原理感兴趣，请继续阅读！
 旅程的第一站是
 \cref{lst:memorder:Memory Ordering: Store-Buffering Litmus Test}
 (\path{C-SB+o-mb-o+o-mb-o.litmus})，
 它在\co{P0()}和\co{P1()}的store和load之间各放置了一个
-\co{smp_mb()} Linux内核\IXh{full}{memory barrier}，
+\co{smp_mb()} Linux内核\IXh{full}{memory barrier}（完整内存屏障），
 其他方面与\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}相同。
 % Test C-SB+o-mb-o+o-mb-o Allowed
 % Histogram (3 states)
@@ -854,12 +853,12 @@ CPU~1的cache现在包含\co{x1}。
 % 49636449:>0:r2=0; 1:r2=2;
 % 810253:>0:r2=2; 1:r2=2;
 % No
-这些barrier在我的x86笔记本电脑上100,000,000次试验中
+这些屏障在我的x86笔记本电脑上100,000,000次试验中
 阻止了反直觉结果的发生。
-有趣的是，这些barrier带来的额外开销导致
+有趣的是，这些屏障带来的额外开销导致
 两个load都返回值2这个合法结果发生了超过800,000次，
 而\cref{lst:memorder:Memory Misordering: Store-Buffering Litmus Test}中
-无barrier代码只有167次。
+无屏障代码只有167次。
 
 \begin{table*}
 \rowcolors{6}{}{lightgray}
@@ -908,8 +907,8 @@ load（第6行）之前完成（第4行和第5行），
 虽然像\co{smp_mb()}这样的full barrier具有极强的
 排序保证，但它们的强度以放弃硬件和编译器优化为高昂代价。
 很多情况可以用弱得多的排序保证来处理，
-这些保证使用便宜得多的memory-ordering指令，
-或者在某些情况下根本不需要memory-ordering指令。
+这些保证使用便宜得多的内存排序指令，
+或者在某些情况下根本不需要内存排序指令。
 
 \begin{table*}
 \small
@@ -1131,7 +1130,7 @@ sec:memorder:Propagation}中所解释的。
 }
 
 重要的是要注意，这个表只是一个速查表，
-因此绝不能替代对memory ordering的良好理解。
+因此绝不能替代对内存排序的良好理解。
 为了开始建立这样的理解，下一节将提出一些基本经验法则。
 
 \subsection{基本经验法则}
@@ -1169,11 +1168,11 @@ sec:memorder:Propagation}中所解释的。
 或\co{volatile}。
 
 另一方面，因为处理程序在被中断线程的上下文中执行，
-用于同步处理程序和线程之间通信的memory ordering可以非常轻量级。
+用于同步处理程序和线程之间通信的内存排序可以非常轻量级。
 例如，acquire load的对应物是\co{READ_ONCE()}
 后跟\co{barrier()}编译器指令，release store的对应物是
 \co{barrier()}后跟\co{WRITE_ONCE()}。
-Full memory barrier的对应物是\co{barrier()}。
+完整内存屏障的对应物是\co{barrier()}。
 最后，在线程中禁用中断或信号（视情况而定）可以排除处理程序。
 
 % @@@ Using flags to avoid expensive interrupt-disabling instructions
@@ -1188,13 +1187,13 @@ Full memory barrier的对应物是\co{barrier()}。
 
 \paragraph{排序具有条件性的if-then语义。}
 \Cref{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
-为memory barrier说明了这一点。
-假设两个memory barrier都足够强，如果CPU~1的访问Y1
+为内存屏障说明了这一点。
+假设两个内存屏障都足够强，如果CPU~1的访问Y1
 发生在CPU~0的访问Y0之后，那么CPU~1的访问X1
 保证发生在CPU~0的访问X0之后。
 
 \QuickQuiz{
-	你怎么知道哪些memory barrier对给定用例
+	你怎么知道哪些内存屏障对给定用例
 	足够强？
 }\QuickQuizAnswer{
 	啊，这是一个深层次的问题，其答案需要本章的
@@ -1219,11 +1218,11 @@ if-then规则随后将声明\clnref{P1:ld}上从\co{x0}的load
 \co{P1()}的局部变量\co{r2}保证
 最终值为2，\emph{仅当}
 \co{P0()}的局部变量\co{r2}最终值为零时。
-这强调了memory ordering保证是有条件的，而非绝对的。
+这强调了内存排序保证是有条件的，而非绝对的。
 \end{fcvref}
 
 虽然\cref{fig:memorder:Memory Barriers Provide Conditional If-Then Ordering}
-特别提到了memory barrier，但同样的if-then规则
+特别提到了内存屏障，但同样的if-then规则
 适用于Linux内核其余的排序操作。
 
 \paragraph{排序操作必须成对。}
@@ -1233,7 +1232,7 @@ if-then规则随后将声明\clnref{P1:ld}上从\co{x0}的load
 	在\cref{sec:memorder:Propagation}中，配对将被推广为cycle。}
 
 \paragraph{排序操作几乎从不加速执行。}
-如果你发现自己想添加一个memory barrier来尝试
+如果你发现自己想添加一个内存屏障来尝试
 强制先前的store更快地刷新到内存，请抵制这种冲动！
 添加排序通常会使事情变慢。
 当然，也有添加指令能加快速度的情况，
@@ -1246,7 +1245,7 @@ if-then规则随后将声明\clnref{P1:ld}上从\co{x0}的load
 
 \paragraph{排序操作不是魔法。}
 当你的程序由于某些\IX{race condition}而失败时，
-通常会想扔几个memory-ordering操作来
+通常会想扔几个内存排序操作来
 试图将bug屏障出去。
 一个好得多的反应是以精心设计的方式
 使用更高层次的原语。
@@ -1261,7 +1260,7 @@ if-then规则随后将声明\clnref{P1:ld}上从\co{x0}的load
 同时增加你的理解。
 这些litmus test还将阐明
 \cref{tab:memorder:Linux-Kernel Memory-Ordering Cheat Sheet}中所示的
-Linux内核memory ordering速查表中表示的许多概念，
+Linux内核内存排序速查表中表示的许多概念，
 并且可以在适当的工具支持下自动分析~\cite{Alglave:2018:FSC:3173162.3177156}。
 \Cref{sec:memorder:Memory-Model Intuitions}将回到这个速查表，
 根据从所有中间的技巧和陷阱中学到的知识，
@@ -1296,7 +1295,7 @@ Linux内核memory ordering速查表中表示的许多概念，
 展示了一系列直觉正确但在真实硬件上
 惨败的代码片段。
 一旦你的直觉经历了悲伤过程，后续章节将
-总结memory ordering遵循的基本规则。
+总结内存排序遵循的基本规则。
 
 但首先，让我们快速看看一个单一变量在单一
 时间点可能有多少个值。
@@ -1390,7 +1389,7 @@ CPU~4认为值为``4''持续了将近500\,ns。
 	因此，在单个时间点上，每个CPU完全可能看到给定变量
 	的自己的值（在自己的store buffer中），
 	而主存可能持有另一个值。
-	发明memory barrier的原因之一就是允许软件
+	发明内存屏障的原因之一就是允许软件
 	优雅地处理这样的情况。
 
 	幸运的是，软件很少关心多个CPU可能同时看到
@@ -1442,7 +1441,7 @@ CPU~4认为值为``4''持续了将近500\,ns。
 还要注意，所有CPU看到的序列的排序与
 \cref{fig:memorder:Possible Global Orders With More Simultaneous Values}
 中显示的有向图一致。
-尽管如此，这些图强调了正确使用memory ordering操作的重要性。
+尽管如此，这些图强调了正确使用内存排序操作的重要性。
 
 \begin{figure}
 \centering
@@ -1455,7 +1454,7 @@ CPU~4认为值为``4''持续了将近500\,ns。
 系统中每个store buffer一个！
 因此我们已经进入了一个必须告别关于变量值和
 时间流逝的舒适直觉的领域。
-这就是需要memory-ordering操作的领域。
+这就是需要内存排序操作的领域。
 
 但请牢记以下章节的教训：
 \cref{chp:Hardware and its Habits,%
@@ -1464,7 +1463,7 @@ chp:Partitioning and Synchronization Design}.
 绝不是设计并行程序的方式，至少
 如果性能和可扩展性对你很重要的话不是。
 
-不幸的是，memory ordering还有许多其他方式
+不幸的是，内存排序还有许多其他方式
 冒犯你的直觉，并非所有这些方式都与性能和
 可扩展性冲突。
 下一节概述了不相关内存引用的重排。
@@ -1664,7 +1663,7 @@ store buffer几乎已满，而后续store的cacheline已经在手边时。
 	在强序系统上，\co{smp_rmb()}和\co{smp_wmb()}
 	不产生任何指令，而只是约束编译器。
 	因此，在这种情况下，弱序系统确实承担了
-	其memory ordering选择的全部成本。
+	其内存排序选择的全部成本。
 }\QuickQuizEnd
 
 \subsection{地址依赖}
@@ -1835,7 +1834,7 @@ exists (1:r2=x0 /\ 1:r3=1)
 	这就是为什么在v4.15之前的Linux内核中，DEC Alpha
 	需要现已过时的\apikh{lockless_dereference()}在
 	\cref{lst:memorder:Enforced Ordering of Message-Passing Address-Dependency Litmus Test (Before v4.15)}的
-	\clnref{deref}上为其提供的显式memory barrier。
+	\clnref{deref}上为其提供的显式内存屏障。
 	\end{fcvref}
 	\begin{fcvref}[ln:formal:C-S+o-wmb-o+o-addr-o:whole]
 	然而，DEC Alpha确实跟踪load-to-store address dependency，
@@ -1847,7 +1846,7 @@ exists (1:r2=x0 /\ 1:r3=1)
 	总结一下，当前平台要么隐式地尊重address dependency，
 	如TSO平台（x86、大型机、SPARC等），
 	要么具有address dependency的硬件跟踪
-	（\ARM、PowerPC、MIPS等），要么具有所需的memory barrier
+	（\ARM、PowerPC、MIPS等），要么具有所需的内存屏障
 	（由\co{READ_ONCE()}提供，DEC Alpha在Linux内核v4.15及更高版本上），
 	或者由\co{rcu_dereference()}提供
 	（DEC Alpha在Linux内核v4.14及更早版本上）。
@@ -2388,7 +2387,7 @@ non-multicopy-atomic行为。
 \Cref{lst:memorder:W+RWC Litmus Test With Release (No Ordering)}
 （\path{C-W+RWC+o-r+a-o+o-mb-o.litmus}）
 展示了累积性和store-release的局限性，
-即使有完整的内存屏障（memory barrier）也是如此。
+即使有完整的内存屏障也是如此。
 问题在于，虽然\clnref{P0:sr}上的\co{smp_store_release()}具有累积性，
 虽然该累积性确实对\co{P2()}在\clnref{P2:ld}上的load进行排序，
 但\co{smp_store_release()}的排序无法通过\co{P1()}的load
@@ -3590,7 +3589,7 @@ void reader(void)		\lnlbl[read:b]
 因为当前的编译器不理解它们，并且很容易破坏它们。
 本节中的规则和示例旨在帮助你防止编译器的无知破坏你的代码。
 
-load-load 控制依赖需要一个完整的\IXh{read}{memory barrier}，
+load-load 控制依赖需要一个完整的\IXh{read}{memory barrier}（读内存屏障），
 而不仅仅是数据依赖屏障。
 考虑以下代码片段：
 
@@ -4804,7 +4803,7 @@ RCU 读者可以嵌套，但如
 鉴于读写锁和 RCU 是非对称的，两者都偏向读者，
 并且 \co{smp_mb()} 全内存屏障的开销对某些用例来说过高，
 那么是否有具有轻量级 API 成员用于快速路径的
-非对称 memory barrier 呢？
+非对称内存屏障呢？
 
 答案是"有"。
 
@@ -4821,18 +4820,18 @@ RCU 读者可以嵌套，但如
 \cref{fig:memorder:If-Then Nature of Memory Ordering}
 的讨论（在
 \cpageref{fig:memorder:If-Then Nature of Memory Ordering} 上），
-给定 CPU 的 memory-barrier 指令仅与内存子系统（store buffer、cache 和互连）交互，
+给定 CPU 的内存屏障指令仅与内存子系统（store buffer、cache 和互连）交互，
 而不直接与其他 CPU 交互。
 这意味着为了两个 CPU 彼此同步，每个 CPU 都必须执行
-memory-barrier 指令，如
+内存屏障指令，如
 \cref{fig:memorder:Symmetric Memory Barriers Interactions}
 中 CPU~0 和~1 所示。
-考虑到 memory-barrier 配对及其推广 cycle 的需求，这并不令人惊讶。
+考虑到内存屏障配对及其推广 cycle 的需求，这并不令人惊讶。
 
 \QuickQuiz{
 	\cref{fig:memorder:Symmetric Memory Barriers Interactions}
-	显示 memory barrier 与 store buffer、cache、互连和内存交互。
-	但轻量级 memory-ordering 操作（load-acquire、
+	显示内存屏障与 store buffer、cache、互连和内存交互。
+	但轻量级内存排序操作（load-acquire、
 	store-release 和 PowerPC \co{lwsync} 指令）不是只与
 	store buffer 交互吗？
 }\QuickQuizAnswer{
@@ -4848,7 +4847,7 @@ memory-barrier 指令，如
 	\end{figure}
 
 	然而，尽管这通常是正确的，但它是一种过度简化。
-	轻量级 memory-ordering 操作之所以可以只与 store buffer 交互，
+	轻量级内存排序操作之所以可以只与 store buffer 交互，
 	唯一的原因是 cache-coherence 协议将这些交互传播到
 	cache 中，cache 进而将所需的排序通过互连传播，
 	如果需要的话，传播到内存。
@@ -4861,62 +4860,62 @@ memory-barrier 指令，如
 \label{fig:memorder:Asymmetric Memory Barriers Interactions}
 \end{figure}
 
-\emph{非对称 memory barrier} 背后的技巧是创建一个
-\emph{重量级} memory barrier，当给定 CPU 执行它时，
+\emph{非对称内存屏障} 背后的技巧是创建一个
+\emph{重量级}内存屏障，当给定 CPU 执行它时，
 不仅与内存子系统交互，还直接与目标 CPU 交互，
 例如，通过向这些 CPU 发送 \IXacrfpl{ipi}。
 这些目标 CPU 然后与内存子系统交互，在许多架构上，
 这仅通过处理 IPI 就可以发生。
 这由
 \cref{fig:memorder:Asymmetric Memory Barriers Interactions}
-描绘，它显示 CPU~0 执行 memory-barrier 指令但也向 CPU~1 发送 IPI。
-当 CPU~1 执行 IPI 处理程序时，它也执行 memory-barrier 指令，
-从而提供所需的 memory-barrier 配对，但不需要 CPU~1 自行
-执行任何 memory-barrier 指令。
-CPU~0 的 memory barrier 结合其 IPI（因此结合 CPU~1 的非自愿
-memory barrier）构成了重量级 memory barrier。
+描绘，它显示 CPU~0 执行内存屏障指令但也向 CPU~1 发送 IPI。
+当 CPU~1 执行 IPI 处理程序时，它也执行内存屏障指令，
+从而提供所需的内存屏障配对，但不需要 CPU~1 自行
+执行任何内存屏障指令。
+CPU~0 的内存屏障结合其 IPI（因此结合 CPU~1 的非自愿
+内存屏障）构成了重量级内存屏障。
 
 然而，CPU~1 不能完全被动，因为编译器可以重排内存引用操作，
 这可能会破坏排序。
 因此 CPU~1 的代码必须包含 Linux 内核的 \co{barrier()}
-编译器指令，这被称为\emph{轻量级} memory barrier。
+编译器指令，这被称为\emph{轻量级}内存屏障。
 
-重量级非对称 memory barrier 可以与对称 memory barrier
+重量级非对称内存屏障可以与对称内存屏障
 （或任何其他提供足够排序的操作）配对，
-也可以与重量级或轻量级非对称 memory barrier 配对。
-换句话说，重量级非对称 memory barrier 可以与对称
-memory barrier 能配对的所有东西配对，它还可以与
-轻量级非对称 memory barrier 配对。
-然而，轻量级非对称 memory barrier \emph{只能}与
-重量级 memory barrier 配对。
+也可以与重量级或轻量级非对称内存屏障配对。
+换句话说，重量级非对称内存屏障可以与对称
+内存屏障能配对的所有东西配对，它还可以与
+轻量级非对称内存屏障配对。
+然而，轻量级非对称内存屏障 \emph{只能}与
+重量级内存屏障配对。
 % @@@ Double-check this with litmus tests.
 
-许多系统提供对重量级非对称 memory barrier 的用户空间访问。
+许多系统提供对重量级非对称内存屏障的用户空间访问。
 例如，Linux 提供了 \co{membarrier()} 系统
 调用~\cite{Corbet2010membarrier}。
 但公平地说，早在 2008 年，Windows 就开始
 提供 \co{FlushProcessWriteBuffers()} 系统调用。
 
 \QuickQuiz{
-	RCU 不是早在 2000 年之前就作为非对称 memory barrier 的
-	一个例子吗？重量级 barrier 由 \co{synchronize_rcu()} 提供，
-	轻量级 barrier 则是 \co{rcu_read_lock()} 和
-	\co{rcu_read_unlock()} 之间你想要的任何地方的隐式 barrier？
+	RCU 不是早在 2000 年之前就作为非对称内存屏障的
+	一个例子吗？重量级屏障由 \co{synchronize_rcu()} 提供，
+	轻量级屏障则是 \co{rcu_read_lock()} 和
+	\co{rcu_read_unlock()} 之间你想要的任何地方的隐式屏障？
 }\QuickQuizAnswer{
 	算是吧？
 
-	如果你持这种观点，你可以将非对称 memory barrier
+	如果你持这种观点，你可以将非对称内存屏障
 	视为针对特定 RCU 用例的优化。
 	毕竟，与 \co{synchronize_rcu()} 不同，重量级非对称
-	barrier 无需等待 RCU 静默状态。
+	屏障无需等待 RCU 静默状态。
 
 	但如果你想追溯到 2008 年之前，2001 年的一个 Linux 内核
 	补丁针对 DEC Alpha 上维护地址依赖的特殊情况实现了
-	非对称 memory barrier~\cite{McKenney01f}。
+	非对称内存屏障~\cite{McKenney01f}。
 	还有未经证实的传言称 DEC 的 Digital UNIX 在 1990 年代
-	就使用了非对称 memory barrier。
+	就使用了非对称内存屏障。
 
-	但我们可能需要面对这样一个事实：非对称 memory barrier 的
+	但我们可能需要面对这样一个事实：非对称内存屏障的
 	发明已经消失在时间的沙尘中。
 }\QuickQuizEnd
 
@@ -4948,7 +4947,7 @@ API~\cite{DavidGoldblatt2022asymmetricFences}。
 %
 \epigraph{石头赢纸！}{Derek Williams}
 
-每个CPU家族都有自己独特的memory ordering方法，
+每个CPU家族都有自己独特的内存排序方法，
 这可能使可移植性成为挑战，正如你在以下内容中看到的：
 \cref{tab:memorder:Summary of Memory Ordering}.
 
@@ -5039,7 +5038,7 @@ API~\cite{DavidGoldblatt2022asymmetricFences}。
 \end{table*}
 
 事实上，某些软件环境甚至完全禁止
-直接使用memory-ordering操作，将程序员限制于
+直接使用内存排序操作，将程序员限制于
 在需要的范围内包含这些操作的互斥原语。
 请注意，本节并非旨在成为涵盖每个CPU家族
 所有（甚至大多数）方面的参考手册，而是

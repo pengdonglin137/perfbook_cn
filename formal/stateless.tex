@@ -20,7 +20,7 @@
 \label{fig:formal:Nidhugg Processing Flow}
 \end{figure}
 
-虽然对这个问题的评判尚无定论，但 stateless model checker
+虽然对这个问题的评判尚无定论，但无状态模型检查器
 （如 \IX{Nidhugg}~\cite{CarlLeonardsson2014Nidhugg}）在某些
 情况下已经能处理更大的程序~\cite{SMC-TreeRCU}，并且具有
 类似的易用性，如\cref{fig:formal:Nidhugg Processing Flow}所示。
@@ -33,5 +33,5 @@
 维护者之前不知道的 bug。
 然而，它确实能够证明 Linux 内核 RCU 中的一个历史 bug
 是由不同于维护者所认为的提交修复的，
-这给了人们更多的希望，即像 Nidhugg 这样的 stateless model checker
-有朝一日可能对在并行代码中找到并发 bug 有所帮助。
+这给人们带来了一些额外的希望，即像 Nidhugg 这样的无状态模型检查器
+有朝一日可能有助于在并行代码中发现并发 bug。
