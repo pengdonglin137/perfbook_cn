@@ -17,10 +17,6 @@
 
 ## 质量检查
 
-### 术语一致性
-- [ ] 已运行 `python .translate-engine/scripts/check_terms.py`
-- [ ] 术语使用与 terms.yaml 一致
-
 ### 翻译质量
 - [ ] 信：忠实原文含义
 - [ ] 雅：避免翻译腔

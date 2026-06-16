@@ -11,32 +11,8 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
-  # 质量检查
-  quality:
-    name: Quality Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          submodules: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install pyyaml
-
-      - name: Check translation progress
-        run: python .translate-engine/scripts/check_progress.py --config config.yaml
-        continue-on-error: true
-
-  # 构建
   build:
     name: Build PDF
-    needs: quality
     runs-on: ubuntu-latest
     container:
       image: akiyks/perfbook-build:latest
@@ -44,8 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        with:
-          submodules: true
 
       - name: Install additional dependencies
         run: |

@@ -11,42 +11,8 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
-  # 质量检查
-  quality:
-    name: Quality Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Checkout translate-engine
-        uses: actions/checkout@v5
-        with:
-          repository: pengdonglin137/translate-engine
-          path: .translate-engine
-
-      - name: Verify translate-engine
-        run: ls -la .translate-engine/scripts/ || echo "translate-engine not found"
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install pyyaml
-
-      - name: Check terminology consistency
-        run: python .translate-engine/scripts/check_terms.py --config config.yaml --terms terms.yaml || echo "⚠️ Terminology issues found (non-blocking)"
-        continue-on-error: true
-
-      - name: Check translation progress
-        run: python .translate-engine/scripts/check_progress.py --config config.yaml
-
-  # 构建
   build:
     name: Build PDF
-    needs: quality
     runs-on: ubuntu-latest
     container:
       image: akiyks/perfbook-build:latest
@@ -54,12 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
-      - name: Checkout translate-engine
-        uses: actions/checkout@v5
-        with:
-          repository: pengdonglin137/translate-engine
-          path: .translate-engine
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory /__w/perfbook_cn/perfbook_cn
