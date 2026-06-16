@@ -82,18 +82,18 @@
 
 如果程序在单个处理器上运行得足够快，
 并且与其他进程、线程或中断处理程序没有交互，
-那么你可以将代码中所有的同步原语删掉，远离它们所带来的开销和复杂性。
+那么就可以不用任何同步原语，从而避免它们带来的开销和复杂性。
 好多年前曾有人争论\IXr{Moore's Law}
 最终会让所有程序都属于这一类。
 然而，如\cref{fig:SMPdesign:Clock-Frequency Trend for Intel CPUs}所示，
 单线程性能的指数增长在2003年左右停止了。
 因此，
 此后要提高性能，就必须提高程序的并行化程度。\footnote{
-	这张图显示了理论上能每个时钟周期退休一条或多条指令的
-	较新CPU的时钟频率，以及需要多个时钟周期才能执行最简单指令的
-	较旧CPU的MIPS。
-	之所以采用这种方式，是因为较新CPU每时钟周期退休多条指令的
-	能力通常受到内存系统性能的限制。}
+	对于较新CPU（理论上每时钟周期可退休一条或多条指令），图中显示的是
+	时钟频率；对于较旧CPU（需要多个时钟周期才能执行最简单的指令），
+	图中显示的是MIPS。
+	这样做的原因是，较新CPU每时钟周期退休多条指令的能力
+	通常受到内存系统性能的限制。}
 鉴于2006年Paul在一台双核笔记本电脑上打下了这句话的第一个版本，
 而且2020年添加的许多图表是在每个socket有56个硬件线程的系统上生成的，
 并行性确实已经到来。
@@ -118,7 +118,7 @@
 
 请注意，这并\emph{不}意味着你应该在每个程序中都使用多线程方式编程。
 我再一次说明，如果程序在单个处理器上运行得足够快，
-那么你就从SMP同步原语的开销和复杂性中解脱出来吧。
+那么就可以避免SMP同步原语的开销和复杂性。
 \cref{lst:SMPdesign:Sequential-Program Hash Table Search}中
 哈希表（hash table）查找代码的简单之美强调了这一点。\footnote{
 	本节中的示例取自Hart等人的
@@ -194,8 +194,8 @@ int hash_search(struct hash_table *h, long key)
 会在\IXpl{critical section}中执行许多次，
 这就让代码锁的可扩展性大大受限。
 
-因此，你最好在那些只有一小段执行时间花在临界区（critical section）中
-或者对可扩展性要求不高的程序上使用代码锁。
+因此，代码锁最适合用于临界区执行时间占比很小、
+或者对可扩展性要求不高的程序。
 此外，主要使用后面章节中描述的更可扩展方法的程序
 通常使用代码锁来处理罕见的错误情况或重大的状态转换。
 在这些情况下，代码锁可以让程序相对简单，
@@ -266,7 +266,7 @@ int hash_search(struct hash_table *h, long key)
 	而不是（比如说）分区空间但分段时间。
 }\QuickQuizEnd
 
-并且，代码锁尤其容易引起"\IX{lock contention}"，
+代码锁尤其容易引起"\IX{lock contention}"，
 即多个CPU需要同时获取该锁。
 如果你照看过一群小孩子（或者一群像小孩子一样行事的大人），
 你肯定能马上意识到只有一个玩具的危险，
@@ -579,7 +579,7 @@ parallel}"（令人尴尬的并行），而最好的情况，
 \subsection{锁粒度与性能}
 \label{sec:SMPdesign:Locking Granularity and Performance}
 
-本节从数学的同步\-/效率角度来考察锁粒度和性能。
+本节从同步效率的数学角度来考察锁粒度和性能。
 对数学不感兴趣的读者可以选择跳过本节。
 
 方法是用一种关于操作单个共享全局变量的同步机制\IX{efficiency}的
@@ -674,8 +674,8 @@ $f=100$的线对应每个CPU每500纳秒尝试一次原子递增，
 这又对应于几百（也许几千）条指令。
 因为每条曲线都随着CPU或线程数量的增加而急剧下降，
 我们可以得出结论：如果在当前商用硬件上大量使用，
-基于原子操作（atomic operation）单个全局共享变量
-的同步机制扩展性不佳。
+使用原子操作（atomic operation）对单个全局共享变量
+进行同步的机制扩展性不佳。
 这就是\cref{chp:Counting}中讨论的
 并行计数算法原因的数学描绘。
 你的实际情况可能有所不同。
@@ -783,8 +783,8 @@ $f=100$的线对应每个CPU每500纳秒尝试一次原子递增，
 \section{并行快速路径}
 \label{sec:SMPdesign:Parallel Fastpath}
 %
-\epigraph{面对困难有两种方式：
-	  你改变困难，或者你改变自己来应对它们。}
+\epigraph{面对困难只有两种办法：
+	  要么改变困难本身，要么改变自己去适应它。}
 	 {Phyllis Bottome}
 
 细粒度的（通常带来更高性能的）设计
@@ -962,7 +962,7 @@ int hash_search(struct hash_table *h, long key)
 \subsection{资源分配器缓存}
 \label{sec:SMPdesign:Resource Allocator Caches}
 
-本节展示了一种简明扼要的并行固定块大小内存分配器。
+本节展示一种简洁的并行固定块大小内存分配器。
 更详细的描述可以在
 文献~\cite{McKenney92a,McKenney93,Bonwick01slab,McKenney01e,JasonEvans2011jemalloc,ChrisKennelly2020tcmalloc}
 或Linux内核~\cite{Torvalds2.6kernel}中找到。
@@ -980,7 +980,7 @@ int hash_search(struct hash_table *h, long key)
 我们可以简单地给每个CPU分配一个5千兆字节的内存区域，
 允许每个CPU从自己的区域分配，不需要
 锁及其复杂性和开销。
-可是这种简单的方案有个问题：当CPU~0只分配内存而CPU~1只释放内存时，
+但这种简单的方案有个问题：当CPU~0只分配内存而CPU~1只释放内存时，
 方案就失败了，正如简单的生产者-消费者工作负载中发生的那样。
 
 另一个极端，\IXh{code}{locking}，由于过度的
@@ -1035,9 +1035,8 @@ int hash_search(struct hash_table *h, long key)
 \label{lst:SMPdesign:Allocator-Cache Data Structures}
 \end{listing}
 
-池数据结构的操作由
-\cref{fig:SMPdesign:Allocator Pool Schematic}说明，
-六个方框表示组成\co{pool}字段的指针数组，
+\cref{fig:SMPdesign:Allocator Pool Schematic}说明了
+池数据结构的操作。六个方框表示组成\co{pool}字段的指针数组，
 前面的数字表示\co{cur}字段。
 阴影方框表示非\co{NULL}指针，
 空方框表示\co{NULL}指针。
@@ -1059,8 +1058,8 @@ int hash_search(struct hash_table *h, long key)
 \Clnref{pick}获取当前线程的每线程池，
 \clnref{chk:empty}检查它是否为空。
 
-如果为空，\clnrefrange{ack}{rel}尝试在\clnref{ack}获取
-并在\clnref{rel}释放的自旋锁（spinlock）下从全局池中重新填充它。
+如果为空，\clnrefrange{ack}{rel}尝试在自旋锁（spinlock）保护下
+从全局池重新填充，该锁在\clnref{ack}处获取、在\clnref{rel}处释放。
 \Clnrefrange{loop:b}{loop:e}将块从全局池移到每线程池，
 直到本地池达到其目标大小（半满）或全局池耗尽，
 \clnref{set}将每线程池的计数设置为正确的值。
@@ -1274,15 +1273,15 @@ Linux内核内存分配器的测试也是如此。
 \subsubsection{真实世界的设计}
 
 这个玩具并行资源分配器相当简单，但真实世界的
-设计在多个方面扩展了这种方法。
+设计在多个方面对此进行了扩展。
 
 首先，真实世界的分配器需要处理各种大小的分配，
 而不是这个玩具示例中的单一大小。
 一种流行的方法是提供一组固定的大小，
 间距设置以平衡外部和内部\IX{fragmentation}，
 例如1980年代末的BSD内存分配器~\cite{McKusick88}。
-这样做意味着"globalmem"变量需要按大小复制，
-相关的锁同样需要复制，
+这意味着"globalmem"变量需要按大小分别实例化，
+相关的锁也同样需要复制，
 从而产生\IXh{data}{locking}而不是玩具程序的代码锁。
 
 其次，生产质量的系统必须能够重新利用内存，
@@ -1323,7 +1322,7 @@ Linux内核内存分配器的测试也是如此。
 系统内存	  & 代码锁   & 从系统获取/归还内存 \\
 \bottomrule
 \end{tabularx}
-\caption{真实世界并行分配器的示意}
+\caption{真实世界并行分配器的示意结构}
 \label{fig:app:questions:Schematic of Real-World Parallel Allocator}
 \end{table}
 

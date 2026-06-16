@@ -6,7 +6,7 @@
 \label{sec:SMPdesign:Beyond Partitioning}
 \OriginallyPublished{sec:SMPdesign:Beyond Partitioning}{Retrofitted Parallelism Considered Grossly Sub-Optimal}{4\textsuperscript{th} USENIX Workshop on Hot Topics on Parallelism}{PaulEMcKenney2012HOTPARsuboptimal}
 %
-\epigraph{如果你有充足的弹药，高瞄准是完全可以的。}
+\epigraph{弹药充足时，尽管瞄准高处。}
 	 {Hawley R. Everhart}
 
 本章讨论了如何运用数据分区来设计
@@ -216,7 +216,7 @@ CDF在x轴投影上的大量重叠将在
 \subsection{替代并行迷宫求解器}
 \label{sec:SMPdesign:Alternative Parallel Maze Solver}
 
-年轻一代的研究者通常认为从迷宫两头同时开始计算比较好，
+年轻研究者往往认为从迷宫两端同时开始求解效果更好，
 这个建议近来在自动求解迷宫问题的文献中
 被反复提出~\cite{UMD:CMSC433maze}。
 这个方法本质上就是分区，无论在并行操作系统
@@ -373,7 +373,7 @@ int maze_try_visit_cell(struct maze *mp, int c, int t,
 \item	系统调用失败。
 \end{enumerate}
 
-Paul的妻子进行了额外的手动验证，她非常喜欢解谜题。
+Paul的妻子也进行了额外的手动验证，因为她非常喜欢解谜题。
 
 然而，如果这个迷宫软件要在生产环境中使用，
 无论这意味着什么，明智的做法是构建一个独立的迷宫
@@ -435,7 +435,7 @@ PART有时只访问了不到2\pct\ 的迷宫单元格，
 第一个线程也没有机会访问迷宫的左下部分。
 因此PART极有可能只需访问非解路径单元格的一小部分就能找到答案。
 简而言之，这种超线性的性能加速是因为一个线程挡住了另一个线程的路。
-这简直和数十年来并行编程的经验背道而驰，
+这与数十年来并行编程的经验完全相悖，
 我们一直以来都努力保证线程之间\emph{不要}互相妨碍。
 
 \Cref{fig:SMPdesign:Correlation Between Visit Percentage and Solution Time}
@@ -605,7 +605,7 @@ PART在两个线程处达到平衡点，在五个线程处再次达到平衡，
 \subsection{未来方向和结论}
 \label{sec:SMPdesign:Future Directions and Conclusions}
 
-未来还有很多工作要做。
+未来还有很多工作值得探索。
 首先，人类在解决迷宫问题时有很多手段，本节只使用了其中一种技术。
 其他可能的方法有靠墙行走以排除迷宫的部分区域，
 以及根据先前遍历路径的位置选择内部起始点。
@@ -626,7 +626,7 @@ PART在两个线程处达到平衡点，在五个线程处再次达到平衡，
 其中协程上下文切换开销压过了加速比？
 
 本节展示并分析了迷宫求解算法的并行化。
-基于工作队列的常规算法只在禁用编译器优化时性能不错，
+基于工作队列的传统算法仅在禁用编译器优化时表现良好，
 这说明之前一些通过高级/高开销语言
 获得的结果可能会被优化的进步所推翻。
 
@@ -635,8 +635,8 @@ PART在两个线程处达到平衡点，在五个线程处再次达到平衡，
 反而有助于找出提升顺序实现性能的办法。
 在设计阶段就在较高层面考虑并行性，很可能是
 一个富有成果的研究领域。
-本节将迷宫求解问题从一般性能扩展到令人震惊的并行，
-然后又回来了。
+本节将迷宫求解从一般性能分析扩展到令人震惊的并行现象，
+最终又回归到性能分析。
 希望这一经验能激励人们在设计阶段就开始考虑并行性，
 而不是在实现代码后才开始微调程序来实现并行化。
 

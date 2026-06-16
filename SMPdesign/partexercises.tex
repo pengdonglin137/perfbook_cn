@@ -28,8 +28,8 @@
 
 \Cref{fig:SMPdesign:Dining Philosophers Problem}展示了
 经典\IX{Dining Philosophers problem}的示意图~\cite{Dijkstra1971HOoSP}。
-问题中的五位哲学家一天无所事事，要么思考要么吃一种
-需要两把叉子才能吃的"滑溜溜的意大利面"。\footnote{
+五位哲学家整天无所事事，要么思考，要么吃一种
+需要两把叉子才能吃的"非常难缠的意大利面"。\footnote{
 	你也可以用筷子来类比思考这个问题。}
 每位哲学家只能使用紧邻自己左右两侧的叉子，
 一旦拿起了叉子，不吃到心满意足是不会放下的。
@@ -45,7 +45,7 @@
 \ContributedBy{fig:cpu:Partial Starvation Is Also Bad}{Melissa Broussard}
 \end{figure*}
 
-我们的目标是构造一个算法来——就和字面意思一样——防止饥饿（\IX{starvation}）。
+目标是构造一个算法来——字面意义上的——防止饥饿（\IX{starvation}）。
 一种饥饿场景是所有哲学家同时拿起了左手边的叉子。
 因为在吃饱之前没有人会放下自己的叉子，而且他们还需要第二把叉子才能开始进餐，
 所以所有哲学家都会挨饿。
@@ -313,7 +313,7 @@
 \subsubsection{哈希双端队列}
 \label{sec:SMPdesign:Hashed Double-Ended Queue}
 
-确定性地分区数据结构的最简单和最有效的方法之一是对其进行哈希。
+确定性地分区数据结构最简单、最有效的方法之一就是哈希。
 可以根据元素在列表中的位置为其分配序列号来对双端队列进行哈希，
 使得第一个从左边进入空队列的元素编号为零，
 第一个从右边进入空队列的元素编号为一。
@@ -499,7 +499,7 @@
 }\QuickQuizEnd
 
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:popl]
-\co{pdeq_pop_l()}的实现如图的
+\co{pdeq_pop_l()}的实现如图中
 \clnrefrange{b}{e}所示。
 \Clnref{acq:l}获取左手锁，
 \clnref{rel:l}释放它。
@@ -514,7 +514,7 @@
 \end{fcvref}
 
 \begin{fcvref}[ln:SMPdesign:locktdeq:pop_push:popr]
-\co{pdeq_pop_r()}的实现如图的\clnrefrange{b}{e}所示。
+\co{pdeq_pop_r()}的实现如图中\clnrefrange{b}{e}所示。
 与之前一样，\clnref{acq:r1}获取右手锁
 （\clnref{rel:r2}释放它），\clnref{deq:rr1}尝试从右手队列
 右出队一个元素，如果成功，
