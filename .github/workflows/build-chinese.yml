@@ -74,6 +74,7 @@ jobs:
           make -C CodeSamples/ 2>/dev/null || true
 
       - name: Build all PDF variants
+        continue-on-error: true
         run: |
           make perfbook.pdf || true
           make perfbook-1c.pdf || true
@@ -81,12 +82,17 @@ jobs:
           make perfbook-a4.pdf || true
           make perfbook-eb.pdf || true
           make perfbook-hb.pdf || true
+          echo "Built PDFs:"
+          ls -la *.pdf 2>/dev/null || echo "No PDFs generated"
 
       - name: Rename PDFs with _cn suffix
         run: |
+          shopt -s nullglob
           for f in perfbook*.pdf; do
-            [ -f "$f" ] && mv "$f" "${f%.pdf}_cn.pdf"
+            [ -f "$f" ] && mv "$f" "${f%.pdf}_cn.pdf" && echo "Renamed: $f -> ${f%.pdf}_cn.pdf"
           done
+          echo "PDF files:"
+          ls -la *.pdf 2>/dev/null || echo "No PDF files found"
 
       - name: Verify PDFs
         run: |
@@ -98,7 +104,9 @@ jobs:
 
       - name: Upload PDF artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: perfbook-chinese
           path: "*_cn.pdf"
           retention-days: 30
+          if-no-files-found: warn
