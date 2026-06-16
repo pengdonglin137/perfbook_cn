@@ -18,18 +18,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Checkout translate-engine
+        uses: actions/checkout@v5
         with:
-          submodules: true
-          fetch-depth: 0
+          repository: pengdonglin137/translate-engine
+          path: .translate-engine
 
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory /__w/perfbook_cn/perfbook_cn
-
-      - name: Initialize submodules
-        run: |
-          git submodule init
-          git submodule update --recursive
-          ls -la .translate-engine/ || echo "Submodule not found"
+      - name: Verify translate-engine
+        run: ls -la .translate-engine/scripts/ || echo "translate-engine not found"
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -57,17 +54,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Checkout translate-engine
+        uses: actions/checkout@v5
         with:
-          submodules: true
-          fetch-depth: 0
+          repository: pengdonglin137/translate-engine
+          path: .translate-engine
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory /__w/perfbook_cn/perfbook_cn
-
-      - name: Initialize submodules
-        run: |
-          git submodule init
-          git submodule update --recursive
 
       - name: Install CJK fonts and XeLaTeX
         run: |
