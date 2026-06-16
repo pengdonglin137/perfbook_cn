@@ -65,6 +65,11 @@ jobs:
             texlive-latex-extra \
             texlive-fonts-recommended
 
+      - name: Install ctex package via tlmgr
+        run: |
+          tlmgr install ctex || true
+          kpsewhich ctexhook.sty || echo "ctexhook.sty not found"
+
       - name: Verify latexpand
         run: |
           which latexpand || echo "latexpand not found"
