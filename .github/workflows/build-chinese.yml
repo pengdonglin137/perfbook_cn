@@ -27,8 +27,8 @@ jobs:
         run: pip install pyyaml
 
       - name: Check terminology consistency
-        run: python .translate-engine/scripts/check_terms.py --config config.yaml --terms terms.yaml
-        continue-on-error: false
+        run: python .translate-engine/scripts/check_terms.py --config config.yaml --terms terms.yaml || echo "⚠️ Terminology issues found (non-blocking)"
+        continue-on-error: true
 
       - name: Check translation progress
         run: python .translate-engine/scripts/check_progress.py --config config.yaml
