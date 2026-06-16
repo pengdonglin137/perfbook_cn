@@ -18,6 +18,9 @@ jobs:
         with:
           submodules: true
 
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory /__w/perfbook_cn/perfbook_cn
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -47,11 +50,15 @@ jobs:
         with:
           submodules: true
 
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory /__w/perfbook_cn/perfbook_cn
+
       - name: Install CJK fonts and XeLaTeX
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             texlive-xetex \
+            texlive-lang-chinese \
             fonts-noto-cjk \
             tex-gyre \
             poppler-utils \
